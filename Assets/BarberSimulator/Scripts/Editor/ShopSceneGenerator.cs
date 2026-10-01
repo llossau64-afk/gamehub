@@ -114,7 +114,9 @@ namespace BarberSimulator.EditorTools
 
             MarkStatic(environment);
             SavePrefabs(refs);
-            EditorSceneManager.SaveScene(scene, GeneratorPaths.MainScene);
+            AssetUtility.EnsureFolder(GeneratorPaths.Scenes);
+            if (!EditorSceneManager.SaveScene(scene, GeneratorPaths.MainScene))
+                throw new System.InvalidOperationException("Could not save the generated scene to " + GeneratorPaths.MainScene);
             ProjectSetup.AddSceneToBuild(GeneratorPaths.MainScene);
             AssetDatabase.SaveAssets();
             Debug.Log("[Barber Simulator] Scene generated: " + GeneratorPaths.MainScene);

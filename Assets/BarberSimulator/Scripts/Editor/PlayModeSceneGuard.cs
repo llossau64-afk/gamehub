@@ -43,7 +43,7 @@ namespace BarberSimulator.EditorTools
             EditorApplication.delayCall += () =>
             {
                 ShopSceneGenerator.BuildAll();
-                EditorSceneManager.OpenScene(GeneratorPaths.MainScene);
+                if (System.IO.File.Exists(GeneratorPaths.MainScene)) EditorSceneManager.OpenScene(GeneratorPaths.MainScene);
                 AssignStartScene();
                 Debug.Log("[Barber Simulator] Content generated. Press Play to start the game.");
             };
