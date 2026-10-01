@@ -18,6 +18,7 @@ namespace BarberSimulator.Economy
         /// <summary>(newReputation, delta)</summary>
         public event Action<float, float> ReputationChanged;
         public event Action<ServicePayment> ServicePaid;
+        public event Action CustomerLost;
 
         public EconomyService(SaveService save)
         {
@@ -41,6 +42,12 @@ namespace BarberSimulator.Economy
             progression.reputation = Mathf.Clamp(before + payment.ReputationDelta, 0f, 100f);
             progression.totalTipsEarned += payment.Tip;
             progression.bestStars = Mathf.Max(progression.bestStars, payment.Stars);
+
+            var day = progression.dayStats;
+            day.customersServed++;
+            day.revenue += payment.BasePrice;
+            day.tips += payment.Tip;
+            day.starsTotal += payment.Stars;
             Add(payment.Total);
             ReputationChanged?.Invoke(progression.reputation, progression.reputation - before);
             ServicePaid?.Invoke(payment);
@@ -54,6 +61,25 @@ namespace BarberSimulator.Economy
             progression.reputation = Mathf.Clamp(before + delta, 0f, 100f);
             _save.RequestSave();
             ReputationChanged?.Invoke(progression.reputation, progression.reputation - before);
+        }
+
+        /// <summary>A customer walked out unhappy: reputation drops and the day's lost counter goes up.</summary>
+        public void RegisterLostCustomer(float reputationPenalty)
+        {
+            _save.Data.progression.dayStats.customersLost++;
+            AdjustReputation(-Mathf.Abs(reputationPenalty));
+            CustomerLost?.Invoke();
+        }
+
+        /// <summary>Deducts a recurring cost (rent). Whatever the player cannot cover is waived, so money never goes negative. Returns the amount taken.</summary>
+        public int Charge(int amount)
+        {
+            int paid = Mathf.Clamp(amount, 0, Money);
+            if (paid <= 0) return 0;
+            _save.Data.player.money -= paid;
+            _save.RequestSave();
+            MoneyChanged?.Invoke(Money, -paid);
+            return paid;
         }
 
         public bool TrySpend(int amount)

@@ -25,6 +25,7 @@ namespace BarberSimulator.Customers
         private WaitingSeat _seat;
         private BarberChairStation _chair;
         private float _patience;
+        private float _patienceMax;
 
         public CustomerState State => _machine.CurrentKey;
         public CustomerProfile Profile { get; private set; }
@@ -35,7 +36,7 @@ namespace BarberSimulator.Customers
         public bool IsTutorial => Profile != null && Profile.isTutorial;
         public bool IsReadyForHaircut => State == CustomerState.WaitForPlayer;
         public bool IsAwaitingConversation => State == CustomerState.Dialogue && !_conversationStarted;
-        public float Patience01 => Profile == null || Profile.patienceSeconds <= 0f ? 1f : Mathf.Clamp01(_patience / Profile.patienceSeconds);
+        public float Patience01 => Profile == null || _patienceMax <= 0f ? 1f : Mathf.Clamp01(_patience / _patienceMax);
         public ModularCharacter Character => character;
         public ProceduralCharacterAnimator Animator => animator;
         public BarberChairStation Chair => _chair;
@@ -70,13 +71,15 @@ namespace BarberSimulator.Customers
             _services = services;
             _rng = new System.Random(seed);
             Profile = profile;
-            Request = profile.PickRequest(_rng);
+            Request = profile.PickRequest(_rng, _services.Progression != null ? _services.Progression.Level : 1);
             DisplayName = profile.PickName(_rng);
             HasOrdered = false;
             _conversationStarted = false;
             _seat = null;
             _chair = null;
-            _patience = profile.patienceSeconds;
+            // Comfort upgrades (coffee, TV) make customers wait longer; tutorial customers stay infinitely patient.
+            _patienceMax = profile.patienceSeconds * (_services.Upgrades != null ? _services.Upgrades.PatienceMultiplier : 1f);
+            _patience = _patienceMax;
             LastResult = default;
 
             var look = CharacterAppearanceData.CreateRandom(_rng);
@@ -114,6 +117,18 @@ namespace BarberSimulator.Customers
             if (State == CustomerState.WaitForPlayer) _machine.Change(CustomerState.Haircut);
         }
 
+        /// <summary>
+        /// Closing time: the customer is polite but leaves. Only customers who are not mid-haircut are sent
+        /// away, and nobody is penalised for it.
+        /// </summary>
+        public bool SendHome()
+        {
+            if (!IsAwaitingConversation && State != CustomerState.WaitForPlayer) return false;
+            Say("cust.closing", 3f);
+            _machine.Change(CustomerState.Leave);
+            return true;
+        }
+
         /// <summary>Barber mode left without finishing (e.g. the player stepped away): back to waiting.</summary>
         public void OnHaircutPaused()
         {
@@ -149,7 +164,7 @@ namespace BarberSimulator.Customers
         {
             Say(CustomerDialogueSet.Pick(Profile.dialogue != null ? Profile.dialogue.leaveImpatient : null, _rng), 3f);
             if (animator != null) animator.Trigger("disappointed");
-            _services.Economy?.AdjustReputation(-3f);
+            _services.Economy?.RegisterLostCustomer(3f);
             _machine.Change(CustomerState.Leave);
         }
 

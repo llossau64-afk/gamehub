@@ -27,8 +27,20 @@ namespace BarberSimulator.Audio
         private float _musicLevel;
         private float _musicFadeSpeed = 1f;
         private float _lastHoverTime;
+        private bool _muted;
 
         public SoundLibrary Library => _library;
+
+        /// <summary>Silences everything (used while a portal ad plays). Independent of the user's volume settings.</summary>
+        public bool Muted
+        {
+            get => _muted;
+            set
+            {
+                _muted = value;
+                AudioListener.volume = value ? 0f : 1f;
+            }
+        }
 
         private sealed class AmbienceLayer
         {

@@ -3,6 +3,7 @@ using BarberSimulator.Economy;
 using BarberSimulator.Input;
 using BarberSimulator.Localization;
 using BarberSimulator.Objectives;
+using BarberSimulator.Platform;
 using BarberSimulator.Save;
 using BarberSimulator.Settings;
 using BarberSimulator.UI;
@@ -24,6 +25,13 @@ namespace BarberSimulator.Core
         public InputService Input;
         public EconomyService Economy;
         public ObjectiveService Objectives;
+        public Shop.ShopProgression Progression;
+        public Shop.UpgradeEffects UpgradeEffects;
+        public Shop.UpgradeService Upgrades;
+        public Workday.DayCycleService Day;
         public UIRoot UI;
+        public IPlatformService Platform;
+        /// <summary>Rewarded / interstitial ads (mutes and pauses the game while they play).</summary>
+        public IAdService Ads;
     }
 }

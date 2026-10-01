@@ -56,7 +56,8 @@ All code is in `Assets/BarberSimulator/Scripts`. It uses two assemblies: `Barber
 | Folder | Responsibility |
 |---|---|
 | `Core` | `GameBootstrap` (composition root), `GameFlowController` (Menu → Intro → Gameplay ⇄ Pause), `GameConfig` |
-| `Save` | Versioned `SaveData`, the `ISaveStorage` abstraction (PlayerPrefs/IndexedDB now, a portal SDK later) and the migration step |
+| `Save` | Versioned `SaveData`, the `ISaveStorage` abstraction (PlayerPrefs/IndexedDB, or the portal's data module through `PlatformSaveStorage`) and the migration step |
+| `Platform` | Portal integration: `IPlatformService` (CrazyGames SDK v3 or none), `IAdService`, `PlatformSaveStorage`, `PlatformFlowBridge` (loading and gameplay signals) |
 | `Settings` | `SettingsService` (every setting is applied and persisted) and `QualityApplier` (URP tiers) |
 | `Input` | `InputService` with the Move/Look/Interact/Pause actions for keyboard, mouse, gamepad and touch; the virtual joystick; the multitouch look area |
 | `Player` | `FirstPersonController`, `FirstPersonHands` (tool sockets and animation states for the haircut phase), `PlayerAudio` |
@@ -76,8 +77,55 @@ All code is in `Assets/BarberSimulator/Scripts`. It uses two assemblies: `Barber
 
 Localization tables are in `Assets/BarberSimulator/Resources/BarberSimulator/Localization` (English and German).
 
+## Publishing (CrazyGames / other portals)
+
+**Build.** Run **Barber Simulator → Build WebGL** (or the command-line build shown above). Both select the WebGL template `Assets/WebGLTemplates/BarberSimulator` (`PlayerSettings.WebGL.template = "PROJECT:BarberSimulator"`). Zip the contents of `Builds/WebGL` (with `index.html` at the zip root) and upload it. The template has a full-window responsive canvas, a mobile viewport, a loading bar and no analytics.
+
+**Template.** `index.html` loads `https://sdk.crazygames.com/crazygames-sdk-v3.js` before the Unity loader, initialises the SDK (waiting at most 5 seconds) and then starts Unity, so portal data is ready when the game boots. If the script is blocked or missing, the game still starts.
+
+**SDK detection.** `GameConfig.platform` is `Auto` (default), `CrazyGames` or `None`. `PlatformServiceFactory` picks `CrazyGamesPlatformService` only in a WebGL player when `window.CrazyGames.SDK` exists, initialised successfully and its `environment` is not `disabled`. In every other case (editor, standalone, GamePix, Playgama, itch.io, ad blocker blocking the script) it uses `NullPlatformService`, which only logs. In the editor and development builds the null service simulates ads (1.2 s) so the ad flows can be tested. In release builds outside CrazyGames there are no ads and rewarded requests fail, so a reward is never granted for free. The native bridge is `Assets/BarberSimulator/Plugins/WebGL/BarberPlatform.jslib`; its callbacks reach the persistent `BarberPlatformReceiver` object.
+
+**What is wired.**
+- `GameBootstrap` creates the platform first and calls `LoadingStart`. `PlatformFlowBridge` calls `LoadingStop` when the first screen is up and `GameplayStart`/`GameplayStop` on entering and leaving Gameplay or Barber mode (pause, menu, intro and scene reloads stop it).
+- Saves: `PlatformSaveStorage` writes to the portal data module when it is available and always mirrors to PlayerPrefs. Reads prefer the portal copy and fall back to PlayerPrefs.
+- `HappyTime` fires on a five-star review (at most once every 15 s).
+- The initial language uses the SDK/browser locale when the game has that language.
+
+**Ads API.** `GameContext.Ads` (`IAdService`) is the only thing gameplay or UI code needs. While an ad plays it mutes `AudioService`, sets `Time.timeScale = 0` and blocks input, then restores them.
+
+```csharp
+// "Double tips" button on the end-of-day screen
+button.interactable = ctx.Ads.RewardedAvailable;      // hide or disable the button when false
+ctx.Ads.ShowRewarded(
+    onRewarded: () => ctx.Economy.Add(tips)   ,     // runs only after the ad was watched
+    onFailed:   () => ctx.UI.Hud.ShowToast("No ad available right now."));
+
+ctx.Ads.ShowMidgame(() => ContinueToNextDay());       // always calls back; skipped in the first 60 s
+```
+
+Callbacks run after the game has been restored. `ShowMidgame` is rate limited (nothing in the first 60 s of the session, then at least 180 s apart) and should only be used at natural breaks.
+
+**QA checklist (CrazyGames requirements).**
+- [ ] Test on the CrazyGames QA tool / `?useLocalSdk` preview: `environment` is `local` or `crazygames` and the console shows `[Platform] Using 'CrazyGames'`.
+- [ ] No external links, no other portal branding and no own analytics or ad code (the template only loads the CrazyGames SDK).
+- [ ] `loadingStart` at boot, `loadingStop` when the main menu is shown.
+- [ ] `gameplayStart` only while actually playing; `gameplayStop` in menus, pause, the intro and while an ad plays.
+- [ ] Audio is muted and the game is frozen during every ad; both are restored afterwards, also when the ad fails.
+- [ ] No ad in the first minute; interstitials only at natural breaks, never mid-haircut.
+- [ ] Rewarded ads are optional, clearly labelled, and the reward is only granted in `onRewarded`.
+- [ ] Works with an ad blocker (no reward, no crash, no stuck pause).
+- [ ] Progress survives a reload (portal data and PlayerPrefs). Test both as guest and logged in.
+- [ ] Keyboard, mouse and touch work; the page does not scroll; the game fits any window size and phone orientation.
+- [ ] Initial download is small (portal limits apply) and the game starts without errors in the browser console.
+
 ## Assets
 
 The textures, sprites, sound effects, ambience and music are original files generated for this project. The scripts that generate them are in `Tools/AssetGen`. The fonts are DM Serif Display and Inter (SIL OFL 1.1). See `Assets/BarberSimulator/ASSET_CREDITS.md` for details.
 
-The characters and props are procedural **placeholders** built by the editor generators. They are meant to be replaced by final art without changing any gameplay code.
+The characters are modelled in Blender by `Tools/AssetGen/blender/characters.py`. That is a headless script, run with `pip install bpy==4.5.9` and then `python Tools/AssetGen/blender/characters.py [--preview out.png]`. The script produces:
+- a skinned body with a head and face,
+- 4 tops, pants and shoes,
+- 4 facial-hair styles, glasses and a cap,
+- the first-person arm.
+
+It writes them to `Art/Source/Characters/*.json`. `CharacterFactory` builds skinned meshes from these files on the same joint hierarchy that `ProceduralCharacterAnimator` drives, and the haircut hair shell fits the exported cranium. Props are still built procedurally by the editor generators.

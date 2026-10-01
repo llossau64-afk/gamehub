@@ -6,9 +6,17 @@ using UnityEngine.UI;
 
 namespace BarberSimulator.UI
 {
+    /// <summary>How the shop status on the HUD is coloured.</summary>
+    public enum ShopStatusStyle
+    {
+        Closed,
+        Open,
+        Closing
+    }
+
     /// <summary>
-    /// Minimal gameplay HUD: objective (top-left), money (top-right), crosshair + interaction prompt (centre),
-    /// toasts and hints. On touch devices the prompt moves onto the USE button.
+    /// Minimal gameplay HUD: objective (top-left), workday clock and shop level (top-centre), money (top-right),
+    /// crosshair + interaction prompt (centre), toasts and hints. On touch devices the prompt moves onto the USE button.
     /// </summary>
     public sealed class HudView : UIView, IToastPresenter
     {
@@ -23,6 +31,12 @@ namespace BarberSimulator.UI
         private Text _moneyText;
         private Text _moneyDelta;
         private CanvasGroup _moneyDeltaGroup;
+
+        private Text _dayText;
+        private Text _clockText;
+        private Text _statusText;
+        private Text _levelText;
+        private Image _levelBarFill;
 
         private Image _crosshair;
         private CanvasGroup _promptGroup;
@@ -117,6 +131,31 @@ namespace BarberSimulator.UI
             _moneyDeltaGroup = _moneyDelta.gameObject.AddComponent<CanvasGroup>();
             _moneyDeltaGroup.alpha = 0f;
 
+            // Workday: day number, clock, open/closed state and shop level (top centre)
+            var workday = UIFactory.Rect("Workday", Root);
+            UIFactory.Anchor(workday, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(360f, 120f));
+            var workdayShade = Factory.Image("Shade", workday, theme.circleSoft, new Color(0f, 0f, 0f, 0.4f));
+            UIFactory.Stretch(workdayShade.rectTransform, -70f, -70f, -30f, -30f);
+            _dayText = Factory.Label("Day", workday, theme.semiBoldFont, 16, theme.accent, TextAnchor.UpperCenter);
+            UIFactory.Anchor(_dayText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), Vector2.zero, new Vector2(360f, 24f));
+            UIFactory.Spacing(_dayText, 4f);
+            _clockText = Factory.Label("Clock", workday, theme.displayFont, 46, theme.textPrimary, TextAnchor.UpperCenter);
+            UIFactory.Anchor(_clockText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(360f, 60f));
+            UIFactory.SoftShadow(_clockText, theme.shadow, new Vector2(0f, -2f));
+            _statusText = Factory.Label("Status", workday, theme.semiBoldFont, 17, theme.textMuted, TextAnchor.UpperCenter);
+            UIFactory.Anchor(_statusText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -76f), new Vector2(360f, 26f));
+            UIFactory.Spacing(_statusText, 4f);
+            _levelText = Factory.Label("Level", workday, theme.semiBoldFont, 14, theme.textMuted, TextAnchor.UpperCenter);
+            UIFactory.Anchor(_levelText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -98f), new Vector2(360f, 20f));
+            UIFactory.Spacing(_levelText, 3f);
+            var levelTrack = Factory.Image("LevelBar", workday, null, new Color(1f, 1f, 1f, 0.15f));
+            UIFactory.Anchor(levelTrack.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -118f), new Vector2(160f, 3f));
+            _levelBarFill = Factory.Image("Fill", levelTrack.rectTransform, null, theme.accent);
+            _levelBarFill.rectTransform.anchorMin = Vector2.zero;
+            _levelBarFill.rectTransform.anchorMax = new Vector2(0f, 1f);
+            _levelBarFill.rectTransform.pivot = new Vector2(0f, 0.5f);
+            _levelBarFill.rectTransform.sizeDelta = Vector2.zero;
+
             // Crosshair and desktop prompt
             _crosshair = Factory.Image("Crosshair", Root, theme.crosshairDot, new Color(1f, 1f, 1f, 0.55f));
             UIFactory.Anchor(_crosshair.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(8f, 8f));
@@ -178,6 +217,27 @@ namespace BarberSimulator.UI
             if (TouchControls != null) TouchControls.gameObject.SetActive(touch);
             // Leave room for the pause button in the corner.
             _moneyRoot.anchoredPosition = touch ? new Vector2(-130f, -36f) : new Vector2(-40f, -36f);
+        }
+
+        /// <summary>Top-centre clock: "DAY 2", "09:41", "OPEN".</summary>
+        public void SetWorkday(string dayText, string clockText, string statusText, ShopStatusStyle style)
+        {
+            _dayText.text = dayText.ToUpperInvariant();
+            _clockText.text = clockText;
+            _statusText.text = statusText.ToUpperInvariant();
+            switch (style)
+            {
+                case ShopStatusStyle.Open: _statusText.color = new Color(0.62f, 0.82f, 0.55f); break;
+                case ShopStatusStyle.Closing: _statusText.color = new Color(0.9f, 0.62f, 0.34f); break;
+                default: _statusText.color = Factory.Theme.textMuted; break;
+            }
+        }
+
+        /// <summary>Shop level label and experience progress (0..1) under the clock.</summary>
+        public void SetLevel(string levelText, float progress01)
+        {
+            _levelText.text = levelText.ToUpperInvariant();
+            _levelBarFill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(progress01), 1f);
         }
 
         public void SetObjective(string title, int progress, int target)

@@ -1,6 +1,7 @@
 using BarberSimulator.Audio;
 using BarberSimulator.Dialogue;
 using BarberSimulator.Objectives;
+using BarberSimulator.Platform;
 using BarberSimulator.UI;
 using UnityEngine;
 
@@ -18,6 +19,12 @@ namespace BarberSimulator.Core
         public SoundLibrary sounds;
         public ObjectiveSequence objectives;
         public DialogueConversation introConversation;
+        public Workday.WorkdayConfig workday;
+        public Shop.UpgradeCatalog upgrades;
+
+        [Header("Platform")]
+        [Tooltip("Auto uses the CrazyGames SDK when the page provides it and runs without a portal otherwise.")]
+        public PlatformMode platform = PlatformMode.Auto;
 
         [Header("Camera")]
         public float gameplayFieldOfView = 68f;

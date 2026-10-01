@@ -4,19 +4,32 @@ using UnityEngine;
 namespace BarberSimulator.Interaction
 {
     /// <summary>
-    /// Door into a future expansion. Rattles and explains itself; the expansion system will unlock it later
-    /// through <see cref="Shop.ExpansionArea"/>.
+    /// Door into an expansion. Rattles and explains itself while locked; once <see cref="Shop.ExpansionArea"/>
+    /// unlocks it (shop upgrade) the leaf swings open for good and the doorway becomes walkable.
     /// </summary>
     public sealed class LockedDoor : Interactable
     {
         [SerializeField] private Transform rattleTarget;
         [SerializeField] private string labelKey = "interact.expansion_door";
         [SerializeField] private string messageKey = "toast.expansion_locked";
+        [Tooltip("Hinge position on the leaf, in leaf-local X (the leaf is centred on its pivot).")]
+        [SerializeField] private float hingeLocalX = -0.45f;
+        [SerializeField] private float openAngle = 100f;
 
         private Coroutine _rattle;
         private Vector3 _restLocalPosition;
+        private bool _unlocked;
 
-        public bool Unlocked { get; set; }
+        public bool Unlocked
+        {
+            get => _unlocked;
+            set
+            {
+                if (_unlocked == value) return;
+                _unlocked = value;
+                if (value) SwingOpen();
+            }
+        }
 
         public void Configure(Transform target, string label, string message)
         {
@@ -46,6 +59,15 @@ namespace BarberSimulator.Interaction
 
             if (_rattle != null) StopCoroutine(_rattle);
             _rattle = StartCoroutine(Rattle());
+        }
+
+        /// <summary>Pushes the leaf open around its hinge and removes the blocking collider.</summary>
+        private void SwingOpen()
+        {
+            var leaf = rattleTarget != null ? rattleTarget : transform;
+            var hinge = leaf.TransformPoint(new Vector3(hingeLocalX, 0f, 0f));
+            leaf.RotateAround(hinge, Vector3.up, openAngle);
+            foreach (var c in GetComponents<Collider>()) c.enabled = false;
         }
 
         private IEnumerator Rattle()

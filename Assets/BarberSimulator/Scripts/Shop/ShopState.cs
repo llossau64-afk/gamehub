@@ -17,6 +17,7 @@ namespace BarberSimulator.Shop
         [SerializeField] private List<ExpansionArea> expansions = new List<ExpansionArea>();
         [SerializeField] private SwingDoor frontDoor;
         [SerializeField] private Transform gameplaySpawn;
+        [SerializeField] private List<UpgradeProp> upgradeProps = new List<UpgradeProp>();
 
         private SaveService _save;
         private ObjectiveService _objectives;
@@ -32,6 +33,11 @@ namespace BarberSimulator.Shop
             expansions = areas;
             frontDoor = door;
             gameplaySpawn = spawn;
+        }
+
+        public void SetUpgradeProps(List<UpgradeProp> props)
+        {
+            upgradeProps = props;
         }
 
         public void Initialize(SaveService save, ObjectiveService objectives, InteractionServices services, Transform player)
@@ -58,10 +64,18 @@ namespace BarberSimulator.Shop
                 point.Visited += OnPointVisited;
             }
 
-            foreach (var area in expansions)
-                if (area != null) area.ApplyState(shopData.unlockedAreaIds.Contains(area.AreaId));
+            ApplyUpgrades(shopData.ownedItemIds, shopData.unlockedAreaIds);
 
             _objectives.Started += OnObjectiveStarted;
+        }
+
+        /// <summary>Shows the props of owned upgrades, hides the rest, and opens the unlocked expansion areas.</summary>
+        public void ApplyUpgrades(ICollection<string> ownedUpgradeIds, ICollection<string> unlockedAreaIds)
+        {
+            foreach (var prop in upgradeProps)
+                if (prop != null) prop.SetOwned(ownedUpgradeIds.Contains(prop.UpgradeId));
+            foreach (var area in expansions)
+                if (area != null) area.ApplyState(unlockedAreaIds.Contains(area.AreaId));
         }
 
         private void OnDestroy()

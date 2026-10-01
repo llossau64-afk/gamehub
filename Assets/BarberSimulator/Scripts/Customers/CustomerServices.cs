@@ -32,5 +32,7 @@ namespace BarberSimulator.Customers
         public ICustomerDialoguePresenter Dialogue;
         public IReviewPresenter Reviews;
         public UI.IToastPresenter Toasts;
+        public Shop.UpgradeEffects Upgrades;
+        public Shop.ShopProgression Progression;
     }
 }

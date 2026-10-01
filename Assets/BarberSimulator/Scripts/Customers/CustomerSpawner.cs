@@ -4,7 +4,8 @@ using UnityEngine;
 namespace BarberSimulator.Customers
 {
     /// <summary>
-    /// Brings customers in at a relaxed, configurable pace while the shop is open. Customers are pooled.
+    /// Brings customers in at a relaxed, configurable pace while the shop is open (the day cycle opens and closes
+    /// it). Upgrades speed up arrivals and raise the number of customers allowed inside. Customers are pooled.
     /// The first customer after opening is the forgiving tutorial customer.
     /// </summary>
     public sealed class CustomerSpawner : MonoBehaviour
@@ -58,7 +59,8 @@ namespace BarberSimulator.Customers
             bool tutorialActive = false;
             foreach (var c in _active) if (c.IsTutorial) tutorialActive = true;
 
-            if (!tutorialActive && _active.Count < config.maxActiveCustomers && site.HasRoomForNewCustomer())
+            int maxActive = config.maxActiveCustomers + (_services.Upgrades != null ? _services.Upgrades.MaxQueueBonus : 0);
+            if (!tutorialActive && _active.Count < maxActive && site.HasRoomForNewCustomer())
             {
                 Spawn(_tutorialPending ? config.tutorialProfile : PickProfile());
                 _tutorialPending = false;
@@ -71,6 +73,7 @@ namespace BarberSimulator.Customers
             float interval = Random.Range(config.minInterval, config.maxInterval);
             float reputation = _services.Economy != null ? _services.Economy.Reputation : 0f;
             if (reputation >= config.busyReputation) interval *= config.busyFactor;
+            if (_services.Upgrades != null) interval *= _services.Upgrades.SpawnIntervalMultiplier;
             return interval;
         }
 
@@ -86,6 +89,13 @@ namespace BarberSimulator.Customers
                 if (pick <= 0f) return p;
             }
             return config.profiles.Length > 0 ? config.profiles[0] : config.tutorialProfile;
+        }
+
+        /// <summary>Closing time grace period is over: customers who have not started their haircut go home.</summary>
+        public void SendWaitingCustomersHome()
+        {
+            // Copy: sending a customer home never removes it synchronously, but stay safe against that changing.
+            foreach (var customer in _active.ToArray()) customer.SendHome();
         }
 
         /// <summary>Spawns a customer right now (also used by the debug tools).</summary>

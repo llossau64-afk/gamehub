@@ -27,6 +27,7 @@ namespace BarberSimulator.EditorTools
             {
                 var request = ContentAssetsBuilder.GetOrCreate<HaircutRequest>(Folder + "Haircuts/Haircut_" + d.Id + ".asset");
                 request.Configure(d.Id, d.NameKey, d.AskKeys, d.Price, d.Fade, d.TutorialHints, d.Targets);
+                request.SetRequiredShopLevel(d.RequiredShopLevel);
                 EditorUtility.SetDirty(request);
                 result.Requests.Add(request);
             }
@@ -43,6 +44,16 @@ namespace BarberSimulator.EditorTools
                 Tool("basic_comb", "tool.comb", BarberToolType.Comb, "icon_comb.png", 0, 0f, 0.8f, 12f,
                     new float[0], new string[0], 0.1f, null, null, null, null)
             };
+            // Upgrade tools (bought on the shop computer): not in the toolbox until owned, then they take the slot of the tool they replace.
+            var allTools = new List<BarberToolDefinition>(result.Tools)
+            {
+                Tool("pro_clipper", "tool.pro_clipper", BarberToolType.Clipper, "icon_clipper.png", 0, 9.5f, 0.85f, 11.5f,
+                    new[] { 0.05f, 0.15f, 0.3f, 0.6f, 1.0f, 1.3f }, new[] { "#0", "#½", "#1", "#2", "#3", "#4" }, 0.7f,
+                    sounds.clipperStart, sounds.clipperLoop, sounds.clipperCuttingLoop, sounds.clipperStop, ownedByDefault: false),
+                Tool("pro_trimmer", "tool.pro_trimmer", BarberToolType.Trimmer, "icon_trimmer.png", 0, 6.5f, 0.99f, 5f,
+                    new float[0], new string[0], 0.5f, sounds.clipperStart, sounds.trimmerLoop, sounds.clipperCuttingLoop, sounds.clipperStop, ownedByDefault: false)
+            };
+            result.Tools = allTools.ToArray();
             result.Tools[1].minimumLength = 0.05f;
             result.Tools[2].snipAmount = 0.45f;
             result.Tools[2].scissorsFloor = 0.9f;
@@ -92,7 +103,7 @@ namespace BarberSimulator.EditorTools
         }
 
         private static BarberToolDefinition Tool(string id, string nameKey, BarberToolType type, string icon, int price, float speed, float precision,
-            float radius, float[] guards, string[] guardLabels, float noise, AudioClip start, AudioClip loop, AudioClip cutting, AudioClip stop)
+            float radius, float[] guards, string[] guardLabels, float noise, AudioClip start, AudioClip loop, AudioClip cutting, AudioClip stop, bool ownedByDefault = true)
         {
             var tool = ContentAssetsBuilder.GetOrCreate<BarberToolDefinition>(Folder + "Tools/Tool_" + id + ".asset");
             tool.toolId = id;
@@ -100,7 +111,7 @@ namespace BarberSimulator.EditorTools
             tool.type = type;
             tool.icon = AssetUtility.Sprite(icon);
             tool.price = price;
-            tool.ownedByDefault = true;
+            tool.ownedByDefault = ownedByDefault;
             tool.cutSpeed = speed;
             tool.precision = precision;
             tool.brushRadius = radius;

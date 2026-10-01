@@ -11,7 +11,7 @@ namespace BarberSimulator.Save
     [Serializable]
     public class SaveData
     {
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
 
         public int version = CurrentVersion;
         public bool hasActiveGame;
@@ -76,6 +76,29 @@ namespace BarberSimulator.Save
         public bool firstCustomerTutorialCompleted;
         public int totalTipsEarned;
         public int bestStars;
+        // Version 3: the workday loop. Phase is a Workday.DayPhase value; the clock is minutes since midnight.
+        public int dayPhase;
+        public float dayClockMinutes = 540f;
+        public DayStatsData dayStats = new DayStatsData();
+    }
+
+    /// <summary>Everything the end-of-day summary reports. Reset when a new day starts. Added in save version 3.</summary>
+    [Serializable]
+    public class DayStatsData
+    {
+        public int customersServed;
+        public int customersLost;
+        /// <summary>Service prices only; tips are counted separately.</summary>
+        public int revenue;
+        public int tips;
+        public int starsTotal;
+        public int xpEarned;
+        public int levelAtStart;
+        /// <summary>Reputation when the day began; -1 until the day service has recorded it.</summary>
+        public float reputationAtStart = -1f;
+        public int rentCharged;
+        /// <summary>True once the rent was deducted, so loading an unfinished summary never charges twice.</summary>
+        public bool settled;
     }
 
     public enum QualityTier

@@ -34,10 +34,30 @@ namespace BarberSimulator.Customers
         public bool isTutorial;
         [Range(0f, 1f)] public float spawnWeight = 1f;
 
-        public HaircutRequest PickRequest(System.Random rng)
+        /// <summary>Picks a hairstyle the shop is experienced enough to offer (<see cref="HaircutRequest.RequiredShopLevel"/>).</summary>
+        public HaircutRequest PickRequest(System.Random rng, int shopLevel = 1)
         {
-            if (preferredRequest != null && (possibleRequests.Length == 0 || rng.NextDouble() < 0.5)) return preferredRequest;
-            return possibleRequests.Length > 0 ? possibleRequests[rng.Next(possibleRequests.Length)] : preferredRequest;
+            if (preferredRequest != null && preferredRequest.RequiredShopLevel <= shopLevel
+                && (possibleRequests.Length == 0 || rng.NextDouble() < 0.5)) return preferredRequest;
+
+            int eligible = 0;
+            foreach (var request in possibleRequests)
+                if (request != null && request.RequiredShopLevel <= shopLevel) eligible++;
+            if (eligible > 0)
+            {
+                int pick = rng.Next(eligible);
+                foreach (var request in possibleRequests)
+                {
+                    if (request == null || request.RequiredShopLevel > shopLevel) continue;
+                    if (pick-- == 0) return request;
+                }
+            }
+
+            // Nothing unlocked yet: fall back to the easiest style this profile knows.
+            HaircutRequest easiest = preferredRequest;
+            foreach (var request in possibleRequests)
+                if (request != null && (easiest == null || request.RequiredShopLevel < easiest.RequiredShopLevel)) easiest = request;
+            return easiest;
         }
 
         public string PickName(System.Random rng) => firstNames.Length > 0 ? firstNames[rng.Next(firstNames.Length)] : "Customer";

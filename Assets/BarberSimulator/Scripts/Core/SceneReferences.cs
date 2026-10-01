@@ -25,6 +25,8 @@ namespace BarberSimulator.Core
         public Barber.BarberModeController BarberMode;
         public Customers.ShopCustomerSite CustomerSite;
         public Customers.CustomerSpawner CustomerSpawner;
+        public Workday.ShopSign Sign;
+        public ShopComputer Computer;
         [Tooltip("Objects only shown behind the main menu (ambient barber + customers).")]
         public GameObject MenuOnly;
         [Tooltip("Lights whose shadows follow the quality settings.")]

@@ -19,6 +19,7 @@ namespace BarberSimulator.EditorTools
             public GameConfig Config;
             public VolumeProfile PostProcessing;
             public Phase2ContentBuilder.Result Phase2;
+            public Phase3ContentBuilder.Result Phase3;
         }
 
         public static Result Build()
@@ -27,6 +28,7 @@ namespace BarberSimulator.EditorTools
             var sounds = BuildSounds();
             var dialogue = BuildIntroDialogue();
             var objectives = BuildObjectives();
+            var phase3 = Phase3ContentBuilder.Build();
 
             var config = AssetDatabase.LoadAssetAtPath<GameConfig>(GeneratorPaths.GameConfig);
             if (config == null)
@@ -39,10 +41,12 @@ namespace BarberSimulator.EditorTools
             config.sounds = sounds;
             config.introConversation = dialogue;
             config.objectives = objectives;
+            config.workday = phase3.Workday;
+            config.upgrades = phase3.Catalog;
             config.versionLabel = "v" + PlayerSettings.bundleVersion;
             EditorUtility.SetDirty(config);
 
-            var result = new Result { Config = config, PostProcessing = BuildPostProcessing(), Phase2 = Phase2ContentBuilder.Build(sounds) };
+            var result = new Result { Config = config, PostProcessing = BuildPostProcessing(), Phase2 = Phase2ContentBuilder.Build(sounds), Phase3 = phase3 };
             AssetDatabase.SaveAssets();
             return result;
         }

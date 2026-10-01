@@ -7,6 +7,8 @@ using BarberSimulator.Localization;
 using BarberSimulator.Objectives;
 using BarberSimulator.Player;
 using BarberSimulator.Shop;
+using BarberSimulator.UI;
+using BarberSimulator.Workday;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -28,7 +30,21 @@ namespace BarberSimulator.Core
         private GameState _stateBeforePause = GameState.Gameplay;
         private const string ServeFirstCustomerObjective = "serve_first_customer";
 
-        public GameState State { get; private set; } = GameState.Booting;
+        private GameState _state = GameState.Booting;
+
+        public GameState State
+        {
+            get => _state;
+            private set
+            {
+                if (_state == value) return;
+                var previous = _state;
+                _state = value;
+                StateChanged?.Invoke(previous, value);
+            }
+        }
+
+        public event System.Action<GameState, GameState> StateChanged;
 
         public void Initialize(GameContext context, SceneReferences scene)
         {
@@ -70,6 +86,19 @@ namespace BarberSimulator.Core
             _ctx.Economy.ServicePaid += OnServicePaid;
             _scene.Intro.CutToStreet += () => SetMenuDressing(false);
 
+            // Workday loop, upgrade store and end-of-day summary.
+            ui.Store.CloseClicked += CloseStore;
+            ui.Summary.NextDayClicked += OnNextDayClicked;
+            _ctx.Day.OpenGate = IsOpeningAllowed;
+            _ctx.Day.PhaseChanged += OnDayPhaseChanged;
+            _ctx.Day.ClockChanged += RefreshWorkdayHud;
+            _ctx.Day.DayStarted += _ => RefreshWorkdayHud();
+            _ctx.Progression.XpGained += _ => RefreshWorkdayHud();
+            _ctx.Progression.LevelChanged += OnLevelChanged;
+            _ctx.Upgrades.Purchased += OnUpgradePurchased;
+            _ctx.Localization.LanguageChanged += RefreshWorkdayHud;
+            if (_scene.Computer != null) _scene.Computer.Used += OpenStore;
+
             OnInputModeChanged(_ctx.Input.Mode);
             ApplyRuntimeSettings();
         }
@@ -79,6 +108,7 @@ namespace BarberSimulator.Core
         public void EnterMainMenu()
         {
             State = GameState.MainMenu;
+            _ctx.Day.Running = false;
             Time.timeScale = 1f;
             _ctx.Input.GameplayEnabled = false;
             _ctx.Input.SetCursorLock(false);
@@ -178,6 +208,7 @@ namespace BarberSimulator.Core
         public void StartIntro(bool skipApproach)
         {
             State = GameState.Intro;
+            _ctx.Day.Running = false;
             Time.timeScale = 1f;
             _ctx.Input.GameplayEnabled = false;
             _ctx.Input.SetCursorLock(false);
@@ -258,7 +289,7 @@ namespace BarberSimulator.Core
                 _objectivesStarted = true;
                 StartCoroutine(BeginObjectivesSoon());
             }
-            if (_ctx.Save.Data.progression.shopOpen) OpenShop();
+            ResumeWorkday();
 
             _nextPositionSave = Time.unscaledTime + PositionSaveInterval;
             _ctx.Save.RequestSave();
@@ -276,7 +307,6 @@ namespace BarberSimulator.Core
 
         private void OnObjectiveStarted(ObjectiveDefinition objective)
         {
-            if (objective.ObjectiveId == ServeFirstCustomerObjective) OpenShop();
             var loc = _ctx.Localization;
             var title = loc.Get(objective.TitleKey);
             _ctx.UI.Hud.SetObjective(title, _ctx.Objectives.Progress, objective.TargetCount);
@@ -307,7 +337,6 @@ namespace BarberSimulator.Core
 
         private void OnSequenceCompleted()
         {
-            OpenShop();
             var key = _ctx.Objectives.Sequence.CompletedTitleKey;
             _ctx.UI.Hud.SetObjective(_ctx.Localization.Get(key), 0, 0);
         }
@@ -329,17 +358,157 @@ namespace BarberSimulator.Core
 
         // ---------------------------------------------------------------- Shop & barber mode
 
-        private void OpenShop()
+        // ---------------------------------------------------------------- Workday
+
+        /// <summary>Day 1: the sign only works once the player has done the tidying and is asked to serve the first customer.</summary>
+        private bool IsOpeningAllowed()
         {
-            var progression = _ctx.Save.Data.progression;
-            if (!progression.shopOpen)
+            if (_ctx.Save.Data.progression.firstCustomerTutorialCompleted) return true;
+            var current = _ctx.Objectives.Current;
+            return _ctx.Objectives.AllComplete || (current != null && current.ObjectiveId == ServeFirstCustomerObjective);
+        }
+
+        /// <summary>Gameplay (re)started: restore the day from the save and re-apply the owned upgrades.</summary>
+        private void ResumeWorkday()
+        {
+            _ctx.Upgrades.Refresh();
+            _ctx.Day.Restore();
+            _ctx.Day.Running = true;
+            ApplyShopOpenState();
+            RefreshWorkdayHud();
+        }
+
+        /// <summary>The spawner follows the day phase: customers only come while the shop is open.</summary>
+        private void ApplyShopOpenState()
+        {
+            if (_scene.CustomerSpawner == null) return;
+            bool open = _ctx.Day.IsAcceptingCustomers;
+            if (open != _scene.CustomerSpawner.IsOpen)
+                _scene.CustomerSpawner.SetOpen(open, tutorialFirst: !_ctx.Save.Data.progression.firstCustomerTutorialCompleted);
+        }
+
+        private void OnDayPhaseChanged(DayPhase previous, DayPhase phase)
+        {
+            var loc = _ctx.Localization;
+            var hud = _ctx.UI.Hud;
+            ApplyShopOpenState();
+            if (phase == DayPhase.Open)
             {
-                progression.shopOpen = true;
-                _ctx.Save.RequestSave();
-                _ctx.UI.Hud.ShowToast(_ctx.Localization.Get("toast.shop_open"));
+                hud.ShowToast(loc.Get("toast.shop_open"));
+                _ctx.Audio.PlayUI(_ctx.Audio.Library.uiToast, 0.9f);
             }
-            if (_scene.CustomerSpawner != null && !_scene.CustomerSpawner.IsOpen)
-                _scene.CustomerSpawner.SetOpen(true, tutorialFirst: !progression.firstCustomerTutorialCompleted);
+            else if (phase == DayPhase.Closing)
+            {
+                hud.ShowBanner(loc.Get("hud.closing"), loc.Get("hud.closing_title"), complete: false);
+                _ctx.Audio.PlayUI(_ctx.Audio.Library.uiToast, 0.9f);
+            }
+            RefreshWorkdayHud();
+            _ctx.Save.RequestSave();
+        }
+
+        private void RefreshWorkdayHud()
+        {
+            var loc = _ctx.Localization;
+            var day = _ctx.Day;
+            string stateKey = "hud.state.closed";
+            var style = ShopStatusStyle.Closed;
+            if (day.Phase == DayPhase.Open) { stateKey = "hud.state.open"; style = ShopStatusStyle.Open; }
+            else if (day.Phase == DayPhase.Closing) { stateKey = "hud.state.closing"; style = ShopStatusStyle.Closing; }
+
+            var hud = _ctx.UI.Hud;
+            hud.SetWorkday(loc.Format("hud.day", day.Day), day.ClockText, loc.Get(stateKey), style);
+            hud.SetLevel(loc.Format("hud.level", _ctx.Progression.Level), _ctx.Progression.Progress01);
+        }
+
+        private void OnLevelChanged(int previous, int level)
+        {
+            var loc = _ctx.Localization;
+            _ctx.UI.Hud.ShowBanner(loc.Get("hud.level_up"), loc.Format("hud.level_title", level), complete: true);
+            _ctx.UI.Hud.ShowToast(loc.Get("toast.new_upgrades"));
+            _ctx.Audio.PlaySfx(_ctx.Audio.Library.objectiveComplete, 0.8f);
+            RefreshWorkdayHud();
+        }
+
+        // ---------------------------------------------------------------- Upgrade store
+
+        private void OpenStore()
+        {
+            if (State != GameState.Gameplay) return;
+            State = GameState.Store;
+            Time.timeScale = 0f;
+            _ctx.Input.GameplayEnabled = false;
+            _ctx.Input.SetCursorLock(false);
+            _scene.Interactor.SetActive(false);
+            _ctx.UI.Hud.SetInteraction(false, null, null, false);
+            _ctx.UI.Hud.Hide();
+            _ctx.Audio.PlayClick();
+            _ctx.UI.Store.Show();
+        }
+
+        private void CloseStore()
+        {
+            if (State != GameState.Store) return;
+            _ctx.UI.Store.Hide();
+            Time.timeScale = 1f;
+            State = GameState.Gameplay;
+            _ctx.Input.GameplayEnabled = true;
+            _ctx.Input.SetCursorLock(true);
+            _scene.Interactor.SetActive(true);
+            _ctx.UI.Hud.Show();
+            _ctx.Audio.PlayBack();
+            _ctx.Save.SaveNow();
+        }
+
+        private void OnUpgradePurchased(UpgradeDefinition upgrade)
+        {
+            var library = _ctx.Audio.Library;
+            if (library != null) _ctx.Audio.PlaySfx(library.cashRegister, 0.8f);
+            _ctx.Save.SaveNow();
+        }
+
+        // ---------------------------------------------------------------- End of day
+
+        private void EnterDaySummary()
+        {
+            if (State != GameState.Gameplay) return;
+            State = GameState.DaySummary;
+            _ctx.Input.GameplayEnabled = false;
+            _ctx.Input.SetCursorLock(false);
+            _scene.Interactor.SetActive(false);
+            _ctx.UI.Hud.SetInteraction(false, null, null, false);
+            _ctx.UI.Hud.Hide();
+            WritePlayerTransform();
+            _ctx.Save.SaveNow();
+            var library = _ctx.Audio.Library;
+            if (library != null) _ctx.Audio.PlaySfx(library.objectiveComplete, 0.7f);
+            _ctx.UI.Summary.Show(_ctx.Day.BuildSummary());
+        }
+
+        private void OnNextDayClicked()
+        {
+            if (State != GameState.DaySummary) return;
+            StartCoroutine(NextDayRoutine());
+        }
+
+        private IEnumerator NextDayRoutine()
+        {
+            State = GameState.Transitioning;
+            IScreenFade fade = _ctx.UI.GlobalFade;
+            yield return fade.FadeTo(1f, 0.5f);
+            _ctx.UI.Summary.Hide(true);
+            _ctx.Day.StartNextDay();
+            yield return new WaitForSecondsRealtime(0.3f);
+
+            State = GameState.Gameplay;
+            _ctx.Input.GameplayEnabled = true;
+            _ctx.Input.SetCursorLock(true);
+            _scene.Interactor.SetActive(true);
+            _ctx.UI.Hud.Show();
+            RefreshWorkdayHud();
+            yield return fade.FadeTo(0f, 0.7f);
+
+            var loc = _ctx.Localization;
+            _ctx.UI.Hud.ShowBanner(loc.Get("hud.new_day"), loc.Format("hud.day_title", _ctx.Day.Day), complete: false);
         }
 
         private void OnServicePaid(Economy.ServicePayment payment)
@@ -392,6 +561,9 @@ namespace BarberSimulator.Core
                 case GameState.Paused:
                     if (_ctx.UI.Settings.IsVisible) CloseSettings();
                     else Resume();
+                    break;
+                case GameState.Store:
+                    CloseStore();
                     break;
                 case GameState.MainMenu:
                     if (_ctx.UI.Settings.IsVisible) CloseSettings();
@@ -515,6 +687,11 @@ namespace BarberSimulator.Core
         {
             if (State == GameState.Gameplay)
             {
+                if (_ctx.Day.Phase == DayPhase.Ended)
+                {
+                    EnterDaySummary();
+                    return;
+                }
                 _ctx.UI.Hud.SetCaptureHint(_ctx.Input.NeedsClickToCapture);
                 if (Time.unscaledTime >= _nextPositionSave)
                 {
@@ -553,6 +730,7 @@ namespace BarberSimulator.Core
             WritePlayerTransform();
             _ctx.Save.SaveNow();
             // Losing the browser tab mid-game opens the pause menu instead of leaving the player walking.
+            if (_ctx.Ads != null && _ctx.Ads.IsAdPlaying) return; // the ad overlay steals focus; the ad service already froze the game
             if (State == GameState.Gameplay || State == GameState.BarberMode) Pause();
         }
     }

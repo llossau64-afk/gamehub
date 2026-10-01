@@ -33,7 +33,15 @@ namespace BarberSimulator.Customers
         public Transform RegisterStand => registerStand;
         public SwingDoor FrontDoor => frontDoor;
         public IReadOnlyList<BarberChairStation> Chairs => chairs;
-        public int Capacity => waitingSeats.Count + chairs.Count + 1;
+        public int Capacity
+        {
+            get
+            {
+                int seats = 0;
+                foreach (var seat in waitingSeats) if (seat != null && seat.isActiveAndEnabled) seats++;
+                return seats + chairs.Count + 1;
+            }
+        }
         public int ActiveCustomers => _queue.Count;
 
         public void Configure(NavGraph graph, Transform[] spawns, Transform outside, Transform inside, Transform reception, Transform register,

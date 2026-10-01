@@ -352,8 +352,11 @@ namespace BarberSimulator.Customers
                 // Strict reviewers shave a star off borderline results.
                 if (Owner.Profile.reviewStrictness > 1.15f && result.Total < 0.8f) stars = Mathf.Max(1, stars - 1);
 
+                Platform.PlatformHooks.HappyTime(stars);
                 var payment = PaymentCalculator.Calculate(Owner.Request.NameKey, Owner.Request.BasePrice, stars, result.Total,
-                    Owner.Profile.budget, Owner.Profile.tipChance, Owner.Patience01, services.Economy.Reputation, Owner._rng);
+                    Owner.Profile.budget, Owner.Profile.tipChance, Owner.Patience01, services.Economy.Reputation, Owner._rng,
+                    services.Upgrades != null ? services.Upgrades.TipMultiplier : 1f,
+                    services.Upgrades != null ? services.Upgrades.ReputationGainMultiplier : 1f);
                 services.Economy.ReceivePayment(payment);
 
                 var library = services.Audio != null ? services.Audio.Library : null;

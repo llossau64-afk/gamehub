@@ -10,11 +10,14 @@ namespace BarberSimulator.EditorTools
     public static class BuildTools
     {
         private const string WebGLOutput = "Builds/WebGL";
+        /// <summary>Assets/WebGLTemplates/BarberSimulator: loads the CrazyGames SDK and hosts the loading screen.</summary>
+        public const string WebGLTemplate = "PROJECT:BarberSimulator";
 
         [MenuItem("Barber Simulator/Build WebGL", priority = 20)]
         public static void BuildWebGL()
         {
             if (!File.Exists(GeneratorPaths.MainScene)) ShopSceneGenerator.BuildAll();
+            PlayerSettings.WebGL.template = WebGLTemplate;
             var options = new BuildPlayerOptions
             {
                 scenes = new[] { GeneratorPaths.MainScene },

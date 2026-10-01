@@ -4,6 +4,7 @@ using BarberSimulator.Input;
 using BarberSimulator.Interaction;
 using BarberSimulator.Localization;
 using BarberSimulator.Objectives;
+using BarberSimulator.Platform;
 using BarberSimulator.Save;
 using BarberSimulator.Settings;
 using BarberSimulator.UI;
@@ -23,6 +24,7 @@ namespace BarberSimulator.Core
 
         private GameContext _context;
         private GameFlowController _flow;
+        private PlatformFlowBridge _platformBridge;
 
         public void Configure(GameConfig gameConfig, SceneReferences references)
         {
@@ -44,7 +46,13 @@ namespace BarberSimulator.Core
 
             var ctx = new GameContext { Config = config };
 
-            ctx.Save = new SaveService(new PlayerPrefsSaveStorage(), config.startingMoney);
+            // The portal comes first: it reports loading, and its data module backs the save.
+            ctx.Platform = PlatformServiceFactory.GetOrCreate(config.platform);
+            PlatformHooks.Current = ctx.Platform;
+            ctx.Platform.LoadingStart();
+            ctx.Platform.Initialize(null);
+
+            ctx.Save = new SaveService(new PlatformSaveStorage(ctx.Platform, new PlayerPrefsSaveStorage()), config.startingMoney);
             ctx.Save.Load();
 
             ctx.Quality = new QualityApplier();
@@ -57,7 +65,7 @@ namespace BarberSimulator.Core
             var language = ctx.Settings.Data.language;
             if (string.IsNullOrEmpty(language))
             {
-                language = LocalizationService.DetectSystemLanguage();
+                language = ResolveLanguage(ctx.Platform);
                 ctx.Settings.SetLanguage(language);
             }
             ctx.Localization.SetLanguage(language);
@@ -68,8 +76,15 @@ namespace BarberSimulator.Core
             ctx.Audio.Initialize(config.sounds, ctx.Settings.Data);
 
             ctx.Input = new InputService(ctx.Settings.Data);
+            ctx.Ads = new AdService(ctx.Platform, ctx.Audio, ctx.Input);
             ctx.Economy = new EconomyService(ctx.Save);
             ctx.Objectives = new ObjectiveService(config.objectives, ctx.Save, ctx.Economy);
+
+            ctx.Progression = new Shop.ShopProgression(ctx.Save, ctx.Economy);
+            ctx.UpgradeEffects = new Shop.UpgradeEffects();
+            ctx.Upgrades = new Shop.UpgradeService(config.upgrades, ctx.Save, ctx.Economy, ctx.Progression, ctx.UpgradeEffects);
+            var workday = config.workday != null ? config.workday : ScriptableObject.CreateInstance<Workday.WorkdayConfig>();
+            ctx.Day = new Workday.DayCycleService(workday, ctx.Save, ctx.Economy, ctx.Progression);
 
             var uiGo = new GameObject("UI");
             uiGo.transform.SetParent(transform, false);
@@ -86,6 +101,16 @@ namespace BarberSimulator.Core
 #endif
             _flow = gameObject.AddComponent<GameFlowController>();
             _flow.Initialize(ctx, scene);
+            _platformBridge = new PlatformFlowBridge(ctx.Platform, _flow);
+        }
+
+        private static string ResolveLanguage(IPlatformService platform)
+        {
+            var hint = platform.LanguageHint;
+            if (!string.IsNullOrEmpty(hint))
+                foreach (var language in LocalizationService.Languages)
+                    if (language.Code == hint) return hint;
+            return LocalizationService.DetectSystemLanguage();
         }
 
         private void WireScene(GameContext ctx)
@@ -112,9 +137,18 @@ namespace BarberSimulator.Core
                 Localization = ctx.Localization
             };
             scene.Shop.Initialize(ctx.Save, ctx.Objectives, services, player.transform);
+            ctx.Upgrades.BindScene(scene.Shop);
+            ctx.Upgrades.Refresh();
+            ctx.UI.Store.Bind(ctx.Upgrades, ctx.Progression, ctx.Economy);
+
+            ctx.Day.ActiveCustomers = () => scene.CustomerSpawner != null ? scene.CustomerSpawner.Active.Count : 0;
+            ctx.Day.SendHomeRequested += () => { if (scene.CustomerSpawner != null) scene.CustomerSpawner.SendWaitingCustomersHome(); };
+            if (scene.Sign != null) scene.Sign.Attach(ctx.Day);
 
             scene.MenuDirector.Initialize(scene.CinematicCamera, ctx.UI.SceneFade);
 
+            if (scene.BarberMode != null)
+                scene.BarberMode.SetToolbox(ctx.Upgrades.BuildToolbox);
             if (scene.BarberMode != null)
                 scene.BarberMode.Initialize(scene.CinematicCamera, player, scene.Hands, ctx.Input, ctx.Audio, ctx.Localization, ctx.UI.Barber, config.gameplayFieldOfView);
 
@@ -129,7 +163,9 @@ namespace BarberSimulator.Core
                     Save = ctx.Save,
                     Dialogue = ctx.UI.Conversation,
                     Reviews = ctx.UI.Reviews,
-                    Toasts = ctx.UI.Hud
+                    Toasts = ctx.UI.Hud,
+                    Upgrades = ctx.UpgradeEffects,
+                    Progression = ctx.Progression
                 });
             }
             scene.Intro.Initialize(ctx, scene.CinematicCamera);
@@ -153,6 +189,7 @@ namespace BarberSimulator.Core
         {
             if (_context == null) return;
             _context.Input.Tick();
+            _context.Day.Tick(Time.deltaTime);
             _context.Save.Tick(Time.unscaledTime);
         }
 

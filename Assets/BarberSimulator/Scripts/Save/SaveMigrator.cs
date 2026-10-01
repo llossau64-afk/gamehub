@@ -26,6 +26,21 @@ namespace BarberSimulator.Save
                 }
                 data.version = 2;
             }
+            if (data.version < 3)
+            {
+                // v2 → v3: workday loop and shop level. Every day starts closed; customers served so far
+                // become experience so existing shops do not restart at level 1.
+                if (data.progression != null)
+                {
+                    data.progression.shopOpen = false;
+                    data.progression.dayPhase = 0;
+                    data.progression.dayClockMinutes = 540f;
+                    data.progression.dayStats = new DayStatsData();
+                    if (data.progression.experience <= 0)
+                        data.progression.experience = Mathf.Max(0, data.progression.customersServed) * 12;
+                }
+                data.version = 3;
+            }
             data.version = SaveData.CurrentVersion;
             return data;
         }
@@ -50,6 +65,10 @@ namespace BarberSimulator.Save
             if (prog.completedObjectiveIds == null) prog.completedObjectiveIds = new System.Collections.Generic.List<string>();
             if (prog.visitedInspectionPointIds == null) prog.visitedInspectionPointIds = new System.Collections.Generic.List<string>();
             if (prog.shownHintIds == null) prog.shownHintIds = new System.Collections.Generic.List<string>();
+            if (prog.dayStats == null) prog.dayStats = new DayStatsData();
+            prog.day = Mathf.Max(1, prog.day);
+            prog.dayPhase = Mathf.Clamp(prog.dayPhase, 0, 3);
+            prog.experience = Mathf.Max(0, prog.experience);
 
             var s = data.settings;
             s.renderScale = Mathf.Clamp(s.renderScale, 0.5f, 1f);

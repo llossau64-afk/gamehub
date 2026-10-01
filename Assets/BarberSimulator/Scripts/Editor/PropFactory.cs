@@ -10,7 +10,7 @@ namespace BarberSimulator.EditorTools
     /// Conventions: metres, pivot on the floor at the footprint centre, front faces +Z, +Y up.
     /// Each public method returns a NEW unparented root GameObject whose meshes are saved assets.
     /// </summary>
-    public sealed class PropFactory
+    public sealed partial class PropFactory
     {
         private readonly MaterialLibrary m;
         private readonly Dictionary<string, Mesh> _cache = new Dictionary<string, Mesh>();

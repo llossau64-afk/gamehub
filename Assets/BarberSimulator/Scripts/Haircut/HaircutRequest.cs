@@ -31,6 +31,8 @@ namespace BarberSimulator.Haircut
         [Tooltip("What the customer says; one is picked at random.")]
         [SerializeField] private string[] askLineKeys = Array.Empty<string>();
         [SerializeField] private int basePrice = 20;
+        [Tooltip("Shop level at which customers start asking for this style.")]
+        [SerializeField, Min(1)] private int requiredShopLevel = 1;
         [SerializeField] private bool requiresFade;
         [Tooltip("Steps players should follow; shown as hints for tutorial customers.")]
         [SerializeField] private string[] tutorialHintKeys = Array.Empty<string>();
@@ -40,6 +42,7 @@ namespace BarberSimulator.Haircut
         public string NameKey => nameKey;
         public IReadOnlyList<string> AskLineKeys => askLineKeys;
         public int BasePrice => basePrice;
+        public int RequiredShopLevel => requiredShopLevel;
         public bool RequiresFade => requiresFade;
         public IReadOnlyList<string> TutorialHintKeys => tutorialHintKeys;
         public IReadOnlyList<ZoneTarget> Targets => targets;
@@ -53,6 +56,11 @@ namespace BarberSimulator.Haircut
             requiresFade = fade;
             tutorialHintKeys = tutorialHints;
             targets = zoneTargets;
+        }
+
+        public void SetRequiredShopLevel(int level)
+        {
+            requiredShopLevel = Mathf.Max(1, level);
         }
 
         /// <summary>Distinct checklist entries in display order.</summary>

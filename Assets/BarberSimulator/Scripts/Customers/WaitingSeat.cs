@@ -11,7 +11,8 @@ namespace BarberSimulator.Customers
         public Transform SeatPoint => seatPoint;
         public Transform ApproachPoint => approachPoint;
         public CustomerBrain Occupant { get; private set; }
-        public bool IsFree => Occupant == null;
+        /// <summary>Seats that belong to an upgrade (second bench) are inactive until it is bought.</summary>
+        public bool IsFree => Occupant == null && isActiveAndEnabled;
 
         public void Configure(Transform seat, Transform approach)
         {
@@ -21,7 +22,7 @@ namespace BarberSimulator.Customers
 
         public bool TryReserve(CustomerBrain customer)
         {
-            if (Occupant != null) return false;
+            if (Occupant != null || !isActiveAndEnabled) return false;
             Occupant = customer;
             return true;
         }

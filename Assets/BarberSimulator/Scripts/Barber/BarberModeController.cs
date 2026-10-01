@@ -51,6 +51,8 @@ namespace BarberSimulator.Barber
         private HaircutSession _session;
         private BarberTutorial _tutorial;
         private int _toolIndex;
+        private BarberToolDefinition[] _active = Array.Empty<BarberToolDefinition>();
+        private Func<IReadOnlyList<BarberToolDefinition>, BarberToolDefinition[]> _toolbox;
 
         private float _yaw, _pitch, _distance;
         private float _targetYaw, _targetPitch, _targetDistance;
@@ -73,6 +75,12 @@ namespace BarberSimulator.Barber
         public HaircutSession Session => _session;
         public CustomerBrain Customer => _customer;
         public IReadOnlyList<BarberToolDefinition> Tools => tools;
+
+        /// <summary>Decides which of <see cref="Tools"/> the barber owns right now (upgrades replace or add tools).</summary>
+        public void SetToolbox(Func<IReadOnlyList<BarberToolDefinition>, BarberToolDefinition[]> resolver)
+        {
+            _toolbox = resolver;
+        }
 
         public event Action Entered;
         public event Action Exited;
@@ -120,6 +128,7 @@ namespace BarberSimulator.Barber
             if (!CanStart(chair)) return;
             _chair = chair;
             _customer = chair.Occupant;
+            _active = _toolbox != null ? _toolbox(tools) : tools;
             _shell = _customer.Character != null ? _customer.Character.HairShell : null;
             if (_shell == null || _shell.Grid == null)
             {
@@ -144,7 +153,7 @@ namespace BarberSimulator.Barber
             chair.BeginHaircut();
             _customer.OnHaircutStarted();
 
-            _view.Open(_customer.DisplayName, _localization.Get(_customer.Request.NameKey), _customer.Request.ChecklistKeys(), tools, _input.Mode == InputDeviceMode.Touch);
+            _view.Open(_customer.DisplayName, _localization.Get(_customer.Request.NameKey), _customer.Request.ChecklistKeys(), _active, _input.Mode == InputDeviceMode.Touch);
             // Start with the scissors' neighbour that is safe: the clipper on the longest guard.
             _toolIndex = -1;
             SelectTool(0, silent: true);
@@ -245,15 +254,15 @@ namespace BarberSimulator.Barber
 
         private void SelectTool(int index, bool silent)
         {
-            if (_session == null || index < 0 || index >= tools.Length || tools[index] == null) return;
+            if (_session == null || index < 0 || index >= _active.Length || _active[index] == null) return;
             if (index == _toolIndex) return;
             StopToolAudio(immediate: false);
             _toolIndex = index;
-            _session.SelectTool(tools[index]);
+            _session.SelectTool(_active[index]);
             _equipDip = silent ? 0f : 1f;
-            if (_hands.ExternallyControlled) _hands.SetExternalTool(HandToolFor(tools[index]));
-            _motorSource.clip = tools[index].loopClip;
-            _view.SetSelectedTool(index, tools[index]);
+            if (_hands.ExternallyControlled) _hands.SetExternalTool(HandToolFor(_active[index]));
+            _motorSource.clip = _active[index].loopClip;
+            _view.SetSelectedTool(index, _active[index]);
             RefreshGuards();
             if (!silent) PlayToolSelect();
         }

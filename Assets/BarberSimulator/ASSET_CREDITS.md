@@ -20,7 +20,14 @@ Obtained from Google Fonts via the npm packages `@expo-google-fonts/dm-serif-dis
 The fonts are licensed under the SIL Open Font License, Version 1.1 (https://scripts.sil.org/OFL). Fonts may be bundled and embedded in the game; they must not be sold by themselves.
 
 ## Procedural geometry (project-owned)
-All 3D meshes (architecture, furniture, tools, props, placeholder characters) are generated in the editor by
-`Scripts/Editor/PropFactory.cs`, `CharacterFactory.cs`, `WallBuilder.cs` and `ShopSceneGenerator.cs` using
-`Scripts/Art/MeshBuilder.cs`. `Art/Textures/barber_pole_albedo.png` was generated alongside them.
-No external 3D assets are used. Characters and props are placeholders intended to be replaced by final art.
+All architecture, furniture, tool and prop meshes are generated in the editor by `Scripts/Editor/PropFactory.cs`,
+`WallBuilder.cs` and `ShopSceneGenerator.cs` using `Scripts/Art/MeshBuilder.cs`. `Art/Textures/barber_pole_albedo.png`
+was generated alongside them.
+
+## Characters (project-owned, made in Blender)
+`Art/Source/Characters/character_parts.json` (skinned body, head with face, clothing, facial hair, glasses, cap) and
+`first_person_arm.json` are modelled procedurally in Blender 4.5 by `Tools/AssetGen/blender/characters.py`
+(skin-modifier skeleton + subdivision, sculpted head sphere, clothing shells, automatic bone-heat weights).
+`Scripts/Editor/CharacterFactory.cs` turns them into skinned meshes. No scanned, purchased or downloaded models are used.
+
+No external 3D assets are used.

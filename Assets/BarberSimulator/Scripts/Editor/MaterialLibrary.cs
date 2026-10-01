@@ -18,6 +18,8 @@ namespace BarberSimulator.EditorTools
         public Material Glass, WindowDecal, Mirror, SignBoard, Poster, Magazines, BulbWarm, StreetBackdrop, Passerby, BarberPole, LockedSign, PlasticSheet, ClockFace;
         // Phase 2 props
         public Material LiquidBlue, GlassClear, PriceBoard, HairClippings, CapeFabric, ChromeDark;
+        // Phase 3 props: lit screens and signs
+        public Material ScreenGlow, NeonPink, SignRed, SignGreen, SignLetters;
         // Characters (tinted per renderer)
         public Material Skin, Hair, Cloth, Pants, Shoes, Eyes, HairShell, Lips, EyeWhite, Iris;
         public Material HairParticles;
@@ -92,6 +94,12 @@ namespace BarberSimulator.EditorTools
             CapeFabric = Lit("Cape_Fabric", new Color(0.12f, 0.14f, 0.18f), "fabric_albedo.png", null, 0.25f);
             ChromeDark = Lit("Chrome_Dark", new Color(0.35f, 0.35f, 0.36f), null, null, 0.75f, 1f);
 
+            ScreenGlow = Emissive("Screen_Glow", new Color(0.12f, 0.16f, 0.22f), new Color(0.42f, 0.62f, 0.95f), 1.1f);
+            NeonPink = Emissive("Neon_Pink", new Color(0.35f, 0.08f, 0.2f), new Color(1f, 0.22f, 0.55f), 2.6f);
+            SignRed = Emissive("Sign_Closed", new Color(0.42f, 0.07f, 0.05f), new Color(1f, 0.12f, 0.06f), 0.6f);
+            SignGreen = Emissive("Sign_Open", new Color(0.08f, 0.34f, 0.12f), new Color(0.12f, 0.9f, 0.3f), 0.6f);
+            SignLetters = Emissive("Sign_Letters", new Color(0.9f, 0.88f, 0.8f), new Color(1f, 0.95f, 0.8f), 1.0f);
+
             BulbWarm = Lit("Bulb_Warm", new Color(1f, 0.92f, 0.78f), null, null, 0.5f);
             BulbWarm.EnableKeyword("_EMISSION");
             BulbWarm.SetColor("_EmissionColor", new Color(1f, 0.72f, 0.42f) * 4f);
@@ -158,6 +166,16 @@ namespace BarberSimulator.EditorTools
             mat.SetFloat("_Metallic", metallic);
             mat.SetFloat("_EnvironmentReflections", 1f);
             mat.enableInstancing = true;
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        private Material Emissive(string name, Color color, Color emission, float intensity)
+        {
+            var mat = Lit(name, color, null, null, 0.4f);
+            mat.EnableKeyword("_EMISSION");
+            mat.SetColor("_EmissionColor", emission * intensity);
+            mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.BakedEmissive;
             EditorUtility.SetDirty(mat);
             return mat;
         }
