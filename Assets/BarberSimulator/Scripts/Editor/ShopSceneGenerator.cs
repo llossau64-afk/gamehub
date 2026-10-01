@@ -946,9 +946,12 @@ namespace BarberSimulator.EditorTools
             };
             var barber = characters.Create("Ambient_Barber", barberLook, withMotor: false);
             barber.transform.SetParent(root.transform, false);
-            var toChair = refs.BarberChairSeat.position - refs.BarberStand.position;
+            // Beside the chair, cutting from the side, out of the menu camera paths (they glide behind the chair).
+            var seat = refs.BarberChairSeat.position;
+            var barberPos = new Vector3(seat.x + 0.22f, refs.BarberStand.position.y, seat.z + 0.6f);
+            var toChair = seat - barberPos;
             toChair.y = 0f; // stand upright: the seat is higher than the barber's floor point
-            barber.transform.SetPositionAndRotation(refs.BarberStand.position + refs.BarberStand.right * 0.32f, Quaternion.LookRotation(toChair, Vector3.up));
+            barber.transform.SetPositionAndRotation(barberPos, Quaternion.LookRotation(toChair, Vector3.up));
             var barberHead = refs.BarberChairSeat;
             barber.AddComponent<AmbientNpc>().Configure(barber.GetComponent<ProceduralCharacterAnimator>(), CharacterPose.Stand, barberHead, talks: true, null, cutting: true);
             var barberHand = barber.transform.Find("Body/Pelvis/Spine/UpperArmR/ForearmR");

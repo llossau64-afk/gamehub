@@ -93,6 +93,7 @@ interact.trash.newspaper = Old newspapers
 interact.front_door = Front door
 interact.barber_station = Barber station
 interact.expansion_door = Back room
+area.back_room = Back room
 
 toast.expansion_locked = Locked. The back room needs a renovation before it can become part of the shop.
 toast.station_inspected = An old clipper and a pair of scissors. They still work... barely.

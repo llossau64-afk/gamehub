@@ -93,6 +93,7 @@ interact.trash.newspaper = Alte Zeitungen
 interact.front_door = Eingangstür
 interact.barber_station = Arbeitsplatz
 interact.expansion_door = Hinterzimmer
+area.back_room = Hinterzimmer
 
 toast.expansion_locked = Verschlossen. Das Hinterzimmer muss erst renoviert werden, bevor es Teil des Ladens werden kann.
 toast.station_inspected = Eine alte Haarschneidemaschine und eine Schere. Sie funktionieren noch... gerade so.
