@@ -89,6 +89,7 @@ namespace BarberSimulator.Core
             // Workday loop, upgrade store and end-of-day summary.
             ui.Store.CloseClicked += CloseStore;
             ui.Summary.NextDayClicked += OnNextDayClicked;
+            ui.Summary.DoubleTipsClicked += OnDoubleTipsClicked;
             _ctx.Day.OpenGate = IsOpeningAllowed;
             _ctx.Day.PhaseChanged += OnDayPhaseChanged;
             _ctx.Day.ClockChanged += RefreshWorkdayHud;
@@ -482,7 +483,35 @@ namespace BarberSimulator.Core
             _ctx.Save.SaveNow();
             var library = _ctx.Audio.Library;
             if (library != null) _ctx.Audio.PlaySfx(library.objectiveComplete, 0.7f);
-            _ctx.UI.Summary.Show(_ctx.Day.BuildSummary());
+            var summary = _ctx.Day.BuildSummary();
+            _ctx.UI.Summary.Show(summary);
+            _tipBonusOffered = summary.Tips;
+            _ctx.UI.Summary.SetDoubleTipsOffer(_ctx.Ads != null && _ctx.Ads.RewardedAvailable, _tipBonusOffered);
+        }
+
+        private int _tipBonusOffered;
+
+        /// <summary>Rewarded ad on the end-of-day screen: watching it pays today's tips a second time.</summary>
+        private void OnDoubleTipsClicked()
+        {
+            if (State != GameState.DaySummary || _tipBonusOffered <= 0 || _ctx.Ads == null) return;
+            int bonus = _tipBonusOffered;
+            _tipBonusOffered = 0;
+            _ctx.UI.Summary.SetDoubleTipsOffer(false, 0);
+            _ctx.Ads.ShowRewarded(
+                onRewarded: () =>
+                {
+                    _ctx.Economy.Add(bonus);
+                    _ctx.UI.Summary.ApplyTipBonus(bonus);
+                    _ctx.Save.SaveNow();
+                    if (_ctx.Audio.Library != null) _ctx.Audio.PlayUI(_ctx.Audio.Library.uiToast, 0.9f);
+                },
+                onFailed: () =>
+                {
+                    // No reward without a completed ad; offer again only if ads are still available.
+                    _tipBonusOffered = bonus;
+                    _ctx.UI.Summary.SetDoubleTipsOffer(_ctx.Ads.RewardedAvailable, bonus);
+                });
         }
 
         private void OnNextDayClicked()
@@ -494,6 +523,14 @@ namespace BarberSimulator.Core
         private IEnumerator NextDayRoutine()
         {
             State = GameState.Transitioning;
+            _ctx.UI.Summary.SetDoubleTipsOffer(false, 0);
+            // Natural break between days: the portal may show an interstitial (skipped if one played recently).
+            if (_ctx.Ads != null)
+            {
+                bool adDone = false;
+                _ctx.Ads.ShowMidgame(() => adDone = true);
+                while (!adDone) yield return null;
+            }
             IScreenFade fade = _ctx.UI.GlobalFade;
             yield return fade.FadeTo(1f, 0.5f);
             _ctx.UI.Summary.Hide(true);

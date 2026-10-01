@@ -21,6 +21,11 @@ namespace BarberSimulator.UI
         private bool _hasSummary;
 
         public event Action NextDayClicked;
+        /// <summary>"Double today's tips" (rewarded ad). Only shown when an ad can play and there were tips.</summary>
+        public event Action DoubleTipsClicked;
+
+        private RectTransform _doubleTipsRect;
+        private Text _doubleTipsLabel;
         public Action<MenuButton> RegisterSounds { get; set; }
 
         protected override void OnBuild()
@@ -79,10 +84,42 @@ namespace BarberSimulator.UI
             button.onClick.AddListener(() => NextDayClicked?.Invoke());
             RegisterSounds?.Invoke(menuButton);
 
+            _doubleTipsRect = UIFactory.Rect("Double Tips", panel);
+            UIFactory.Anchor(_doubleTipsRect, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 112f), new Vector2(520f, 52f));
+            var doubleButton = UIFactory.PlainButton(_doubleTipsRect);
+            var doubleBg = Factory.Image("Background", _doubleTipsRect, theme.roundedRect, new Color(theme.accent.r, theme.accent.g, theme.accent.b, 0.16f), raycast: true);
+            UIFactory.Stretch(doubleBg.rectTransform);
+            var doubleAccent = Factory.Image("Accent", _doubleTipsRect, null, theme.accent);
+            UIFactory.Anchor(doubleAccent.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), Vector2.zero, new Vector2(0f, 2f));
+            _doubleTipsLabel = Factory.Label("Label", _doubleTipsRect, theme.semiBoldFont, 24, theme.textPrimary, TextAnchor.MiddleCenter);
+            UIFactory.Stretch(_doubleTipsLabel.rectTransform);
+            var doubleMenuButton = _doubleTipsRect.gameObject.AddComponent<MenuButton>();
+            doubleMenuButton.Configure(_doubleTipsLabel, doubleAccent, theme.textPrimary, Color.white, theme.textDisabled, theme.hoverDuration);
+            doubleButton.onClick.AddListener(() => DoubleTipsClicked?.Invoke());
+            RegisterSounds?.Invoke(doubleMenuButton);
+            _doubleTipsRect.gameObject.SetActive(false);
+
             Factory.Text.OnLanguageChanged(() => { if (_hasSummary) Render(); });
         }
 
         private static float RowY(int index) => -190f - index * RowSpacing;
+
+        /// <summary>Shows or hides the rewarded "double tips" offer.</summary>
+        public void SetDoubleTipsOffer(bool visible, int bonus)
+        {
+            if (_doubleTipsRect == null) return;
+            _doubleTipsRect.gameObject.SetActive(visible && bonus > 0);
+            if (visible) _doubleTipsLabel.text = Factory.Text.Service.Format("summary.double_tips", EconomyService.Format(bonus));
+        }
+
+        /// <summary>Marks the tips as doubled (after the rewarded ad) and refreshes the totals.</summary>
+        public void ApplyTipBonus(int bonus)
+        {
+            if (!_hasSummary) return;
+            _summary.Tips += bonus;
+            Render();
+            SetDoubleTipsOffer(false, 0);
+        }
 
         private Text AddRow(RectTransform panel, string key, int index, bool big = false)
         {

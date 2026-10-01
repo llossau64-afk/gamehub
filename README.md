@@ -96,6 +96,7 @@ Localization tables are in `Assets/BarberSimulator/Resources/BarberSimulator/Loc
 - Saves: `PlatformSaveStorage` writes to the portal data module when it is available and always mirrors to PlayerPrefs. Reads prefer the portal copy and fall back to PlayerPrefs.
 - `HappyTime` fires on a five-star review (at most once every 15 s).
 - The initial language uses the SDK/browser locale when the game has that language.
+- **End-of-day screen.** It offers "Double the tips – watch an ad", a rewarded ad that is shown only when `RewardedAvailable` is true and today's tips are above 0, and that pays the tips a second time. "Next day" plays a midgame interstitial, which is rate limited, before the fade.
 
 **Ads API.** `GameContext.Ads` (`IAdService`) is the only thing gameplay or UI code needs. While an ad plays it mutes `AudioService`, sets `Time.timeScale = 0` and blocks input, then restores them.
 

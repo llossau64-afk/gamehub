@@ -316,6 +316,7 @@ summary.rent = Rent
 summary.net = Profit
 summary.level_up = Shop level {0} reached. New upgrades and hairstyles are available.
 summary.next_day = Next day
+summary.double_tips = Double the tips (+{0}) – watch an ad
 
 # Phase 3: more hairstyles, customer voices and review variants
 

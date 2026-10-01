@@ -316,6 +316,7 @@ summary.rent = Miete
 summary.net = Gewinn
 summary.level_up = Laden-Level {0} erreicht. Neue Upgrades und Frisuren sind verfügbar.
 summary.next_day = Nächster Tag
+summary.double_tips = Trinkgeld verdoppeln (+{0}) – Werbung ansehen
 
 # Phase 3: more hairstyles, customer voices and review variants
 
