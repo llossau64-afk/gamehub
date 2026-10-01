@@ -90,7 +90,9 @@ namespace BarberSimulator.UI
             var dot = Factory.Label("Dot", secondary, theme.bodyFont, 22, theme.textMuted, TextAnchor.MiddleCenter);
             dot.text = "·";
             UIFactory.Anchor(dot.rectTransform, new Vector2(0f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(150f, 0f), new Vector2(20f, 40f));
-            _ = credits;
+            _creditsLink = credits;
+            _languageLink = language;
+            _dot = dot;
 
             BuildConfirm(buttons);
 

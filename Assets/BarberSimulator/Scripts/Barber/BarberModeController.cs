@@ -184,6 +184,8 @@ namespace BarberSimulator.Barber
             float t = 0f;
             while (t < 1f)
             {
+                // Barber mode can end during the blend (finished or cancelled): stop touching the camera.
+                if (!IsActive || _customer == null || _shell == null) yield break;
                 t += Time.deltaTime / 0.9f;
                 ComputeOrbit(out var pos, out var rot);
                 float e = Easing.SmootherStep(t);
