@@ -17,3 +17,9 @@ Obtained from Google Fonts via the npm packages `@expo-google-fonts/dm-serif-dis
 | UI/Fonts/Inter-Regular.ttf, Inter-Medium.ttf, Inter-SemiBold.ttf | Inter | Copyright 2020 The Inter Project Authors; https://github.com/rsms/inter |
 
 The fonts are licensed under the SIL Open Font License, Version 1.1 (https://scripts.sil.org/OFL). Fonts may be bundled and embedded in the game; they must not be sold by themselves.
+
+## Procedural geometry (project-owned)
+All 3D meshes (architecture, furniture, tools, props, placeholder characters) are generated in the editor by
+`Scripts/Editor/PropFactory.cs`, `CharacterFactory.cs`, `WallBuilder.cs` and `ShopSceneGenerator.cs` using
+`Scripts/Art/MeshBuilder.cs`. `Art/Textures/barber_pole_albedo.png` was generated alongside them.
+No external 3D assets are used. Characters and props are placeholders intended to be replaced by final art.

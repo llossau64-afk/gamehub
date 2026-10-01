@@ -46,6 +46,10 @@ namespace BarberSimulator.UI
             Settings = CreateView<SettingsView>("Settings", safe, v => v.RegisterSounds = RegisterSounds);
 
             GlobalFade = CreateFader("Global Fade", 100, 1f);
+
+            var orientationCanvas = CreateCanvas("Orientation Hint", 110, out _);
+            var hint = UIFactory.Rect("Rotate Device", orientationCanvas.transform);
+            hint.gameObject.AddComponent<OrientationHint>().Build(Factory);
         }
 
         /// <summary>Settings need services bound before their controls are built.</summary>

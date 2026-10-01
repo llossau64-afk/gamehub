@@ -20,6 +20,9 @@ namespace BarberSimulator.UI
         private MenuButton _continue;
         private Text _continueDetail;
         private Text _languageValue;
+        private MenuButton _creditsLink;
+        private MenuButton _languageLink;
+        private Text _dot;
         private Text _version;
 
         public Action<MenuButton> RegisterSounds { get; set; }
@@ -59,16 +62,16 @@ namespace BarberSimulator.UI
             UIFactory.SoftShadow(title, new Color(0f, 0f, 0f, 0.45f), new Vector2(0f, -3f));
 
             var rule = Factory.Image("Rule", _column, null, theme.accent);
-            UIFactory.Anchor(rule.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 0.5f), new Vector2(2f, -196f), new Vector2(46f, 2f));
+            UIFactory.Anchor(rule.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 0.5f), new Vector2(2f, -236f), new Vector2(46f, 2f));
 
             var subtitle = Factory.Label("Subtitle", _column, theme.semiBoldFont, 30, theme.accent, TextAnchor.MiddleLeft);
             subtitle.text = "SIMULATOR";
-            UIFactory.Anchor(subtitle.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 0.5f), new Vector2(66f, -196f), new Vector2(500f, 40f));
+            UIFactory.Anchor(subtitle.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 0.5f), new Vector2(66f, -236f), new Vector2(500f, 40f));
             UIFactory.Spacing(subtitle, 14f);
 
             // Primary buttons
             var buttons = UIFactory.Rect("Buttons", _column);
-            UIFactory.Anchor(buttons, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -290f), new Vector2(680f, 320f));
+            UIFactory.Anchor(buttons, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -320f), new Vector2(680f, 320f));
             _mainButtonsGroup = Factory.Group(buttons);
 
             _continue = CreateButton(buttons, "menu.continue", 0, () => ContinueClicked?.Invoke());
@@ -80,7 +83,7 @@ namespace BarberSimulator.UI
 
             // Secondary links
             var secondary = UIFactory.Rect("Secondary", _column);
-            UIFactory.Anchor(secondary, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -640f), new Vector2(680f, 44f));
+            UIFactory.Anchor(secondary, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -670f), new Vector2(680f, 44f));
             var credits = CreateSmallLink(secondary, "menu.credits", 0f, 150f, () => CreditsClicked?.Invoke());
             var language = CreateSmallLink(secondary, "menu.language", 170f, 360f, () => LanguageClicked?.Invoke());
             _languageValue = language.Label;
@@ -196,7 +199,24 @@ namespace BarberSimulator.UI
             _continueDetail.rectTransform.anchoredPosition = new Vector2(x, -2f);
         }
 
-        public void SetLanguageLabel(string text) => _languageValue.text = text;
+        public void SetLanguageLabel(string text)
+        {
+            _languageValue.text = text;
+            LayoutSecondaryLinks();
+        }
+
+        /// <summary>Spaces "Credits · Language: …" evenly for whatever length the localized words have.</summary>
+        private void LayoutSecondaryLinks()
+        {
+            const float gap = 18f;
+            float creditsWidth = _creditsLink.Label.preferredWidth;
+            var creditsRect = (RectTransform)_creditsLink.transform;
+            creditsRect.sizeDelta = new Vector2(creditsWidth + 4f, creditsRect.sizeDelta.y);
+            _dot.rectTransform.anchoredPosition = new Vector2(creditsWidth + gap, 0f);
+            var languageRect = (RectTransform)_languageLink.transform;
+            languageRect.anchoredPosition = new Vector2(creditsWidth + gap * 2f, 0f);
+            languageRect.sizeDelta = new Vector2(_languageValue.preferredWidth + 4f, languageRect.sizeDelta.y);
+        }
         public void SetVersion(string text) => _version.text = text;
 
         protected override void OnShown()
