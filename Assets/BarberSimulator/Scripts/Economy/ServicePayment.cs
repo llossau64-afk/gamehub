@@ -15,6 +15,10 @@ namespace BarberSimulator.Economy
         public bool IsVip;
         /// <summary>Streak bonus that was applied to the tip (1 = none).</summary>
         public float StreakTipMultiplier;
+        /// <summary>Haircut score 0..1 the payment was based on.</summary>
+        public float Quality;
+        /// <summary>The requested style was a fade.</summary>
+        public bool IsFade;
     }
 
     /// <summary>Central pricing rules so UI, customers and future employees all pay the same way.</summary>
@@ -35,7 +39,7 @@ namespace BarberSimulator.Economy
         /// <param name="streakTipMultiplier">Streak bonus on the size of tips; the base price is never touched by it.</param>
         public static ServicePayment Calculate(string serviceNameKey, int basePrice, int stars, float quality, float budget,
             float tipChance, float patience01, float reputation, System.Random rng, float tipMultiplier = 1f, float reputationGainMultiplier = 1f,
-            bool isVip = false, float streakTipMultiplier = 1f)
+            bool isVip = false, float streakTipMultiplier = 1f, bool isFade = false)
         {
             // Customers always pay the listed price; how happy they are shows in tips and reputation.
             int price = Mathf.Max(1, Mathf.RoundToInt(basePrice * Mathf.Clamp(budget, 0.8f, 1.5f) * (isVip ? VipPriceMultiplier : 1f)));
@@ -67,7 +71,9 @@ namespace BarberSimulator.Economy
                 Stars = stars,
                 ReputationDelta = reputationDelta,
                 IsVip = isVip,
-                StreakTipMultiplier = Mathf.Max(1f, streakTipMultiplier)
+                StreakTipMultiplier = Mathf.Max(1f, streakTipMultiplier),
+                Quality = quality,
+                IsFade = isFade
             };
         }
     }

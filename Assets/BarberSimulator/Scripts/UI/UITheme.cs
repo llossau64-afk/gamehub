@@ -29,6 +29,18 @@ namespace BarberSimulator.UI
         [Tooltip("Streak badge and its flame.")]
         public Color flame = new Color(1f, 0.5f, 0.16f);
 
+        [Header("Menu palette")]
+        [Tooltip("Barber pole red (#A83A32). Selected indicators, the primary action and the logo stripe.")]
+        public Color barberRed = new Color(0.659f, 0.227f, 0.196f);
+        [Tooltip("Barber pole blue (#2F4A6B). Logo stripe and quiet secondary accents.")]
+        public Color barberBlue = new Color(0.184f, 0.290f, 0.420f);
+        [Tooltip("Warm black used for the menu panels.")]
+        public Color panelSolid = new Color(0.067f, 0.059f, 0.053f, 0.97f);
+        [Tooltip("Slightly lifted charcoal for cards and keycaps.")]
+        public Color panelRaised = new Color(0.118f, 0.104f, 0.092f, 1f);
+        [Tooltip("Dark leather brown for locked card medallions and subtle fills.")]
+        public Color leather = new Color(0.20f, 0.14f, 0.10f, 1f);
+
         [Header("Sprites")]
         public Sprite roundedRect;
         public Sprite circleSolid;

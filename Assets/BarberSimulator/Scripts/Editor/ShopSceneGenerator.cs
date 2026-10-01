@@ -105,6 +105,7 @@ namespace BarberSimulator.EditorTools
             BuildPlayerAndCamera(refs);
             BuildCinematics(refs);
             BuildMenuDressing(refs);
+            BuildMenuAtmosphere(refs);
             refs.Phase2 = content.Phase2;
             BuildCustomerSystems(gameplay, refs);
             BuildBootstrap(content, refs);
@@ -137,7 +138,8 @@ namespace BarberSimulator.EditorTools
             public PlayerAudio PlayerAudio;
             public Camera Camera;
             public CinematicCamera CinematicCamera;
-            public MenuCameraDirector MenuDirector;
+            public MainMenuCameraController MenuCamera;
+            public MenuAtmosphere MenuAtmosphere;
             public IntroSequence Intro;
             public GameObject MenuOnly;
             public readonly List<TrashPickup> Trash = new List<TrashPickup>();
@@ -327,9 +329,10 @@ namespace BarberSimulator.EditorTools
 
             // Invisible bounds so the player can step outside but not wander off.
             var bounds = Group(exterior, "Bounds");
-            Solid(bounds, "Bound_Curb", new Vector3(0f, 1f, -4.1f), new Vector3(12f, 2f, 0.2f), m.Concrete).GetComponent<MeshRenderer>().enabled = false;
-            Solid(bounds, "Bound_Left", new Vector3(-5.8f, 1f, -2.2f), new Vector3(0.2f, 2f, 4f), m.Concrete).GetComponent<MeshRenderer>().enabled = false;
-            Solid(bounds, "Bound_Right", new Vector3(5.8f, 1f, -2.2f), new Vector3(0.2f, 2f, 4f), m.Concrete).GetComponent<MeshRenderer>().enabled = false;
+            // The sidewalk is walkable along the whole block (about 23 m) in front of the shop and its neighbours.
+            Solid(bounds, "Bound_Curb", new Vector3(0f, 1f, -4.1f), new Vector3(23.4f, 2f, 0.2f), m.Concrete).GetComponent<MeshRenderer>().enabled = false;
+            Solid(bounds, "Bound_Left", new Vector3(-11.6f, 1f, -2.2f), new Vector3(0.2f, 2f, 4f), m.Concrete).GetComponent<MeshRenderer>().enabled = false;
+            Solid(bounds, "Bound_Right", new Vector3(11.6f, 1f, -2.2f), new Vector3(0.2f, 2f, 4f), m.Concrete).GetComponent<MeshRenderer>().enabled = false;
 
             // Neighbouring buildings.
             Solid(exterior, "Neighbour_Left", new Vector3(-9.3f, FacadeHeight * 0.5f, -0.3f), new Vector3(10f, FacadeHeight, 0.2f), m.PaintedWall, 1.5f);
@@ -358,6 +361,18 @@ namespace BarberSimulator.EditorTools
             var pole = Place(props.BarberPole(), exterior, new Vector3(1.32f, 1.95f, -0.2f), 180f, "BarberPole");
             AddRotator(pole.transform.Find("Stripes"), 55f, 0f);
 
+            // Neighbouring storefronts at street level: a closed café on the left, a laundrette on the right.
+            BuildStorefront(exterior, "Cafe", -8.6f, m.VinylGreen);
+            BuildStorefront(exterior, "Laundrette", 8.4f, m.Trim);
+            Place(props.StreetLamp(), exterior, new Vector3(-10.6f, 0f, -3.75f), 0f, "StreetLamp_C");
+            Place(props.StreetLamp(), exterior, new Vector3(11.0f, 0f, -3.75f), 0f, "StreetLamp_D");
+            Place(props.WaitingChair(m.VinylDark), exterior, new Vector3(-7.4f, 0f, -0.75f), 180f, "CafeChair_A");
+            Place(props.WaitingChair(m.VinylDark), exterior, new Vector3(-8.2f, 0f, -0.75f), 180f, "CafeChair_B");
+            Place(props.Plant(), exterior, new Vector3(-6.6f, 0f, -0.7f), 40f, "Planter_A");
+            Place(props.Plant(), exterior, new Vector3(4.9f, 0f, -0.7f), 120f, "Planter_B");
+            Place(props.TrashBin(), exterior, new Vector3(9.9f, 0f, -3.6f), 0f, "StreetBin_B");
+            Place(props.CardboardBox(), exterior, new Vector3(6.6f, 0f, -0.75f), 15f, "Laundry_Box");
+
             Place(props.StreetLamp(), exterior, new Vector3(-5.2f, 0f, -3.75f), 0f, "StreetLamp_A");
             Place(props.StreetLamp(), exterior, new Vector3(6.8f, 0f, -3.75f), 0f, "StreetLamp_B");
             Place(props.TrashBin(), exterior, new Vector3(-4.6f, 0f, -3.6f), 0f, "StreetBin");
@@ -373,6 +388,21 @@ namespace BarberSimulator.EditorTools
             var passersby = Group(exterior, "Passersby").gameObject.AddComponent<StreetPasserby>();
             passersby.Configure(walkers.ToArray(), -14f, 14f);
             Motions.Add(passersby);
+        }
+
+        /// <summary>Ground-floor shop front on a neighbouring building: windows with a dark interior, a door and a fascia.</summary>
+        private static void BuildStorefront(Transform exterior, string name, float centerX, Material accent)
+        {
+            var group = Group(exterior, "Storefront_" + name);
+            const float z = -0.42f;
+            Solid(group, "Fascia", new Vector3(centerX, 2.85f, z - 0.03f), new Vector3(5.2f, 0.55f, 0.08f), accent, 1f, 0.01f, false);
+            for (int i = -1; i <= 1; i += 2)
+            {
+                QuadObject(group, "Window", new Vector3(centerX + i * 1.45f, 1.45f, z - 0.01f), Quaternion.Euler(0f, 180f, 0f), new Vector2(2.0f, 1.9f), m.PlasticBlack);
+                Solid(group, "WindowFrame", new Vector3(centerX + i * 1.45f, 0.42f, z - 0.04f), new Vector3(2.15f, 0.12f, 0.1f), m.Trim, 1f, 0.01f, false);
+            }
+            QuadObject(group, "Door", new Vector3(centerX, 1.05f, z - 0.01f), Quaternion.Euler(0f, 180f, 0f), new Vector2(0.95f, 2.1f), m.WoodDark);
+            Solid(group, "Step", new Vector3(centerX, 0.03f, z - 0.25f), new Vector3(1.3f, 0.06f, 0.45f), m.Concrete, 1f, 0.01f, false);
         }
 
         // ================================================================== back room (future expansion)
@@ -879,56 +909,82 @@ namespace BarberSimulator.EditorTools
         {
             var root = new GameObject("Cinematics").transform;
 
-            // Main menu: five slow shots.
+            // Main menu: eight slow shots inside the shop. The camera glides between them (no cuts, no fades), so the
+            // order keeps neighbouring shots close; long moves arc through the waypoint above the furniture.
             var menuShots = Group(root, "MenuShots");
             var shots = new List<CameraShot>
             {
-                Shot(menuShots, "Shot_Exterior", new Vector3(-3.2f, 1.45f, -5.6f), new Vector3(-1.4f, 1.75f, 0f), new Vector3(-1.0f, 1.5f, -5.0f), new Vector3(-0.6f, 1.8f, 0f), 44f, 42f, 10f, 0.4f),
-                Shot(menuShots, "Shot_ChairGlide", new Vector3(-0.9f, 1.05f, 3.7f), new Vector3(-2.7f, 0.95f, 5.35f), new Vector3(-1.05f, 1.15f, 6.5f), new Vector3(-2.7f, 1.0f, 5.1f), 48f, 46f, 9f, 0.35f),
-                Shot(menuShots, "Shot_Tools", new Vector3(-3.05f, 1.32f, 4.55f), new Vector3(-3.72f, 0.88f, 5.15f), new Vector3(-3.05f, 1.26f, 5.85f), new Vector3(-3.72f, 0.88f, 5.25f), 36f, 34f, 8f, 0.3f),
-                Shot(menuShots, "Shot_Mirror", new Vector3(-1.3f, 1.62f, 4.2f), new Vector3(-4f, 1.5f, 5.35f), new Vector3(-1.45f, 1.64f, 4.6f), new Vector3(-4f, 1.52f, 5.2f), 44f, 42f, 8f, 0.3f),
-                Shot(menuShots, "Shot_Wide", new Vector3(3.3f, 2.45f, 8.4f), new Vector3(-1.2f, 1.0f, 1.8f), new Vector3(2.6f, 2.3f, 7.7f), new Vector3(-1.8f, 1.0f, 2.6f), 54f, 52f, 10f, 0.25f)
+                // 01 past the barber chairs
+                Shot(menuShots, "MenuCam_01_Chairs", new Vector3(-0.9f, 1.15f, 3.7f), new Vector3(-2.7f, 0.95f, 5.35f), new Vector3(-1.05f, 1.2f, 6.3f), new Vector3(-2.7f, 1.0f, 5.1f), 46f, 44f, 10f, 0.3f),
+                // 02 the barber at work (employee cutting a customer's hair)
+                Shot(menuShots, "MenuCam_02_Barber", new Vector3(-0.55f, 1.55f, 6.95f), new Vector3(-2.3f, 1.45f, 5.6f), new Vector3(-0.85f, 1.5f, 7.35f), new Vector3(-2.4f, 1.4f, 5.5f), 42f, 40f, 10f, 0.3f),
+                // 03 the customer in the chair, seen from the mirror side
+                Shot(menuShots, "MenuCam_03_Customer", new Vector3(-3.3f, 1.45f, 4.5f), new Vector3(-2.5f, 1.28f, 5.2f), new Vector3(-3.3f, 1.47f, 5.9f), new Vector3(-2.5f, 1.3f, 5.2f), 40f, 38f, 9f, 0.25f),
+                // 04 clippers and combs on the workstation
+                Shot(menuShots, "MenuCam_04_Tools", new Vector3(-3.05f, 1.32f, 4.55f), new Vector3(-3.72f, 0.88f, 5.15f), new Vector3(-3.05f, 1.26f, 5.85f), new Vector3(-3.72f, 0.88f, 5.25f), 36f, 34f, 8f, 0.25f),
+                // 05 the mirror and the room reflected in it
+                Shot(menuShots, "MenuCam_05_Mirror", new Vector3(-1.3f, 1.62f, 4.2f), new Vector3(-4f, 1.5f, 5.35f), new Vector3(-1.45f, 1.64f, 4.6f), new Vector3(-4f, 1.52f, 5.2f), 44f, 42f, 8f, 0.25f),
+                // 06 the front door: now and then a customer walks in from the street
+                Shot(menuShots, "MenuCam_06_Door", new Vector3(-1.6f, 1.55f, 3.6f), new Vector3(0.5f, 1.2f, 0f), new Vector3(-1.2f, 1.5f, 3.2f), new Vector3(0.6f, 1.25f, 0f), 46f, 44f, 11f, 0.3f),
+                // 07 the cash register on the counter
+                Shot(menuShots, "MenuCam_07_Register", new Vector3(1.75f, 1.38f, 3.45f), new Vector3(2.9f, 1.0f, 2.35f), new Vector3(2.15f, 1.32f, 3.55f), new Vector3(2.85f, 1.0f, 2.3f), 38f, 36f, 8f, 0.25f),
+                // 08 wide establishing view from the back corner
+                Shot(menuShots, "MenuCam_08_Wide", new Vector3(3.3f, 2.4f, 8.4f), new Vector3(-1.2f, 1.0f, 1.8f), new Vector3(2.6f, 2.3f, 7.7f), new Vector3(-1.8f, 1.0f, 2.6f), 54f, 52f, 11f, 0.2f)
             };
-            refs.MenuDirector = root.gameObject.AddComponent<MenuCameraDirector>();
-            refs.MenuDirector.SetShots(shots);
+            var waypoint = Marker(menuShots, "BlendWaypoint", new Vector3(0f, 1.95f, 4.6f), new Vector3(0f, 1.95f, 6f));
+            refs.MenuCamera = root.gameObject.AddComponent<MainMenuCameraController>();
+            refs.MenuCamera.Configure(shots, waypoint);
 
             // Intro.
             var intro = Group(root, "Intro");
-            var approachStart = Marker(intro, "ApproachStart", new Vector3(-0.6f, 1.55f, -5.4f), new Vector3(0.3f, 1.5f, 0f));
-            var approach = Marker(intro, "ApproachTarget", new Vector3(0.45f, 1.6f, -2.4f), new Vector3(0.5f, 1.35f, 0f));
-            var street = Shot(intro, "Shot_Street", new Vector3(-0.55f, 1.62f, -3.4f), new Vector3(0.95f, 1.55f, -1.35f), new Vector3(-0.35f, 1.62f, -3.05f), new Vector3(0.9f, 1.55f, -1.35f), 40f, 38f, 12f, 0.45f);
-            var doorShot = Shot(intro, "Shot_Door", new Vector3(-1.15f, 1.45f, -1.75f), new Vector3(0.5f, 1.25f, 0f), new Vector3(-0.95f, 1.5f, -1.45f), new Vector3(0.55f, 1.2f, 0f), 46f, 44f, 6f, 0.35f);
-            var enter = Shot(intro, "Shot_Enter", new Vector3(0.5f, 1.62f, -1.3f), new Vector3(0.45f, 1.5f, 3f), new Vector3(0.6f, 1.62f, 1.05f), new Vector3(-0.6f, 1.45f, 5f), 55f, 58f, 3.8f, 0.3f);
-            var reveal = Shot(intro, "Shot_Reveal", new Vector3(0.6f, 1.62f, 1.05f), new Vector3(-2.8f, 1.2f, 5f), new Vector3(0.7f, 1.62f, 1.3f), new Vector3(1.5f, 1.2f, 8f), 58f, 62f, 9f, 0.25f);
+            var approachStart = Marker(intro, "ApproachStart", new Vector3(-0.9f, 1.6f, -6.2f), new Vector3(0.4f, 1.7f, 0f));
+            var approach = Marker(intro, "ApproachTarget", new Vector3(0.3f, 1.62f, -2.6f), new Vector3(0.5f, 1.45f, 0f));
+            var doorShot = Shot(intro, "Shot_Door", new Vector3(0.45f, 1.62f, -1.6f), new Vector3(0.5f, 1.35f, 0f), new Vector3(0.48f, 1.62f, -1.2f), new Vector3(0.5f, 1.4f, 1f), 50f, 50f, 2.2f, 0.3f);
+            var enter = Shot(intro, "Shot_Enter", new Vector3(0.48f, 1.62f, -1.2f), new Vector3(0.5f, 1.45f, 2f), new Vector3(0.55f, 1.62f, 1.1f), new Vector3(1.3f, 1.55f, 3.3f), 50f, 50f, 3.2f, 0.3f);
+            var talk = Marker(intro, "Talk_Pose", new Vector3(0.55f, 1.62f, 1.45f), new Vector3(1.35f, 1.62f, 3.3f));
+            var farewell = Marker(intro, "Farewell_Pose", new Vector3(-0.35f, 1.62f, 2.6f), new Vector3(0.9f, 1.3f, 0.7f));
+            var lookBeats = new List<Transform>
+            {
+                Marker(intro, "Look_OldChair", new Vector3(0.15f, 1.6f, 2.45f), new Vector3(-2.5f, 0.9f, 5.2f)),
+                Marker(intro, "Look_DirtyMirror", new Vector3(0.1f, 1.62f, 2.5f), new Vector3(-3.95f, 1.55f, 5.3f)),
+                Marker(intro, "Look_EmptyShelves", new Vector3(0.25f, 1.6f, 2.45f), new Vector3(3.76f, 1.2f, 4.9f)),
+                Marker(intro, "Look_OldFurniture", new Vector3(0.3f, 1.62f, 2.35f), new Vector3(-1.0f, 1.25f, 9.0f))
+            };
+            var spawn = refs.Spawn;
+            var end = new GameObject("End_PlayerHead").transform;
+            end.SetParent(intro, false);
+            end.position = spawn.position + Vector3.up * 1.62f;
+            end.rotation = Quaternion.Euler(4f, spawn.eulerAngles.y, 0f);
 
-            var ownerOutside = Marker(intro, "Owner_Outside", new Vector3(0.95f, 0f, -1.35f), new Vector3(-0.5f, 0f, -3.4f));
-            var ownerDoor = Marker(intro, "Owner_Door", new Vector3(0.55f, 0f, -0.55f), new Vector3(0.55f, 0f, 1f));
-            var ownerInside = Marker(intro, "Owner_Inside", new Vector3(1.35f, 0f, 3.3f), new Vector3(0.6f, 0f, 1f));
-            var ownerPass = Marker(intro, "Owner_Pass", new Vector3(1.3f, 0f, 1.0f), new Vector3(0.6f, 0f, -0.5f));
+            var ownerInside = Marker(intro, "Owner_Inside", new Vector3(1.35f, 0f, 3.3f), new Vector3(0.55f, 0f, 1.45f));
+            var ownerTurn = Marker(intro, "Owner_Turn", new Vector3(1.0f, 0f, 1.05f), new Vector3(-0.35f, 0f, 2.6f));
+            var ownerDoor = Marker(intro, "Owner_Door", new Vector3(0.55f, 0f, -0.55f), new Vector3(0.55f, 0f, -2f));
             var ownerExit = Marker(intro, "Owner_Exit", new Vector3(5.2f, 0f, -2.3f), new Vector3(8f, 0f, -2.3f));
 
+            // Walter, the previous owner: in his sixties, grey side parting, moustache, glasses, a worn brown suit jacket.
             var ownerAppearance = new CharacterAppearanceData
             {
-                skinTone = new Color(0.86f, 0.68f, 0.55f),
+                skinTone = new Color(0.82f, 0.64f, 0.52f),
                 hairStyle = HairStyle.SidePart,
-                hairColor = new Color(0.62f, 0.6f, 0.58f),
+                hairColor = new Color(0.66f, 0.64f, 0.61f),
+                hairLengthScale = 0.85f,
                 facialHair = FacialHairStyle.Moustache,
-                topStyle = 1,
-                topColor = new Color(0.36f, 0.27f, 0.2f),
-                pantsColor = new Color(0.2f, 0.19f, 0.18f),
-                shoeColor = new Color(0.22f, 0.13f, 0.08f),
+                topStyle = (int)TopStyle.Jacket,
+                topColor = new Color(0.33f, 0.25f, 0.19f),
+                pantsColor = new Color(0.21f, 0.2f, 0.19f),
+                shoeColor = new Color(0.2f, 0.12f, 0.08f),
                 accessory = CharacterAccessory.Glasses,
-                heightScale = 0.98f,
-                buildScale = 1.05f
+                heightScale = 0.97f,
+                buildScale = 1.04f
             };
             refs.Owner = characters.Create("PreviousOwner", ownerAppearance, withMotor: true);
             refs.Owner.transform.SetParent(root, false);
-            refs.Owner.transform.position = ownerOutside.position;
-            refs.Owner.transform.rotation = ownerOutside.rotation;
+            refs.Owner.transform.SetPositionAndRotation(ownerInside.position, ownerInside.rotation);
 
             refs.Intro = intro.gameObject.AddComponent<IntroSequence>();
-            refs.Intro.Configure(approachStart, approach, street, doorShot, enter, reveal, refs.Owner.GetComponent<NpcMotor>(), refs.Owner.GetComponent<ProceduralCharacterAnimator>(),
-                ownerOutside, ownerDoor, ownerInside, ownerPass, ownerExit, refs.FrontDoor.GetComponent<SwingDoor>());
+            refs.Intro.Configure(approachStart, approach, doorShot, enter, talk, farewell, lookBeats, end,
+                refs.Owner.GetComponent<NpcMotor>(), refs.Owner.GetComponent<ProceduralCharacterAnimator>(),
+                ownerInside, ownerTurn, ownerDoor, ownerExit, refs.FrontDoor.GetComponent<SwingDoor>());
         }
 
         // ================================================================== menu-only life
@@ -999,6 +1055,101 @@ namespace BarberSimulator.EditorTools
                 lap.position = refs.WaitingSeat.position + refs.WaitingSeat.forward * 0.45f + Vector3.up * 0.1f;
                 waiting.AddComponent<AmbientNpc>().Configure(waiting.GetComponent<ProceduralCharacterAnimator>(), CharacterPose.Sit, lap, talks: false, refs.WaitingSeat);
             }
+
+            // A passer-by who walks in through the front door, waits at the counter and leaves again (MenuCam_06).
+            var walkerLook = new CharacterAppearanceData
+            {
+                skinTone = new Color(0.78f, 0.58f, 0.43f), hairStyle = HairStyle.Short, hairColor = new Color(0.2f, 0.13f, 0.08f),
+                facialHair = FacialHairStyle.ShortBeard, topStyle = (int)TopStyle.Jacket, topColor = new Color(0.24f, 0.31f, 0.22f),
+                pantsColor = new Color(0.24f, 0.28f, 0.38f), shoeColor = new Color(0.1f, 0.08f, 0.07f), heightScale = 1.01f, buildScale = 1f
+            };
+            var walker = characters.Create("Ambient_Walker", walkerLook, withMotor: true);
+            walker.transform.SetParent(root.transform, false);
+            var walkerRoot = Group(root.transform, "WalkerRoute");
+            var route = new List<Transform>
+            {
+                Marker(walkerRoot, "Walker_Street", new Vector3(-4.6f, 0f, -2.4f), new Vector3(0.5f, 0f, -2.4f)),
+                Marker(walkerRoot, "Walker_Outside", new Vector3(0.5f, 0f, -1.05f), new Vector3(0.5f, 0f, 1f)),
+                Marker(walkerRoot, "Walker_Inside", new Vector3(0.6f, 0f, 0.95f), new Vector3(1.6f, 0f, 2.6f)),
+                Marker(walkerRoot, "Walker_Counter", new Vector3(1.75f, 0f, 2.55f), new Vector3(2.9f, 0f, 2.35f))
+            };
+            var counterLook = Marker(walkerRoot, "Walker_Look", new Vector3(2.9f, 1.15f, 2.35f), new Vector3(3.5f, 1.15f, 2.35f));
+            walker.AddComponent<AmbientWalker>().Configure(walker.GetComponent<NpcMotor>(), walker.GetComponent<ProceduralCharacterAnimator>(),
+                refs.FrontDoor.GetComponent<SwingDoor>(), route, counterLook);
+            walker.transform.SetPositionAndRotation(route[0].position, route[0].rotation);
+        }
+
+        /// <summary>
+        /// Menu-only look, kept outside the MenuOnly group so it can fade out on its own: a soft depth of field
+        /// (own volume + profile asset) and dust motes drifting through the window light.
+        /// </summary>
+        private static void BuildMenuAtmosphere(SceneRefs refs)
+        {
+            var root = new GameObject("MenuAtmosphere");
+
+            string path = GeneratorPaths.Settings + "/MenuDepthOfField.asset";
+            var profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(path);
+            if (profile != null)
+            {
+                foreach (var sub in AssetDatabase.LoadAllAssetRepresentationsAtPath(path))
+                    if (sub is VolumeComponent) Object.DestroyImmediate(sub, true);
+                profile.components.Clear();
+            }
+            else
+            {
+                profile = ScriptableObject.CreateInstance<VolumeProfile>();
+                AssetUtility.EnsureFolder(GeneratorPaths.Settings);
+                AssetDatabase.CreateAsset(profile, path);
+            }
+            var dof = profile.Add<DepthOfField>(true);
+            dof.mode.Override(DepthOfFieldMode.Gaussian);
+            dof.gaussianStart.Override(3.2f);
+            dof.gaussianEnd.Override(11f);
+            dof.gaussianMaxRadius.Override(0.9f);
+            dof.highQualitySampling.Override(false);
+            foreach (var component in profile.components)
+            {
+                component.hideFlags = HideFlags.HideInInspector | HideFlags.HideInHierarchy;
+                AssetDatabase.AddObjectToAsset(component, profile);
+            }
+            EditorUtility.SetDirty(profile);
+
+            var volumeGo = new GameObject("MenuDepthOfField");
+            volumeGo.transform.SetParent(root.transform, false);
+            var volume = volumeGo.AddComponent<Volume>();
+            volume.isGlobal = true;
+            volume.priority = 10f;
+            volume.weight = 0f;
+            volume.sharedProfile = profile;
+
+            var dustGo = new GameObject("Dust");
+            dustGo.transform.SetParent(root.transform, false);
+            dustGo.transform.position = new Vector3(0f, 1.55f, 4.4f);
+            var dust = dustGo.AddComponent<ParticleSystem>();
+            dust.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var main = dust.main;
+            main.playOnAwake = false;
+            main.loop = true;
+            main.maxParticles = 140;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(12f, 18f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.005f, 0.03f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.005f, 0.012f);
+            main.startColor = new Color(1f, 0.93f, 0.8f, 0.35f);
+            main.gravityModifier = new ParticleSystem.MinMaxCurve(-0.0015f);
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.prewarm = true;
+            var emission = dust.emission;
+            emission.rateOverTime = 7f;
+            var shape = dust.shape;
+            shape.shapeType = ParticleSystemShapeType.Box;
+            shape.scale = new Vector3(7f, 2.6f, 8.5f);
+            var renderer = dustGo.GetComponent<ParticleSystemRenderer>();
+            renderer.renderMode = ParticleSystemRenderMode.Billboard;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.sharedMaterial = m.HairParticles;
+
+            refs.MenuAtmosphere = root.AddComponent<MenuAtmosphere>();
+            refs.MenuAtmosphere.Configure(volume, dust);
         }
 
         // ================================================================== bootstrap
@@ -1012,7 +1163,8 @@ namespace BarberSimulator.EditorTools
             {
                 MainCamera = refs.Camera,
                 CinematicCamera = refs.CinematicCamera,
-                MenuDirector = refs.MenuDirector,
+                MenuCamera = refs.MenuCamera,
+                MenuAtmosphere = refs.MenuAtmosphere,
                 Intro = refs.Intro,
                 Player = refs.Player,
                 Hands = refs.Hands,
@@ -1031,7 +1183,7 @@ namespace BarberSimulator.EditorTools
             bootstrap.Configure(content.Config, scene);
 
             // Start the camera on the first menu shot so the editor view matches what players see.
-            var first = refs.MenuDirector.Shots[0];
+            var first = refs.MenuCamera.Shots[0];
             refs.Camera.transform.SetPositionAndRotation(first.StartPoint.position, first.StartPoint.rotation);
             refs.Camera.fieldOfView = first.StartFov;
         }

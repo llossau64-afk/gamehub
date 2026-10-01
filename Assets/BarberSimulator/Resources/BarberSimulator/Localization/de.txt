@@ -53,16 +53,32 @@ hud.objective_complete = Aufgabe erledigt
 hud.click_to_look = Klicken, um dich umzusehen
 
 intro.skip = Überspringen
+intro.day1_sub = Neues Ziel: Bring den Laden wieder in Form
+intro.day1_banner = Tag 1
+intro.hold_skip_touch = Zum Überspringen halten
+intro.hold_skip = Esc halten zum Überspringen
 intro.day = Tag {0}
 
-speaker.owner = Vorbesitzer
+speaker.owner = Walter
 speaker.player = Du
 
-dialogue.intro.1 = Du bist also derjenige, der den Laden kauft?
-dialogue.intro.2 = Das ist der Plan.
-dialogue.intro.3 = Dann solltest du dir wohl ansehen, worauf du dich einlässt.
-dialogue.intro.4 = Viel ist es nicht.
-dialogue.intro.5 = Aber es könnte etwas werden.
+dialogue.intro.1 = Du bist also derjenige, der sich für den Laden interessiert?
+dialogue.intro.2 = Ja. Auf den Fotos sah er etwas besser aus.
+dialogue.intro.3 = Fotos können großzügig sein.
+dialogue.intro.4 = Wie lange gibt es den Laden schon?
+dialogue.intro.5 = Lange genug.
+dialogue.intro.6 = Er war nicht immer so.
+dialogue.intro.7 = Und du verkaufst ihn wirklich?
+dialogue.intro.8 = Ich bin damit fertig.
+dialogue.intro.9 = Aber vielleicht machst du ja etwas daraus.
+dialogue.intro.10 = Er gehört jetzt dir.
+dialogue.intro.11 = Das war's?
+dialogue.intro.12 = Das war's.
+dialogue.intro.13 = Ein Rat noch...
+dialogue.intro.14 = Behandle deine Kunden gut.
+dialogue.intro.15 = Sie entscheiden, ob dieser Laden lebt oder stirbt.
+dialogue.intro.16 = Na gut...
+dialogue.intro.17 = Dann bringen wir den Laden mal auf Vordermann.
 
 objective.inspect = Sieh dich in deinem neuen Laden um
 objective.inspect.hint = Laufe mit W A S D, schau dich mit der Maus um. Besuche den Wartebereich, den Friseurstuhl und den hinteren Teil des Ladens.

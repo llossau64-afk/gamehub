@@ -87,6 +87,7 @@ namespace BarberSimulator.Save
             prog.day = Mathf.Max(1, prog.day);
             prog.dayPhase = Mathf.Clamp(prog.dayPhase, 0, 3);
             prog.experience = Mathf.Max(0, prog.experience);
+            prog.perfectFades = Mathf.Max(0, prog.perfectFades);
 
             var s = data.settings;
             s.renderScale = Mathf.Clamp(s.renderScale, 0.5f, 1f);
@@ -95,6 +96,15 @@ namespace BarberSimulator.Save
             s.sfxVolume = Mathf.Clamp01(s.sfxVolume);
             s.ambienceVolume = Mathf.Clamp01(s.ambienceVolume);
             s.uiVolume = Mathf.Clamp01(s.uiVolume);
+            s.dialogueVolume = Mathf.Clamp01(s.dialogueVolume);
+            // Fields added after a save was written come back with their defaults; derive the ones that depend on older fields.
+            if (s.shadowQuality < 0) s.shadowQuality = s.shadows ? (int)ShadowDetail.High : (int)ShadowDetail.Off;
+            s.shadowQuality = Mathf.Clamp(s.shadowQuality, 0, 2);
+            s.shadows = s.shadowQuality > 0;
+            s.textureQuality = Mathf.Clamp(s.textureQuality, 0, 1);
+            s.fpsLimit = Mathf.Clamp(s.fpsLimit, 0, 2);
+            s.subtitleSize = Mathf.Clamp(s.subtitleSize, 0, 1);
+            s.quality = (QualityTier)Mathf.Clamp((int)s.quality, 0, 3);
             s.mouseSensitivity = Mathf.Clamp(s.mouseSensitivity, 0.1f, 3f);
             s.touchSensitivity = Mathf.Clamp(s.touchSensitivity, 0.1f, 3f);
             s.joystickOpacity = Mathf.Clamp(s.joystickOpacity, 0.2f, 1f);

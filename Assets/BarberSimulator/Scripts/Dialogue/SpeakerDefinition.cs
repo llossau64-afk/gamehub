@@ -9,7 +9,7 @@ namespace BarberSimulator.Dialogue
         [Tooltip("Localization key for the display name.")]
         [SerializeField] private string nameKey;
         [SerializeField] private Color nameColor = new Color(0.86f, 0.71f, 0.45f);
-        [Tooltip("Optional portrait shown next to the line (architecture ready, unused by the intro).")]
+        [Tooltip("Portrait shown next to the subtitle while this speaker talks.")]
         [SerializeField] private Sprite portrait;
         [Tooltip("True for the player character: lines are rendered without a world speaker.")]
         [SerializeField] private bool isPlayer;
@@ -27,5 +27,7 @@ namespace BarberSimulator.Dialogue
             nameColor = color;
             isPlayer = player;
         }
+
+        public void SetPortrait(Sprite face) => portrait = face;
     }
 }

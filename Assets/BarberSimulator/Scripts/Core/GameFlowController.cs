@@ -126,9 +126,12 @@ namespace BarberSimulator.Core
 
             RefreshMenuTexts();
             _ctx.UI.Hud.Hide(true);
+            // The menu is visible from the very first frame: no fade from black, the camera already shows the shop.
+            _ctx.UI.GlobalFade.SetAlpha(0f);
+            _ctx.UI.SceneFade.SetAlpha(0f);
             _ctx.UI.MainMenu.Show();
-            _scene.MenuDirector.Play(fadeInFromBlack: true);
-            StartCoroutine(_ctx.UI.GlobalFade.FadeTo(0f, 1.2f));
+            _scene.MenuCamera.Play();
+            if (_scene.MenuAtmosphere != null) _scene.MenuAtmosphere.SetMenuActive(true);
         }
 
         private void RefreshMenuTexts()
@@ -165,13 +168,22 @@ namespace BarberSimulator.Core
             State = GameState.Transitioning;
             _ctx.UI.MainMenu.Hide();
             _ctx.Audio.PlayUI(_ctx.Audio.Library.uiWhoosh, 0.7f);
-            yield return _ctx.UI.GlobalFade.FadeTo(1f, 0.6f);
-            _scene.MenuDirector.Stop();
+            if (_scene.MenuAtmosphere != null) _scene.MenuAtmosphere.SetMenuActive(false);
+            yield return new WaitForSecondsRealtime(0.45f);
+
+            // Glide from the menu shot straight into the player's eyes where the last session ended.
+            _scene.MenuCamera.Stop();
+            var player = _scene.Player;
+            var data = _ctx.Save.Data.player;
+            if (data.hasPosition) player.Teleport(data.position, data.yaw, data.pitch);
+            else
+            {
+                var spawn = _scene.Shop.GameplaySpawn;
+                player.Teleport(spawn.position, spawn.eulerAngles.y, 4f);
+            }
+            yield return _scene.CinematicCamera.BlendToAttach(player.Head, _ctx.Config.gameplayFieldOfView, 1.6f);
             SetMenuDressing(false);
-            _ctx.UI.SceneFade.SetAlpha(0f);
-            EnterGameplay(restorePosition: true);
-            yield return new WaitForSeconds(0.2f);
-            yield return _ctx.UI.GlobalFade.FadeTo(0f, 0.9f);
+            EnterGameplay(restorePosition: false);
         }
 
         private void OnNewGameClicked()
@@ -202,13 +214,41 @@ namespace BarberSimulator.Core
             _ctx.UI.MainMenu.Hide();
             yield return _ctx.UI.GlobalFade.FadeTo(1f, 0.5f);
             PendingStart.IntroRequested = true;
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            yield return LoadSceneAsync();
+        }
+
+        /// <summary>
+        /// Reloads the shop scene in the background while the loading screen (logo, barber pole, tips) is shown, so
+        /// the screen never sits frozen and black.
+        /// </summary>
+        private IEnumerator LoadSceneAsync()
+        {
+            var loading = _ctx.UI.Loading;
+            if (loading != null)
+            {
+                loading.Show();
+                loading.SetProgress(0f);
+            }
+            _ctx.UI.GlobalFade.SetAlpha(0f);
+            yield return null;
+            var operation = SceneManager.LoadSceneAsync(SceneManager.GetActiveScene().buildIndex);
+            if (operation == null) yield break;
+            while (!operation.isDone)
+            {
+                if (loading != null) loading.SetProgress(Mathf.Clamp01(operation.progress / 0.9f));
+                yield return null;
+            }
         }
 
         // ---------------------------------------------------------------- Intro
 
         /// <param name="skipApproach">True when the screen is already black (after a reload).</param>
         public void StartIntro(bool skipApproach)
+        {
+            StartCoroutine(StartIntroRoutine(skipApproach));
+        }
+
+        private IEnumerator StartIntroRoutine(bool skipApproach)
         {
             State = GameState.Intro;
             _ctx.Day.Running = false;
@@ -218,9 +258,17 @@ namespace BarberSimulator.Core
             _scene.Player.SetControlEnabled(false);
             _scene.Interactor.SetActive(false);
             _ctx.UI.Hud.Hide(true);
-            _ctx.UI.MainMenu.Hide();
             _ctx.UI.Credits.Hide(true);
-            _scene.MenuDirector.Stop();
+            // Fade the menu away first (~0.7 s), never teleport straight into the cinematic.
+            bool menuWasVisible = _ctx.UI.MainMenu.IsVisible;
+            _ctx.UI.MainMenu.Hide();
+            if (_scene.MenuAtmosphere != null) _scene.MenuAtmosphere.SetMenuActive(false);
+            if (menuWasVisible)
+            {
+                _ctx.Audio.PlayUI(_ctx.Audio.Library.uiWhoosh, 0.6f);
+                yield return new WaitForSecondsRealtime(0.7f);
+            }
+            _scene.MenuCamera.Stop();
             _scene.Intro.Play(OnIntroFinished, skipApproach);
         }
 
@@ -248,6 +296,10 @@ namespace BarberSimulator.Core
 
             EnterGameplay(restorePosition: false);
             if (screenIsBlack) yield return _ctx.UI.GlobalFade.FadeTo(0f, 0.8f);
+
+            // First gameplay moment: Day 1 and the first objective.
+            var loc = _ctx.Localization;
+            _ctx.UI.Hud.ShowBanner(loc.Get("intro.day1_banner"), loc.Get("intro.day1_sub"), complete: false);
         }
 
         // ---------------------------------------------------------------- Gameplay
@@ -301,7 +353,8 @@ namespace BarberSimulator.Core
         private IEnumerator BeginObjectivesSoon()
         {
             ClearObjectivePanel();
-            yield return new WaitForSeconds(1.2f);
+            // Let the "Day 1" banner breathe before the first objective is announced.
+            yield return new WaitForSeconds(3.2f);
             _ctx.Objectives.Begin();
             _scene.Shop.ResyncObjectiveProgress();
         }
@@ -658,9 +711,9 @@ namespace BarberSimulator.Core
             WritePlayerTransform();
             _ctx.Save.SaveNow();
             _ctx.UI.Pause.Hide();
-            yield return _ctx.UI.GlobalFade.FadeTo(1f, 0.5f);
+            yield return _ctx.UI.GlobalFade.FadeTo(1f, 0.4f);
             Time.timeScale = 1f;
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            yield return LoadSceneAsync();
         }
 
         // ---------------------------------------------------------------- Settings / credits / language

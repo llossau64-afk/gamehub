@@ -38,6 +38,7 @@ namespace BarberSimulator.Rewards
 
             ctx.UI.Summary.GoalSource = BuildGoalRows;
             ctx.UI.Achievements.Source = BuildAchievementRows;
+            ctx.Milestones.BindUpgrades(ctx.Upgrades);
         }
 
         /// <summary>Gameplay (re)started: make sure today's goals exist and redraw the badge and the list.</summary>
@@ -131,7 +132,10 @@ namespace BarberSimulator.Rewards
                 {
                     Title = _loc.Get(milestone.TitleKey),
                     Description = _loc.Get(milestone.DescriptionKey),
-                    Progress = !unlocked && milestone.Progress != null ? milestone.Progress(stats) : string.Empty,
+                    Id = milestone.Id,
+                    Progress = !unlocked && milestone.HasCounter ? milestone.Progress(stats) : string.Empty,
+                    HasProgress = milestone.HasCounter,
+                    Progress01 = unlocked ? 1f : milestone.Progress01(stats),
                     Unlocked = unlocked
                 });
             }

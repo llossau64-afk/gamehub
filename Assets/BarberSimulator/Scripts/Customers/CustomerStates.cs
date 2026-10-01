@@ -363,7 +363,7 @@ namespace BarberSimulator.Customers
                     Owner.Profile.budget, Owner.Profile.tipChance, Owner.Patience01, services.Economy.Reputation, Owner._rng,
                     services.Upgrades != null ? services.Upgrades.TipMultiplier : 1f,
                     services.Upgrades != null ? services.Upgrades.ReputationGainMultiplier : 1f,
-                    Owner.IsVip, services.Streak != null ? services.Streak.PreviewTipMultiplier(stars) : 1f);
+                    Owner.IsVip, services.Streak != null ? services.Streak.PreviewTipMultiplier(stars) : 1f, Owner.Request.RequiresFade);
                 services.Economy.ReceivePayment(payment);
 
                 var library = services.Audio != null ? services.Audio.Library : null;

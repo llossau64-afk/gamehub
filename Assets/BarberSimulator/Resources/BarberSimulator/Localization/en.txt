@@ -53,16 +53,32 @@ hud.objective_complete = Objective complete
 hud.click_to_look = Click to look around
 
 intro.skip = Skip
+intro.day1_sub = New objective: get the shop back in shape
+intro.day1_banner = Day 1
+intro.hold_skip_touch = Hold to skip
+intro.hold_skip = Hold Esc to skip
 intro.day = Day {0}
 
-speaker.owner = Previous Owner
+speaker.owner = Walter
 speaker.player = You
 
-dialogue.intro.1 = So... you're the one buying this place?
-dialogue.intro.2 = That's the plan.
-dialogue.intro.3 = Then you should probably see what you're getting into.
-dialogue.intro.4 = It isn't much.
-dialogue.intro.5 = But it could be.
+dialogue.intro.1 = So... you're the one interested in this place?
+dialogue.intro.2 = Yeah. It looked a little better in the photos.
+dialogue.intro.3 = Photos can be generous.
+dialogue.intro.4 = How long has this place been here?
+dialogue.intro.5 = Long enough.
+dialogue.intro.6 = It wasn't always like this.
+dialogue.intro.7 = And you're really selling it?
+dialogue.intro.8 = I'm done with it.
+dialogue.intro.9 = But maybe you can make something out of this place.
+dialogue.intro.10 = She's yours now.
+dialogue.intro.11 = That's it?
+dialogue.intro.12 = That's it.
+dialogue.intro.13 = One piece of advice...
+dialogue.intro.14 = Treat your customers well.
+dialogue.intro.15 = They'll decide whether this place lives or dies.
+dialogue.intro.16 = Alright...
+dialogue.intro.17 = Let's fix this place.
 
 objective.inspect = Inspect your new shop
 objective.inspect.hint = Walk with W A S D, look around with the mouse. Visit the waiting area, the barber chair and the back of the shop.

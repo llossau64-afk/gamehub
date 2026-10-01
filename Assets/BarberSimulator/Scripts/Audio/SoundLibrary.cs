@@ -24,6 +24,9 @@ namespace BarberSimulator.Audio
         public AudioClip doorUnlock;
         public AudioClip doorOpen;
         public AudioClip doorClose;
+        [Tooltip("Shop door bell (rings when the front door opens).")]
+        public AudioClip doorBell;
+        public AudioClip keysJingle;
         public AudioClip[] footsteps;
         public AudioClip trashPickup;
         public AudioClip objectiveComplete;

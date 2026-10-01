@@ -185,7 +185,7 @@ namespace BarberSimulator.Core
             ctx.Day.SendHomeRequested += () => { if (scene.CustomerSpawner != null) scene.CustomerSpawner.SendWaitingCustomersHome(); };
             if (scene.Sign != null) scene.Sign.Attach(ctx.Day);
 
-            scene.MenuDirector.Initialize(scene.CinematicCamera, ctx.UI.SceneFade);
+            scene.MenuCamera.Initialize(scene.CinematicCamera);
 
             if (scene.BarberMode != null)
                 scene.BarberMode.SetToolbox(ctx.Upgrades.BuildToolbox);

@@ -5,6 +5,7 @@ namespace BarberSimulator.Audio
         Music,
         Sfx,
         Ambience,
-        UI
+        UI,
+        Dialogue
     }
 }

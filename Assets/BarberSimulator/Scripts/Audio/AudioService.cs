@@ -19,6 +19,7 @@ namespace BarberSimulator.Audio
         private AudioSource _musicSource;
         private AudioSource _uiSource;
         private AudioSource _sfx2DSource;
+        private AudioSource _dialogueSource;
         private readonly Dictionary<string, AmbienceLayer> _ambience = new Dictionary<string, AmbienceLayer>();
         private readonly List<AudioSource> _spatialPool = new List<AudioSource>(OneShotPoolSize);
         private int _nextSpatial;
@@ -58,6 +59,7 @@ namespace BarberSimulator.Audio
             _musicSource = CreateSource("Music", loop: true);
             _uiSource = CreateSource("UI", loop: false);
             _sfx2DSource = CreateSource("SFX 2D", loop: false);
+            _dialogueSource = CreateSource("Dialogue", loop: false);
 
             for (int i = 0; i < OneShotPoolSize; i++)
             {
@@ -96,6 +98,7 @@ namespace BarberSimulator.Audio
                 case AudioCategory.Music: return master * _settings.musicVolume;
                 case AudioCategory.Ambience: return master * _settings.ambienceVolume;
                 case AudioCategory.UI: return master * _settings.uiVolume;
+                case AudioCategory.Dialogue: return master * _settings.dialogueVolume;
                 default: return master * _settings.sfxVolume;
             }
         }
@@ -129,6 +132,24 @@ namespace BarberSimulator.Audio
 
         public void PlayClick() => PlayUI(_library != null ? _library.uiClick : null, 0.8f);
         public void PlayBack() => PlayUI(_library != null ? _library.uiBack : null, 0.8f);
+
+        /// <summary>Voice lines and dialogue blips. Uses the Dialogue volume category.</summary>
+        public void PlayDialogue(AudioClip clip, float volume = 1f, float pitch = 1f)
+        {
+            if (clip == null) return;
+            _dialogueSource.pitch = pitch;
+            _dialogueSource.PlayOneShot(clip, volume * Volume(AudioCategory.Dialogue));
+        }
+
+        /// <summary>
+        /// A soft speech tick for lines that have no recorded voice: the UI hover sound, lowered and varied per line,
+        /// played on the Dialogue category so it follows the dialogue slider.
+        /// </summary>
+        public void PlayDialogueBlip(float basePitch = 0.62f)
+        {
+            if (_library == null || _library.uiHover == null) return;
+            PlayDialogue(_library.uiHover, 0.5f, basePitch * (1f + Random.Range(-0.1f, 0.1f)));
+        }
 
         public void PlaySfx(AudioClip clip, float volume = 1f, float pitchVariance = 0f)
         {
@@ -176,6 +197,12 @@ namespace BarberSimulator.Audio
 
             FadeMusic(level, fadeSeconds);
         }
+
+        /// <summary>The level (0-1, before user volumes) the music is fading towards.</summary>
+        public float MusicTarget => _musicTarget;
+
+        /// <summary>The level an ambience layer is fading towards; 0 when the layer does not exist.</summary>
+        public float AmbienceTarget(string layerId) => _ambience.TryGetValue(layerId, out var layer) ? layer.Target : 0f;
 
         public void FadeMusic(float level, float fadeSeconds)
         {

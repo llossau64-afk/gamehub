@@ -7,6 +7,9 @@ namespace BarberSimulator.Economy
     /// <summary>Owns the player's money. Later phases add prices, salaries and purchases on top of this.</summary>
     public sealed class EconomyService
     {
+        /// <summary>Score (0..1) a fade needs to count for the "Perfect Fade" achievement.</summary>
+        public const float PerfectFadeQuality = 0.95f;
+
         private readonly SaveService _save;
 
         public int Money => _save.Data.player.money;
@@ -46,6 +49,7 @@ namespace BarberSimulator.Economy
             progression.totalEarned += payment.Total;
             if (payment.Stars >= 5) progression.fiveStarCuts++;
             if (payment.IsVip) progression.vipsServed++;
+            if (payment.IsFade && payment.Stars >= 5 && payment.Quality >= PerfectFadeQuality) progression.perfectFades++;
             if (!string.IsNullOrEmpty(payment.ServiceNameKey) && !progression.cutStyleIds.Contains(payment.ServiceNameKey))
                 progression.cutStyleIds.Add(payment.ServiceNameKey);
 

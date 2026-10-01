@@ -233,6 +233,9 @@ namespace BarberSimulator.Input
 
         public void RequestSkip() => SkipPressed?.Invoke();
 
+        /// <summary>True while a skip key (Space, Enter, Esc, gamepad B) is held: cutscenes require a hold to skip.</summary>
+        public bool SkipHeld => _skip.IsPressed() || _pause.IsPressed();
+
         public void SetCursorLock(bool locked)
         {
             _wantsCursorLock = locked;

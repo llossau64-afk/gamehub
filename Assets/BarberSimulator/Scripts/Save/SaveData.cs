@@ -87,6 +87,8 @@ namespace BarberSimulator.Save
         /// <summary>Lifetime service income (prices and tips); goal rewards are not counted.</summary>
         public int totalEarned;
         public int fiveStarCuts;
+        /// <summary>Fade-style haircuts finished with a near perfect score ("Perfect Fade"). Missing in older saves, so it starts at 0.</summary>
+        public int perfectFades;
         public int vipsServed;
         public int goalsCompleted;
         /// <summary>Name keys of the hairstyles the player has finished at least once.</summary>
@@ -143,7 +145,25 @@ namespace BarberSimulator.Save
     {
         Low = 0,
         Medium = 1,
+        High = 2,
+        /// <summary>Desktop only. Uses the High render pipeline asset with a higher render scale, MSAA and shadow distance.</summary>
+        Ultra = 3
+    }
+
+    /// <summary>Shadow detail for the realtime lights. Stored as an int in <see cref="SettingsData.shadowQuality"/>.</summary>
+    public enum ShadowDetail
+    {
+        Off = 0,
+        Low = 1,
         High = 2
+    }
+
+    /// <summary>Frame rate cap choices. Stored as an int in <see cref="SettingsData.fpsLimit"/>.</summary>
+    public enum FpsLimit
+    {
+        Fps30 = 0,
+        Fps60 = 1,
+        Unlimited = 2
     }
 
     [Serializable]
@@ -154,6 +174,17 @@ namespace BarberSimulator.Save
         public float renderScale = 1f;
         public bool shadows = true;
         public bool antiAliasing = true;
+        /// <summary><see cref="ShadowDetail"/>. -1 = not chosen yet (older saves): derived from <see cref="shadows"/> when sanitised.</summary>
+        public int shadowQuality = -1;
+        /// <summary>0 = full resolution textures, 1 = half resolution.</summary>
+        public int textureQuality;
+        /// <summary>Dust motes and other purely decorative ambient motion. Read by the camera / environment systems.</summary>
+        public bool ambientEffects = true;
+        public bool postProcessing = true;
+        public bool motionBlur;
+        public bool vSync = true;
+        /// <summary><see cref="FpsLimit"/>. Only used while V-Sync is off (desktop).</summary>
+        public int fpsLimit = (int)FpsLimit.Fps60;
 
         // Audio (0..1)
         public float masterVolume = 0.85f;
@@ -161,6 +192,7 @@ namespace BarberSimulator.Save
         public float sfxVolume = 0.8f;
         public float ambienceVolume = 0.7f;
         public float uiVolume = 0.7f;
+        public float dialogueVolume = 0.85f;
 
         // Controls
         public float mouseSensitivity = 1f;
@@ -173,6 +205,12 @@ namespace BarberSimulator.Save
         public string language = "";
         public bool cameraBob = true;
         public bool tutorialHints = true;
+
+        // Accessibility
+        /// <summary>0 = normal, 1 = large subtitles.</summary>
+        public int subtitleSize;
+        /// <summary>Removes camera bob, UI slides and hover scaling.</summary>
+        public bool reduceMotion;
 
         /// <summary>True until the player (or auto-detection) picked a quality tier.</summary>
         public bool qualityAutoDetected;

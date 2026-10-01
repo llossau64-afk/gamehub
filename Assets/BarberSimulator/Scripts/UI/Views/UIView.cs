@@ -34,7 +34,11 @@ namespace BarberSimulator.UI
             Group.interactable = true;
             Group.blocksRaycasts = true;
             Restart(instant ? null : ShowRoutine());
-            if (instant) Group.alpha = 1f;
+            if (instant)
+            {
+                Group.alpha = 1f;
+                OnShownInstant();
+            }
             OnShown();
         }
 
@@ -42,6 +46,7 @@ namespace BarberSimulator.UI
         {
             if (!gameObject.activeSelf) return;
             IsVisible = false;
+            OnHiding();
             Group.interactable = false;
             Group.blocksRaycasts = false;
             if (instant)
@@ -55,6 +60,12 @@ namespace BarberSimulator.UI
         }
 
         protected virtual void OnShown() { }
+
+        /// <summary>Called instead of the show animation when the view appears without one (resets any slide offset).</summary>
+        protected virtual void OnShownInstant() { }
+
+        /// <summary>The view is about to hide (animated or not). IsVisible is already false.</summary>
+        protected virtual void OnHiding() { }
 
         protected virtual IEnumerator ShowRoutine()
         {

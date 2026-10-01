@@ -827,10 +827,115 @@ def preview(parts, path):
         bpy.ops.render.render(write_still=True)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" and "--portraits" not in sys.argv:
     args = sys.argv[1:]
     built = build_all()
     export(built, OUT)
     export(FIRST_PERSON, FP_OUT)
     if "--preview" in args:
         preview(built, args[args.index("--preview") + 1])
+
+
+# --------------------------------------------------------------------------------------------- dialogue portraits
+
+PORTRAITS = {
+    # name: (skin, hair colour, hair top thickness, side thickness, top style, top colour, facial, glasses, age lines)
+    "portrait_owner": dict(skin=(0.80, 0.62, 0.50), hair=(0.62, 0.60, 0.57), top="Top_Jacket", top_color=(0.30, 0.23, 0.17),
+                           facial="Facial_Moustache", glasses=True, hair_top=0.006, hair_side=0.004, receding=0.32),
+    "portrait_player": dict(skin=(0.78, 0.56, 0.42), hair=(0.10, 0.07, 0.05), top="Top_TShirt", top_color=(0.16, 0.22, 0.32),
+                            facial="", glasses=False, hair_top=0.016, hair_side=0.008, receding=0.0),
+}
+
+
+def portrait_hair(head, top, side, receding):
+    """Simple sculpted hair cap for the portraits (in game the haircut system grows real hair)."""
+    def rel(co):
+        d = co - SKULL_CENTER * 1.0
+        return d.x / (SKULL_RADII.x * HEAD_SCALE), d.y / (SKULL_RADII.y * HEAD_SCALE), (co.z - (HEAD_Z + (SKULL_CENTER.z - HEAD_Z) * HEAD_SCALE)) / (SKULL_RADII.z * HEAD_SCALE)
+
+    def coverage(co):
+        u, w, h = rel(co)
+        # Hairline: forehead (front) is higher, sides come down to the ears, back to the nape.
+        line = -0.05 + 0.45 * max(0.0, -w) + receding * max(0.0, -w) ** 2
+        if w > 0:
+            line = -0.55 * w - 0.05
+        f = max(0.0, min(1.0, (h - line) / 0.12))
+        return f * f * (3 - 2 * f)
+
+    def offset(co):
+        f = coverage(co)
+        u, w, h = rel(co)
+        thick = side + (top - side) * max(0.0, h)
+        return thick * f - 0.003 * (1 - f)
+
+    return shell_from(head, "PortraitHair", lambda c, b: coverage(c) > 0.0, offset)
+
+
+def render_portraits(out_dir):
+    for name, spec in PORTRAITS.items():
+        parts = build_all()
+        head = bpy.data.objects["HeadSkin"]
+        hair = portrait_hair(head, spec["hair_top"], spec["hair_side"], spec["receding"])
+        show = {"BodySkin", "HeadSkin", "EyeWhites", "Irises", "Lips", "Brows", spec["top"], "Pants", "Belt", "Buckle", spec["facial"]}
+        if spec["top"] == "Top_Jacket":
+            show.add("Top_JacketShirt")
+        if spec["glasses"]:
+            show.add("Glasses")
+        colors = {"BodySkin": spec["skin"], "HeadSkin": spec["skin"], "EyeWhites": (0.9, 0.88, 0.84), "Irises": (0.16, 0.11, 0.07),
+                  "Lips": tuple(c * 0.82 for c in spec["skin"]), "Brows": spec["hair"], spec["top"]: spec["top_color"],
+                  "Top_JacketShirt": (0.85, 0.82, 0.74), spec["facial"]: spec["hair"], "Glasses": (0.12, 0.1, 0.09)}
+        for pname, obj in parts.items():
+            obj.hide_render = pname not in show
+            apply_color(obj, colors.get(pname, (0.4, 0.4, 0.4)), 0.45 if "Skin" in pname else 0.7)
+        apply_color(hair, spec["hair"], 0.55)
+        # Hair reads better with a little sheen and a slightly fuzzy edge: bump via noise texture.
+        scene = bpy.context.scene
+        scene.render.engine = "CYCLES"
+        scene.cycles.samples = 64
+        scene.cycles.device = "CPU"
+        scene.render.resolution_x = 256
+        scene.render.resolution_y = 256
+        scene.render.film_transparent = True
+        world = bpy.data.worlds.new("W")
+        world.use_nodes = True
+        world.node_tree.nodes["Background"].inputs[0].default_value = (0.42, 0.38, 0.34, 1)
+        world.node_tree.nodes["Background"].inputs[1].default_value = 0.35
+        scene.view_settings.view_transform = "Standard"
+        scene.view_settings.look = "None"
+        scene.view_settings.exposure = 0.0
+        scene.world = world
+        key = link(bpy.data.objects.new("Key", bpy.data.lights.new("Key", "AREA")))
+        key.data.energy = 26
+        key.data.size = 1.2
+        key.data.color = (1.0, 0.9, 0.78)
+        key.location = (-0.9, -1.1, 2.3)
+        key.rotation_euler = Vector((0, 0, 1.75)).to_track_quat("-Z", "Y").to_euler() if False else (math.radians(55), 0, math.radians(-38))
+        rim = link(bpy.data.objects.new("Rim", bpy.data.lights.new("Rim", "AREA")))
+        rim.data.energy = 18
+        rim.data.size = 0.8
+        rim.data.color = (0.75, 0.82, 1.0)
+        rim.location = (0.8, 0.9, 2.1)
+        rim.rotation_euler = (math.radians(-60), 0, math.radians(140))
+        cam = link(bpy.data.objects.new("Cam", bpy.data.cameras.new("Cam")))
+        cam.data.lens = 85
+        cam.location = (-0.22, -0.82, 1.86)
+        target = Vector((0, 0, 1.80))
+        cam.rotation_euler = (target - Vector(cam.location)).to_track_quat("-Z", "Y").to_euler()
+        scene.camera = cam
+        scene.render.filepath = os.path.join(out_dir, name + ".png")
+        bpy.ops.render.render(write_still=True)
+        print("portrait", scene.render.filepath)
+
+
+def apply_color(obj, color, roughness):
+    mat = bpy.data.materials.new(obj.name + "_mat")
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes["Principled BSDF"]
+    bsdf.inputs["Base Color"].default_value = (*color, 1)
+    bsdf.inputs["Roughness"].default_value = roughness
+    obj.data.materials.clear()
+    obj.data.materials.append(mat)
+
+
+if __name__ == "__main__" and "--portraits" in sys.argv:
+    render_portraits(os.path.join(ROOT, "Assets", "BarberSimulator", "UI", "Sprites"))

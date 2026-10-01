@@ -30,28 +30,48 @@ namespace BarberSimulator.Settings
             {
                 Data.quality = DetectQualityTier();
                 Data.renderScale = Application.isMobilePlatform ? 0.85f : 1f;
+                // Weak devices start without the optional post effects and with half resolution textures.
+                if (Data.quality == QualityTier.Low)
+                {
+                    Data.postProcessing = false;
+                    Data.textureQuality = 1;
+                }
                 Data.qualityAutoDetected = true;
                 _save.RequestSave();
             }
 
+            LiveSettings.Publish(Data);
             ApplyGraphics();
         }
 
         public void ApplyGraphics()
         {
-            _quality.Apply(Data.quality, Data.renderScale, Data.shadows, Data.antiAliasing);
+            _quality.Apply(Data);
         }
 
         public void SetQuality(QualityTier tier) { Data.quality = tier; ApplyGraphics(); Commit(); }
         public void SetRenderScale(float value) { Data.renderScale = Mathf.Clamp(value, 0.5f, 1f); ApplyGraphics(); Commit(); }
-        public void SetShadows(bool value) { Data.shadows = value; ApplyGraphics(); Commit(); }
+        public void SetShadowQuality(ShadowDetail value)
+        {
+            Data.shadowQuality = (int)value;
+            Data.shadows = value != ShadowDetail.Off;
+            ApplyGraphics();
+            Commit();
+        }
+        public void SetTextureQuality(int value) { Data.textureQuality = Mathf.Clamp(value, 0, 1); ApplyGraphics(); Commit(); }
         public void SetAntiAliasing(bool value) { Data.antiAliasing = value; ApplyGraphics(); Commit(); }
+        public void SetAmbientEffects(bool value) { Data.ambientEffects = value; Commit(); }
+        public void SetPostProcessing(bool value) { Data.postProcessing = value; ApplyGraphics(); Commit(); }
+        public void SetMotionBlur(bool value) { Data.motionBlur = value; ApplyGraphics(); Commit(); }
+        public void SetVSync(bool value) { Data.vSync = value; ApplyGraphics(); Commit(); }
+        public void SetFpsLimit(FpsLimit value) { Data.fpsLimit = (int)value; ApplyGraphics(); Commit(); }
 
         public void SetMasterVolume(float v) { Data.masterVolume = Mathf.Clamp01(v); Commit(); }
         public void SetMusicVolume(float v) { Data.musicVolume = Mathf.Clamp01(v); Commit(); }
         public void SetSfxVolume(float v) { Data.sfxVolume = Mathf.Clamp01(v); Commit(); }
         public void SetAmbienceVolume(float v) { Data.ambienceVolume = Mathf.Clamp01(v); Commit(); }
         public void SetUiVolume(float v) { Data.uiVolume = Mathf.Clamp01(v); Commit(); }
+        public void SetDialogueVolume(float v) { Data.dialogueVolume = Mathf.Clamp01(v); Commit(); }
 
         public void SetMouseSensitivity(float v) { Data.mouseSensitivity = Mathf.Clamp(v, 0.1f, 3f); Commit(); }
         public void SetTouchSensitivity(float v) { Data.touchSensitivity = Mathf.Clamp(v, 0.1f, 3f); Commit(); }
@@ -61,10 +81,13 @@ namespace BarberSimulator.Settings
 
         public void SetCameraBob(bool v) { Data.cameraBob = v; Commit(); }
         public void SetTutorialHints(bool v) { Data.tutorialHints = v; Commit(); }
+        public void SetSubtitleSize(int v) { Data.subtitleSize = Mathf.Clamp(v, 0, 1); Commit(); }
+        public void SetReduceMotion(bool v) { Data.reduceMotion = v; Commit(); }
         public void SetLanguage(string code) { Data.language = code; Commit(); }
 
         private void Commit()
         {
+            LiveSettings.Publish(Data);
             _save.RequestSave();
             Changed?.Invoke();
         }

@@ -57,6 +57,16 @@ namespace BarberSimulator.CameraSystems
             ApplyPose();
         }
 
+        /// <summary>Sets the pose directly (used by controllers that animate the camera themselves every frame).</summary>
+        public void SetRawPose(Vector3 position, Quaternion rotation, float fov, float handheld)
+        {
+            if (_attachTarget != null) Detach();
+            _basePosition = position;
+            _baseRotation = rotation;
+            _baseFov = fov;
+            _handheld = handheld;
+        }
+
         public IEnumerator PlayShot(CameraShot shot, float durationOverride = -1f)
         {
             float duration = durationOverride > 0f ? durationOverride : shot.Duration;

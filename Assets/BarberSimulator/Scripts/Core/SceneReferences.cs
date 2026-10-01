@@ -14,7 +14,8 @@ namespace BarberSimulator.Core
     {
         public Camera MainCamera;
         public CinematicCamera CinematicCamera;
-        public MenuCameraDirector MenuDirector;
+        public MainMenuCameraController MenuCamera;
+        public MenuAtmosphere MenuAtmosphere;
         public IntroSequence Intro;
         public FirstPersonController Player;
         public FirstPersonHands Hands;

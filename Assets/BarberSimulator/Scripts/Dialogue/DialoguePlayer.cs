@@ -59,7 +59,8 @@ namespace BarberSimulator.Dialogue
             _view.ShowLine(speakerName, color, portrait, text);
             LineStarted?.Invoke(line, index);
             if (!string.IsNullOrEmpty(line.eventId)) EventRaised?.Invoke(line.eventId);
-            if (line.voiceClip != null) _audio.PlaySfx(line.voiceClip);
+            if (line.voiceClip != null) _audio.PlayDialogue(line.voiceClip);
+            else if (!string.IsNullOrEmpty(text)) _audio.PlayDialogueBlip(line.speaker != null && line.speaker.IsPlayer ? 0.74f : 0.58f);
 
             float hold = line.duration > 0f ? line.duration : EstimateDuration(text);
             float elapsed = 0f;

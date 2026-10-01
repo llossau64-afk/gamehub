@@ -8,7 +8,7 @@ namespace BarberSimulator.UI
 {
     /// <summary>
     /// Everything shown during cutscenes: letterbox bars, lower-third subtitles with speaker name,
-    /// the skip affordance and the title card ("BARBERSHOP SIMULATOR — DAY 1").
+    /// the hold-to-skip affordance, speaker portraits and the title card ("BARBER SHOP SIMULATOR").
     /// </summary>
     public sealed class CinematicView : UIView, IDialogueView
     {
@@ -22,6 +22,9 @@ namespace BarberSimulator.UI
         private Image _portrait;
         private CanvasGroup _skipGroup;
         private Text _skipLabel;
+        private HoldButton _skipHold;
+        private Image _skipFill;
+        private Image _portraitFrame;
         private CanvasGroup _titleGroup;
         private Text _titleMain;
         private Text _titleSub;
@@ -37,6 +40,9 @@ namespace BarberSimulator.UI
 
         public bool IsRevealing => _lineVisible && _revealed < _fullText.Length;
         public event Action SkipClicked;
+
+        /// <summary>True while the on-screen skip button is pressed (touch / mouse hold-to-skip).</summary>
+        public bool SkipButtonHeld => _skipHold != null && _skipHold.IsHeld;
 
         protected override void OnBuild()
         {
@@ -59,9 +65,13 @@ namespace BarberSimulator.UI
             var shade = Factory.Image("Shade", lower, theme.circleSoft, new Color(0f, 0f, 0f, 0.5f));
             UIFactory.Stretch(shade.rectTransform, 80f, 80f, -10f, -30f);
 
-            _portrait = Factory.Image("Portrait", lower, null, Color.white);
-            UIFactory.Anchor(_portrait.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(-560f, -10f), new Vector2(96f, 96f));
-            _portrait.gameObject.SetActive(false);
+            // Speaker portrait in a thin brass frame, left of the subtitle block.
+            _portraitFrame = Factory.Image("Portrait Frame", lower, theme.roundedRect, new Color(theme.accent.r, theme.accent.g, theme.accent.b, 0.85f));
+            UIFactory.Anchor(_portraitFrame.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(-590f, 6f), new Vector2(124f, 124f));
+            _portrait = Factory.Image("Portrait", _portraitFrame.rectTransform, null, Color.white);
+            UIFactory.Stretch(_portrait.rectTransform, 3f, 3f, 3f, 3f);
+            _portrait.preserveAspect = true;
+            _portraitFrame.gameObject.SetActive(false);
 
             _speaker = Factory.Label("Speaker", lower, theme.semiBoldFont, 20, theme.accent, TextAnchor.UpperCenter);
             UIFactory.Anchor(_speaker.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), Vector2.zero, new Vector2(1200f, 30f));
@@ -83,6 +93,16 @@ namespace BarberSimulator.UI
             var skipMenu = skip.gameObject.AddComponent<MenuButton>();
             skipMenu.Configure(_skipLabel, null, theme.textMuted, theme.textPrimary, theme.textDisabled, theme.hoverDuration);
             skipButton.onClick.AddListener(() => SkipClicked?.Invoke());
+            _skipHold = skip.gameObject.AddComponent<HoldButton>();
+            var track = Factory.Image("Hold Track", skip, null, new Color(1f, 1f, 1f, 0.12f));
+            UIFactory.Anchor(track.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(0f, 2f), new Vector2(240f, 3f));
+            track.rectTransform.pivot = new Vector2(1f, 0f);
+            _skipFill = Factory.Image("Hold Fill", track.rectTransform, null, theme.accent);
+            UIFactory.Stretch(_skipFill.rectTransform);
+            _skipFill.type = Image.Type.Filled;
+            _skipFill.fillMethod = Image.FillMethod.Horizontal;
+            _skipFill.fillOrigin = 0;
+            _skipFill.fillAmount = 0f;
             UIAnimation.SetVisible(_skipGroup, false);
 
             // Title card
@@ -91,7 +111,7 @@ namespace BarberSimulator.UI
             _titleGroup = Factory.Group(title, 0f);
             _titleGroup.blocksRaycasts = false;
             _titleMain = Factory.Label("Main", title, theme.displayFont, 120, theme.textPrimary, TextAnchor.MiddleCenter);
-            _titleMain.text = "Barbershop";
+            _titleMain.text = "Barber Shop";
             UIFactory.Anchor(_titleMain.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 60f), new Vector2(1400f, 150f));
             UIFactory.SoftShadow(_titleMain, new Color(0f, 0f, 0f, 0.6f), new Vector2(0f, -3f));
             _titleSub = Factory.Label("Sub", title, theme.semiBoldFont, 28, theme.accent, TextAnchor.MiddleCenter);
@@ -105,7 +125,13 @@ namespace BarberSimulator.UI
             UIFactory.Spacing(_titleDay, 8f);
         }
 
-        public void SetSkipLabel(string text) => _skipLabel.text = text.ToUpperInvariant() + "  ›";
+        public void SetSkipLabel(string text) => _skipLabel.text = text.ToUpperInvariant();
+
+        /// <summary>Hold-to-skip progress (0..1) drawn under the skip label.</summary>
+        public void SetSkipProgress(float progress)
+        {
+            if (_skipFill != null) _skipFill.fillAmount = Mathf.Clamp01(progress);
+        }
 
         public void SetLetterbox(bool on) => _barTarget = on ? 1f : 0f;
 
@@ -118,7 +144,7 @@ namespace BarberSimulator.UI
 
         public IEnumerator PlayTitleCard(string day, float hold)
         {
-            _titleDay.text = day.ToUpperInvariant();
+            _titleDay.text = string.IsNullOrEmpty(day) ? string.Empty : day.ToUpperInvariant();
             var main = _titleMain.rectTransform;
             var restScale = Vector3.one;
             main.localScale = restScale * 1.04f;
@@ -132,7 +158,7 @@ namespace BarberSimulator.UI
         {
             _speaker.text = speakerName.ToUpperInvariant();
             _speaker.color = nameColor;
-            _portrait.gameObject.SetActive(portrait != null);
+            _portraitFrame.gameObject.SetActive(portrait != null);
             _portrait.sprite = portrait;
             _fullText = text;
             _revealed = 0f;

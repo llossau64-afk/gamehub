@@ -38,7 +38,7 @@ namespace BarberSimulator.UI
             Factory = new UIFactory(theme, binder);
             EnsureEventSystem();
 
-            SceneFade = CreateFader("Scene Fade", 0, 1f);
+            SceneFade = CreateFader("Scene Fade", 0, 0f);
             var main = CreateCanvas("Main UI", 10, out _scaler);
             var safe = UIFactory.Rect("Safe Area", main.transform);
             safe.gameObject.AddComponent<SafeAreaFitter>();
@@ -57,7 +57,7 @@ namespace BarberSimulator.UI
             Achievements = CreateView<AchievementsView>("Achievements", safe, v => v.RegisterSounds = RegisterSounds);
             Settings = CreateView<SettingsView>("Settings", safe, v => v.RegisterSounds = RegisterSounds);
 
-            GlobalFade = CreateFader("Global Fade", 100, 1f);
+            GlobalFade = CreateFader("Global Fade", 100, 0f);
 
             var orientationCanvas = CreateCanvas("Orientation Hint", 110, out _);
             var hint = UIFactory.Rect("Rotate Device", orientationCanvas.transform);

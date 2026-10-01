@@ -101,6 +101,8 @@ namespace BarberSimulator.EditorTools
             s.doorUnlock = AssetUtility.Clip("SFX/door_unlock.wav");
             s.doorOpen = AssetUtility.Clip("SFX/door_open.wav");
             s.doorClose = AssetUtility.Clip("SFX/door_close.wav");
+            s.doorBell = AssetUtility.Clip("SFX/door_bell.wav");
+            s.keysJingle = AssetUtility.Clip("SFX/keys_jingle.wav");
             s.footsteps = new[]
             {
                 AssetUtility.Clip("SFX/footstep_01.wav"), AssetUtility.Clip("SFX/footstep_02.wav"),
@@ -145,13 +147,19 @@ namespace BarberSimulator.EditorTools
             player.Configure("player", "speaker.player", new Color(0.72f, 0.78f, 0.8f), true);
             EditorUtility.SetDirty(player);
 
+            owner.SetPortrait(AssetUtility.Sprite("portrait_owner.png"));
+            player.SetPortrait(AssetUtility.Sprite("portrait_player.png"));
+
+            // The arrival conversation; IntroSequence plays it in beats (see the index constants there).
+            DialogueLine O(int n, float pause = 0.35f, string gesture = null) => new DialogueLine { speaker = owner, textKey = "dialogue.intro." + n, pauseAfter = pause, animationTrigger = gesture };
+            DialogueLine P(int n, float pause = 0.4f) => new DialogueLine { speaker = player, textKey = "dialogue.intro." + n, pauseAfter = pause };
             var lines = new List<DialogueLine>
             {
-                new DialogueLine { speaker = owner, textKey = "dialogue.intro.1", pauseAfter = 0.35f, animationTrigger = "gesture" },
-                new DialogueLine { speaker = player, textKey = "dialogue.intro.2", duration = 1.8f, pauseAfter = 0.45f },
-                new DialogueLine { speaker = owner, textKey = "dialogue.intro.3", pauseAfter = 0.3f, animationTrigger = "gesture" },
-                new DialogueLine { speaker = owner, textKey = "dialogue.intro.4", duration = 2.0f, pauseAfter = 1.1f },
-                new DialogueLine { speaker = owner, textKey = "dialogue.intro.5", duration = 2.4f, pauseAfter = 0.2f, animationTrigger = "gesture" }
+                O(1, 0.4f, "gesture"), P(2), O(3, 0.5f), P(4), O(5, 0.6f), O(6, 0.45f, "gesture"), P(7), O(8, 0.2f),
+                O(9, 0.3f, "gesture"),
+                O(10, 0.4f, "nod"), P(11, 0.3f), O(12, 0.3f, "nod"),
+                O(13, 0.3f), O(14, 0.2f, "gesture"), O(15, 0.3f),
+                P(16, 0.2f), P(17, 0.3f)
             };
             var conversation = GetOrCreate<DialogueConversation>(folder + "Conversation_Intro.asset");
             conversation.Configure("intro_day1", lines);
