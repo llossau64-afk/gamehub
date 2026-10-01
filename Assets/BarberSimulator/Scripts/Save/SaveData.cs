@@ -11,7 +11,7 @@ namespace BarberSimulator.Save
     [Serializable]
     public class SaveData
     {
-        public const int CurrentVersion = 3;
+        public const int CurrentVersion = 4;
 
         public int version = CurrentVersion;
         public bool hasActiveGame;
@@ -80,6 +80,44 @@ namespace BarberSimulator.Save
         public int dayPhase;
         public float dayClockMinutes = 540f;
         public DayStatsData dayStats = new DayStatsData();
+        // Version 4: streak, daily goals and milestones.
+        /// <summary>Consecutive haircuts rated 4 stars or better.</summary>
+        public int streak;
+        public int bestStreak;
+        /// <summary>Lifetime service income (prices and tips); goal rewards are not counted.</summary>
+        public int totalEarned;
+        public int fiveStarCuts;
+        public int vipsServed;
+        public int goalsCompleted;
+        /// <summary>Name keys of the hairstyles the player has finished at least once.</summary>
+        public List<string> cutStyleIds = new List<string>();
+        public List<string> unlockedMilestoneIds = new List<string>();
+        public DailyGoalsData goals = new DailyGoalsData();
+    }
+
+    /// <summary>The goals of the current day. Regenerated each morning. Added in save version 4.</summary>
+    [Serializable]
+    public class DailyGoalsData
+    {
+        /// <summary>The day these goals belong to; 0 until generated.</summary>
+        public int day;
+        public List<DailyGoalData> items = new List<DailyGoalData>();
+    }
+
+    /// <summary>One daily goal. <see cref="kind"/> is a Rewards.GoalKind value.</summary>
+    [Serializable]
+    public class DailyGoalData
+    {
+        public int kind;
+        public int target;
+        public int progress;
+        /// <summary>Hairstyle name key for style goals.</summary>
+        public string param = "";
+        public int rewardCash;
+        public int rewardXp;
+        public bool completed;
+        /// <summary>"No lost customers" goals fail for the rest of the day once a customer walks out.</summary>
+        public bool failed;
     }
 
     /// <summary>Everything the end-of-day summary reports. Reset when a new day starts. Added in save version 3.</summary>

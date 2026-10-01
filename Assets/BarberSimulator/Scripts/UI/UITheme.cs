@@ -24,6 +24,10 @@ namespace BarberSimulator.UI
         public Color panel = new Color(0.06f, 0.05f, 0.045f, 0.88f);
         public Color panelLine = new Color(1f, 0.95f, 0.85f, 0.12f);
         public Color shadow = new Color(0f, 0f, 0f, 0.55f);
+        [Tooltip("VIP customers: gold name tag and label.")]
+        public Color vip = new Color(1f, 0.82f, 0.28f);
+        [Tooltip("Streak badge and its flame.")]
+        public Color flame = new Color(1f, 0.5f, 0.16f);
 
         [Header("Sprites")]
         public Sprite roundedRect;

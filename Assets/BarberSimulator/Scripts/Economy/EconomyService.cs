@@ -42,6 +42,12 @@ namespace BarberSimulator.Economy
             progression.reputation = Mathf.Clamp(before + payment.ReputationDelta, 0f, 100f);
             progression.totalTipsEarned += payment.Tip;
             progression.bestStars = Mathf.Max(progression.bestStars, payment.Stars);
+            // Lifetime counters behind the milestones.
+            progression.totalEarned += payment.Total;
+            if (payment.Stars >= 5) progression.fiveStarCuts++;
+            if (payment.IsVip) progression.vipsServed++;
+            if (!string.IsNullOrEmpty(payment.ServiceNameKey) && !progression.cutStyleIds.Contains(payment.ServiceNameKey))
+                progression.cutStyleIds.Add(payment.ServiceNameKey);
 
             var day = progression.dayStats;
             day.customersServed++;

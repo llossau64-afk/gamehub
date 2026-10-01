@@ -41,6 +41,18 @@ namespace BarberSimulator.Save
                 }
                 data.version = 3;
             }
+            if (data.version < 4)
+            {
+                // v3 → v4: streak, daily goals and milestones. Lifetime income starts at the current balance and the
+                // five-star counter at the best rating so far, so existing shops are not told they have earned nothing.
+                if (data.progression != null)
+                {
+                    data.progression.totalEarned = Mathf.Max(0, data.player != null ? data.player.money : 0);
+                    data.progression.fiveStarCuts = data.progression.bestStars >= 5 ? 1 : 0;
+                    data.progression.goals = new DailyGoalsData();
+                }
+                data.version = 4;
+            }
             data.version = SaveData.CurrentVersion;
             return data;
         }
@@ -66,6 +78,12 @@ namespace BarberSimulator.Save
             if (prog.visitedInspectionPointIds == null) prog.visitedInspectionPointIds = new System.Collections.Generic.List<string>();
             if (prog.shownHintIds == null) prog.shownHintIds = new System.Collections.Generic.List<string>();
             if (prog.dayStats == null) prog.dayStats = new DayStatsData();
+            if (prog.cutStyleIds == null) prog.cutStyleIds = new System.Collections.Generic.List<string>();
+            if (prog.unlockedMilestoneIds == null) prog.unlockedMilestoneIds = new System.Collections.Generic.List<string>();
+            if (prog.goals == null) prog.goals = new DailyGoalsData();
+            if (prog.goals.items == null) prog.goals.items = new System.Collections.Generic.List<DailyGoalData>();
+            prog.streak = Mathf.Max(0, prog.streak);
+            prog.bestStreak = Mathf.Max(prog.bestStreak, prog.streak);
             prog.day = Mathf.Max(1, prog.day);
             prog.dayPhase = Mathf.Clamp(prog.dayPhase, 0, 3);
             prog.experience = Mathf.Max(0, prog.experience);

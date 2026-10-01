@@ -48,7 +48,7 @@ namespace BarberSimulator.Shop
             return level;
         }
 
-        /// <summary>One star is worth half a normal haircut, five stars are worth double.</summary>
+        /// <summary>One star is worth half a normal haircut, five stars are worth double. VIP visits give extra.</summary>
         public static int XpFor(ServicePayment payment)
         {
             float multiplier;
@@ -60,6 +60,7 @@ namespace BarberSimulator.Shop
                 case 2: multiplier = 0.75f; break;
                 default: multiplier = 0.5f; break;
             }
+            if (payment.IsVip) multiplier *= PaymentCalculator.VipXpMultiplier;
             return Mathf.Max(1, Mathf.RoundToInt(10f * multiplier));
         }
 
