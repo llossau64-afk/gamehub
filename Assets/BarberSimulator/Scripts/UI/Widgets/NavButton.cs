@@ -61,6 +61,8 @@ namespace BarberSimulator.UI
         private bool _pointerInside;
         private bool _selected;
         private bool _silentSelect;
+        private bool _animating = true;
+        private float _ignoreSelectUntil;
 
         public Button Button => _button;
         public Text Label => _label;
@@ -91,7 +93,7 @@ namespace BarberSimulator.UI
             _duration = Mathf.Max(0.05f, theme.hoverDuration);
             _labelRest = _labelRect.anchoredPosition;
             if (_chevronRect != null) _chevronRest = _chevronRect.anchoredPosition;
-            _button.onClick.AddListener(() => { _flash = 1f; enabled = true; });
+            _button.onClick.AddListener(() => { _flash = 1f; _animating = true; });
             Apply();
         }
 
@@ -107,7 +109,7 @@ namespace BarberSimulator.UI
             _button.interactable = interactable;
             if (!interactable) _hoverTarget = 0f;
             Apply();
-            enabled = true;
+            _animating = true;
         }
 
         /// <summary>Gives the row keyboard / gamepad focus without playing the hover sound.</summary>
@@ -137,6 +139,8 @@ namespace BarberSimulator.UI
 
         public void OnSelect(BaseEventData eventData)
         {
+            // A tap selects the Button too, but a finger leaves no highlight behind.
+            if (Time.unscaledTime < _ignoreSelectUntil) return;
             _selected = true;
             Refresh(raiseSound: !_silentSelect);
         }
@@ -152,6 +156,11 @@ namespace BarberSimulator.UI
             if (!_button.interactable) return;
             _pressTarget = 1f;
             _pointerInside = true;
+            if (MenuButton.IsTouch(eventData))
+            {
+                _ignoreSelectUntil = Time.unscaledTime + 0.4f;
+                _selected = false;
+            }
             Refresh(false);
         }
 
@@ -168,7 +177,7 @@ namespace BarberSimulator.UI
             float previous = _hoverTarget;
             _hoverTarget = _button != null && _button.interactable && (_pointerInside || _selected) ? 1f : 0f;
             if (raiseSound && _hoverTarget > previous) Hovered?.Invoke();
-            enabled = true;
+            _animating = true;
         }
 
         private void OnDisable()
@@ -182,12 +191,13 @@ namespace BarberSimulator.UI
 
         private void Update()
         {
+            if (!_animating) return;
             float step = Time.unscaledDeltaTime / _duration;
             _hover = Mathf.MoveTowards(_hover, _hoverTarget, step);
             _press = Mathf.MoveTowards(_press, _pressTarget, step * 2.5f);
             _flash = Mathf.MoveTowards(_flash, 0f, Time.unscaledDeltaTime / 0.28f);
             Apply();
-            if (Mathf.Approximately(_hover, _hoverTarget) && Mathf.Approximately(_press, _pressTarget) && _flash <= 0f) enabled = false;
+            if (Mathf.Approximately(_hover, _hoverTarget) && Mathf.Approximately(_press, _pressTarget) && _flash <= 0f) _animating = false;
         }
 
         private void Apply()

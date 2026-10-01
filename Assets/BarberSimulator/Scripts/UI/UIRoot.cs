@@ -27,6 +27,10 @@ namespace BarberSimulator.UI
         public ShopStoreView Store { get; private set; }
         public DaySummaryView Summary { get; private set; }
         public AchievementsView Achievements { get; private set; }
+        public HowToPlayView HowToPlay { get; private set; }
+        /// <summary>Full-screen loading screen with logo, barber pole, progress bar and tips (above every fade).</summary>
+        public LoadingView Loading { get; private set; }
+        public MenuAudioManager MenuAudio { get; private set; }
         public UIFactory Factory { get; private set; }
 
         private ResponsiveCanvasScaler _scaler;
@@ -51,13 +55,27 @@ namespace BarberSimulator.UI
             Store = CreateView<ShopStoreView>("Shop Store", safe, v => v.RegisterSounds = RegisterSounds);
             Summary = CreateView<DaySummaryView>("Day Summary", safe, v => v.RegisterSounds = RegisterSounds);
             Cinematic = CreateView<CinematicView>("Cinematic", safe, v => { });
-            MainMenu = CreateView<MainMenuView>("Main Menu", safe, v => v.RegisterSounds = RegisterSounds);
-            Credits = CreateView<CreditsView>("Credits", safe, v => v.RegisterSounds = RegisterSounds);
+
+            var menuAudioGo = new GameObject("Menu Audio");
+            menuAudioGo.transform.SetParent(transform, false);
+            MenuAudio = menuAudioGo.AddComponent<MenuAudioManager>();
+            MenuAudio.Initialize(audio);
+
+            MainMenu = CreateView<MainMenuView>("Main Menu", safe, v =>
+            {
+                v.RegisterSounds = RegisterNavSounds;
+                v.MenuAudio = MenuAudio;
+            });
+            Credits = CreateView<CreditsView>("Credits", safe, v => v.RegisterSounds = RegisterNavSounds);
             Pause = CreateView<PauseView>("Pause", safe, v => v.RegisterSounds = RegisterSounds);
-            Achievements = CreateView<AchievementsView>("Achievements", safe, v => v.RegisterSounds = RegisterSounds);
-            Settings = CreateView<SettingsView>("Settings", safe, v => v.RegisterSounds = RegisterSounds);
+            Achievements = CreateView<AchievementsView>("Achievements", safe, v => v.RegisterSounds = RegisterNavSounds);
+            HowToPlay = CreateView<HowToPlayView>("How To Play", safe, v => v.RegisterSounds = RegisterNavSounds);
+            Settings = CreateView<SettingsView>("Settings", safe, v => v.RegisterSounds = RegisterNavSounds);
 
             GlobalFade = CreateFader("Global Fade", 100, 0f);
+
+            var loadingCanvas = CreateCanvas("Loading", 105, out _);
+            Loading = CreateView<LoadingView>("Loading Screen", loadingCanvas.transform, v => { });
 
             var orientationCanvas = CreateCanvas("Orientation Hint", 110, out _);
             var hint = UIFactory.Rect("Rotate Device", orientationCanvas.transform);
@@ -74,9 +92,17 @@ namespace BarberSimulator.UI
         {
             _scaler.SetTouchMode(touch);
             Hud.SetTouchMode(touch);
+            HowToPlay.SetTouchMode(touch);
+            if (Settings != null) Settings.SetTouchMode(touch);
         }
 
         private void RegisterSounds(MenuButton button)
+        {
+            button.Hovered += _audio.PlayHover;
+            button.Button.onClick.AddListener(_audio.PlayClick);
+        }
+
+        private void RegisterNavSounds(NavButton button)
         {
             button.Hovered += _audio.PlayHover;
             button.Button.onClick.AddListener(_audio.PlayClick);

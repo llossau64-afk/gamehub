@@ -77,8 +77,8 @@ namespace BarberSimulator.Dialogue
 
         public static float EstimateDuration(string text)
         {
-            // ~15 characters per second reading speed plus a base hold.
-            return Mathf.Clamp(1.2f + text.Length / 15f, 1.8f, 6f);
+            // ~17 characters per second reading speed plus a short base hold.
+            return Mathf.Clamp(1.0f + text.Length / 17f, 1.5f, 5.5f);
         }
     }
 }

@@ -155,7 +155,7 @@ namespace BarberSimulator.UI
     public static class SettingsWidgetFactory
     {
         public const float RowHeight = 66f;
-        public const float ControlWidth = 300f;
+        public const float ControlWidth = 380f;
 
         public static RectTransform Row(UIFactory f, Transform parent, string labelKey, out Text label)
         {
@@ -184,6 +184,66 @@ namespace BarberSimulator.UI
             area.sizeDelta = new Vector2(ControlWidth, 0f);
             area.anchoredPosition = Vector2.zero;
             return area;
+        }
+
+        /// <summary>A small tracked section title with a hairline, used to group rows on long pages.</summary>
+        public static RectTransform Header(UIFactory f, Transform parent, string labelKey)
+        {
+            var row = UIFactory.Rect("Header " + labelKey, parent);
+            var layout = row.gameObject.AddComponent<LayoutElement>();
+            layout.preferredHeight = 64f;
+            layout.minHeight = 64f;
+            var label = f.Label("Label", row, f.Theme.semiBoldFont, 17, f.Theme.accent, TextAnchor.LowerLeft, labelKey, upper: true);
+            UIFactory.Stretch(label.rectTransform, 0f, 0f, 0f, 12f);
+            UIFactory.Spacing(label, 5f);
+            var line = f.Image("Rule", row, null, f.Theme.panelLine);
+            line.rectTransform.anchorMin = new Vector2(0f, 0f);
+            line.rectTransform.anchorMax = new Vector2(1f, 0f);
+            line.rectTransform.sizeDelta = new Vector2(0f, 1f);
+            line.rectTransform.anchoredPosition = Vector2.zero;
+            return row;
+        }
+
+        /// <summary>One line of the controls reference: action on the left, keycaps (or the touch gesture) on the right.</summary>
+        public static RectTransform ControlLine(UIFactory f, Transform parent, ControlEntry entry, bool touch)
+        {
+            var row = UIFactory.Rect("Control " + entry.ActionKey, parent);
+            var layout = row.gameObject.AddComponent<LayoutElement>();
+            layout.preferredHeight = 56f;
+            layout.minHeight = 56f;
+            var label = f.Label("Label", row, f.Theme.mediumFont, 23, f.Theme.textPrimary, TextAnchor.MiddleLeft, entry.ActionKey);
+            UIFactory.Stretch(label.rectTransform, 0f, 420f);
+
+            if (touch)
+            {
+                var gesture = f.Label("Gesture", row, f.Theme.semiBoldFont, 19, f.Theme.textMuted, TextAnchor.MiddleRight, entry.TouchKey);
+                UIFactory.Stretch(gesture.rectTransform, 0f, 0f);
+                gesture.rectTransform.offsetMin = new Vector2(380f, 0f);
+            }
+            else
+            {
+                var keys = KeyCaps.Build(f, row, entry.Keys, out float width);
+                UIFactory.Anchor(keys, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), Vector2.zero, new Vector2(width, KeyCaps.Height));
+            }
+
+            var line = f.Image("Divider", row, null, new Color(f.Theme.panelLine.r, f.Theme.panelLine.g, f.Theme.panelLine.b, f.Theme.panelLine.a * 0.6f));
+            line.rectTransform.anchorMin = new Vector2(0f, 0f);
+            line.rectTransform.anchorMax = new Vector2(1f, 0f);
+            line.rectTransform.sizeDelta = new Vector2(0f, 1f);
+            line.rectTransform.anchoredPosition = Vector2.zero;
+            return row;
+        }
+
+        /// <summary>Dims a settings row and blocks it (e.g. the FPS limit while V-Sync is on).</summary>
+        public static void SetRowEnabled(Component control, bool enabled)
+        {
+            var target = control.transform;
+            while (target.parent != null && !target.name.StartsWith("Row ")) target = target.parent;
+            var group = target.GetComponent<CanvasGroup>();
+            if (group == null) group = target.gameObject.AddComponent<CanvasGroup>();
+            group.alpha = enabled ? 1f : 0.38f;
+            group.interactable = enabled;
+            group.blocksRaycasts = enabled;
         }
 
         public static SliderRow Slider(UIFactory f, Transform parent, string labelKey, float min, float max, Func<float, string> format, Action hover)
@@ -237,16 +297,18 @@ namespace BarberSimulator.UI
             var row = Row(f, parent, labelKey, out _);
             var area = ControlArea(row);
 
+            // The whole control area is the hit target (a 58 px switch is too small for a thumb); the pill is only the visual.
             var switchRect = UIFactory.Rect("Switch", area);
-            UIFactory.Anchor(switchRect, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), Vector2.zero, new Vector2(58f, 30f));
-            var track = f.Image("Track", switchRect, f.Theme.roundedRect, new Color(1f, 1f, 1f, 0.16f), raycast: true);
-            UIFactory.Stretch(track.rectTransform);
-            var knob = f.Image("Knob", switchRect, f.Theme.circleSolid, f.Theme.textPrimary);
+            UIFactory.Stretch(switchRect);
+            var hit = UIFactory.HitArea(switchRect);
+            var track = f.Image("Track", switchRect, f.Theme.roundedRect, new Color(1f, 1f, 1f, 0.16f));
+            UIFactory.Anchor(track.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), Vector2.zero, new Vector2(58f, 30f));
+            var knob = f.Image("Knob", track.rectTransform, f.Theme.circleSolid, f.Theme.textPrimary);
             UIFactory.Anchor(knob.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(22f, 22f));
 
             var button = switchRect.gameObject.AddComponent<Button>();
             button.transition = Selectable.Transition.None;
-            button.targetGraphic = track;
+            button.targetGraphic = hit;
             switchRect.gameObject.AddComponent<UISoundHook>().Configure(hover, click);
 
             var toggle = switchRect.gameObject.AddComponent<SwitchToggle>();
@@ -262,7 +324,7 @@ namespace BarberSimulator.UI
             Button Arrow(string name, string glyph, Vector2 anchor)
             {
                 var rect = UIFactory.Rect(name, area);
-                UIFactory.Anchor(rect, anchor, anchor, Vector2.zero, new Vector2(48f, 48f));
+                UIFactory.Anchor(rect, anchor, anchor, Vector2.zero, new Vector2(60f, RowHeight - 6f));
                 var button = UIFactory.PlainButton(rect);
                 var text = f.Label("Glyph", rect, f.Theme.displayFont, 34, f.Theme.accent, TextAnchor.MiddleCenter);
                 text.text = glyph;
@@ -277,7 +339,7 @@ namespace BarberSimulator.UI
             next.GetComponent<RectTransform>().pivot = new Vector2(1f, 0.5f);
 
             var value = f.Label("Value", area, f.Theme.semiBoldFont, 24, f.Theme.textPrimary, TextAnchor.MiddleCenter);
-            UIFactory.Stretch(value.rectTransform, 48f, 48f);
+            UIFactory.Stretch(value.rectTransform, 60f, 60f);
 
             var selector = row.gameObject.AddComponent<OptionSelector>();
             selector.Configure(previous, next, value, count, labelFor);

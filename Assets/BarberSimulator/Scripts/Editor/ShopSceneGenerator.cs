@@ -371,7 +371,7 @@ namespace BarberSimulator.EditorTools
             Place(props.Plant(), exterior, new Vector3(-6.6f, 0f, -0.7f), 40f, "Planter_A");
             Place(props.Plant(), exterior, new Vector3(4.9f, 0f, -0.7f), 120f, "Planter_B");
             Place(props.TrashBin(), exterior, new Vector3(9.9f, 0f, -3.6f), 0f, "StreetBin_B");
-            Place(props.CardboardBox(), exterior, new Vector3(6.6f, 0f, -0.75f), 15f, "Laundry_Box");
+            Place(props.CardboardBox(new Vector3(0.5f, 0.4f, 0.4f), false), exterior, new Vector3(6.6f, 0f, -0.75f), 15f, "Laundry_Box");
 
             Place(props.StreetLamp(), exterior, new Vector3(-5.2f, 0f, -3.75f), 0f, "StreetLamp_A");
             Place(props.StreetLamp(), exterior, new Vector3(6.8f, 0f, -3.75f), 0f, "StreetLamp_B");
@@ -947,8 +947,7 @@ namespace BarberSimulator.EditorTools
             {
                 Marker(intro, "Look_OldChair", new Vector3(0.15f, 1.6f, 2.45f), new Vector3(-2.5f, 0.9f, 5.2f)),
                 Marker(intro, "Look_DirtyMirror", new Vector3(0.1f, 1.62f, 2.5f), new Vector3(-3.95f, 1.55f, 5.3f)),
-                Marker(intro, "Look_EmptyShelves", new Vector3(0.25f, 1.6f, 2.45f), new Vector3(3.76f, 1.2f, 4.9f)),
-                Marker(intro, "Look_OldFurniture", new Vector3(0.3f, 1.62f, 2.35f), new Vector3(-1.0f, 1.25f, 9.0f))
+                Marker(intro, "Look_EmptyShelves", new Vector3(0.25f, 1.6f, 2.45f), new Vector3(3.76f, 1.2f, 4.9f))
             };
             var spawn = refs.Spawn;
             var end = new GameObject("End_PlayerHead").transform;

@@ -57,6 +57,10 @@ namespace BarberSimulator.Core
             ui.MainMenu.NewGameConfirmed += StartNewGame;
             ui.MainMenu.SettingsClicked += () => OpenSettings(fromPause: false);
             ui.MainMenu.CreditsClicked += OpenCredits;
+            ui.MainMenu.AchievementsClicked += OpenAchievements;
+            ui.MainMenu.HowToPlayClicked += OpenHowToPlay;
+            ui.MainMenu.ExitClicked += ExitGame;
+            ui.HowToPlay.BackClicked += CloseHowToPlay;
             ui.MainMenu.LanguageClicked += CycleLanguage;
             ui.Credits.BackClicked += CloseCredits;
             ui.Settings.BackClicked += CloseSettings;
@@ -117,6 +121,7 @@ namespace BarberSimulator.Core
             _ctx.Input.SetCursorLock(false);
             _scene.Interactor.SetActive(false);
             _scene.Player.SetControlEnabled(false);
+            SetPlayerHandsVisible(false);
             SetMenuDressing(true);
 
             var audio = _ctx.Audio;
@@ -144,6 +149,12 @@ namespace BarberSimulator.Core
             menu.SetContinueState(save.HasActiveGame, detail);
             menu.SetLanguageLabel(_ctx.Localization.Get("menu.language") + ": " + LocalizationService.GetDisplayName(_ctx.Localization.CurrentLanguage));
             menu.SetVersion(_ctx.Config.versionLabel);
+        }
+
+        /// <summary>The first-person arms live under the player's head: keep them out of menu and cutscene shots.</summary>
+        private void SetPlayerHandsVisible(bool visible)
+        {
+            if (_scene.Hands != null && _scene.Hands.gameObject.activeSelf != visible) _scene.Hands.gameObject.SetActive(visible);
         }
 
         private void SetMenuDressing(bool visible)
@@ -259,6 +270,7 @@ namespace BarberSimulator.Core
             _scene.Interactor.SetActive(false);
             _ctx.UI.Hud.Hide(true);
             _ctx.UI.Credits.Hide(true);
+            SetPlayerHandsVisible(false);
             // Fade the menu away first (~0.7 s), never teleport straight into the cinematic.
             bool menuWasVisible = _ctx.UI.MainMenu.IsVisible;
             _ctx.UI.MainMenu.Hide();
@@ -325,6 +337,7 @@ namespace BarberSimulator.Core
                 _scene.CinematicCamera.AttachImmediate(player.Head, _ctx.Config.gameplayFieldOfView);
 
             player.SetControlEnabled(true);
+            SetPlayerHandsVisible(true);
             _scene.Interactor.SetActive(true);
             _ctx.Input.GameplayEnabled = true;
             _ctx.Input.SetCursorLock(true);
@@ -662,7 +675,10 @@ namespace BarberSimulator.Core
                     break;
                 case GameState.MainMenu:
                     if (_ctx.UI.Settings.IsVisible) CloseSettings();
+                    else if (_ctx.UI.Achievements.IsVisible) CloseAchievements();
+                    else if (_ctx.UI.HowToPlay.IsVisible) CloseHowToPlay();
                     else if (_ctx.UI.Credits.IsVisible) CloseCredits();
+                    else if (_ctx.UI.MainMenu.IsConfirmOpen) _ctx.UI.MainMenu.ShowConfirm(false);
                     break;
             }
         }
@@ -723,7 +739,7 @@ namespace BarberSimulator.Core
             _settingsFromPause = fromPause;
             var ui = _ctx.UI;
             if (fromPause) ui.Pause.Hide();
-            else ui.MainMenu.Hide();
+            else ui.MainMenu.SetPanelOpen(true);
             ui.Settings.SetBackdrop(fromPause);
             ui.Settings.Show();
         }
@@ -734,14 +750,18 @@ namespace BarberSimulator.Core
             ui.Settings.Hide();
             _ctx.Audio.PlayBack();
             if (_settingsFromPause && State == GameState.Paused) ui.Pause.Show();
-            else if (State == GameState.MainMenu) ui.MainMenu.Show();
+            else if (State == GameState.MainMenu) ui.MainMenu.SetPanelOpen(false);
         }
 
+        /// <summary>Opens the achievements panel from the pause menu or from the main menu.</summary>
         private void OpenAchievements()
         {
-            if (State != GameState.Paused) return;
-            _ctx.UI.Pause.Hide();
-            _ctx.UI.Achievements.Show();
+            var ui = _ctx.UI;
+            if (State == GameState.Paused) ui.Pause.Hide();
+            else if (State == GameState.MainMenu) ui.MainMenu.SetPanelOpen(true);
+            else return;
+            ui.Achievements.SetBackdrop(State == GameState.Paused);
+            ui.Achievements.Show();
         }
 
         private void CloseAchievements()
@@ -749,11 +769,35 @@ namespace BarberSimulator.Core
             _ctx.UI.Achievements.Hide();
             _ctx.Audio.PlayBack();
             if (State == GameState.Paused) _ctx.UI.Pause.Show();
+            else if (State == GameState.MainMenu) _ctx.UI.MainMenu.SetPanelOpen(false);
+        }
+
+        private void OpenHowToPlay()
+        {
+            if (State != GameState.MainMenu) return;
+            _ctx.UI.MainMenu.SetPanelOpen(true);
+            _ctx.UI.HowToPlay.SetBackdrop(false);
+            _ctx.UI.HowToPlay.Show();
+        }
+
+        private void CloseHowToPlay()
+        {
+            _ctx.UI.HowToPlay.Hide();
+            _ctx.Audio.PlayBack();
+            if (State == GameState.MainMenu) _ctx.UI.MainMenu.SetPanelOpen(false);
+        }
+
+        private void ExitGame()
+        {
+            if (State != GameState.MainMenu) return;
+            _ctx.Save.SaveNow();
+            Application.Quit();
         }
 
         private void OpenCredits()
         {
-            _ctx.UI.MainMenu.Hide();
+            _ctx.UI.MainMenu.SetPanelOpen(true);
+            _ctx.UI.Credits.SetBackdrop(false);
             _ctx.UI.Credits.Show();
         }
 
@@ -761,7 +805,7 @@ namespace BarberSimulator.Core
         {
             _ctx.UI.Credits.Hide();
             _ctx.Audio.PlayBack();
-            _ctx.UI.MainMenu.Show();
+            _ctx.UI.MainMenu.SetPanelOpen(false);
         }
 
         private void CycleLanguage() => SetLanguage(_ctx.Localization.NextLanguage());
@@ -777,8 +821,10 @@ namespace BarberSimulator.Core
         private void ApplyRuntimeSettings()
         {
             var s = _ctx.Settings.Data;
-            _scene.Player.CameraBobEnabled = s.cameraBob;
-            if (_scene.Mirror != null) _scene.Mirror.ApplyQuality(s.quality);
+            _scene.Player.CameraBobEnabled = s.cameraBob && !s.reduceMotion;
+            // Ultra only adds render detail; the planar mirror treats it like High.
+            if (_scene.Mirror != null) _scene.Mirror.ApplyQuality(s.quality == Save.QualityTier.Ultra ? Save.QualityTier.High : s.quality);
+            if (_scene.MenuAtmosphere != null) _scene.MenuAtmosphere.SetQuality(s.postProcessing, s.ambientEffects);
             var touch = _ctx.UI.Hud.TouchControls;
             if (touch != null) touch.ApplySettings(s.joystickOpacity, s.dynamicJoystick);
         }

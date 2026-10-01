@@ -18,6 +18,7 @@ namespace BarberSimulator.UI
         private RectTransform _bottomBar;
         private CanvasGroup _lineGroup;
         private Text _speaker;
+        private const int BaseLineSize = 36;
         private Text _line;
         private Image _portrait;
         private CanvasGroup _skipGroup;
@@ -77,7 +78,7 @@ namespace BarberSimulator.UI
             UIFactory.Anchor(_speaker.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), Vector2.zero, new Vector2(1200f, 30f));
             UIFactory.Spacing(_speaker, 5f);
 
-            _line = Factory.Label("Line", lower, theme.bodyFont, 36, theme.textPrimary, TextAnchor.UpperCenter);
+            _line = Factory.Label("Line", lower, theme.bodyFont, BaseLineSize, theme.textPrimary, TextAnchor.UpperCenter);
             UIFactory.Anchor(_line.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -38f), new Vector2(1200f, 110f));
             _line.lineSpacing = 1.1f;
             UIFactory.SoftShadow(_line, new Color(0f, 0f, 0f, 0.85f), new Vector2(0f, -2f));
@@ -162,6 +163,7 @@ namespace BarberSimulator.UI
             _portrait.sprite = portrait;
             _fullText = text;
             _revealed = 0f;
+            _line.fontSize = Mathf.RoundToInt(BaseLineSize * Settings.LiveSettings.SubtitleScale);
             _line.text = string.Empty;
             _lineVisible = true;
         }

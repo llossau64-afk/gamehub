@@ -1,4 +1,5 @@
 using System.Collections;
+using BarberSimulator.UI;
 using UnityEngine;
 
 namespace BarberSimulator.Audio
@@ -137,8 +138,15 @@ namespace BarberSimulator.Audio
             switch (kind)
             {
                 case OneShotKind.DoorBell:
-                    StartVoice(library.doorOpen, 0.16f, 0.95f, pan, 3200f, 0f);
-                    _delayed = StartCoroutine(Later(0.18f, () => StartVoice(library.uiToast, 0.13f, 1.35f, pan, 0f, 0f)));
+                    if (library.doorBell != null)
+                    {
+                        StartVoice(library.doorBell, 0.22f, 1f, pan, 5000f, 0f);
+                    }
+                    else
+                    {
+                        StartVoice(library.doorOpen, 0.16f, 0.95f, pan, 3200f, 0f);
+                        _delayed = StartCoroutine(Later(0.18f, () => StartVoice(library.uiToast, 0.13f, 1.35f, pan, 0f, 0f)));
+                    }
                     break;
                 case OneShotKind.DistantClippers:
                     // Muffled as if from the next room; only the first moments of the loop.

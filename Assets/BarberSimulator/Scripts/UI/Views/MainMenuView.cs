@@ -328,6 +328,14 @@ namespace BarberSimulator.UI
             target.SelectSilently();
         }
 
+        private void Update()
+        {
+            // Clicking empty space drops the selection; keyboard and gamepad would then have nothing to navigate from.
+            if (_mode == Mode.Panel || _swap != null || !IsVisible) return;
+            var system = EventSystem.current;
+            if (system != null && system.currentSelectedGameObject == null) Focus();
+        }
+
         // ---------------------------------------------------------------- show / hide
 
         protected override void OnShown()

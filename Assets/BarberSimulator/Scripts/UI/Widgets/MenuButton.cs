@@ -32,6 +32,7 @@ namespace BarberSimulator.UI
         private Vector2 _labelRest;
         private bool _pointerInside;
         private bool _selected;
+        private bool _animating = true;
 
         public Button Button => _button;
         public Text Label => label;
@@ -63,7 +64,7 @@ namespace BarberSimulator.UI
             _button.interactable = interactable;
             if (!interactable) _hoverTarget = 0f;
             Apply();
-            enabled = true;
+            _animating = true;
         }
 
         public void OnPointerEnter(PointerEventData eventData)
@@ -119,7 +120,7 @@ namespace BarberSimulator.UI
             float previous = _hoverTarget;
             _hoverTarget = _button != null && _button.interactable && (_pointerInside || _selected) ? 1f : 0f;
             if (_hoverTarget > previous) Hovered?.Invoke();
-            enabled = true;
+            _animating = true;
         }
 
         private void OnDisable()
@@ -133,11 +134,12 @@ namespace BarberSimulator.UI
 
         private void Update()
         {
+            if (!_animating) return;
             float step = Time.unscaledDeltaTime / _duration;
             _hoverAmount = Mathf.MoveTowards(_hoverAmount, _hoverTarget, step);
             _press = Mathf.MoveTowards(_press, _pressTarget, step * 2f);
             Apply();
-            if (Mathf.Approximately(_hoverAmount, _hoverTarget) && Mathf.Approximately(_press, _pressTarget)) enabled = false;
+            if (Mathf.Approximately(_hoverAmount, _hoverTarget) && Mathf.Approximately(_press, _pressTarget)) _animating = false;
         }
 
         private void Apply()

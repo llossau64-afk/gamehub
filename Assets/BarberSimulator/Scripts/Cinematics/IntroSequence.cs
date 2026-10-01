@@ -136,10 +136,10 @@ namespace BarberSimulator.Cinematics
             audio.SetAmbience("street", sounds.streetAmbience, config.streetAmbienceOutside, 0.8f);
             audio.SetAmbience("shop", sounds.shopAmbience, 0f, 0.8f);
             _camera.SetPose(approachStart, 46f, 0.3f);
-            _camera.RunMove(_camera.MoveTo(approachTarget, 50f, 7.5f, 0.3f));
+            _camera.RunMove(_camera.MoveTo(approachTarget, 50f, 6.0f, 0.3f));
             yield return new WaitForSeconds(0.3f);
-            yield return ui.GlobalFade.FadeTo(0f, 1.6f);
-            yield return new WaitForSeconds(5.2f);
+            yield return ui.GlobalFade.FadeTo(0f, 1.4f);
+            yield return new WaitForSeconds(3.9f);
 
             // 2. At the door: it opens, the bell rings.
             _camera.SetPose(doorShot.StartPoint, doorShot.StartFov, doorShot.Handheld);
@@ -200,10 +200,10 @@ namespace BarberSimulator.Cinematics
             for (int i = 0; i < lookAround.Count; i++)
             {
                 if (lookAround[i] == null) continue;
-                yield return _camera.MoveTo(lookAround[i], 48f, 2.3f, 0.35f);
-                yield return new WaitForSeconds(0.6f);
+                yield return _camera.MoveTo(lookAround[i], 48f, 1.9f, 0.35f);
+                yield return new WaitForSeconds(0.35f);
             }
-            yield return _camera.MoveTo(endPose, config.gameplayFieldOfView, 2.0f, 0.2f);
+            yield return _camera.MoveTo(endPose, config.gameplayFieldOfView, 1.6f, 0.2f);
             yield return PlayLines(lines, PlayerAlright, PlayerAlright);
             yield return new WaitForSeconds(0.7f);
             yield return PlayLines(lines, PlayerFix, PlayerFix);

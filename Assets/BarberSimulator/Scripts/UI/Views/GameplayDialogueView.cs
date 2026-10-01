@@ -16,6 +16,7 @@ namespace BarberSimulator.UI
         private InputService _input;
         private Action _click;
         private Text _speaker;
+        private const int BaseLineSize = 32;
         private Text _line;
         private CanvasGroup _lineGroup;
         private CanvasGroup _choicesGroup;
@@ -44,7 +45,7 @@ namespace BarberSimulator.UI
             _speaker = Factory.Label("Speaker", lower, theme.semiBoldFont, 18, theme.accent, TextAnchor.UpperCenter);
             UIFactory.Anchor(_speaker.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), Vector2.zero, new Vector2(1100f, 26f));
             UIFactory.Spacing(_speaker, 4f);
-            _line = Factory.Label("Text", lower, theme.bodyFont, 32, theme.textPrimary, TextAnchor.UpperCenter);
+            _line = Factory.Label("Text", lower, theme.bodyFont, BaseLineSize, theme.textPrimary, TextAnchor.UpperCenter);
             UIFactory.Anchor(_line.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -32f), new Vector2(1100f, 90f));
             UIFactory.SoftShadow(_line, new Color(0f, 0f, 0f, 0.85f), new Vector2(0f, -2f));
 
@@ -83,6 +84,7 @@ namespace BarberSimulator.UI
             if (string.IsNullOrEmpty(text) || IsBusy) return;
             if (!IsVisible) Show(true);
             SetSpeaker(speaker, vip);
+            _line.fontSize = Mathf.RoundToInt(BaseLineSize * Settings.LiveSettings.SubtitleScale);
             _line.text = text;
             _lineGroup.alpha = 1f;
             if (_hideRoutine != null) StopCoroutine(_hideRoutine);
@@ -94,6 +96,7 @@ namespace BarberSimulator.UI
             if (!IsVisible) Show(true);
             if (_hideRoutine != null) StopCoroutine(_hideRoutine);
             SetSpeaker(speaker, vip);
+            _line.fontSize = Mathf.RoundToInt(BaseLineSize * Settings.LiveSettings.SubtitleScale);
             _line.text = text;
             _lineGroup.alpha = 1f;
             for (int i = 0; i < _choices.Length; i++)
