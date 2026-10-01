@@ -137,7 +137,7 @@ namespace BarberSimulator.Barber
             }
 
             bool tutorial = _customer.IsTutorial;
-            float leniency = Mathf.Max(0.5f, _customer.Profile.leniency) * (tutorial ? 1.7f : 1f);
+            float leniency = Mathf.Max(0.5f, _customer.Profile.leniency) * (tutorial ? 1.7f : 1f) * (_customer.IsVip ? CustomerBrain.VipLeniencyMultiplier : 1f);
             _session = new HaircutSession(_shell.Grid, _customer.Request, leniency, tutorial);
             _session.ToolAction += OnToolAction;
             _tutorial = tutorial ? new BarberTutorial() : null;
@@ -153,7 +153,7 @@ namespace BarberSimulator.Barber
             chair.BeginHaircut();
             _customer.OnHaircutStarted();
 
-            _view.Open(_customer.DisplayName, _localization.Get(_customer.Request.NameKey), _customer.Request.ChecklistKeys(), _active, _input.Mode == InputDeviceMode.Touch);
+            _view.Open(_customer.DisplayName, _localization.Get(_customer.Request.NameKey), _customer.Request.ChecklistKeys(), _active, _input.Mode == InputDeviceMode.Touch, _customer.IsVip);
             // Start with the scissors' neighbour that is safe: the clipper on the longest guard.
             _toolIndex = -1;
             SelectTool(0, silent: true);

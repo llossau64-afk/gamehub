@@ -22,6 +22,7 @@ namespace BarberSimulator.UI
         private Action _click;
 
         private Text _customerName;
+        private RectTransform _vipTag;
         private Text _requestName;
         private RectTransform _checklistRoot;
         private readonly List<ChecklistRow> _checklist = new List<ChecklistRow>();
@@ -122,6 +123,15 @@ namespace BarberSimulator.UI
             _customerName = Factory.Label("Customer", card, theme.semiBoldFont, 16, theme.accent, TextAnchor.UpperLeft);
             UIFactory.Anchor(_customerName.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, new Vector2(440f, 24f));
             UIFactory.Spacing(_customerName, 4f);
+            // Gold "VIP" pill next to the name of a VIP customer.
+            _vipTag = UIFactory.Rect("Vip", card);
+            UIFactory.Anchor(_vipTag, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(400f, 2f), new Vector2(54f, 24f));
+            var vipBg = Factory.Image("Background", _vipTag, theme.roundedRect, theme.vip);
+            UIFactory.Stretch(vipBg.rectTransform);
+            var vipLabel = Factory.Label("Label", _vipTag, theme.semiBoldFont, 15, new Color(0.1f, 0.075f, 0.02f), TextAnchor.MiddleCenter, "vip.tag", upper: true);
+            UIFactory.Stretch(vipLabel.rectTransform);
+            UIFactory.Spacing(vipLabel, 2f);
+            _vipTag.gameObject.SetActive(false);
             _requestName = Factory.Label("Request", card, theme.displayFont, 44, theme.textPrimary, TextAnchor.UpperLeft);
             UIFactory.Anchor(_requestName.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(-2f, -24f), new Vector2(440f, 60f));
             UIFactory.SoftShadow(_requestName, theme.shadow, new Vector2(0f, -2f));
@@ -255,9 +265,11 @@ namespace BarberSimulator.UI
 
         // ---------------------------------------------------------------- IBarberModeView
 
-        public void Open(string customerName, string requestName, IReadOnlyList<string> checklistKeys, IReadOnlyList<BarberToolDefinition> tools, bool touch)
+        public void Open(string customerName, string requestName, IReadOnlyList<string> checklistKeys, IReadOnlyList<BarberToolDefinition> tools, bool touch, bool isVip = false)
         {
             _customerName.text = customerName.ToUpperInvariant();
+            _customerName.color = isVip ? Factory.Theme.vip : Factory.Theme.accent;
+            _vipTag.gameObject.SetActive(isVip);
             _requestName.text = requestName;
 
             for (int i = 0; i < _checklist.Count; i++)

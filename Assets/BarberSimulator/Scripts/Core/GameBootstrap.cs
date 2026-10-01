@@ -132,6 +132,10 @@ namespace BarberSimulator.Core
             var workday = config.workday != null ? config.workday : ScriptableObject.CreateInstance<Workday.WorkdayConfig>();
             ctx.Day = new Workday.DayCycleService(workday, ctx.Save, ctx.Economy, ctx.Progression);
 
+            ctx.Streak = new Rewards.StreakService(ctx.Save, ctx.Economy);
+            ctx.Goals = new Rewards.DailyGoalService(ctx.Save, ctx.Economy, ctx.Progression, ctx.Streak, ctx.Day);
+            ctx.Milestones = new Rewards.MilestoneService(ctx.Save, ctx.Economy, ctx.Progression, ctx.Goals);
+
             var uiGo = new GameObject("UI");
             uiGo.transform.SetParent(transform, false);
             ctx.UI = uiGo.AddComponent<UIRoot>();
@@ -140,6 +144,7 @@ namespace BarberSimulator.Core
             ctx.UI.BuildDeferred();
 
             WireScene(ctx);
+            ctx.RewardsUI = new Rewards.RewardsPresenter(ctx);
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             gameObject.AddComponent<Debugging.DevTools>().Initialize(scene.CustomerSpawner, ctx.Economy, scene.BarberMode);
@@ -210,8 +215,13 @@ namespace BarberSimulator.Core
                     Reviews = ctx.UI.Reviews,
                     Toasts = ctx.UI.Hud,
                     Upgrades = ctx.UpgradeEffects,
-                    Progression = ctx.Progression
+                    Progression = ctx.Progression,
+                    Streak = ctx.Streak
                 });
+                // Style goals and the "all styles" milestone draw from what customers can ask for.
+                System.Func<System.Collections.Generic.IReadOnlyList<Haircut.HaircutRequest>> styles = () => scene.CustomerSpawner.AllRequests();
+                ctx.Goals.StyleSource = styles;
+                ctx.Milestones.StyleSource = styles;
             }
             scene.Intro.Initialize(ctx, scene.CinematicCamera);
         }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using BarberSimulator.Haircut;
 using UnityEngine;
 
 namespace BarberSimulator.Customers
@@ -62,7 +63,8 @@ namespace BarberSimulator.Customers
             int maxActive = config.maxActiveCustomers + (_services.Upgrades != null ? _services.Upgrades.MaxQueueBonus : 0);
             if (!tutorialActive && _active.Count < maxActive && site.HasRoomForNewCustomer())
             {
-                Spawn(_tutorialPending ? config.tutorialProfile : PickProfile());
+                var profile = _tutorialPending ? config.tutorialProfile : PickProfile();
+                Spawn(profile, RollVip(profile));
                 _tutorialPending = false;
             }
             _timer = NextInterval();
@@ -91,6 +93,30 @@ namespace BarberSimulator.Customers
             return config.profiles.Length > 0 ? config.profiles[0] : config.tutorialProfile;
         }
 
+        /// <summary>From shop level 2 a share of the visits are VIPs (a flag on the visit, not a separate profile).</summary>
+        private bool RollVip(CustomerProfile profile)
+        {
+            if (profile == null || profile.isTutorial || _services.Progression == null) return false;
+            return _services.Progression.Level >= config.vipMinShopLevel && Random.value < config.vipChance;
+        }
+
+        /// <summary>Every hairstyle a spawned customer can ask for (used by goals and milestones).</summary>
+        public List<HaircutRequest> AllRequests()
+        {
+            var result = new List<HaircutRequest>();
+            if (config == null) return result;
+            void Add(CustomerProfile profile)
+            {
+                if (profile == null) return;
+                if (profile.preferredRequest != null && !result.Contains(profile.preferredRequest)) result.Add(profile.preferredRequest);
+                foreach (var request in profile.possibleRequests)
+                    if (request != null && !result.Contains(request)) result.Add(request);
+            }
+            Add(config.tutorialProfile);
+            foreach (var profile in config.profiles) Add(profile);
+            return result;
+        }
+
         /// <summary>Closing time grace period is over: customers who have not started their haircut go home.</summary>
         public void SendWaitingCustomersHome()
         {
@@ -99,7 +125,7 @@ namespace BarberSimulator.Customers
         }
 
         /// <summary>Spawns a customer right now (also used by the debug tools).</summary>
-        public CustomerBrain Spawn(CustomerProfile profile)
+        public CustomerBrain Spawn(CustomerProfile profile, bool vip = false)
         {
             if (profile == null || config.customerPrefab == null) return null;
             CustomerBrain customer = null;
@@ -115,7 +141,7 @@ namespace BarberSimulator.Customers
             }
 
             _active.Add(customer);
-            customer.BeginVisit(site, _services, profile, ++_seed);
+            customer.BeginVisit(site, _services, profile, ++_seed, vip);
             return customer;
         }
 

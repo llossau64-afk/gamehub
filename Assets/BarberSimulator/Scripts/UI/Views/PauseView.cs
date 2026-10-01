@@ -7,6 +7,7 @@ namespace BarberSimulator.UI
     public sealed class PauseView : UIView
     {
         public event Action ResumeClicked;
+        public event Action AchievementsClicked;
         public event Action SettingsClicked;
         public event Action MainMenuClicked;
         public Action<MenuButton> RegisterSounds { get; set; }
@@ -28,7 +29,7 @@ namespace BarberSimulator.UI
             gradient.rectTransform.sizeDelta = new Vector2(1000f, 0f);
 
             _column = UIFactory.Rect("Column", Root);
-            UIFactory.Anchor(_column, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(150f, 0f), new Vector2(600f, 520f));
+            UIFactory.Anchor(_column, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(150f, 0f), new Vector2(600f, 610f));
 
             var overline = Factory.Label("Overline", _column, theme.semiBoldFont, 18, theme.accent, TextAnchor.UpperLeft, "pause.overline", upper: true);
             UIFactory.Anchor(overline.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(2f, 0f), new Vector2(600f, 30f));
@@ -38,8 +39,9 @@ namespace BarberSimulator.UI
             UIFactory.Anchor(title.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(-2f, -30f), new Vector2(600f, 120f));
 
             AddButton("pause.resume", 0, () => ResumeClicked?.Invoke());
-            AddButton("menu.settings", 1, () => SettingsClicked?.Invoke());
-            AddButton("pause.main_menu", 2, () => MainMenuClicked?.Invoke());
+            AddButton("pause.achievements", 1, () => AchievementsClicked?.Invoke());
+            AddButton("menu.settings", 2, () => SettingsClicked?.Invoke());
+            AddButton("pause.main_menu", 3, () => MainMenuClicked?.Invoke());
         }
 
         private void AddButton(string key, int index, Action onClick)

@@ -17,5 +17,10 @@ namespace BarberSimulator.Customers
         [Tooltip("Reputation (0-100) at which intervals are shortened by 'busyFactor'.")]
         public float busyReputation = 60f;
         [Range(0.3f, 1f)] public float busyFactor = 0.7f;
+        [Header("VIP customers")]
+        [Tooltip("Shop level from which spawns can be VIPs.")]
+        [Min(1)] public int vipMinShopLevel = 2;
+        [Tooltip("Chance that a regular spawn is a VIP.")]
+        [Range(0f, 1f)] public float vipChance = 0.1f;
     }
 }

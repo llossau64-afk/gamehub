@@ -63,6 +63,8 @@ namespace BarberSimulator.Core
             ui.Settings.LanguageSelected += SetLanguage;
             ui.Pause.ResumeClicked += Resume;
             ui.Pause.SettingsClicked += () => OpenSettings(fromPause: true);
+            ui.Pause.AchievementsClicked += OpenAchievements;
+            ui.Achievements.BackClicked += CloseAchievements;
             ui.Pause.MainMenuClicked += ReturnToMainMenu;
 
             _ctx.Input.PausePressed += OnPausePressed;
@@ -378,6 +380,7 @@ namespace BarberSimulator.Core
             _ctx.Day.Running = true;
             ApplyShopOpenState();
             RefreshWorkdayHud();
+            _ctx.RewardsUI.Refresh();
         }
 
         /// <summary>The spawner follows the day phase: customers only come while the shop is open.</summary>
@@ -425,7 +428,7 @@ namespace BarberSimulator.Core
         private void OnLevelChanged(int previous, int level)
         {
             var loc = _ctx.Localization;
-            _ctx.UI.Hud.ShowBanner(loc.Get("hud.level_up"), loc.Format("hud.level_title", level), complete: true);
+            _ctx.UI.Hud.ShowBanner(loc.Get("hud.level_up"), loc.Format("hud.level_title", level), complete: true, celebrate: true);
             _ctx.UI.Hud.ShowToast(loc.Get("toast.new_upgrades"));
             _ctx.Audio.PlaySfx(_ctx.Audio.Library.objectiveComplete, 0.8f);
             RefreshWorkdayHud();
@@ -598,6 +601,7 @@ namespace BarberSimulator.Core
                     break;
                 case GameState.Paused:
                     if (_ctx.UI.Settings.IsVisible) CloseSettings();
+                    else if (_ctx.UI.Achievements.IsVisible) CloseAchievements();
                     else Resume();
                     break;
                 case GameState.Store:
@@ -678,6 +682,20 @@ namespace BarberSimulator.Core
             _ctx.Audio.PlayBack();
             if (_settingsFromPause && State == GameState.Paused) ui.Pause.Show();
             else if (State == GameState.MainMenu) ui.MainMenu.Show();
+        }
+
+        private void OpenAchievements()
+        {
+            if (State != GameState.Paused) return;
+            _ctx.UI.Pause.Hide();
+            _ctx.UI.Achievements.Show();
+        }
+
+        private void CloseAchievements()
+        {
+            _ctx.UI.Achievements.Hide();
+            _ctx.Audio.PlayBack();
+            if (State == GameState.Paused) _ctx.UI.Pause.Show();
         }
 
         private void OpenCredits()

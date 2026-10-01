@@ -27,11 +27,18 @@ namespace BarberSimulator.Customers
         private float _patience;
         private float _patienceMax;
 
+        /// <summary>VIPs run out of patience a quarter sooner.</summary>
+        public const float VipPatienceMultiplier = 0.75f;
+        /// <summary>VIPs judge the haircut on tighter tolerances.</summary>
+        public const float VipLeniencyMultiplier = 0.85f;
+
         public CustomerState State => _machine.CurrentKey;
         public CustomerProfile Profile { get; private set; }
         public HaircutRequest Request { get; private set; }
         public string DisplayName { get; private set; }
         public bool HasOrdered { get; private set; }
+        /// <summary>VIP visit (decided by the spawner): double price, less patience, stricter, more reputation and XP.</summary>
+        public bool IsVip { get; private set; }
         public bool HasChair => _chair != null;
         public bool IsTutorial => Profile != null && Profile.isTutorial;
         public bool IsReadyForHaircut => State == CustomerState.WaitForPlayer;
@@ -62,7 +69,7 @@ namespace BarberSimulator.Customers
         }
 
         /// <summary>Starts a new visit (pooled reuse).</summary>
-        public void BeginVisit(ShopCustomerSite site, CustomerServices services, CustomerProfile profile, int seed)
+        public void BeginVisit(ShopCustomerSite site, CustomerServices services, CustomerProfile profile, int seed, bool isVip = false)
         {
             // Activate first: pooled prefabs are stored inactive, and their Awake (which applies the default look)
             // must run before this visit's randomised appearance is applied.
@@ -74,11 +81,13 @@ namespace BarberSimulator.Customers
             Request = profile.PickRequest(_rng, _services.Progression != null ? _services.Progression.Level : 1);
             DisplayName = profile.PickName(_rng);
             HasOrdered = false;
+            IsVip = isVip && !profile.isTutorial;
             _conversationStarted = false;
             _seat = null;
             _chair = null;
             // Comfort upgrades (coffee, TV) make customers wait longer; tutorial customers stay infinitely patient.
             _patienceMax = profile.patienceSeconds * (_services.Upgrades != null ? _services.Upgrades.PatienceMultiplier : 1f);
+            if (IsVip) _patienceMax *= VipPatienceMultiplier;
             _patience = _patienceMax;
             LastResult = default;
 
@@ -171,7 +180,7 @@ namespace BarberSimulator.Customers
         private void Say(string key, float seconds)
         {
             if (string.IsNullOrEmpty(key) || _services.Dialogue == null) return;
-            _services.Dialogue.Say(DisplayName, Text(key), seconds);
+            _services.Dialogue.Say(DisplayName, Text(key), seconds, IsVip);
             if (animator != null)
             {
                 animator.Talking = true;
@@ -218,7 +227,7 @@ namespace BarberSimulator.Customers
                 Say(CustomerDialogueSet.Pick(choice == 0 ? set?.afterAgree : set?.afterWait, _rng), 2.4f);
                 _services.Objectives?.Signal(Objectives.ObjectiveSignals.CustomerGreeted);
                 _machine.Change(CustomerState.CheckAvailability);
-            });
+            }, IsVip);
         }
 
         /// <summary>Animated sit: walk position → turn → lower onto the seat.</summary>

@@ -51,6 +51,8 @@ Debug keys (editor and development builds only): F5 spawn customer, F6 +$100, F7
 
 **The shop computer.** The laptop on the reception counter opens the upgrade store (Tools, Comfort & Decor, Expansion). Pause, movement and the world are frozen while it is open; Esc or Close returns to the shop. Upgrades are `UpgradeDefinition` assets listed in an `UpgradeCatalog` (built by `Phase3ContentBuilder`); purchases are stored in `shop.ownedItemIds`. Their effects (customer patience, tips, customer arrival rate, queue size, reputation gain, tools, areas) are aggregated in `UpgradeEffects`, and their scene props (`UpgradeProp`) appear when bought. Shop level comes from experience (`ShopProgression`: each served customer gives 5-20 XP depending on the stars) and gates upgrades and hairstyles (`HaircutRequest.RequiredShopLevel`).
 
+**Rewards.** `Rewards/` holds the retention systems, all persisted in `ProgressionData` (save version 4): `StreakService` (consecutive cuts of 4+ stars raise the tip multiplier to x1.1 / x1.25 / x1.5 at 2 / 4 / 6; a 3-star cut or a lost customer breaks it), `DailyGoalService` (three goals each morning drawn from `DailyGoalPool` and scaled with shop level, paid in cash and XP), `MilestoneService` (13 achievements, listed in the Achievements panel of the pause menu) and `RewardsPresenter` (HUD badge, goals panel, toasts, banners, sounds, popups). From shop level 2 about 10% of spawns are VIPs (`CustomerSpawnConfig.vipChance`): a runtime flag on the visit with double price, 25% less patience, tighter evaluation and extra reputation and XP.
+
 A gamepad also works through the same input actions: left stick, right stick, A to interact, Start to pause.
 
 ## Architecture

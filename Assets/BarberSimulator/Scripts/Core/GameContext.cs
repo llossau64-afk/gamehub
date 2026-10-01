@@ -29,6 +29,10 @@ namespace BarberSimulator.Core
         public Shop.UpgradeEffects UpgradeEffects;
         public Shop.UpgradeService Upgrades;
         public Workday.DayCycleService Day;
+        public Rewards.StreakService Streak;
+        public Rewards.DailyGoalService Goals;
+        public Rewards.MilestoneService Milestones;
+        public Rewards.RewardsPresenter RewardsUI;
         public UIRoot UI;
         public IPlatformService Platform;
         /// <summary>Rewarded / interstitial ads (mutes and pauses the game while they play).</summary>

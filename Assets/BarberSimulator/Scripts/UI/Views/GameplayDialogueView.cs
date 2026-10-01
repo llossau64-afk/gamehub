@@ -70,22 +70,30 @@ namespace BarberSimulator.UI
             UIAnimation.SetVisible(_choicesGroup, false);
         }
 
-        public void Say(string speaker, string text, float seconds)
+        /// <summary>The name tag: VIP customers get "VIP · NAME" in gold.</summary>
+        private void SetSpeaker(string speaker, bool vip)
+        {
+            var theme = Factory.Theme;
+            _speaker.text = vip ? Factory.Text.Get("vip.tag").ToUpperInvariant() + " · " + speaker.ToUpperInvariant() : speaker.ToUpperInvariant();
+            _speaker.color = vip ? theme.vip : theme.accent;
+        }
+
+        public void Say(string speaker, string text, float seconds, bool vip = false)
         {
             if (string.IsNullOrEmpty(text) || IsBusy) return;
             if (!IsVisible) Show(true);
-            _speaker.text = speaker.ToUpperInvariant();
+            SetSpeaker(speaker, vip);
             _line.text = text;
             _lineGroup.alpha = 1f;
             if (_hideRoutine != null) StopCoroutine(_hideRoutine);
             _hideRoutine = StartCoroutine(HideAfter(seconds));
         }
 
-        public void Ask(string speaker, string text, string[] options, Action<int> onChosen)
+        public void Ask(string speaker, string text, string[] options, Action<int> onChosen, bool vip = false)
         {
             if (!IsVisible) Show(true);
             if (_hideRoutine != null) StopCoroutine(_hideRoutine);
-            _speaker.text = speaker.ToUpperInvariant();
+            SetSpeaker(speaker, vip);
             _line.text = text;
             _lineGroup.alpha = 1f;
             for (int i = 0; i < _choices.Length; i++)

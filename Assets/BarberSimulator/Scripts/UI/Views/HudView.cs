@@ -31,6 +31,10 @@ namespace BarberSimulator.UI
         private Text _moneyText;
         private Text _moneyDelta;
         private CanvasGroup _moneyDeltaGroup;
+        // The cash display counts up (or down) to the real balance instead of jumping.
+        private float _moneyShown;
+        private int _moneyTarget;
+        private bool _moneyInitialised;
 
         private Text _dayText;
         private Text _clockText;
@@ -59,8 +63,14 @@ namespace BarberSimulator.UI
         private Coroutine _toastRoutine;
         private Coroutine _hintRoutine;
         private Coroutine _moneyRoutine;
-        private readonly Queue<(string overline, string title, bool complete)> _banners = new Queue<(string, string, bool)>();
+        private readonly Queue<(string overline, string title, bool complete, bool celebrate)> _banners = new Queue<(string, string, bool, bool)>();
         private Coroutine _bannerRoutine;
+
+        private StreakBadge _streak;
+        private GoalsPanel _goals;
+        private FloatingPopups _popups;
+        private UIParticleBurst _burst;
+        private System.Action _clickSound;
 
         private bool _touchMode;
         private bool _promptVisible;
@@ -73,6 +83,7 @@ namespace BarberSimulator.UI
 
         public void BuildTouchControls(InputService input, System.Action clickSound)
         {
+            _clickSound = clickSound;
             var rect = UIFactory.Rect("Touch Controls", Root);
             rect.SetAsFirstSibling();
             TouchControls = rect.gameObject.AddComponent<TouchControlsView>();
@@ -209,6 +220,26 @@ namespace BarberSimulator.UI
             _toastText = Factory.Label("Text", toast, theme.bodyFont, 24, theme.textPrimary, TextAnchor.MiddleCenter);
             UIFactory.Stretch(_toastText.rectTransform);
             UIFactory.SoftShadow(_toastText, new Color(0f, 0f, 0f, 0.7f), new Vector2(0f, -2f));
+
+            // Streak badge (right of the clock) and the daily goals list (under the objective).
+            var streakHost = UIFactory.Rect("Streak Host", Root);
+            UIFactory.Stretch(streakHost);
+            _streak = streakHost.gameObject.AddComponent<StreakBadge>();
+            _streak.Build(Factory, streakHost);
+            var goalsHost = UIFactory.Rect("Goals Host", Root);
+            UIFactory.Stretch(goalsHost);
+            _goals = goalsHost.gameObject.AddComponent<GoalsPanel>();
+            _goals.Build(Factory, goalsHost, () => _clickSound?.Invoke());
+
+            // Juice layers sit on top of everything else.
+            var popupHost = UIFactory.Rect("Popups", Root);
+            UIFactory.Stretch(popupHost);
+            _popups = popupHost.gameObject.AddComponent<FloatingPopups>();
+            _popups.Build(Factory, popupHost, 8);
+            var burstHost = UIFactory.Rect("Burst", Root);
+            UIFactory.Stretch(burstHost);
+            _burst = burstHost.gameObject.AddComponent<UIParticleBurst>();
+            _burst.Build(Factory, burstHost, 40);
         }
 
         public void SetTouchMode(bool touch)
@@ -217,6 +248,31 @@ namespace BarberSimulator.UI
             if (TouchControls != null) TouchControls.gameObject.SetActive(touch);
             // Leave room for the pause button in the corner.
             _moneyRoot.anchoredPosition = touch ? new Vector2(-130f, -36f) : new Vector2(-40f, -36f);
+            // Phones keep the goals list folded until the player taps it open.
+            if (_goals != null) _goals.SetCollapsed(touch);
+        }
+
+        /// <summary>The daily goals list. Passing no rows hides the panel.</summary>
+        public void SetGoals(IReadOnlyList<GoalRow> rows) => _goals.SetRows(rows);
+
+        /// <summary>Streak badge; <paramref name="bonusText"/> is e.g. "×1.25 tips". Pulses when <paramref name="animate"/> is set.</summary>
+        public void SetStreak(int streak, string bonusText, bool animate) => _streak.SetStreak(streak, bonusText, animate);
+
+        public void ShowStreakLost(int lostStreak) => _streak.ShowLost(lostStreak);
+
+        /// <summary>A short "+$25" / "+15 XP" pop above the crosshair. Lane 0 is left, lane 1 right of the centre.</summary>
+        public void ShowPopup(string text, bool xp, int lane)
+        {
+            if (!gameObject.activeInHierarchy) return;
+            var theme = Factory.Theme;
+            var origin = new Vector2(lane == 0 ? -110f : 110f, lane == 0 ? 170f : 150f) + new Vector2(Random.Range(-14f, 14f), 0f);
+            _popups.Spawn(text, xp ? theme.flame : theme.accent, origin, xp ? 32 : 42);
+        }
+
+        /// <summary>Confetti from the banner position.</summary>
+        public void PlayBurst()
+        {
+            if (gameObject.activeInHierarchy) _burst.Play(new Vector2(0f, 300f));
         }
 
         /// <summary>Top-centre clock: "DAY 2", "09:41", "OPEN".</summary>
@@ -268,9 +324,9 @@ namespace BarberSimulator.UI
         }
 
         /// <summary>Queues a centre banner ("NEW OBJECTIVE" / "OBJECTIVE COMPLETE").</summary>
-        public void ShowBanner(string overline, string title, bool complete)
+        public void ShowBanner(string overline, string title, bool complete, bool celebrate = false)
         {
-            _banners.Enqueue((overline, title, complete));
+            _banners.Enqueue((overline, title, complete, celebrate));
             if (_bannerRoutine == null && gameObject.activeInHierarchy) _bannerRoutine = StartCoroutine(BannerLoop());
         }
 
@@ -278,7 +334,7 @@ namespace BarberSimulator.UI
         {
             while (_banners.Count > 0)
             {
-                var (overline, title, complete) = _banners.Dequeue();
+                var (overline, title, complete, celebrate) = _banners.Dequeue();
                 _bannerOverline.text = overline.ToUpperInvariant();
                 _bannerTitle.text = title;
                 _bannerTitle.fontSize = complete ? 48 : 54;
@@ -286,6 +342,7 @@ namespace BarberSimulator.UI
 
                 var rect = (RectTransform)_bannerGroup.transform;
                 var rest = new Vector2(0f, -150f);
+                if (celebrate) PlayBurst();
                 yield return UIAnimation.FadeAndSlide(_bannerGroup, rect, 1f, rest + new Vector2(0f, 16f), rest, 0.45f);
                 yield return UIAnimation.Wait(complete ? 1.8f : 2.4f);
                 yield return UIAnimation.FadeAndSlide(_bannerGroup, rect, 0f, rest, rest + new Vector2(0f, 10f), 0.4f);
@@ -295,7 +352,14 @@ namespace BarberSimulator.UI
 
         public void SetMoney(int amount, int delta)
         {
-            _moneyText.text = Economy.EconomyService.Format(amount);
+            _moneyTarget = amount;
+            if (!_moneyInitialised || delta == 0)
+            {
+                // First value and plain refreshes show the balance at once; only real changes count up.
+                _moneyInitialised = true;
+                _moneyShown = amount;
+                _moneyText.text = Economy.EconomyService.Format(amount);
+            }
             if (delta == 0) return;
             _moneyDelta.text = (delta > 0 ? "+" : "−") + Economy.EconomyService.Format(Mathf.Abs(delta));
             if (_moneyRoutine != null) StopCoroutine(_moneyRoutine);
@@ -382,6 +446,14 @@ namespace BarberSimulator.UI
             _crosshair.rectTransform.sizeDelta = Vector2.one * Mathf.Lerp(7f, 11f, _focusAmount);
 
             _captureHint.alpha = Mathf.MoveTowards(_captureHint.alpha, _captureVisible ? 0.9f : 0f, dt / 0.25f);
+
+            // Cash counter: closes most of the gap each second, never slower than $30/s, so big payments roll up quickly.
+            if (_moneyInitialised && !Mathf.Approximately(_moneyShown, _moneyTarget))
+            {
+                float gap = Mathf.Abs(_moneyTarget - _moneyShown);
+                _moneyShown = Mathf.MoveTowards(_moneyShown, _moneyTarget, Mathf.Max(30f, gap * 3.5f) * dt);
+                _moneyText.text = Economy.EconomyService.Format(Mathf.RoundToInt(_moneyShown));
+            }
         }
 
         protected override void OnShown()
@@ -398,6 +470,14 @@ namespace BarberSimulator.UI
             _moneyRoutine = null;
             if (_toastGroup != null) _toastGroup.alpha = 0f;
             if (_bannerGroup != null) _bannerGroup.alpha = 0f;
+            if (_popups != null) _popups.Clear();
+            if (_burst != null) _burst.Clear();
+            // A hidden HUD cannot count; it shows the real balance when it comes back.
+            if (_moneyInitialised && _moneyText != null)
+            {
+                _moneyShown = _moneyTarget;
+                _moneyText.text = Economy.EconomyService.Format(_moneyTarget);
+            }
         }
     }
 }

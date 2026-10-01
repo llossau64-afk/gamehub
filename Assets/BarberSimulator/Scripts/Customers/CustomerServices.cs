@@ -10,8 +10,9 @@ namespace BarberSimulator.Customers
     /// <summary>Short spoken lines and quick answers during gameplay (not the cinematic dialogue).</summary>
     public interface ICustomerDialoguePresenter
     {
-        void Say(string speaker, string text, float seconds);
-        void Ask(string speaker, string text, string[] options, Action<int> onChosen);
+        /// <param name="vip">VIP customers get a gold name tag.</param>
+        void Say(string speaker, string text, float seconds, bool vip = false);
+        void Ask(string speaker, string text, string[] options, Action<int> onChosen, bool vip = false);
         bool IsBusy { get; }
     }
 
@@ -34,5 +35,6 @@ namespace BarberSimulator.Customers
         public UI.IToastPresenter Toasts;
         public Shop.UpgradeEffects Upgrades;
         public Shop.ShopProgression Progression;
+        public Rewards.StreakService Streak;
     }
 }

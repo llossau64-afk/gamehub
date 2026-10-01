@@ -111,9 +111,11 @@ namespace BarberSimulator.Audio
             return source;
         }
 
-        public void PlayUI(AudioClip clip, float volume = 1f)
+        /// <param name="pitch">1 = as recorded. The UI source is shared, so every call sets it (a pitched sound never leaks into the next one).</param>
+        public void PlayUI(AudioClip clip, float volume = 1f, float pitch = 1f)
         {
             if (clip == null) return;
+            _uiSource.pitch = pitch;
             _uiSource.PlayOneShot(clip, volume * Volume(AudioCategory.UI));
         }
 

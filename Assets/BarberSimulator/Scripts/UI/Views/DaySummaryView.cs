@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using BarberSimulator.Economy;
 using BarberSimulator.Workday;
 using UnityEngine;
@@ -12,11 +13,18 @@ namespace BarberSimulator.UI
     /// </summary>
     public sealed class DaySummaryView : UIView
     {
-        private const float RowSpacing = 46f;
+        private const float RowSpacing = 38f;
+        private const int GoalSlots = 3;
+        private const float GoalRowHeight = 30f;
 
         private Text _title;
         private Text _served, _lost, _revenue, _tips, _ratingValue, _reputation, _xp, _rent, _net, _levelUp;
         private readonly Image[] _stars = new Image[5];
+        private Text _goalsHeader;
+        private Text _goalsCount;
+        private readonly Text[] _goalTexts = new Text[GoalSlots];
+        private readonly Text[] _goalCounters = new Text[GoalSlots];
+        private readonly Image[] _goalChecks = new Image[GoalSlots];
         private DaySummary _summary;
         private bool _hasSummary;
 
@@ -27,6 +35,8 @@ namespace BarberSimulator.UI
         private RectTransform _doubleTipsRect;
         private Text _doubleTipsLabel;
         public Action<MenuButton> RegisterSounds { get; set; }
+        /// <summary>Supplies today's goals (current language and progress) whenever the summary is drawn.</summary>
+        public Func<IReadOnlyList<GoalRow>> GoalSource { get; set; }
 
         protected override void OnBuild()
         {
@@ -71,6 +81,24 @@ namespace BarberSimulator.UI
 
             _levelUp = Factory.Label("LevelUp", panel, theme.semiBoldFont, 22, theme.accent, TextAnchor.UpperCenter);
             UIFactory.Anchor(_levelUp.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, RowY(row) - 20f), new Vector2(760f, 32f));
+
+            // Daily goals: header, then one line per goal (check, text, counter).
+            float goalsTop = RowY(row) - 62f;
+            _goalsHeader = Factory.Label("Goals Header", panel, theme.semiBoldFont, 16, theme.accent, TextAnchor.MiddleLeft, "summary.goals", upper: true);
+            UIFactory.Anchor(_goalsHeader.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(-190f, goalsTop), new Vector2(380f, 28f));
+            UIFactory.Spacing(_goalsHeader, 4f);
+            _goalsCount = Factory.Label("Goals Count", panel, theme.semiBoldFont, 16, theme.textMuted, TextAnchor.MiddleRight);
+            UIFactory.Anchor(_goalsCount.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(190f, goalsTop), new Vector2(380f, 28f));
+            for (int i = 0; i < GoalSlots; i++)
+            {
+                float y = goalsTop - 32f - i * GoalRowHeight;
+                _goalChecks[i] = Factory.Image("Goal Check " + i, panel, theme.iconCheck, theme.accent);
+                UIFactory.Anchor(_goalChecks[i].rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(-370f, y - 14f), new Vector2(20f, 20f));
+                _goalTexts[i] = Factory.Label("Goal " + i, panel, theme.bodyFont, 21, theme.textMuted, TextAnchor.MiddleLeft);
+                UIFactory.Anchor(_goalTexts[i].rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(-30f, y), new Vector2(660f, GoalRowHeight));
+                _goalCounters[i] = Factory.Label("Goal Counter " + i, panel, theme.semiBoldFont, 20, theme.textMuted, TextAnchor.MiddleRight);
+                UIFactory.Anchor(_goalCounters[i].rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(300f, y), new Vector2(160f, GoalRowHeight));
+            }
 
             var buttonRect = UIFactory.Rect("Next Day", panel);
             UIFactory.Anchor(buttonRect, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 34f), new Vector2(360f, 70f));
@@ -139,6 +167,32 @@ namespace BarberSimulator.UI
             Show();
         }
 
+        private void RenderGoals(Color good, Color bad)
+        {
+            var theme = Factory.Theme;
+            var rows = GoalSource != null ? GoalSource() : null;
+            int count = rows != null ? Mathf.Min(rows.Count, GoalSlots) : 0;
+            int done = 0;
+            for (int i = 0; i < GoalSlots; i++)
+            {
+                bool used = i < count;
+                _goalTexts[i].gameObject.SetActive(used);
+                _goalCounters[i].gameObject.SetActive(used);
+                _goalChecks[i].gameObject.SetActive(used);
+                if (!used) continue;
+                var row = rows[i];
+                if (row.Completed) done++;
+                _goalTexts[i].text = row.Text;
+                _goalTexts[i].color = row.Completed ? theme.textPrimary : (row.Failed ? bad : theme.textMuted);
+                _goalCounters[i].text = row.Completed ? row.Reward : (row.Failed ? string.Empty : row.Counter);
+                _goalCounters[i].color = row.Completed ? good : theme.textMuted;
+                _goalChecks[i].color = row.Completed ? theme.accent : new Color(1f, 1f, 1f, 0.12f);
+            }
+            _goalsHeader.gameObject.SetActive(count > 0);
+            _goalsCount.gameObject.SetActive(count > 0);
+            _goalsCount.text = done + " / " + count;
+        }
+
         private void Render()
         {
             var theme = Factory.Theme;
@@ -168,6 +222,7 @@ namespace BarberSimulator.UI
             _net.text = (s.Net >= 0 ? "+" : "−") + EconomyService.Format(Mathf.Abs(s.Net));
             _net.color = s.Net >= 0 ? good : bad;
             _levelUp.text = s.LevelAfter > s.LevelBefore ? loc.Format("summary.level_up", s.LevelAfter) : string.Empty;
+            RenderGoals(good, bad);
         }
     }
 }

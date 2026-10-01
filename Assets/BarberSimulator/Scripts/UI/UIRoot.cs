@@ -26,6 +26,7 @@ namespace BarberSimulator.UI
         public ReviewCardView Reviews { get; private set; }
         public ShopStoreView Store { get; private set; }
         public DaySummaryView Summary { get; private set; }
+        public AchievementsView Achievements { get; private set; }
         public UIFactory Factory { get; private set; }
 
         private ResponsiveCanvasScaler _scaler;
@@ -46,13 +47,14 @@ namespace BarberSimulator.UI
             Hud.BuildTouchControls(input, audio.PlayClick);
             Barber = CreateView<BarberModeView>("Barber Mode", safe, v => v.Bind(input, audio.PlayClick));
             Conversation = CreateView<GameplayDialogueView>("Conversation", safe, v => v.Bind(input, audio.PlayClick));
-            Reviews = CreateView<ReviewCardView>("Reviews", safe, v => { });
+            Reviews = CreateView<ReviewCardView>("Reviews", safe, v => v.Bind(audio));
             Store = CreateView<ShopStoreView>("Shop Store", safe, v => v.RegisterSounds = RegisterSounds);
             Summary = CreateView<DaySummaryView>("Day Summary", safe, v => v.RegisterSounds = RegisterSounds);
             Cinematic = CreateView<CinematicView>("Cinematic", safe, v => { });
             MainMenu = CreateView<MainMenuView>("Main Menu", safe, v => v.RegisterSounds = RegisterSounds);
             Credits = CreateView<CreditsView>("Credits", safe, v => v.RegisterSounds = RegisterSounds);
             Pause = CreateView<PauseView>("Pause", safe, v => v.RegisterSounds = RegisterSounds);
+            Achievements = CreateView<AchievementsView>("Achievements", safe, v => v.RegisterSounds = RegisterSounds);
             Settings = CreateView<SettingsView>("Settings", safe, v => v.RegisterSounds = RegisterSounds);
 
             GlobalFade = CreateFader("Global Fade", 100, 1f);

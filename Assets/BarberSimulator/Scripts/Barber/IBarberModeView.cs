@@ -13,7 +13,7 @@ namespace BarberSimulator.Barber
         event Action BackClicked;
         event Action FinishConfirmed;
 
-        void Open(string customerName, string requestName, IReadOnlyList<string> checklistKeys, IReadOnlyList<BarberToolDefinition> tools, bool touch);
+        void Open(string customerName, string requestName, IReadOnlyList<string> checklistKeys, IReadOnlyList<BarberToolDefinition> tools, bool touch, bool isVip = false);
         void Close();
         void SetSelectedTool(int index, BarberToolDefinition tool);
         void SetGuards(string[] labels, int selected);
