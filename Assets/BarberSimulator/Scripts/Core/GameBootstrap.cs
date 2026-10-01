@@ -36,6 +36,7 @@ namespace BarberSimulator.Core
 
         private void Awake()
         {
+            Debugging.ErrorOverlay.Ensure();
             if (config == null)
             {
                 Fail("GameConfig is missing. Run 'Barber Simulator > Build Project Content'.", null);
@@ -60,6 +61,7 @@ namespace BarberSimulator.Core
         {
             _startupError = message;
             if (exception != null) Debug.LogException(exception);
+            else Debugging.ErrorOverlay.Report(message, string.Empty);
             Debug.LogError("[Bootstrap] " + message);
             if (_context?.UI != null)
             {
@@ -71,18 +73,6 @@ namespace BarberSimulator.Core
             enabled = false;
         }
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-        private void OnGUI()
-        {
-            if (string.IsNullOrEmpty(_startupError)) return;
-            GUI.color = Color.white;
-            GUI.Box(new Rect(20f, 20f, Screen.width - 40f, 120f), string.Empty);
-            GUI.Label(new Rect(34f, 30f, Screen.width - 68f, 100f),
-                "Barber Simulator could not start.\n" + _startupError + "\nSee the Console for the full error and send it to the developer.");
-        }
-#else
-        private void OnGUI() { }
-#endif
 
         private void Boot()
         {

@@ -65,6 +65,15 @@ namespace BarberSimulator.EditorTools
             Debug.Log("[Barber Simulator] Lightmap bake started (indirect bounce only; direct light stays realtime).");
         }
 
+        [MenuItem("Barber Simulator/Delete Save Data", priority = 60)]
+        public static void DeleteSaveData()
+        {
+            if (!EditorUtility.DisplayDialog("Barber Simulator", "Delete the saved game (progress, money and settings) on this computer?", "Delete", "Cancel")) return;
+            PlayerPrefs.DeleteKey("barbersim.save.v1");
+            PlayerPrefs.Save();
+            Debug.Log("[Barber Simulator] Save data deleted. The next Play starts a fresh game.");
+        }
+
         [MenuItem("Barber Simulator/Validate Scene", priority = 40)]
         public static void ValidateScene()
         {

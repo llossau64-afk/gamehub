@@ -8,8 +8,19 @@ namespace BarberSimulator.UI
     /// <summary>Full-screen colour overlay. The newest fade request always wins.</summary>
     public sealed class ScreenFader : MonoBehaviour, IScreenFade
     {
+        private static readonly System.Collections.Generic.List<ScreenFader> Active = new System.Collections.Generic.List<ScreenFader>();
+
         private Image _image;
         private int _version;
+
+        /// <summary>Clears every fader (used by the error overlay so a crash never leaves a black screen).</summary>
+        public static void ClearAll()
+        {
+            foreach (var fader in Active) if (fader != null) fader.SetAlpha(0f);
+        }
+
+        private void OnEnable() => Active.Add(this);
+        private void OnDisable() => Active.Remove(this);
 
         public float Alpha => _image != null ? _image.color.a : 0f;
 
