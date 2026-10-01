@@ -13,6 +13,7 @@ using BarberSimulator.Interaction;
 using BarberSimulator.NPC;
 using BarberSimulator.Player;
 using BarberSimulator.Shop;
+using BarberSimulator.Workday;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -96,8 +97,9 @@ namespace BarberSimulator.EditorTools
             BuildShell(shell);
             BuildExterior(exterior);
             var backRoom = BuildBackRoom(environment);
-            var refs = new SceneRefs();
+            var refs = new SceneRefs { Phase3 = content.Phase3 };
             BuildFurniture(furniture, refs);
+            BuildUpgradeProps(furniture, refs);
             BuildLighting(lighting, content);
             BuildGameplay(gameplay, refs, backRoom);
             BuildPlayerAndCamera(refs);
@@ -145,6 +147,11 @@ namespace BarberSimulator.EditorTools
             public ShopCustomerSite Site;
             public CustomerSpawner Spawner;
             public Phase2ContentBuilder.Result Phase2;
+            public Phase3ContentBuilder.Result Phase3;
+            public ShopSign Sign;
+            public ShopComputer Computer;
+            public readonly List<UpgradeProp> UpgradeProps = new List<UpgradeProp>();
+            public readonly List<GameObject> BenchChairs = new List<GameObject>();
         }
 
         // ================================================================== helpers
@@ -418,9 +425,9 @@ namespace BarberSimulator.EditorTools
             // Reception (front right).
             var reception = Group(root, "Reception");
             var counter = Place(props.ReceptionCounter(), reception, new Vector3(2.75f, 0f, 2.2f), -90f);
-            Place(props.CashRegister(), reception, new Vector3(2.9f, 1.05f, 2.35f), 90f);
+            Place(props.CashRegister(), reception, new Vector3(2.9f, 0.94f, 2.35f), 90f);
             Place(props.WallClock(), reception, new Vector3(RoomHalfWidth - 0.01f, 2.35f, 2.2f), -90f);
-            Place(props.TowelStack(2), reception, new Vector3(2.85f, 1.05f, 1.75f), 70f);
+            Place(props.TowelStack(2), reception, new Vector3(2.85f, 0.94f, 1.75f), 70f);
             _ = counter;
 
             // Barber station (left wall).
@@ -514,6 +521,74 @@ namespace BarberSimulator.EditorTools
             Place(props.PendantLamp(0.9f), ceiling, new Vector3(-2.5f, CeilingHeight, 5.2f), 0f, "Pendant_Chair");
             Place(props.PendantLamp(0.85f), ceiling, new Vector3(2.6f, CeilingHeight, 2.2f), 0f, "Pendant_Reception");
             Place(props.PendantLamp(0.6f), ceiling, new Vector3(2.9f, CeilingHeight, 8.0f), 0f, "Pendant_Storage");
+        }
+
+        // ================================================================== upgrade props
+
+        /// <summary>Starts the container of one upgrade's scene props. It is hidden once all upgrade props exist.</summary>
+        private static Transform UpgradeGroup(Transform root, SceneRefs refs, string upgradeId)
+        {
+            var definition = refs.Phase3 != null ? refs.Phase3.Find(upgradeId) : null;
+            var go = new GameObject(definition != null && !string.IsNullOrEmpty(definition.scenePropName) ? definition.scenePropName : "Upgrade_" + upgradeId);
+            go.transform.SetParent(root, false);
+            go.AddComponent<UpgradeProp>().Configure(upgradeId);
+            refs.UpgradeProps.Add(go.GetComponent<UpgradeProp>());
+            return go.transform;
+        }
+
+        /// <summary>
+        /// Everything the shop computer sells that you can see: built into the scene but disabled; ShopState enables
+        /// the props of owned upgrades (see UpgradeProp).
+        /// </summary>
+        private static void BuildUpgradeProps(Transform root, SceneRefs refs)
+        {
+            if (refs.Phase3 == null) return;
+            var upgrades = Group(root, "Upgrades");
+
+            // Coffee machine: a small station against the right wall by the entrance.
+            var coffee = UpgradeGroup(upgrades, refs, "coffee_machine");
+            Place(props.CoffeeStation(), coffee, new Vector3(3.55f, 0f, 0.72f), -90f, "CoffeeStation");
+
+            // Plants and posters.
+            var decor = UpgradeGroup(upgrades, refs, "plants_posters");
+            Place(props.Plant(), decor, new Vector3(3.55f, 0f, 3.3f), 20f, "BigPlant_Counter").transform.localScale = Vector3.one * 1.7f;
+            Place(props.Plant(), decor, new Vector3(-0.65f, 0f, 8.55f), 70f, "BigPlant_Back").transform.localScale = Vector3.one * 1.4f;
+            QuadObject(decor, "Poster_Right", new Vector3(RoomHalfWidth - 0.012f, 1.75f, 3.72f), Quaternion.Euler(0f, -90f, 0f), new Vector2(0.55f, 0.8f), m.Poster);
+            QuadObject(decor, "Poster_Back", new Vector3(-3.2f, 1.7f, RoomDepth - 0.012f), Quaternion.Euler(0f, 180f, 0f), new Vector2(0.6f, 0.85f), m.Poster);
+
+            // Wall TV above the waiting chairs.
+            var tv = UpgradeGroup(upgrades, refs, "wall_tv");
+            Place(props.WallTv(), tv, new Vector3(-RoomHalfWidth + 0.02f, 2.05f, 2.15f), 90f, "WallTv");
+
+            // Second waiting bench on the right wall. The seats are registered with the customer site later.
+            var bench = UpgradeGroup(upgrades, refs, "second_bench");
+            for (int i = 0; i < 2; i++)
+                refs.BenchChairs.Add(Place(props.WaitingChair(m.VinylGreen), bench, new Vector3(3.55f, 0f, 6.0f + i * 0.68f), -90f, "WaitingChair_B" + i));
+
+            // Neon sign in the display window, readable from the street.
+            var neon = UpgradeGroup(upgrades, refs, "neon_sign");
+            Place(props.NeonSign(), neon, new Vector3(-2.15f, 1.9f, 0.14f), 0f, "NeonSign");
+            PointLight(neon, "NeonGlow", new Vector3(-2.15f, 1.85f, 0.5f), new Color(1f, 0.3f, 0.6f), 0.8f, 3.4f);
+
+            // Premium products shelf on the left wall behind the second chair.
+            var shelfGroup = UpgradeGroup(upgrades, refs, "premium_shelf");
+            var shelf = Place(props.WallShelf(0.8f, 4), shelfGroup, new Vector3(-RoomHalfWidth + 0.24f, 0f, 8.58f), 90f, "PremiumShelf");
+            for (int i = 1; i < 4; i++)
+            {
+                var board = shelf.transform.Find("Shelf_" + i);
+                if (board == null) continue;
+                props.ProductBottles(30 + i).transform.SetParent(board, false);
+            }
+
+            // Placeholder for the second barber chair (an employee will work it in a later update).
+            var chair = UpgradeGroup(upgrades, refs, "second_chair");
+            Place(props.BarberChair(), chair, new Vector3(-2.5f, 0f, 7.35f), -90f, "BarberChair_2");
+            Place(props.Workstation(), chair, new Vector3(-3.72f, 0f, 7.35f), 90f, "Workstation_2");
+            Place(props.MirrorFrame(1.3f, 1.0f), chair, new Vector3(-RoomHalfWidth + 0.02f, 1.58f, 7.35f), 90f, "MirrorFrame_2");
+            QuadObject(chair, "Mirror_2", new Vector3(-RoomHalfWidth + 0.035f, 1.58f, 7.35f), Quaternion.Euler(0f, 90f, 0f), new Vector2(1.3f, 1.0f), m.ChromeDark);
+
+            // Hidden until bought.
+            foreach (var prop in refs.UpgradeProps) prop.gameObject.SetActive(false);
         }
 
         private static void AddRotator(Transform target, float speed, float wobble)
@@ -634,6 +709,16 @@ namespace BarberSimulator.EditorTools
             door.Configure(hinge, -92f, "interact.front_door");
             if (hinge != null) door.SetHighlightRenderers(hinge.GetComponentsInChildren<Renderer>());
 
+            // Open/Closed sign (left of the front door) and the shop computer on the reception counter.
+            var signGo = Place(props.OpenClosedSign(), interactables, new Vector3(-0.38f, 1.78f, 0.012f), 0f, "OpenClosedSign");
+            refs.Sign = signGo.AddComponent<ShopSign>();
+            refs.Sign.Configure(signGo.transform.Find("Board"));
+            refs.Sign.SetHighlightRenderers(signGo.GetComponentsInChildren<Renderer>());
+
+            var laptop = Place(props.Laptop(), interactables, new Vector3(2.92f, 0.94f, 2.72f), 90f, "ShopComputer");
+            refs.Computer = laptop.AddComponent<ShopComputer>();
+            refs.Computer.SetHighlightRenderers(laptop.GetComponentsInChildren<Renderer>());
+
             // Locked back door into the future expansion.
             refs.BackDoor = Place(props.BackDoor(), interactables, new Vector3(0.6f, 0f, RoomDepth + 0.1f), 180f, "BackDoor_Locked");
             var locked = refs.BackDoor.AddComponent<LockedDoor>();
@@ -665,6 +750,7 @@ namespace BarberSimulator.EditorTools
             refs.Spawn.rotation = Quaternion.Euler(0f, -18f, 0f);
 
             refs.Shop.Configure(refs.Trash, refs.Points, new List<ExpansionArea> { backRoom }, door, refs.Spawn);
+            refs.Shop.SetUpgradeProps(refs.UpgradeProps);
         }
 
         private static void AddTrash(Transform parent, SceneRefs refs, GameObject prop, string id, string label, Vector3 position, float yaw)
@@ -858,7 +944,9 @@ namespace BarberSimulator.EditorTools
             };
             var barber = characters.Create("Ambient_Barber", barberLook, withMotor: false);
             barber.transform.SetParent(root.transform, false);
-            barber.transform.SetPositionAndRotation(refs.BarberStand.position + refs.BarberStand.right * 0.32f, Quaternion.LookRotation(refs.BarberChairSeat.position - refs.BarberStand.position, Vector3.up));
+            var toChair = refs.BarberChairSeat.position - refs.BarberStand.position;
+            toChair.y = 0f; // stand upright: the seat is higher than the barber's floor point
+            barber.transform.SetPositionAndRotation(refs.BarberStand.position + refs.BarberStand.right * 0.32f, Quaternion.LookRotation(toChair, Vector3.up));
             var barberHead = refs.BarberChairSeat;
             barber.AddComponent<AmbientNpc>().Configure(barber.GetComponent<ProceduralCharacterAnimator>(), CharacterPose.Stand, barberHead, talks: true, null, cutting: true);
             var barberHand = barber.transform.Find("Body/Pelvis/Spine/UpperArmR/ForearmR");
@@ -931,7 +1019,9 @@ namespace BarberSimulator.EditorTools
                 ShadowLights = ShadowLights.ToArray(),
                 BarberMode = refs.BarberMode,
                 CustomerSite = refs.Site,
-                CustomerSpawner = refs.Spawner
+                CustomerSpawner = refs.Spawner,
+                Sign = refs.Sign,
+                Computer = refs.Computer
             };
             bootstrap.Configure(content.Config, scene);
 
@@ -991,6 +1081,23 @@ namespace BarberSimulator.EditorTools
                 var waitingSeat = chair.AddComponent<WaitingSeat>();
                 waitingSeat.Configure(seat, approach);
                 seats.Add(waitingSeat);
+            }
+
+            // Upgrade bench (right wall): inactive seats until bought, but the walk nodes always exist.
+            if (refs.BenchChairs.Count > 0)
+            {
+                var benchHub = Node("WaitingArea_Bench", new Vector3(2.2f, 0f, 6.3f), 90f);
+                Link(benchHub, chairArea); Link(benchHub, reception);
+                for (int i = 0; i < refs.BenchChairs.Count; i++)
+                {
+                    var chair = refs.BenchChairs[i];
+                    var seat = chair.transform.Find("SeatPoint");
+                    var approach = Node("BenchApproach_" + i, new Vector3(seat.position.x - 0.55f, 0f, seat.position.z), seat.eulerAngles.y);
+                    Link(benchHub, approach);
+                    var waitingSeat = chair.AddComponent<WaitingSeat>();
+                    waitingSeat.Configure(seat, approach);
+                    seats.Add(waitingSeat);
+                }
             }
 
             var graph = graphGo.AddComponent<NavGraph>();

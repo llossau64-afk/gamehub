@@ -155,6 +155,10 @@ namespace BarberSimulator.Customers
                         {
                             Owner.animator.Trigger("lookaround");
                             _idleTimer = Random.Range(6f, 12f);
+                            // Now and then a customer chats while waiting (never the silent tutorial customer).
+                            var set = Owner.Profile.dialogue;
+                            if (!Owner.IsTutorial && set != null && Random.value < 0.3f)
+                                Owner.Say(CustomerDialogueSet.Pick(set.smallTalk, Owner._rng), 3f);
                         }
                         _checkTimer -= deltaTime;
                         if (_checkTimer > 0f) return;

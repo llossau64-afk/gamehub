@@ -185,7 +185,13 @@ namespace BarberSimulator.UI
                 _tabs[i].SetNormalColor(active ? theme.textPrimary : theme.textMuted);
             }
 
-            for (int i = _content.childCount - 1; i >= 0; i--) Destroy(_content.GetChild(i).gameObject);
+            for (int i = _content.childCount - 1; i >= 0; i--)
+            {
+                // Destroy is deferred to the end of the frame; deactivate first so the layout ignores the old rows.
+                var old = _content.GetChild(i).gameObject;
+                old.SetActive(false);
+                Destroy(old);
+            }
             foreach (var upgrade in _upgrades.All)
                 if (upgrade != null && upgrade.category == TabCategories[_activeTab]) BuildRow(upgrade);
         }
@@ -215,7 +221,7 @@ namespace BarberSimulator.UI
             UIFactory.Anchor(description.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(26f, -50f), new Vector2(740f, 52f));
             var effects = Factory.Label("Effects", row, theme.semiBoldFont, 17, locked ? theme.textDisabled : theme.accent, TextAnchor.UpperLeft);
             effects.text = EffectText(upgrade);
-            UIFactory.Anchor(effects.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(26f, 12f), new Vector2(740f, 26f));
+            UIFactory.Anchor(effects.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(26f, 8f), new Vector2(740f, 26f));
 
             var price = Factory.Label("Price", row, theme.displayFont, 38, locked ? theme.textMuted : theme.textPrimary, TextAnchor.MiddleRight);
             price.text = EconomyService.Format(upgrade.price);

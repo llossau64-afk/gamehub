@@ -371,6 +371,7 @@ namespace BarberSimulator.Core
         /// <summary>Gameplay (re)started: restore the day from the save and re-apply the owned upgrades.</summary>
         private void ResumeWorkday()
         {
+            _ctx.Progression.SyncSavedLevel();
             _ctx.Upgrades.Refresh();
             _ctx.Day.Restore();
             _ctx.Day.Running = true;

@@ -90,12 +90,13 @@ namespace BarberSimulator.EditorTools
             spawn.maxActiveCustomers = 3;
             EditorUtility.SetDirty(spawn);
             result.SpawnConfig = spawn;
+            CustomerVarietyBuilder.Extend(result);
 
             AssetDatabase.SaveAssets();
             return result;
         }
 
-        private static string[] Keys(string prefix, int count)
+        internal static string[] Keys(string prefix, int count)
         {
             var keys = new string[count];
             for (int i = 0; i < count; i++) keys[i] = prefix + "." + (i + 1);
@@ -126,7 +127,7 @@ namespace BarberSimulator.EditorTools
             return tool;
         }
 
-        private static CustomerProfile Profile(string id, CustomerPersonality personality, string[] names, float patience, float budget, float tipChance,
+        internal static CustomerProfile Profile(string id, CustomerPersonality personality, string[] names, float patience, float budget, float tipChance,
             float leniency, float strictness, HaircutRequest[] requests, HaircutRequest preferred, CustomerDialogueSet dialogue, bool tutorial, float weight)
         {
             var profile = ContentAssetsBuilder.GetOrCreate<CustomerProfile>(Folder + "Customers/Profile_" + id + ".asset");

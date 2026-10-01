@@ -202,7 +202,14 @@ namespace BarberSimulator.Customers
             string line = string.IsNullOrEmpty(greeting) ? Text(ask) : greeting + " " + Text(ask);
 
             if (animator != null) { animator.Talking = true; animator.Trigger("gesture"); }
-            var options = new[] { _services.Localization.Get("reply.sure"), _services.Localization.Get("reply.one_second") };
+            // Each voice can have its own two answers; the generic ones are the fallback.
+            string agreeKey = CustomerDialogueSet.Pick(set != null ? set.replyAgree : null, _rng);
+            string waitKey = CustomerDialogueSet.Pick(set != null ? set.replyWait : null, _rng);
+            var options = new[]
+            {
+                _services.Localization.Get(string.IsNullOrEmpty(agreeKey) ? "reply.sure" : agreeKey),
+                _services.Localization.Get(string.IsNullOrEmpty(waitKey) ? "reply.one_second" : waitKey)
+            };
             _services.Dialogue.Ask(DisplayName, line, options, choice =>
             {
                 StopTalking();

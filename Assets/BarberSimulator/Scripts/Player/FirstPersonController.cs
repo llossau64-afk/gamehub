@@ -1,6 +1,7 @@
 using System;
 using BarberSimulator.Core;
 using BarberSimulator.Input;
+using BarberSimulator.NPC;
 using UnityEngine;
 
 namespace BarberSimulator.Player
@@ -69,6 +70,16 @@ namespace BarberSimulator.Player
             _controller = GetComponent<CharacterController>();
             _headRestLocal = head.localPosition;
             _yaw = transform.eulerAngles.y;
+            NpcMotor.Player = transform;
+        }
+
+        private void OnDestroy()
+        {
+            if (NpcMotor.Player == transform)
+            {
+                NpcMotor.Player = null;
+                NpcMotor.PlayerInControl = false;
+            }
         }
 
         public void Initialize(InputService input)
@@ -79,6 +90,7 @@ namespace BarberSimulator.Player
         public void SetControlEnabled(bool enabled)
         {
             ControlEnabled = enabled;
+            NpcMotor.PlayerInControl = enabled; // customers give way to a walking player
             if (!enabled)
             {
                 _planarVelocity = Vector3.zero;

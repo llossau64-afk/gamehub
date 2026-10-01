@@ -66,7 +66,7 @@ namespace BarberSimulator.Haircut
             var buzz = new Definition
             {
                 Id = "buzz_cut", NameKey = "haircut.buzz_cut", Price = 18, Fade = false,
-                AskKeys = new[] { "ask.buzz_cut.1", "ask.buzz_cut.2" },
+                AskKeys = new[] { "ask.buzz_cut.1", "ask.buzz_cut.2", "ask.buzz_cut.3" },
                 TutorialHints = new[] { "tut.buzz.1", "tut.buzz.2" }
             };
             Sides(buzz, 0.6f, 0.6f, 0.6f, 0.3f, "check.sides");
@@ -77,7 +77,7 @@ namespace BarberSimulator.Haircut
             var lowFade = new Definition
             {
                 Id = "low_fade", NameKey = "haircut.low_fade", Price = 28, Fade = true,
-                AskKeys = new[] { "ask.low_fade.1", "ask.low_fade.2" },
+                AskKeys = new[] { "ask.low_fade.1", "ask.low_fade.2", "ask.low_fade.3" },
                 TutorialHints = new[] { "tut.fade.1", "tut.fade.2", "tut.fade.3", "tut.fade.4", "tut.fade.5", "tut.fade.6" }
             };
             Sides(lowFade, 0.2f, 0.6f, 1.3f, 0.3f, "check.sides");
@@ -88,7 +88,7 @@ namespace BarberSimulator.Haircut
             var midFade = new Definition
             {
                 Id = "mid_fade", NameKey = "haircut.mid_fade", Price = 30, Fade = true,
-                AskKeys = new[] { "ask.mid_fade.1", "ask.mid_fade.2" },
+                AskKeys = new[] { "ask.mid_fade.1", "ask.mid_fade.2", "ask.mid_fade.3" },
                 TutorialHints = new[] { "tut.fade.1", "tut.fade.2", "tut.fade.3", "tut.fade.4", "tut.fade.5", "tut.fade.6" }
             };
             Sides(midFade, 0.1f, 0.3f, 1.0f, 0.25f, "check.sides");
@@ -99,7 +99,7 @@ namespace BarberSimulator.Haircut
             var taper = new Definition
             {
                 Id = "basic_taper", NameKey = "haircut.basic_taper", Price = 24, Fade = false,
-                AskKeys = new[] { "ask.taper.1", "ask.taper.2" },
+                AskKeys = new[] { "ask.taper.1", "ask.taper.2", "ask.taper.3" },
                 TutorialHints = new[] { "tut.taper.1", "tut.taper.2" }
             };
             Sides(taper, 1.0f, 1.8f, 2.4f, 0.45f, "check.sides");
@@ -110,7 +110,7 @@ namespace BarberSimulator.Haircut
             var trim = new Definition
             {
                 Id = "short_trim", NameKey = "haircut.short_trim", Price = 22, Fade = false,
-                AskKeys = new[] { "ask.trim.1", "ask.trim.2" },
+                AskKeys = new[] { "ask.trim.1", "ask.trim.2", "ask.trim.3" },
                 TutorialHints = new[] { "tut.trim.1", "tut.trim.2" }
             };
             Sides(trim, 1.3f, 1.5f, 1.8f, 0.45f, "check.sides");
@@ -123,7 +123,7 @@ namespace BarberSimulator.Haircut
             var highFade = new Definition
             {
                 Id = "high_fade", NameKey = "haircut.high_fade", Price = 34, Fade = true, RequiredShopLevel = 2,
-                AskKeys = new[] { "ask.high_fade.1", "ask.high_fade.2" },
+                AskKeys = new[] { "ask.high_fade.1", "ask.high_fade.2", "ask.high_fade.3" },
                 TutorialHints = new[] { "tut.fade.1", "tut.fade.2", "tut.fade.3", "tut.fade.4", "tut.fade.5", "tut.fade.6" }
             };
             Sides(highFade, 0.05f, 0.15f, 0.9f, 0.2f, "check.sides");
@@ -134,7 +134,7 @@ namespace BarberSimulator.Haircut
             var crew = new Definition
             {
                 Id = "crew_cut", NameKey = "haircut.crew_cut", Price = 26, Fade = false, RequiredShopLevel = 2,
-                AskKeys = new[] { "ask.crew_cut.1", "ask.crew_cut.2" },
+                AskKeys = new[] { "ask.crew_cut.1", "ask.crew_cut.2", "ask.crew_cut.3" },
                 TutorialHints = new string[0]
             };
             Sides(crew, 0.6f, 1.0f, 1.6f, 0.35f, "check.sides");
@@ -145,7 +145,7 @@ namespace BarberSimulator.Haircut
             var undercut = new Definition
             {
                 Id = "undercut", NameKey = "haircut.undercut", Price = 30, Fade = false, RequiredShopLevel = 3,
-                AskKeys = new[] { "ask.undercut.1", "ask.undercut.2" },
+                AskKeys = new[] { "ask.undercut.1", "ask.undercut.2", "ask.undercut.3" },
                 TutorialHints = new string[0]
             };
             // Disconnected on purpose: the sides stay one short length right up to the long top, no blending.
@@ -157,7 +157,7 @@ namespace BarberSimulator.Haircut
             var scissorCut = new Definition
             {
                 Id = "scissor_cut", NameKey = "haircut.scissor_cut", Price = 34, Fade = false, RequiredShopLevel = 3,
-                AskKeys = new[] { "ask.scissor_cut.1", "ask.scissor_cut.2" },
+                AskKeys = new[] { "ask.scissor_cut.1", "ask.scissor_cut.2", "ask.scissor_cut.3" },
                 TutorialHints = new string[0]
             };
             // Every target is above the longest clipper guard (#4 = 1.3 cm), so only scissors work can match it.
@@ -169,7 +169,7 @@ namespace BarberSimulator.Haircut
             var sidePart = new Definition
             {
                 Id = "side_part_taper", NameKey = "haircut.side_part_taper", Price = 32, Fade = false, RequiredShopLevel = 3,
-                AskKeys = new[] { "ask.side_part.1", "ask.side_part.2" },
+                AskKeys = new[] { "ask.side_part_taper.1", "ask.side_part_taper.2", "ask.side_part_taper.3" },
                 TutorialHints = new string[0]
             };
             Sides(sidePart, 0.6f, 1.2f, 1.8f, 0.3f, "check.sides");
@@ -180,7 +180,7 @@ namespace BarberSimulator.Haircut
             var skinFade = new Definition
             {
                 Id = "skin_fade", NameKey = "haircut.skin_fade", Price = 40, Fade = true, RequiredShopLevel = 4,
-                AskKeys = new[] { "ask.skin_fade.1", "ask.skin_fade.2" },
+                AskKeys = new[] { "ask.skin_fade.1", "ask.skin_fade.2", "ask.skin_fade.3" },
                 TutorialHints = new[] { "tut.fade.1", "tut.fade.2", "tut.fade.3", "tut.fade.4", "tut.fade.5", "tut.fade.6" }
             };
             // Down to the skin (#0 = 0.05 cm) at the bottom of the sides, the back and the nape.

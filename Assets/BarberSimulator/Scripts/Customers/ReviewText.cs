@@ -7,7 +7,7 @@ namespace BarberSimulator.Customers
     {
         public static string KeyFor(int stars, HaircutIssue issue, System.Random rng)
         {
-            if (stars >= 5) return "review.5." + (rng.Next(3) + 1);
+            if (stars >= 5) return "review.5." + (rng.Next(6) + 1);
             string issueKey;
             switch (issue)
             {
@@ -17,9 +17,11 @@ namespace BarberSimulator.Customers
                 case HaircutIssue.TopTooShort: issueKey = "top_too_short"; break;
                 case HaircutIssue.TooLong: issueKey = "too_long"; break;
                 case HaircutIssue.Uneven: issueKey = "uneven"; break;
-                default: return "review." + stars + ".1";
+                default: return "review." + stars + "." + (1 + rng.Next(2)); // two variants for 1-4 stars
             }
-            return "review.issue." + issueKey + (stars >= 3 ? ".mild" : ".bad");
+            // Original wording plus two more variants (".2", ".3") per issue, so the same mistake is not always worded the same.
+            int variant = rng.Next(3);
+            return "review.issue." + issueKey + (stars >= 3 ? ".mild" : ".bad") + (variant == 0 ? string.Empty : "." + (variant + 1));
         }
     }
 }

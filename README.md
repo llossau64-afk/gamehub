@@ -2,7 +2,7 @@
 
 First-person barbershop simulator for Unity WebGL (CrazyGames, GamePix, Playgama), playable on desktop and mobile browsers.
 
-**Current state: Phase 2: customer loop and haircut gameplay, on top of the Phase 1 foundation.**
+**Current state: Phase 3: workday loop, shop computer with upgrades and shop levels, on top of the Phase 2 customer loop and haircut gameplay.**
 
 ## Opening the project
 
@@ -47,6 +47,10 @@ Other menu commands:
 
 Debug keys (editor and development builds only): F5 spawn customer, F6 +$100, F7 reset hair, F8 complete haircut to target, F9 hair zone overlay.
 
+**The workday.** Every day starts with the shop closed and the clock frozen at 09:00. Flip the OPEN/CLOSED sign next to the front door (interact) to open. The clock then runs to 18:00 (about 9 real minutes; `WorkdayConfig`). After closing time no new customers arrive, those inside finish, and then the end-of-day summary appears (served, revenue, tips, average stars, reputation, XP, rent) with a "Next day" button. Day 1 asks you to finish tidying first; the "Serve your first customer" objective points you at the sign. Rent is deducted at the end of each day (day 1 is free; rent that cannot be paid is waived).
+
+**The shop computer.** The laptop on the reception counter opens the upgrade store (Tools, Comfort & Decor, Expansion). Pause, movement and the world are frozen while it is open; Esc or Close returns to the shop. Upgrades are `UpgradeDefinition` assets listed in an `UpgradeCatalog` (built by `Phase3ContentBuilder`); purchases are stored in `shop.ownedItemIds`. Their effects (customer patience, tips, customer arrival rate, queue size, reputation gain, tools, areas) are aggregated in `UpgradeEffects`, and their scene props (`UpgradeProp`) appear when bought. Shop level comes from experience (`ShopProgression`: each served customer gives 5-20 XP depending on the stars) and gates upgrades and hairstyles (`HaircutRequest.RequiredShopLevel`).
+
 A gamepad also works through the same input actions: left stick, right stick, A to interact, Start to pause.
 
 ## Architecture
@@ -55,7 +59,8 @@ All code is in `Assets/BarberSimulator/Scripts`. It uses two assemblies: `Barber
 
 | Folder | Responsibility |
 |---|---|
-| `Core` | `GameBootstrap` (composition root), `GameFlowController` (Menu → Intro → Gameplay ⇄ Pause), `GameConfig` |
+| `Core` | `GameBootstrap` (composition root), `GameFlowController` (Menu → Intro → Gameplay ⇄ Pause / Store / Day summary), `GameConfig` |
+| `Workday` | `DayCycleService` (clock, Closed → Open → Closing → Ended, rent, summary data), `WorkdayConfig`, `ShopSign` (the interactable OPEN/CLOSED sign) |
 | `Save` | Versioned `SaveData`, the `ISaveStorage` abstraction (PlayerPrefs/IndexedDB, or the portal's data module through `PlatformSaveStorage`) and the migration step |
 | `Platform` | Portal integration: `IPlatformService` (CrazyGames SDK v3 or none), `IAdService`, `PlatformSaveStorage`, `PlatformFlowBridge` (loading and gameplay signals) |
 | `Settings` | `SettingsService` (every setting is applied and persisted) and `QualityApplier` (URP tiers) |
@@ -68,12 +73,13 @@ All code is in `Assets/BarberSimulator/Scripts`. It uses two assemblies: `Barber
 | `NPC` / `Characters` | The customer state machine, the NPC motor, modular appearance data and the procedural animator |
 | `UI` | Code-built uGUI styled by the `UITheme` asset: menu, settings, pause, HUD, cinematic overlay and touch controls |
 | `Audio` | `AudioService` with Music, SFX, Ambience and UI volume categories |
-| `Economy` / `Shop` | Money, shop state restoration and expansion areas |
+| `Economy` | Money, reputation, per-day statistics and the payment rules |
+| `Shop` | `ShopState` (restores props and areas), `ExpansionArea`, `ShopComputer`, `UpgradeDefinition` / `UpgradeCatalog` / `UpgradeService` / `UpgradeEffects` / `UpgradeProp`, `ShopProgression` (XP and shop level) |
 | `Haircut` | `HairGrid` (scalp cells with length per zone and band), `HaircutSession` (tools and guards), `HaircutEvaluator` (scoring), `HairShellRenderer` (visible hair), request and tool ScriptableObjects |
 | `Barber` | `BarberModeController` (orbit camera, tool hand, cutting, audio, particles) and `BarberTutorial` |
 | `Customers` | `CustomerBrain` (16-state visit), `ShopCustomerSite` (queue and reservations), `CustomerSpawner`, profiles and dialogue data, `BarberChairStation`, `WaitingSeat` |
 | `Navigation` | `NavGraph`, the authored walk graph that customers use (always through the real door) |
-| `Editor` | Project setup, the procedural content and scene generators, and validation (**Validate Customers & Haircuts**) |
+| `Editor` | Project setup, the procedural content and scene generators, and validation (**Validate Customers & Haircuts**, **Validate Workday & Upgrades**) |
 
 Localization tables are in `Assets/BarberSimulator/Resources/BarberSimulator/Localization` (English and German).
 
