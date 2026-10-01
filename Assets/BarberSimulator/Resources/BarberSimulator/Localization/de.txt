@@ -1,0 +1,100 @@
+# Barbershop Simulator - Deutsch
+common.back = Zurück
+common.cancel = Abbrechen
+
+menu.overline = Ein kleiner Laden mit großen Plänen
+menu.continue = Fortsetzen
+menu.continue_detail = Tag {0} · {1}
+menu.new_game = Neues Spiel
+menu.settings = Einstellungen
+menu.credits = Mitwirkende
+menu.language = Sprache
+menu.confirm_new = Neues Spiel starten?\nDein aktueller Laden und Fortschritt gehen verloren.
+menu.confirm_yes = Neues Spiel starten
+
+pause.overline = Tag pausiert
+pause.title = Pause
+pause.resume = Weiterspielen
+pause.main_menu = Hauptmenü
+
+settings.title = Einstellungen
+settings.tab.graphics = Grafik
+settings.tab.audio = Audio
+settings.tab.controls = Steuerung
+settings.tab.gameplay = Spiel
+settings.quality = Qualität
+settings.quality.low = Niedrig
+settings.quality.medium = Mittel
+settings.quality.high = Hoch
+settings.render_scale = Auflösungsskalierung
+settings.shadows = Schatten
+settings.anti_aliasing = Kantenglättung
+settings.master = Gesamtlautstärke
+settings.music = Musik
+settings.sfx = Soundeffekte
+settings.ambience = Atmosphäre
+settings.ui = Menü-Sounds
+settings.mouse_sensitivity = Mausempfindlichkeit
+settings.touch_sensitivity = Touch-Empfindlichkeit
+settings.invert_y = Vertikale Sicht umkehren
+settings.joystick_opacity = Joystick-Deckkraft
+settings.dynamic_joystick = Joystick folgt dem Daumen
+settings.language = Sprache
+settings.camera_bob = Kamerawippen
+settings.hints = Tutorial-Hinweise
+
+credits.title = Mitwirkende
+credits.body = Design, Code und prozedurale Grafik: Barbershop Simulator Team\nErstellt mit Unity (URP)\n\nSchriften: DM Serif Display & Inter, SIL Open Font License 1.1\nTexturen, Sounds und Musik: für dieses Projekt erzeugt\n\nPhase-1-Build: Platzhalter-Figuren und -Objekte werden durch finale Grafik ersetzt.
+
+hud.objective = Aufgabe
+hud.cash = Kasse
+hud.new_objective = Neue Aufgabe
+hud.objective_complete = Aufgabe erledigt
+hud.click_to_look = Klicken, um dich umzusehen
+
+intro.skip = Überspringen
+intro.day = Tag {0}
+
+speaker.owner = Vorbesitzer
+speaker.player = Du
+
+dialogue.intro.1 = Du bist also derjenige, der den Laden kauft?
+dialogue.intro.2 = Das ist der Plan.
+dialogue.intro.3 = Dann solltest du dir wohl ansehen, worauf du dich einlässt.
+dialogue.intro.4 = Viel ist es nicht.
+dialogue.intro.5 = Aber es könnte etwas werden.
+
+objective.inspect = Sieh dich in deinem neuen Laden um
+objective.inspect.hint = Laufe mit W A S D, schau dich mit der Maus um. Besuche den Wartebereich, den Friseurstuhl und den hinteren Teil des Ladens.
+objective.inspect.hint.touch = Links ziehen zum Laufen, rechts ziehen zum Umsehen. Besuche den Wartebereich, den Friseurstuhl und den hinteren Teil des Ladens.
+objective.clean = Räum den Laden auf
+objective.clean.hint = Schau auf Müll und drücke E, um ihn aufzuheben.
+objective.clean.hint.touch = Schau auf Müll und tippe auf den Hand-Button, um ihn aufzuheben.
+objective.station = Prüfe deinen Arbeitsplatz
+objective.station.hint = Deine Werkzeuge liegen auf der Ablage vor dem Spiegel.
+objectives.completed = Der Laden gehört dir. Morgen wartet mehr Arbeit.
+
+verb.use = Benutzen
+verb.open = Öffnen
+verb.close = Schließen
+verb.talk = Reden
+verb.cut = Schneiden
+verb.buy = Kaufen
+verb.clean = Putzen
+verb.sit = Setzen
+verb.pickup = Aufheben
+verb.inspect = Ansehen
+verb.locked = Verschlossen
+
+interact.trash = Müll
+interact.trash.paper = Zerknülltes Papier
+interact.trash.can = Getränkedose
+interact.trash.bottle = Leere Flasche
+interact.trash.pizza = Alter Pizzakarton
+interact.trash.newspaper = Alte Zeitungen
+interact.front_door = Eingangstür
+interact.barber_station = Arbeitsplatz
+interact.expansion_door = Hinterzimmer
+
+toast.expansion_locked = Verschlossen. Das Hinterzimmer muss erst renoviert werden, bevor es Teil des Ladens werden kann.
+toast.station_inspected = Eine alte Haarschneidemaschine und eine Schere. Sie funktionieren noch... gerade so.

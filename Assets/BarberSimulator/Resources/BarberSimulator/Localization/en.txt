@@ -1,0 +1,100 @@
+# Barbershop Simulator - English (default / fallback)
+common.back = Back
+common.cancel = Cancel
+
+menu.overline = A small shop with big plans
+menu.continue = Continue
+menu.continue_detail = Day {0} · {1}
+menu.new_game = New Game
+menu.settings = Settings
+menu.credits = Credits
+menu.language = Language
+menu.confirm_new = Start a new game?\nYour current shop and progress will be lost.
+menu.confirm_yes = Start New Game
+
+pause.overline = Day paused
+pause.title = Paused
+pause.resume = Resume
+pause.main_menu = Main Menu
+
+settings.title = Settings
+settings.tab.graphics = Graphics
+settings.tab.audio = Audio
+settings.tab.controls = Controls
+settings.tab.gameplay = Gameplay
+settings.quality = Quality
+settings.quality.low = Low
+settings.quality.medium = Medium
+settings.quality.high = High
+settings.render_scale = Resolution scale
+settings.shadows = Shadows
+settings.anti_aliasing = Anti-aliasing
+settings.master = Master volume
+settings.music = Music
+settings.sfx = Sound effects
+settings.ambience = Ambience
+settings.ui = Interface sounds
+settings.mouse_sensitivity = Mouse sensitivity
+settings.touch_sensitivity = Touch sensitivity
+settings.invert_y = Invert vertical look
+settings.joystick_opacity = Joystick opacity
+settings.dynamic_joystick = Joystick follows thumb
+settings.language = Language
+settings.camera_bob = Camera bob
+settings.hints = Tutorial hints
+
+credits.title = Credits
+credits.body = Design, code and procedural art: Barbershop Simulator team\nBuilt with Unity (URP)\n\nFonts: DM Serif Display & Inter, SIL Open Font License 1.1\nTextures, audio and music: generated for this project\n\nPhase 1 build: placeholder characters and props will be replaced by final art.
+
+hud.objective = Objective
+hud.cash = Cash
+hud.new_objective = New objective
+hud.objective_complete = Objective complete
+hud.click_to_look = Click to look around
+
+intro.skip = Skip
+intro.day = Day {0}
+
+speaker.owner = Previous Owner
+speaker.player = You
+
+dialogue.intro.1 = So... you're the one buying this place?
+dialogue.intro.2 = That's the plan.
+dialogue.intro.3 = Then you should probably see what you're getting into.
+dialogue.intro.4 = It isn't much.
+dialogue.intro.5 = But it could be.
+
+objective.inspect = Inspect your new shop
+objective.inspect.hint = Walk with W A S D, look around with the mouse. Visit the waiting area, the barber chair and the back of the shop.
+objective.inspect.hint.touch = Drag on the left to walk, drag on the right to look. Visit the waiting area, the barber chair and the back of the shop.
+objective.clean = Clean up the shop
+objective.clean.hint = Look at trash and press E to pick it up.
+objective.clean.hint.touch = Look at trash and tap the hand button to pick it up.
+objective.station = Check your barber station
+objective.station.hint = Your tools are on the counter in front of the mirror.
+objectives.completed = The shop is yours. More work awaits tomorrow.
+
+verb.use = Use
+verb.open = Open
+verb.close = Close
+verb.talk = Talk
+verb.cut = Cut
+verb.buy = Buy
+verb.clean = Clean
+verb.sit = Sit
+verb.pickup = Pick up
+verb.inspect = Inspect
+verb.locked = Locked
+
+interact.trash = Trash
+interact.trash.paper = Crumpled paper
+interact.trash.can = Soda can
+interact.trash.bottle = Empty bottle
+interact.trash.pizza = Old pizza box
+interact.trash.newspaper = Old newspapers
+interact.front_door = Front door
+interact.barber_station = Barber station
+interact.expansion_door = Back room
+
+toast.expansion_locked = Locked. The back room needs a renovation before it can become part of the shop.
+toast.station_inspected = An old clipper and a pair of scissors. They still work... barely.
