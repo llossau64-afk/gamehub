@@ -10,6 +10,18 @@ namespace BarberSimulator.Input
         public Vector2 Move { get; set; }
         public bool JoystickActive { get; set; }
         public bool LookActive { get; set; }
+        /// <summary>Touch CUT button held (barber mode).</summary>
+        public bool CutHeld { get; set; }
+        private float _zoom;
+
+        public void AddZoom(float amount) => _zoom += amount;
+
+        public float ConsumeZoom()
+        {
+            var value = _zoom;
+            _zoom = 0f;
+            return value;
+        }
 
         public void AddLook(Vector2 pixelDelta)
         {
@@ -29,6 +41,8 @@ namespace BarberSimulator.Input
             Move = Vector2.zero;
             JoystickActive = false;
             LookActive = false;
+            CutHeld = false;
+            _zoom = 0f;
         }
     }
 }

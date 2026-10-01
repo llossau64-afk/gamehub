@@ -13,7 +13,19 @@ namespace BarberSimulator.Save
                 return data;
             }
 
-            // Future: if (data.version == 1) { ...convert...; data.version = 2; }
+            if (data.version < 2)
+            {
+                // v1 → v2: customer loop. Players who already finished Day 1 get the shop opened for them.
+                if (data.player != null && data.player.ownedToolIds == null) data.player.ownedToolIds = new System.Collections.Generic.List<string>();
+                if (data.progression != null)
+                {
+                    bool day1Done = data.progression.introCompleted && string.IsNullOrEmpty(data.progression.currentObjectiveId)
+                                    && data.progression.completedObjectiveIds != null && data.progression.completedObjectiveIds.Count >= 3;
+                    data.progression.shopOpen = day1Done;
+                    data.progression.reputation = Mathf.Max(data.progression.reputation, 10f);
+                }
+                data.version = 2;
+            }
             data.version = SaveData.CurrentVersion;
             return data;
         }
@@ -31,6 +43,8 @@ namespace BarberSimulator.Save
             if (shop.unlockedAreaIds == null) shop.unlockedAreaIds = new System.Collections.Generic.List<string>();
             if (shop.ownedItemIds == null) shop.ownedItemIds = new System.Collections.Generic.List<string>();
             if (shop.placedFurnitureIds == null) shop.placedFurnitureIds = new System.Collections.Generic.List<string>();
+
+            if (data.player.ownedToolIds == null) data.player.ownedToolIds = new System.Collections.Generic.List<string>();
 
             var prog = data.progression;
             if (prog.completedObjectiveIds == null) prog.completedObjectiveIds = new System.Collections.Generic.List<string>();

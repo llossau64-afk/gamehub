@@ -37,21 +37,29 @@ namespace BarberSimulator.Objectives
             var progression = _save.Data.progression;
 
             int index = string.IsNullOrEmpty(progression.currentObjectiveId) ? -1 : _sequence.IndexOf(progression.currentObjectiveId);
+            bool resume = index >= 0;
             if (index < 0)
             {
-                // Either a fresh game or every objective was completed.
-                bool finished = progression.completedObjectiveIds.Count > 0 && progression.completedObjectiveIds.Count >= _sequence.Objectives.Count;
-                if (finished)
+                // Fresh game, or a save made before new objectives were appended: continue with the first
+                // objective that has not been completed yet.
+                index = FirstIncomplete(progression);
+                if (index < 0)
                 {
                     Current = null;
                     SequenceCompleted?.Invoke();
                     return;
                 }
-                index = 0;
                 progression.currentObjectiveProgress = 0;
             }
 
-            StartObjective(index, resume: index >= 0 && progression.currentObjectiveId == _sequence.Objectives[index].ObjectiveId);
+            StartObjective(index, resume);
+        }
+
+        private int FirstIncomplete(ProgressionData progression)
+        {
+            for (int i = 0; i < _sequence.Objectives.Count; i++)
+                if (!progression.completedObjectiveIds.Contains(_sequence.Objectives[i].ObjectiveId)) return i;
+            return -1;
         }
 
         public void Stop()

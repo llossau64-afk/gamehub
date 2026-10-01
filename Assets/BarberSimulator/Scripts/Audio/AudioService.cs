@@ -88,6 +88,17 @@ namespace BarberSimulator.Audio
             }
         }
 
+        /// <summary>Current effective volume of a category (master × category).</summary>
+        public float CategoryVolume(AudioCategory category) => Volume(category);
+
+        /// <summary>A dedicated looping 2D source owned by the caller (clipper hum etc.).</summary>
+        public AudioSource CreateLoopSource(string sourceName)
+        {
+            var source = CreateSource(sourceName, loop: true);
+            source.volume = 0f;
+            return source;
+        }
+
         public void PlayUI(AudioClip clip, float volume = 1f)
         {
             if (clip == null) return;
@@ -211,9 +222,5 @@ namespace BarberSimulator.Audio
             }
         }
 
-        public IEnumerator WaitForClip(AudioClip clip)
-        {
-            if (clip != null) yield return new WaitForSecondsRealtime(clip.length);
-        }
     }
 }

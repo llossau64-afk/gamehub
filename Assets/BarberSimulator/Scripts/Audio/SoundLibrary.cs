@@ -29,5 +29,26 @@ namespace BarberSimulator.Audio
         public AudioClip objectiveComplete;
         public AudioClip inspectTools;
         public AudioClip clipperBuzz;
+
+        [Header("Haircut")]
+        public AudioClip clipperStart;
+        public AudioClip clipperLoop;
+        public AudioClip clipperCuttingLoop;
+        public AudioClip clipperStop;
+        public AudioClip trimmerLoop;
+        public AudioClip[] scissorSnips;
+        public AudioClip[] combStrokes;
+        public AudioClip hairFall;
+        public AudioClip uiToolSelect;
+
+        [Header("Customers")]
+        public AudioClip chairCreak;
+        public AudioClip clothSit;
+        public AudioClip clothStand;
+        public AudioClip capeSnap;
+        public AudioClip cashRegister;
+        public AudioClip coins;
+        public AudioClip reviewGood;
+        public AudioClip reviewBad;
     }
 }

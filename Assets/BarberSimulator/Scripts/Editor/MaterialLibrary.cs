@@ -16,8 +16,10 @@ namespace BarberSimulator.EditorTools
         public Material Leather, VinylDark, VinylGreen, Chrome, MetalDark, Brass, Cardboard, Fabric, FabricCream, Ceramic, PlasticBlack, PlasticWhite, PlasticAmber, RegisterBody, Terracotta, Leaf, Soil, Paper, Newsprint, CanRed, BottleGreen, PaintBucket, DustSheet;
         // Special
         public Material Glass, WindowDecal, Mirror, SignBoard, Poster, Magazines, BulbWarm, StreetBackdrop, Passerby, BarberPole, LockedSign, PlasticSheet, ClockFace;
+        // Phase 2 props
+        public Material LiquidBlue, GlassClear, PriceBoard, HairClippings, CapeFabric, ChromeDark;
         // Characters (tinted per renderer)
-        public Material Skin, Hair, Cloth, Pants, Shoes, Eyes;
+        public Material Skin, Hair, Cloth, Pants, Shoes, Eyes, HairShell, Lips, EyeWhite, Iris;
 
         private Shader _lit;
         private Shader _unlit;
@@ -82,6 +84,13 @@ namespace BarberSimulator.EditorTools
             ClockFace = Lit("Clock_Face", new Color(0.94f, 0.92f, 0.86f), null, null, 0.4f);
             PlasticSheet = Transparent("Plastic_Sheet", new Color(0.9f, 0.92f, 0.9f, 0.35f), null, 0.6f);
 
+            LiquidBlue = Transparent("Liquid_Blue", new Color(0.15f, 0.45f, 0.85f, 0.55f), null, 0.9f);
+            GlassClear = Transparent("Glass_Clear", new Color(0.92f, 0.96f, 0.96f, 0.25f), null, 0.95f);
+            PriceBoard = Lit("Price_Board", Color.white, "price_board.png", null, 0.15f);
+            HairClippings = Transparent("Hair_Clippings", Color.white, "hair_clippings.png", 0.2f);
+            CapeFabric = Lit("Cape_Fabric", new Color(0.12f, 0.14f, 0.18f), "fabric_albedo.png", null, 0.25f);
+            ChromeDark = Lit("Chrome_Dark", new Color(0.35f, 0.35f, 0.36f), null, null, 0.75f, 1f);
+
             BulbWarm = Lit("Bulb_Warm", new Color(1f, 0.92f, 0.78f), null, null, 0.5f);
             BulbWarm.EnableKeyword("_EMISSION");
             BulbWarm.SetColor("_EmissionColor", new Color(1f, 0.72f, 0.42f) * 4f);
@@ -98,6 +107,22 @@ namespace BarberSimulator.EditorTools
             Pants = Lit("Character_Pants", Color.white, "fabric_albedo.png", null, 0.12f);
             Shoes = Lit("Character_Shoes", Color.white, null, null, 0.55f);
             Eyes = Lit("Character_Eyes", new Color(0.05f, 0.04f, 0.04f), null, null, 0.9f);
+            Lips = Lit("Character_Lips", new Color(0.62f, 0.36f, 0.33f), null, null, 0.45f);
+            EyeWhite = Lit("Character_EyeWhite", new Color(0.93f, 0.92f, 0.9f), null, null, 0.7f);
+            Iris = Lit("Character_Iris", new Color(0.22f, 0.15f, 0.1f), null, null, 0.9f);
+
+            // Hair shell: alpha-clipped, base map assigned at runtime, strand detail multiplied on top.
+            HairShell = Lit("Character_HairShell", Color.white, null, null, 0.38f);
+            HairShell.SetFloat("_AlphaClip", 1f);
+            HairShell.SetFloat("_Cutoff", 0.5f);
+            HairShell.EnableKeyword("_ALPHATEST_ON");
+            HairShell.SetOverrideTag("RenderType", "TransparentCutout");
+            HairShell.renderQueue = (int)RenderQueue.AlphaTest;
+            HairShell.SetTexture("_DetailAlbedoMap", AssetUtility.Texture("hair_strands_detail.png"));
+            HairShell.SetFloat("_DetailAlbedoMapScale", 1f);
+            HairShell.EnableKeyword("_DETAIL_MULX2");
+            HairShell.SetTextureScale("_DetailAlbedoMap", new Vector2(14f, 6f));
+            EditorUtility.SetDirty(HairShell);
 
             AssetDatabase.SaveAssets();
         }

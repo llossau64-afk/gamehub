@@ -1,11 +1,13 @@
 using System;
+using BarberSimulator.Haircut;
 using UnityEngine;
 
 namespace BarberSimulator.Characters
 {
     /// <summary>
-    /// Applies <see cref="CharacterAppearanceData"/> to a modular body: toggles variant objects and tints part
-    /// groups through MaterialPropertyBlocks so all characters share the same few materials.
+    /// Applies <see cref="CharacterAppearanceData"/> to a modular body: toggles variant objects, tints part groups
+    /// through MaterialPropertyBlocks (all characters share a handful of materials) and grows the dynamic hair
+    /// that the haircut system later cuts.
     /// </summary>
     public sealed class ModularCharacter : MonoBehaviour
     {
@@ -15,58 +17,69 @@ namespace BarberSimulator.Characters
             public Renderer[] renderers = Array.Empty<Renderer>();
         }
 
+        /// <summary>One selectable variant made of several objects (e.g. a hoodie = torso + both sleeves + hood).</summary>
+        [Serializable]
+        public sealed class Variant
+        {
+            public string name;
+            public GameObject[] objects = Array.Empty<GameObject>();
+        }
+
         [SerializeField] private PartGroup skin = new PartGroup();
         [SerializeField] private PartGroup hair = new PartGroup();
         [SerializeField] private PartGroup top = new PartGroup();
         [SerializeField] private PartGroup pants = new PartGroup();
         [SerializeField] private PartGroup shoes = new PartGroup();
-        [Tooltip("Index = HairStyle.")]
-        [SerializeField] private GameObject[] hairVariants = Array.Empty<GameObject>();
+        [Tooltip("Index = topStyle (T-shirt, hoodie, jacket, sweater).")]
+        [SerializeField] private Variant[] topVariants = Array.Empty<Variant>();
         [Tooltip("Index = FacialHairStyle.")]
-        [SerializeField] private GameObject[] facialHairVariants = Array.Empty<GameObject>();
-        [Tooltip("Index = topStyle.")]
-        [SerializeField] private GameObject[] topVariants = Array.Empty<GameObject>();
+        [SerializeField] private Variant[] facialHairVariants = Array.Empty<Variant>();
         [Tooltip("Index = CharacterAccessory.")]
-        [SerializeField] private GameObject[] accessoryVariants = Array.Empty<GameObject>();
+        [SerializeField] private Variant[] accessoryVariants = Array.Empty<Variant>();
+        [SerializeField] private HairShellRenderer hairShell;
         [SerializeField] private Transform bodyRoot;
         [SerializeField] private CharacterAppearance defaultAppearance;
+        [SerializeField] private int hairSeed;
 
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private MaterialPropertyBlock _block;
 
         public CharacterAppearanceData Current { get; private set; }
+        public HairShellRenderer HairShell => hairShell;
+        public HairGrid Hair => hairShell != null ? hairShell.Grid : null;
 
         public void Configure(Renderer[] skinRenderers, Renderer[] hairRenderers, Renderer[] topRenderers, Renderer[] pantsRenderers,
-            Renderer[] shoeRenderers, GameObject[] hairs, GameObject[] facialHairs, GameObject[] tops, GameObject[] accessories, Transform root)
+            Renderer[] shoeRenderers, Variant[] tops, Variant[] facialHairs, Variant[] accessories, HairShellRenderer shell, Transform root)
         {
             skin.renderers = skinRenderers;
             hair.renderers = hairRenderers;
             top.renderers = topRenderers;
             pants.renderers = pantsRenderers;
             shoes.renderers = shoeRenderers;
-            hairVariants = hairs;
-            facialHairVariants = facialHairs;
             topVariants = tops;
+            facialHairVariants = facialHairs;
             accessoryVariants = accessories;
+            hairShell = shell;
             bodyRoot = root;
         }
 
-        public void SetDefaultAppearance(CharacterAppearance appearance)
+        public void SetDefaultAppearance(CharacterAppearance appearance, int seed)
         {
             defaultAppearance = appearance;
+            hairSeed = seed;
         }
 
         private void Awake()
         {
-            if (defaultAppearance != null) Apply(defaultAppearance.Data);
+            if (defaultAppearance != null) Apply(defaultAppearance.Data, hairSeed);
         }
 
-        public void Apply(CharacterAppearanceData data)
+        /// <summary>Applies a look and grows a fresh head of hair for it.</summary>
+        public void Apply(CharacterAppearanceData data, int seed)
         {
             Current = data;
-            Toggle(hairVariants, (int)data.hairStyle);
-            Toggle(facialHairVariants, (int)data.facialHair);
             Toggle(topVariants, data.topStyle);
+            Toggle(facialHairVariants, (int)data.facialHair);
             Toggle(accessoryVariants, (int)data.accessory);
 
             Tint(skin, data.skinTone);
@@ -81,12 +94,31 @@ namespace BarberSimulator.Characters
                 float b = data.buildScale <= 0f ? 1f : data.buildScale;
                 bodyRoot.localScale = new Vector3(b * h, h, b * h);
             }
+
+            if (hairShell != null)
+            {
+                var grid = new HairGrid();
+                grid.Initialize(HairPresets.For(data.hairStyle, data.hairLengthScale <= 0f ? 1f : data.hairLengthScale), seed);
+                hairShell.Bind(grid, data.hairColor, data.skinTone);
+                // Caps hide the hair entirely.
+                hairShell.gameObject.SetActive(data.accessory != CharacterAccessory.Cap);
+            }
         }
 
-        private static void Toggle(GameObject[] variants, int index)
+        public void Apply(CharacterAppearanceData data) => Apply(data, hairSeed);
+
+        private static void Toggle(Variant[] variants, int index)
         {
             for (int i = 0; i < variants.Length; i++)
-                if (variants[i] != null) variants[i].SetActive(i == index);
+            {
+                if (variants[i] == null) continue;
+                foreach (var go in variants[i].objects)
+                    if (go != null) go.SetActive(i == index);
+            }
+            // Objects shared by several variants stay on if any active variant uses them.
+            if (index >= 0 && index < variants.Length && variants[index] != null)
+                foreach (var go in variants[index].objects)
+                    if (go != null) go.SetActive(true);
         }
 
         private void Tint(PartGroup group, Color color)

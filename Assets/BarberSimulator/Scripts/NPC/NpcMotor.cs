@@ -14,6 +14,7 @@ namespace BarberSimulator.NPC
         [SerializeField] private float arriveDistance = 0.05f;
         [SerializeField] private ProceduralCharacterAnimator animator;
 
+        private readonly System.Collections.Generic.List<Vector3> _path = new System.Collections.Generic.List<Vector3>();
         private Vector3 _destination;
         private Quaternion? _finalFacing;
         private float _currentSpeed;
@@ -22,8 +23,23 @@ namespace BarberSimulator.NPC
 
         public void SetAnimator(ProceduralCharacterAnimator characterAnimator) => animator = characterAnimator;
 
+        /// <summary>Follows a list of waypoints, then faces <paramref name="faceOnArrival"/> if given.</summary>
+        public void FollowPath(System.Collections.Generic.List<Vector3> points, Quaternion? faceOnArrival = null)
+        {
+            _path.Clear();
+            if (points == null || points.Count == 0) { HasArrived = true; return; }
+            _path.AddRange(points);
+            _destination = _path[0];
+            _path.RemoveAt(0);
+            _finalFacing = faceOnArrival;
+            HasArrived = false;
+        }
+
+        public float Speed => _currentSpeed;
+
         public void MoveTo(Vector3 destination, Quaternion? faceOnArrival = null)
         {
+            _path.Clear();
             _destination = destination;
             _finalFacing = faceOnArrival;
             HasArrived = false;
@@ -31,6 +47,7 @@ namespace BarberSimulator.NPC
 
         public void Warp(Vector3 position, Quaternion rotation)
         {
+            _path.Clear();
             transform.SetPositionAndRotation(position, rotation);
             _destination = position;
             HasArrived = true;
@@ -48,7 +65,8 @@ namespace BarberSimulator.NPC
             if (!HasArrived)
             {
                 // Ease into and out of walking.
-                float targetSpeed = distance < 0.35f ? walkSpeed * Mathf.Max(0.35f, distance / 0.35f) : walkSpeed;
+                bool lastLeg = _path.Count == 0;
+                float targetSpeed = lastLeg && distance < 0.35f ? walkSpeed * Mathf.Max(0.35f, distance / 0.35f) : walkSpeed;
                 _currentSpeed = Mathf.MoveTowards(_currentSpeed, targetSpeed, dt * 2.5f);
 
                 if (distance > 0.001f)
@@ -60,7 +78,15 @@ namespace BarberSimulator.NPC
                 float step = Mathf.Min(distance, _currentSpeed * dt);
                 transform.position = position + (distance > 0.001f ? toTarget / distance * step : Vector3.zero);
 
-                if (distance <= arriveDistance) HasArrived = true;
+                if (distance <= (lastLeg ? arriveDistance : 0.25f))
+                {
+                    if (lastLeg) HasArrived = true;
+                    else
+                    {
+                        _destination = _path[0];
+                        _path.RemoveAt(0);
+                    }
+                }
             }
             else
             {

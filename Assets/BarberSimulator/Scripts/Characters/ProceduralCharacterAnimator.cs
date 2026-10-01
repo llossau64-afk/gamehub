@@ -53,6 +53,8 @@ namespace BarberSimulator.Characters
         private Vector3 _lookTarget;
         private bool _hasLookTarget;
         private float _gestureTime = -10f;
+        private string _gesture = string.Empty;
+        private float _cuttingBlend;
 
         public CharacterPose Pose { get; set; } = CharacterPose.Stand;
         /// <summary>Pelvis height above the character root while seated (seat surface + ~6 cm).</summary>
@@ -60,6 +62,8 @@ namespace BarberSimulator.Characters
         public float WalkSpeed { get; set; }
         public bool Talking { get; set; }
         public CharacterMood Mood { get; set; } = CharacterMood.Neutral;
+        /// <summary>Holds both arms up as if cutting hair (ambient barber, future employees).</summary>
+        public bool CuttingPose { get; set; }
 
         public void Configure(Transform pelvisJoint, Transform spineJoint, Transform headJoint, Transform upperArmLeft, Transform upperArmRight,
             Transform forearmLeft, Transform forearmRight, Transform thighLeft, Transform thighRight, Transform shinLeft, Transform shinRight, float seatHeight)
@@ -102,11 +106,27 @@ namespace BarberSimulator.Characters
 
         public void ClearLookTarget() => _hasLookTarget = false;
 
-        /// <summary>Plays a short gesture. Accepts the trigger names used by dialogue lines.</summary>
+        /// <summary>
+        /// Plays a short gesture: "gesture" (talking hand), "pay", "happy", "disappointed", "lookaround", "nod", "unlock".
+        /// Unknown names fall back to the talking hand gesture.
+        /// </summary>
         public void Trigger(string gesture)
         {
             if (string.IsNullOrEmpty(gesture)) return;
+            _gesture = gesture.ToLowerInvariant();
             _gestureTime = Time.time;
+        }
+
+        private float GestureDuration()
+        {
+            switch (_gesture)
+            {
+                case "pay": return 1.6f;
+                case "lookaround": return 2.8f;
+                case "disappointed": return 1.6f;
+                case "happy": return 1.3f;
+                default: return 1.2f;
+            }
         }
 
         private void LateUpdate()
@@ -144,15 +164,25 @@ namespace BarberSimulator.Characters
             shinR.localRotation = _shR * Quaternion.Euler(kneeR + sitShin, 0f, 0f);
 
             // Arms: walk swing, relaxed idle sway, talking gestures, resting on lap when seated.
-            float gesture = Mathf.Clamp01(1f - (Time.time - _gestureTime) / 1.2f);
-            gesture = Mathf.Sin(gesture * Mathf.PI);
+            float gestureAge = Time.time - _gestureTime;
+            float gestureT = Mathf.Clamp01(gestureAge / GestureDuration());
+            float gestureEnvelope = gestureAge < GestureDuration() ? Mathf.Sin(gestureT * Mathf.PI) : 0f;
+            bool handGesture = _gesture != "pay" && _gesture != "happy" && _gesture != "disappointed" && _gesture != "lookaround" && _gesture != "nod";
+            float gesture = handGesture ? gestureEnvelope : 0f;
+            float pay = _gesture == "pay" ? Mathf.Clamp01(gestureEnvelope * 1.6f) : 0f;
+            float slump = _gesture == "disappointed" ? gestureEnvelope : 0f;
             float talkWave = (Mathf.PerlinNoise(t * 1.4f, 3.1f) - 0.3f) * _talkBlend;
             float idleSway = Mathf.Sin(t * 0.9f) * 1.5f;
+            _cuttingBlend = Mathf.Lerp(_cuttingBlend, CuttingPose ? 1f : 0f, Easing.Damp(4f, dt));
+            float cut = _cuttingBlend;
+            float cutMotion = Mathf.Sin(t * 3.1f) * 6f * cut;
 
-            upperArmL.localRotation = _uaL * Quaternion.Euler(swing * armSwingDegrees + idleSway - _sitBlend * 28f, 0f, -4f);
-            upperArmR.localRotation = _uaR * Quaternion.Euler(-swing * armSwingDegrees - idleSway - _sitBlend * 28f - talkWave * 22f - gesture * 35f, 0f, 4f + gesture * 8f);
-            forearmL.localRotation = _faL * Quaternion.Euler(-10f - _walkBlend * 12f - _sitBlend * 40f, 0f, 0f);
-            forearmR.localRotation = _faR * Quaternion.Euler(-10f - _walkBlend * 12f - _sitBlend * 40f - talkWave * 40f - gesture * 55f, 0f, 0f);
+            spine.localRotation *= Quaternion.Euler(slump * 7f + cut * 6f, 0f, 0f);
+
+            upperArmL.localRotation = _uaL * Quaternion.Euler(swing * armSwingDegrees + idleSway - _sitBlend * 28f - cut * 45f, 0f, -4f - cut * 10f);
+            upperArmR.localRotation = _uaR * Quaternion.Euler(-swing * armSwingDegrees - idleSway - _sitBlend * 28f - talkWave * 22f - gesture * 35f - pay * 60f - cut * 70f + cutMotion, 0f, 4f + gesture * 8f + cut * 12f);
+            forearmL.localRotation = _faL * Quaternion.Euler(-10f - _walkBlend * 12f - _sitBlend * 40f - cut * 55f, 0f, 0f);
+            forearmR.localRotation = _faR * Quaternion.Euler(-10f - _walkBlend * 12f - _sitBlend * 40f - talkWave * 40f - gesture * 55f - pay * 25f - cut * 50f, 0f, 0f);
 
             UpdateHead(t, dt);
         }
@@ -160,6 +190,24 @@ namespace BarberSimulator.Characters
         private void UpdateHead(float t, float dt)
         {
             float nod = Mathf.Sin(t * 7.5f) * 2.2f * _talkBlend;
+            float gestureAge = Time.time - _gestureTime;
+            float active = gestureAge < GestureDuration() ? Mathf.Sin(Mathf.Clamp01(gestureAge / GestureDuration()) * Mathf.PI) : 0f;
+            float extraPitch = 0f, extraYaw = 0f;
+            switch (_gesture)
+            {
+                case "happy":
+                case "nod":
+                    extraPitch = Mathf.Sin(gestureAge * 11f) * 9f * active;
+                    break;
+                case "disappointed":
+                    extraYaw = Mathf.Sin(gestureAge * 9f) * 13f * active;
+                    extraPitch = 10f * active;
+                    break;
+                case "lookaround":
+                    extraYaw = Mathf.Sin(gestureAge / GestureDuration() * Mathf.PI * 2f) * 55f * active;
+                    break;
+            }
+            nod += extraPitch;
             Quaternion look;
             if (_hasLookTarget)
             {
@@ -167,14 +215,14 @@ namespace BarberSimulator.Characters
                 var localDir = parent.InverseTransformDirection(_lookTarget - head.position);
                 float yaw = Mathf.Clamp(Mathf.Atan2(localDir.x, localDir.z) * Mathf.Rad2Deg, -65f, 65f);
                 float pitch = Mathf.Clamp(-Mathf.Atan2(localDir.y, new Vector2(localDir.x, localDir.z).magnitude) * Mathf.Rad2Deg, -25f, 25f);
-                look = Quaternion.Euler(pitch + nod, yaw, 0f);
+                look = Quaternion.Euler(pitch + nod, yaw + extraYaw, 0f);
             }
             else
             {
                 // Idle glance around every few seconds.
                 float yaw = (Mathf.PerlinNoise(t * 0.18f, 7.7f) - 0.5f) * 70f;
                 float pitch = (Mathf.PerlinNoise(1.3f, t * 0.15f) - 0.5f) * 14f;
-                look = Quaternion.Euler(pitch + nod, yaw, 0f);
+                look = Quaternion.Euler(pitch + nod, yaw + extraYaw, 0f);
             }
 
             var target = _headRest * look;

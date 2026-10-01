@@ -156,11 +156,6 @@ namespace BarberSimulator.EditorTools
                     b.Box(V(i * 0.172f, 0.32f, 0f), V(0.168f, 0.60f, 0.10f), 1, 0.03f, 0.4f, null, 3);
                 b.Box(V(-0.268f, 0.32f, 0f), V(0.016f, 0.60f, 0.112f), 0, 0.005f, 0.5f);
                 b.Box(V(0.268f, 0.32f, 0f), V(0.016f, 0.60f, 0.112f), 0, 0.005f, 0.5f);
-                // Headrest on a bar.
-                Tube(b, V(-0.05f, 0.45f, -0.01f), V(-0.05f, 0.66f, -0.01f), 0.009f, 10, 0);
-                Tube(b, V(0.05f, 0.45f, -0.01f), V(0.05f, 0.66f, -0.01f), 0.009f, 10, 0);
-                b.Box(V(0, 0.69f, 0.008f), V(0.26f, 0.14f, 0.07f), 1, 0.03f, 0.4f, null, 3);
-                b.Box(V(0, 0.69f, -0.038f), V(0.285f, 0.152f, 0.016f), 0, 0.006f, 0.5f);
                 b.Transform = Matrix4x4.identity;
 
                 // Armrests (chrome frame + leather pads, pad top at 0.80).
@@ -173,6 +168,17 @@ namespace BarberSimulator.EditorTools
                     b.Box(V(x, 0.7425f, 0.01f), V(0.04f, 0.025f, 0.36f), 0, 0.008f, 0.5f);
                     b.Box(V(x, 0.7775f, 0.02f), V(0.075f, 0.045f, 0.32f), 1, 0.018f, 0.4f, null, 3);
                 }
+            });
+
+            // Headrest is its own part so barber mode can fold it away to reach the back of the head.
+            Part(root.transform, "Headrest", "BarberChair_Headrest", M(m.Chrome, m.Leather), b =>
+            {
+                b.Transform = TRS(V(0, 0.62f, -0.235f), Rx(-14f));
+                Tube(b, V(-0.05f, 0.45f, -0.01f), V(-0.05f, 0.66f, -0.01f), 0.009f, 10, 0);
+                Tube(b, V(0.05f, 0.45f, -0.01f), V(0.05f, 0.66f, -0.01f), 0.009f, 10, 0);
+                b.Box(V(0, 0.69f, 0.008f), V(0.26f, 0.14f, 0.07f), 1, 0.03f, 0.4f, null, 3);
+                b.Box(V(0, 0.69f, -0.038f), V(0.285f, 0.152f, 0.016f), 0, 0.006f, 0.5f);
+                b.Transform = Matrix4x4.identity;
             });
 
             var seat = Marker(root.transform, "SeatPoint", V(0, 0.62f, 0.02f));
@@ -1579,6 +1585,253 @@ namespace BarberSimulator.EditorTools
                     b.Ellipsoid(V(x, hh + fw * 0.5f, 0.0585f), V(0.01f, 0.01f, 0.006f), 8, 6, 1, 0.1f);
                     b.Ellipsoid(V(x, -hh - fw * 0.5f, 0.0585f), V(0.01f, 0.01f, 0.006f), 8, 6, 1, 0.1f);
                 }
+            });
+            return root;
+        }
+
+        // ================================================================== 36. Clipper dock
+
+        public GameObject ClipperDock()
+        {
+            var root = Root("ClipperDock");
+            Part(root.transform, "Dock", "ClipperDock", M(m.PlasticBlack, m.MetalDark, m.Chrome), b =>
+            {
+                // Base 0.12 x 0.03 x 0.09: solid lower plinth, raised rim around a recessed cradle slot.
+                b.Box(V(0, 0.01f, 0), V(0.12f, 0.02f, 0.09f), 0, 0.006f, 0.2f);
+                float sw = 0.072f, sd = 0.052f, sz = 0.004f;
+                float rimH = 0.010f, rimY = 0.025f;
+                float sideW = (0.12f - sw) * 0.5f;
+                b.Box(V(-(sw * 0.5f + sideW * 0.5f), rimY, 0), V(sideW, rimH, 0.09f), 0, 0.003f, 0.2f);
+                b.Box(V((sw * 0.5f + sideW * 0.5f), rimY, 0), V(sideW, rimH, 0.09f), 0, 0.003f, 0.2f);
+                float frontD = 0.045f - (sz + sd * 0.5f);
+                b.Box(V(0, rimY, sz + sd * 0.5f + frontD * 0.5f), V(sw, rimH, frontD), 0, 0.003f, 0.2f);
+                float backD = (sz - sd * 0.5f) + 0.045f;
+                b.Box(V(0, rimY, -0.045f + backD * 0.5f), V(sw, rimH, backD), 0, 0.003f, 0.2f);
+                // Slot floor with rubber-looking pad and charge contacts.
+                b.Box(V(0, 0.0205f, sz), V(sw - 0.004f, 0.001f, sd - 0.004f), 1, 0f, 0.2f);
+                for (int i = 0; i < 2; i++)
+                    b.Box(V(-0.012f + i * 0.024f, 0.0225f, sz - 0.018f), V(0.008f, 0.003f, 0.006f), 2, 0.0008f, 0.1f);
+                // Rear cradle back-plate with side cheeks.
+                b.Box(V(0, 0.05f, -0.0375f), V(0.10f, 0.05f, 0.012f), 0, 0.005f, 0.2f);
+                b.Box(V(-0.044f, 0.045f, -0.016f), V(0.008f, 0.04f, 0.036f), 0, 0.003f, 0.2f);
+                b.Box(V(0.044f, 0.045f, -0.016f), V(0.008f, 0.04f, 0.036f), 0, 0.003f, 0.2f);
+                // Status LED strip (reads as a dark lens) and metal trim.
+                b.Box(V(0, 0.062f, -0.0312f), V(0.03f, 0.004f, 0.002f), 1, 0.0005f, 0.1f);
+                b.Box(V(0, 0.0295f, 0.0445f), V(0.10f, 0.002f, 0.002f), 2, 0.0005f, 0.1f);
+                // Rubber feet and cable.
+                for (int i = 0; i < 4; i++)
+                    b.Cylinder(V(i < 2 ? -0.05f : 0.05f, 0.0015f, i % 2 == 0 ? 0.035f : -0.035f), 0.007f, 0.003f, 10, 1, 0.1f);
+                Tube(b, V(0, 0.012f, -0.045f), V(0, 0.012f, -0.075f), 0.0025f, 8, 0);
+            });
+            Marker(root.transform, "ClipperPoint", V(0, 0.0215f, 0.0f));
+            Col(root, V(0, 0.03f, -0.005f), V(0.12f, 0.06f, 0.10f));
+            return root;
+        }
+
+        // ================================================================== 37. Barbicide jar
+
+        private static void CombPlate(MeshBuilder b, float length)
+        {
+            // Local: spine along +Y from the origin, teeth reach towards +X. Plate normal is Z.
+            const float t = 0.0022f;
+            b.Box(V(-0.0105f, length * 0.5f, 0), V(0.0065f, length, t), 0, 0.0006f, 0.1f);
+            int teeth = 22;
+            float span = length * 0.62f;
+            for (int i = 0; i < teeth; i++)
+            {
+                float y = 0.012f + span * i / (teeth - 1);
+                bool coarse = i < 8;
+                float tl = coarse ? 0.0205f : 0.0185f;
+                b.Box(V(-0.007f + tl * 0.5f, y, 0), V(tl, coarse ? 0.0019f : 0.0012f, t * 0.8f), 0, 0f, 0.1f);
+            }
+        }
+
+        public GameObject BarbicideJar()
+        {
+            var root = Root("BarbicideJar");
+            // Opaque parts first (combs + collar), then the translucent liquid and glass.
+            Part(root.transform, "Combs", "BarbicideJar_Combs", M(m.PlasticBlack), b =>
+            {
+                float[] zs = { -0.019f, -0.0065f, 0.0065f, 0.019f };
+                float[] xs = { -0.012f, 0.008f, -0.006f, 0.012f };
+                float[] tilt = { 4f, -3f, 2.5f, -4.5f };
+                float[] yaw = { 6f, -5f, 4f, -7f };
+                float[] len = { 0.26f, 0.255f, 0.265f, 0.25f };
+                for (int i = 0; i < 4; i++)
+                {
+                    b.Transform = TRS(V(xs[i], 0.014f, zs[i]), Ry(yaw[i]) * Rz(tilt[i]));
+                    CombPlate(b, len[i]);
+                }
+                b.Transform = Matrix4x4.identity;
+            });
+            Part(root.transform, "Collar", "BarbicideJar_Collar", M(m.Chrome, m.MetalDark), b =>
+            {
+                // Threaded neck collar with ridges, plus a base weight ring.
+                b.Lathe(V(0, 0, 0), Pr(0.0505f, 0.214f, 0.0545f, 0.216f, 0.0545f, 0.236f, 0.0505f, 0.2385f), 28, 0, false, false, 0.2f);
+                for (int i = 0; i < 3; i++)
+                    b.Torus(V(0, 0.222f + i * 0.0075f, 0), 0.0545f, 0.0012f, 28, 4, 0);
+                b.Torus(V(0, 0.006f, 0), 0.0545f, 0.0035f, 28, 6, 1);
+            });
+            Part(root.transform, "Liquid", "BarbicideJar_Liquid", M(m.LiquidBlue), b =>
+            {
+                float top = 0.24f * 0.75f;
+                b.Lathe(V(0, 0, 0), Pr(0.040f, 0.012f, 0.0515f, 0.016f, 0.0515f, top - 0.002f, 0.0505f, top), 28, 0, true, true, 0.2f);
+            });
+            Part(root.transform, "Glass", "BarbicideJar_Glass", M(m.GlassClear), b =>
+            {
+                // Outer wall with a heavy base, shoulder and open mouth (the inner wall is drawn too).
+                b.Lathe(V(0, 0, 0), Pr(0.040f, 0f, 0.052f, 0.003f, 0.0555f, 0.012f, 0.0555f, 0.20f, 0.0545f, 0.212f, 0.0505f, 0.222f,
+                    0.0495f, 0.24f), 28, 0, true, false, 0.2f);
+                b.Lathe(V(0, 0, 0), Pr(0.0455f, 0.24f, 0.0455f, 0.222f, 0.0495f, 0.212f, 0.0505f, 0.20f, 0.0505f, 0.016f, 0.040f, 0.011f), 28, 0, false, false, 0.2f);
+                b.Lathe(V(0, 0, 0), Pr(0.0455f, 0.24f, 0.0495f, 0.24f), 28, 0, false, false, 0.2f);
+            });
+            // Lid set down beside the jar (chrome cap with dark knob).
+            Part(root.transform, "Lid", "BarbicideJar_Lid", M(m.Chrome, m.MetalDark), b =>
+            {
+                b.Lathe(V(0, 0, 0), Pr(0.0575f, 0f, 0.0575f, 0.018f, 0.0535f, 0.022f, 0.040f, 0.0235f, 0.0f, 0.0235f), 28, 0, false, false, 0.2f);
+                b.Lathe(V(0, 0, 0), Pr(0.0535f, 0.001f, 0.0535f, 0.017f, 0.0f, 0.017f), 28, 0, false, false, 0.2f);
+                b.Lathe(V(0, 0, 0), Pr(0.013f, 0.0235f, 0.015f, 0.0265f, 0.0145f, 0.036f, 0.0f, 0.038f), 16, 1, false, false, 0.1f);
+            }, V(0.125f, 0.0235f, 0.02f), Rx(180f));
+            Col(root, V(0, 0.12f, 0), V(0.115f, 0.24f, 0.115f));
+            return root;
+        }
+
+        // ================================================================== 38. Disinfectant pump bottle
+
+        public GameObject DisinfectantBottle()
+        {
+            var root = Root("DisinfectantBottle");
+            Part(root.transform, "Mesh", "DisinfectantBottle", M(m.PlasticWhite, m.MetalDark, m.PlasticBlack), b =>
+            {
+                // Body (0.19 tall) with shoulder and neck.
+                b.Lathe(V(0, 0, 0), Pr(0.0f, 0f, 0.030f, 0f, 0.0365f, 0.006f, 0.039f, 0.02f, 0.039f, 0.135f, 0.0375f, 0.150f,
+                    0.030f, 0.165f, 0.020f, 0.178f, 0.0175f, 0.186f, 0.0175f, 0.200f), 28, 0, true, false, 0.2f);
+                // Label band and cap ring.
+                b.Lathe(V(0, 0, 0), Pr(0.0394f, 0.045f, 0.0394f, 0.115f), 28, 2, false, false, 0.2f);
+                b.Box(V(0, 0.08f, 0.0396f), V(0.05f, 0.04f, 0.0008f), 0, 0f, 0.1f);
+                // Threaded collar and pump housing.
+                b.Lathe(V(0, 0, 0), Pr(0.0215f, 0.190f, 0.0215f, 0.212f, 0.0185f, 0.214f, 0.0185f, 0.2185f), 20, 1, true, true, 0.1f);
+                for (int i = 0; i < 3; i++)
+                    b.Torus(V(0, 0.194f + i * 0.007f, 0), 0.0215f, 0.0009f, 20, 4, 1);
+                // Stem, head and nozzle.
+                b.Cylinder(V(0, 0.2335f, 0), 0.0065f, 0.030f, 12, 1, 0.1f);
+                b.Box(V(0, 0.2535f, 0.006f), V(0.026f, 0.020f, 0.048f), 1, 0.007f, 0.1f);
+                b.Cylinder(V(0, 0.2535f, 0.0405f), 0.0058f, 0.022f, 12, 1, 0.1f, Rx(90f));
+                b.Cylinder(V(0, 0.2535f, 0.0525f), 0.0035f, 0.004f, 10, 2, 0.1f, Rx(90f));
+                b.Box(V(0, 0.2655f, 0.001f), V(0.016f, 0.004f, 0.03f), 2, 0.0015f, 0.1f);
+            });
+            Col(root, V(0, 0.13f, 0.01f), V(0.08f, 0.26f, 0.12f));
+            return root;
+        }
+
+        // ================================================================== 39. Price board
+
+        public GameObject PriceBoard()
+        {
+            var root = Root("PriceBoard");
+            const float w = 0.5f, h = 0.75f;
+            Part(root.transform, "Board", "PriceBoard", M(m.WoodDark, m.PriceBoard), b =>
+            {
+                // Back plate (z 0..0.012) and a slim raised outer lip around the textured face.
+                b.Box(V(0, 0, 0.006f), V(w, h, 0.012f), 0, 0.003f, 0.5f);
+                float lip = 0.014f, d = 0.026f;
+                b.Box(V(0, h * 0.5f - lip * 0.5f, d * 0.5f), V(w, lip, d), 0, 0.004f, 0.5f);
+                b.Box(V(0, -h * 0.5f + lip * 0.5f, d * 0.5f), V(w, lip, d), 0, 0.004f, 0.5f);
+                b.Box(V(-w * 0.5f + lip * 0.5f, 0, d * 0.5f), V(lip, h - lip * 2f, d), 0, 0.004f, 0.5f);
+                b.Box(V(w * 0.5f - lip * 0.5f, 0, d * 0.5f), V(lip, h - lip * 2f, d), 0, 0.004f, 0.5f);
+                // Textured face, UV 0..1, readable from +Z.
+                b.Quad(V(0, 0, 0.0125f), new Vector2(w - 0.004f, h - 0.004f), 1);
+            });
+            Part(root.transform, "Hooks", "PriceBoard_Hooks", M(m.Brass), b =>
+            {
+                for (int s = -1; s <= 1; s += 2)
+                    b.Cylinder(V(s * 0.17f, h * 0.5f - 0.03f, 0.0125f), 0.007f, 0.004f, 12, 0, 0.1f, Rx(90f));
+            });
+            return root;
+        }
+
+        // ================================================================== 40. Hair debris decal
+
+        public GameObject HairDebris(float radius)
+        {
+            radius = Mathf.Max(0.02f, radius);
+            var root = Root("HairDebris");
+            var go = Part(root.transform, "Decal", string.Format("HairDebris_{0:0.000}", radius), M(m.HairClippings), b =>
+            {
+                b.Quad(V(0, 0.001f, 0), new Vector2(radius * 2f, radius * 2f), 0, Rx(-90f));
+            });
+            var r = go.GetComponent<MeshRenderer>();
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            r.receiveShadows = false;
+            return root;
+        }
+
+        // ================================================================== 41. Barber cape
+
+        public GameObject Cape()
+        {
+            var root = Root("Cape");
+            Part(root.transform, "Cape", "Cape", M(m.CapeFabric), b =>
+            {
+                // Neck ring at y = 0 flaring to the hem at y = -0.7; open 40 degrees at the back (-Z).
+                float arc = 320f;
+                var rot = Ry(70f); // arc starts at 290 deg and ends at 250 deg, leaving the gap centred on -Z
+                var outer = Pr(0.082f, 0.022f, 0.078f, 0.008f, 0.077f, 0f, 0.092f, -0.035f, 0.135f, -0.085f, 0.195f, -0.15f,
+                    0.265f, -0.235f, 0.33f, -0.34f, 0.385f, -0.45f, 0.425f, -0.57f, 0.45f, -0.70f);
+                b.Lathe(V(0, 0, 0), outer, 40, 0, false, false, 0.5f, rot, arc);
+                // Inner lining: same shape inset a few mm, reversed so it faces inwards.
+                var inner = new Vector2[outer.Length];
+                for (int i = 0; i < outer.Length; i++) inner[i] = new Vector2(Mathf.Max(0.01f, outer[outer.Length - 1 - i].x - 0.004f), outer[outer.Length - 1 - i].y);
+                b.Lathe(V(0, 0, 0), inner, 40, 0, false, false, 0.5f, rot, arc);
+                // Rolled hem edge.
+                b.Lathe(V(0, 0, 0), Pr(0.448f, -0.70f, 0.454f, -0.696f, 0.454f, -0.688f, 0.448f, -0.684f), 40, 0, false, false, 0.5f, rot, arc);
+            });
+            return root;
+        }
+
+        // ================================================================== 42. Counter mat
+
+        public GameObject CounterMat()
+        {
+            var root = Root("CounterMat");
+            Part(root.transform, "Mat", "CounterMat", M(m.PlasticBlack), b =>
+            {
+                b.Box(V(0, 0.002f, 0), V(0.5f, 0.004f, 0.3f), 0, 0.0014f, 0.3f, null, 2);
+                // Fine raised ribbing along the length.
+                for (int i = 0; i < 24; i++)
+                    b.Box(V(-0.23f + i * 0.02f, 0.0041f, 0), V(0.004f, 0.0006f, 0.27f), 0, 0.0002f, 0.1f, null, 1);
+            });
+            return root;
+        }
+
+        // ================================================================== 43. Cordless trimmer
+
+        public GameObject TrimmerTool()
+        {
+            var root = Root("TrimmerTool");
+            Part(root.transform, "Mesh", "TrimmerTool", M(m.ChromeDark, m.PlasticBlack, m.Chrome), b =>
+            {
+                const float cy = 0.0145f;
+                var ax = Rx(90f); // local +Y of the lathe becomes world +Z
+                // Slim metal body, z from -0.075 to 0.025.
+                b.Lathe(V(0, cy, -0.075f), Pr(0.0f, 0f, 0.0105f, 0f, 0.0145f, 0.005f, 0.0145f, 0.065f, 0.0128f, 0.085f, 0.0105f, 0.100f),
+                    24, 0, true, false, 0.2f, ax);
+                // Rubber grip band with ribs.
+                b.Lathe(V(0, cy, -0.075f), Pr(0.0149f, 0.018f, 0.0155f, 0.020f, 0.0155f, 0.058f, 0.0149f, 0.060f), 24, 1, true, true, 0.1f, ax);
+                for (int i = 0; i < 6; i++)
+                    b.Torus(V(0, cy, -0.075f + 0.025f + i * 0.0055f), 0.0156f, 0.0007f, 24, 4, 1, ax);
+                // Tail cap and power button.
+                b.Lathe(V(0, cy, -0.075f), Pr(0.0095f, -0.003f, 0.0125f, 0f, 0.0125f, 0.004f), 24, 1, true, false, 0.1f, ax);
+                b.Box(V(0, cy + 0.0148f, -0.036f), V(0.011f, 0.003f, 0.016f), 1, 0.001f, 0.1f);
+                b.Box(V(0, cy + 0.0162f, -0.036f), V(0.005f, 0.001f, 0.009f), 2, 0.0004f, 0.1f);
+                // Plastic blade head.
+                b.Box(V(0, cy - 0.001f, 0.036f), V(0.026f, 0.017f, 0.028f), 1, 0.006f, 0.1f);
+                // T-blade: stem, cross bar and teeth.
+                b.Box(V(0, cy - 0.004f, 0.056f), V(0.016f, 0.004f, 0.016f), 2, 0.0006f, 0.1f);
+                b.Box(V(0, cy - 0.004f, 0.0685f), V(0.034f, 0.0035f, 0.0085f), 2, 0.0006f, 0.1f);
+                for (int i = 0; i < 14; i++)
+                    b.Box(V(-0.0156f + i * 0.0024f, cy - 0.004f, 0.0765f), V(0.0015f, 0.0035f, 0.006f), 2, 0f, 0.1f);
+                b.Box(V(0, cy - 0.0015f, 0.0675f), V(0.030f, 0.0025f, 0.0075f), 0, 0.0004f, 0.1f);
             });
             return root;
         }

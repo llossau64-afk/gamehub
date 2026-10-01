@@ -11,7 +11,7 @@ namespace BarberSimulator.Save
     [Serializable]
     public class SaveData
     {
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 2;
 
         public int version = CurrentVersion;
         public bool hasActiveGame;
@@ -27,7 +27,7 @@ namespace BarberSimulator.Save
             hasActiveGame = true;
             player = new PlayerData { money = startingMoney };
             shop = new ShopData();
-            progression = new ProgressionData();
+            progression = new ProgressionData { reputation = 10f };
         }
     }
 
@@ -39,6 +39,9 @@ namespace BarberSimulator.Save
         public Vector3 position;
         public float yaw;
         public float pitch;
+        /// <summary>Barber tools the player owns (tool ids). Added in save version 2.</summary>
+        public List<string> ownedToolIds = new List<string>();
+        public string equippedClipperId;
     }
 
     [Serializable]
@@ -67,6 +70,12 @@ namespace BarberSimulator.Save
         public int level = 1;
         public int experience;
         public float reputation;
+        // Version 2
+        public int customersServed;
+        public bool shopOpen;
+        public bool firstCustomerTutorialCompleted;
+        public int totalTipsEarned;
+        public int bestStars;
     }
 
     public enum QualityTier

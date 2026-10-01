@@ -7,6 +7,7 @@ No third-party images, samples, or recordings were used. Re-run `Tools/AssetGen/
 - **Art/Textures/** - tileable albedo/normal textures (checker floor, walnut wood, oak floor, plaster, wallpaper, brick, concrete, asphalt, leather, brushed metal, cardboard, ceiling tiles, fabric) and non-tiling printed/decal textures (fictional magazine covers, hairstyle poster, window gold-leaf decal, sign board, mirror dirt overlay, street silhouettes, passer-by silhouette, door sign). Script: `tex_a.py`, `tex_b.py`, `tex_c.py`. All magazine titles and brands are fictional.
 - **UI/Sprites/** - white-on-transparent UI sprites and icons (joystick, circles, rounded rect, vignette, gradients, hand/pause/gear/check/scissors icons, crosshair). Script: `sprites.py`.
 - **Audio/UI, Audio/SFX, Audio/Ambience, Audio/Music/** - fully synthesised (noise, filters, FM/additive synthesis); 16-bit PCM mono 22050 Hz. Script: `audio.py`.
+- Phase 2 audio (`audio_phase2.py`): clipper_start/loop/stop, clipper_cutting_loop, trimmer_loop, scissor_snip_01-04, comb_01-02, chair_creak, cloth_sit/stand, cape_snap, cash_register, coins, review_good/bad, hair_fall (SFX) and ui_tool_select (UI) - all synthesised.
 
 ## Fonts (third-party, SIL Open Font License 1.1)
 Obtained from Google Fonts via the npm packages `@expo-google-fonts/dm-serif-display` and `@expo-google-fonts/inter`. License text: `UI/Fonts/OFL.txt`.

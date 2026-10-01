@@ -25,6 +25,17 @@ namespace BarberSimulator.Input
         private readonly InputAction _sprint;
         private readonly InputAction _skip;
 
+        // Barber mode
+        private readonly InputActionMap _barberMap;
+        private readonly InputAction _cut;
+        private readonly InputAction _orbitHold;
+        private readonly InputAction _orbitKeys;
+        private readonly InputAction _zoom;
+        private readonly InputAction _finish;
+        private readonly InputAction _guardDown;
+        private readonly InputAction _guardUp;
+        private readonly InputAction[] _toolKeys = new InputAction[4];
+
         private SettingsData _settings;
         private bool _wantsCursorLock;
         private bool _observedLock;
@@ -41,6 +52,12 @@ namespace BarberSimulator.Input
         public event Action PausePressed;
         public event Action SkipPressed;
         public event Action<InputDeviceMode> ModeChanged;
+
+        /// <summary>Barber mode actions; gated by <see cref="BarberEnabled"/>.</summary>
+        public bool BarberEnabled { get; set; }
+        public event Action<int> ToolHotkeyPressed;
+        public event Action<int> GuardStepPressed;
+        public event Action FinishPressed;
 
         public InputService(SettingsData settings)
         {
@@ -77,6 +94,34 @@ namespace BarberSimulator.Input
             _skip.performed += _ => SkipPressed?.Invoke();
 
             _map.Enable();
+
+            _barberMap = new InputActionMap("Barber");
+            _cut = _barberMap.AddAction("Cut", InputActionType.Button, "<Mouse>/leftButton");
+            _cut.AddBinding("<Gamepad>/rightTrigger");
+            _orbitHold = _barberMap.AddAction("OrbitHold", InputActionType.Button, "<Mouse>/rightButton");
+            _orbitKeys = _barberMap.AddAction("OrbitKeys", InputActionType.Value, expectedControlLayout: "Vector2");
+            _orbitKeys.AddCompositeBinding("2DVector")
+                .With("Up", "<Keyboard>/w").With("Down", "<Keyboard>/s")
+                .With("Left", "<Keyboard>/a").With("Right", "<Keyboard>/d");
+            _orbitKeys.AddCompositeBinding("2DVector")
+                .With("Up", "<Keyboard>/upArrow").With("Down", "<Keyboard>/downArrow")
+                .With("Left", "<Keyboard>/leftArrow").With("Right", "<Keyboard>/rightArrow");
+            _zoom = _barberMap.AddAction("Zoom", InputActionType.Value, "<Mouse>/scroll/y");
+            _finish = _barberMap.AddAction("Finish", InputActionType.Button, "<Keyboard>/f");
+            _guardDown = _barberMap.AddAction("GuardDown", InputActionType.Button, "<Keyboard>/q");
+            _guardDown.AddBinding("<Gamepad>/leftShoulder");
+            _guardUp = _barberMap.AddAction("GuardUp", InputActionType.Button, "<Keyboard>/e");
+            _guardUp.AddBinding("<Gamepad>/rightShoulder");
+            for (int i = 0; i < _toolKeys.Length; i++)
+            {
+                int index = i;
+                _toolKeys[i] = _barberMap.AddAction("Tool" + (i + 1), InputActionType.Button, "<Keyboard>/" + (i + 1));
+                _toolKeys[i].performed += _ => { if (BarberEnabled) ToolHotkeyPressed?.Invoke(index); };
+            }
+            _guardDown.performed += _ => { if (BarberEnabled) GuardStepPressed?.Invoke(-1); };
+            _guardUp.performed += _ => { if (BarberEnabled) GuardStepPressed?.Invoke(1); };
+            _finish.performed += _ => { if (BarberEnabled) FinishPressed?.Invoke(); };
+            _barberMap.Enable();
 
             Mode = Application.isMobilePlatform || (Touchscreen.current != null && Mouse.current == null)
                 ? InputDeviceMode.Touch
@@ -122,6 +167,61 @@ namespace BarberSimulator.Input
             return degrees;
         }
 
+        // ------------------------------------------------------------------ barber mode
+
+        /// <summary>True while the cut action is held (left mouse, gamepad trigger or the touch CUT button).</summary>
+        public bool CutHeld
+        {
+            get
+            {
+                if (!BarberEnabled) return false;
+                if (Touch.CutHeld) return true;
+                if (Mode == InputDeviceMode.Touch) return false;
+                // Clicks on UI buttons must never cut.
+                var es = UnityEngine.EventSystems.EventSystem.current;
+                if (Mode == InputDeviceMode.KeyboardMouse && es != null && es.IsPointerOverGameObject()) return _cutHeldStartedOffUi && _cut.IsPressed();
+                return _cut.IsPressed();
+            }
+        }
+
+        private bool _cutHeldStartedOffUi;
+
+        /// <summary>Screen position the tool aims at: the mouse on desktop, a fixed reticle on touch/gamepad.</summary>
+        public Vector2 AimScreenPosition
+        {
+            get
+            {
+                if (Mode == InputDeviceMode.KeyboardMouse && Mouse.current != null) return Mouse.current.position.ReadValue();
+                return new Vector2(Screen.width * 0.5f, Screen.height * 0.56f);
+            }
+        }
+
+        /// <summary>Orbit request in degrees for this frame (x = around the head, y = up/down).</summary>
+        public Vector2 ReadOrbitDegrees(float deltaTime)
+        {
+            var touchPixels = Touch.ConsumeLook();
+            if (!BarberEnabled) return Vector2.zero;
+            float touchSens = _settings != null ? _settings.touchSensitivity : 1f;
+            float mouseSens = _settings != null ? _settings.mouseSensitivity : 1f;
+            var degrees = touchPixels * (200f / Mathf.Max(1f, Screen.height) * touchSens);
+            if (_orbitHold.IsPressed() && Mouse.current != null)
+                degrees += Mouse.current.delta.ReadValue() * (0.22f * mouseSens);
+            degrees += _orbitKeys.ReadValue<Vector2>() * (95f * deltaTime);
+            degrees += _gamepadLook.ReadValue<Vector2>() * (120f * deltaTime);
+            return degrees;
+        }
+
+        /// <summary>Zoom request (-1..1) for this frame.</summary>
+        public float ReadZoom()
+        {
+            if (!BarberEnabled) return 0f;
+            float scroll = _zoom.ReadValue<float>();
+            return Mathf.Clamp(scroll / 120f, -1f, 1f) + Touch.ConsumeZoom();
+        }
+
+        public void RequestToolHotkey(int index) => ToolHotkeyPressed?.Invoke(index);
+        public void RequestFinish() => FinishPressed?.Invoke();
+
         /// <summary>Same entry point as the E key; used by the touch USE button.</summary>
         public void RequestInteract()
         {
@@ -152,6 +252,11 @@ namespace BarberSimulator.Input
         {
             DetectDeviceMode();
             UpdateCursor();
+            if (_cut.WasPressedThisFrame())
+            {
+                var es = UnityEngine.EventSystems.EventSystem.current;
+                _cutHeldStartedOffUi = es == null || !es.IsPointerOverGameObject();
+            }
         }
 
         private void UpdateCursor()
@@ -239,6 +344,8 @@ namespace BarberSimulator.Input
         {
             _map.Disable();
             _map.Dispose();
+            _barberMap.Disable();
+            _barberMap.Dispose();
         }
     }
 }

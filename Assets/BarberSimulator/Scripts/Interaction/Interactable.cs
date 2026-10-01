@@ -51,9 +51,13 @@ namespace BarberSimulator.Interaction
             enabled = true;
         }
 
+        /// <summary>Objects whose renderers are already tinted through property blocks (characters) opt out.</summary>
+        protected virtual bool UsesHighlight => true;
+
         protected virtual void Awake()
         {
-            if (highlightRenderers == null || highlightRenderers.Length == 0)
+            if (!UsesHighlight) highlightRenderers = new Renderer[0];
+            else if (highlightRenderers == null || highlightRenderers.Length == 0)
                 highlightRenderers = GetComponentsInChildren<Renderer>();
 
             _baseColors = new Color[highlightRenderers.Length];

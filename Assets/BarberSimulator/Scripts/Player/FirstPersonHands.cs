@@ -14,7 +14,8 @@ namespace BarberSimulator.Player
         Comb,
         Razor,
         HairDryer,
-        SprayBottle
+        SprayBottle,
+        Trimmer
     }
 
     /// <summary>
@@ -72,6 +73,68 @@ namespace BarberSimulator.Player
         public Transform LeftHandSupport => leftHandSupport;
 
         public event Action<HandAnimationState> StateChanged;
+
+        public Transform RightArm => rightArm;
+        public bool ExternallyControlled { get; private set; }
+
+        /// <summary>
+        /// Hands the right arm to another system (barber mode places it at the customer's head every frame).
+        /// </summary>
+        public void BeginExternalControl(HandToolType tool)
+        {
+            if (_routine != null) StopCoroutine(_routine);
+            _routine = null;
+            ExternallyControlled = true;
+            EquipTool(tool);
+            rightArm.gameObject.SetActive(true);
+            leftArm.gameObject.SetActive(false);
+            SetState(StateFor(tool));
+        }
+
+        public void SetExternalTool(HandToolType tool)
+        {
+            EquipTool(tool);
+            SetState(StateFor(tool));
+        }
+
+        public void SetRightArmWorldPose(Vector3 position, Quaternion rotation)
+        {
+            rightArm.SetPositionAndRotation(position, rotation);
+        }
+
+        public void SetCutting(bool cutting)
+        {
+            if (!ExternallyControlled) return;
+            var state = StateFor(CurrentTool);
+            if (cutting)
+            {
+                if (CurrentTool == HandToolType.Clipper || CurrentTool == HandToolType.Razor) state = HandAnimationState.ClipperCut;
+                else if (CurrentTool == HandToolType.Scissors) state = HandAnimationState.ScissorsCut;
+            }
+            SetState(state);
+        }
+
+        public void EndExternalControl()
+        {
+            ExternallyControlled = false;
+            rightArm.localPosition = rightHiddenPos;
+            rightArm.localRotation = _rightRestRotation;
+            SetArmsVisible(false);
+            EquipTool(HandToolType.None);
+            SetState(HandAnimationState.Hidden);
+        }
+
+        private static HandAnimationState StateFor(HandToolType tool)
+        {
+            switch (tool)
+            {
+                case HandToolType.Clipper: return HandAnimationState.ClipperIdle;
+                case HandToolType.Scissors: return HandAnimationState.ScissorsIdle;
+                case HandToolType.Comb: return HandAnimationState.Comb;
+                case HandToolType.Razor: return HandAnimationState.Razor;
+                default: return HandAnimationState.Idle;
+            }
+        }
 
         public void Configure(Transform right, Transform left, Transform rightSocket, Transform leftSocket, List<ToolVisual> toolVisuals)
         {

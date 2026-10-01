@@ -4,8 +4,11 @@ using UnityEngine;
 namespace BarberSimulator.Characters
 {
     public enum HairStyle { Bald = 0, Short = 1, SidePart = 2, Curly = 3, Long = 4, Pompadour = 5 }
-    public enum FacialHairStyle { None = 0, Stubble = 1, Moustache = 2, FullBeard = 3 }
+    public enum FacialHairStyle { None = 0, Stubble = 1, Moustache = 2, FullBeard = 3, ShortBeard = 4 }
     public enum CharacterAccessory { None = 0, Glasses = 1, Cap = 2 }
+
+    /// <summary>Clothing tops; index into ModularCharacter top variants.</summary>
+    public enum TopStyle { TShirt = 0, Hoodie = 1, Jacket = 2, Sweater = 3 }
 
     /// <summary>
     /// Everything that makes one character look different from another. Indices map onto variant slots of
@@ -18,6 +21,8 @@ namespace BarberSimulator.Characters
         public HairStyle hairStyle;
         public Color hairColor;
         public FacialHairStyle facialHair;
+        [Tooltip("Hair length multiplier on top of the style preset.")]
+        public float hairLengthScale;
         public int topStyle;
         public Color topColor;
         public Color pantsColor;
@@ -51,6 +56,7 @@ namespace BarberSimulator.Characters
             new Color(0.15f, 0.15f, 0.15f), new Color(0.24f, 0.28f, 0.38f)
         };
 
+        /// <summary>Random customer look. Customers never wear caps (the barber needs to reach the hair).</summary>
         public static CharacterAppearanceData CreateRandom(System.Random rng)
         {
             T Pick<T>(T[] array) => array[rng.Next(array.Length)];
@@ -59,14 +65,15 @@ namespace BarberSimulator.Characters
             return new CharacterAppearanceData
             {
                 skinTone = Pick(SkinTones),
-                hairStyle = (HairStyle)rng.Next(0, 6),
+                hairStyle = (HairStyle)rng.Next(1, 6),
+                hairLengthScale = Range(0.9f, 1.15f),
                 hairColor = Pick(HairColors),
-                facialHair = (FacialHairStyle)rng.Next(0, 4),
-                topStyle = rng.Next(0, 2),
+                facialHair = (FacialHairStyle)rng.Next(0, 5),
+                topStyle = rng.Next(0, 4),
                 topColor = Pick(ClothColors),
                 pantsColor = Pick(PantsColors),
                 shoeColor = rng.NextDouble() > 0.5 ? new Color(0.1f, 0.08f, 0.07f) : new Color(0.32f, 0.2f, 0.12f),
-                accessory = rng.NextDouble() > 0.75 ? (CharacterAccessory)rng.Next(1, 3) : CharacterAccessory.None,
+                accessory = rng.NextDouble() > 0.75 ? CharacterAccessory.Glasses : CharacterAccessory.None,
                 heightScale = Range(0.95f, 1.05f),
                 buildScale = Range(0.94f, 1.1f)
             };
