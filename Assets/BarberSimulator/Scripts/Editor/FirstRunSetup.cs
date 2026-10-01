@@ -46,6 +46,7 @@ namespace BarberSimulator.EditorTools
             Debug.Log("[Barber Simulator] First run: generating project content...");
             ShopSceneGenerator.BuildAll();
             EditorSceneManager.OpenScene(GeneratorPaths.MainScene);
+            PlayModeSceneGuard.AssignStartScene();
         }
     }
 }

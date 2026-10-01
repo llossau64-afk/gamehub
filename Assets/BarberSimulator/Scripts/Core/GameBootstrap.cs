@@ -32,19 +32,65 @@ namespace BarberSimulator.Core
             scene = references;
         }
 
+        private string _startupError;
+
         private void Awake()
         {
             if (config == null)
             {
-                Debug.LogError("[Bootstrap] GameConfig is missing. Run 'Barber Simulator > Build Project Content'.");
-                enabled = false;
+                Fail("GameConfig is missing. Run 'Barber Simulator > Build Project Content'.", null);
                 return;
             }
 
+            try
+            {
+                Boot();
+            }
+            catch (System.Exception e)
+            {
+                Fail("Startup failed: " + e.Message, e);
+            }
+        }
+
+        /// <summary>
+        /// A failed boot must never leave a silent black screen: log the exception, lift any fade and show the
+        /// reason on screen (editor and development builds) so it can be reported.
+        /// </summary>
+        private void Fail(string message, System.Exception exception)
+        {
+            _startupError = message;
+            if (exception != null) Debug.LogException(exception);
+            Debug.LogError("[Bootstrap] " + message);
+            if (_context?.UI != null)
+            {
+                _context.UI.GlobalFade?.SetAlpha(0f);
+                _context.UI.SceneFade?.SetAlpha(0f);
+            }
+            _flow = null;
+            _context = null;
+            enabled = false;
+        }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private void OnGUI()
+        {
+            if (string.IsNullOrEmpty(_startupError)) return;
+            GUI.color = Color.white;
+            GUI.Box(new Rect(20f, 20f, Screen.width - 40f, 120f), string.Empty);
+            GUI.Label(new Rect(34f, 30f, Screen.width - 68f, 100f),
+                "Barber Simulator could not start.\n" + _startupError + "\nSee the Console for the full error and send it to the developer.");
+        }
+#else
+        private void OnGUI() { }
+#endif
+
+        private void Boot()
+        {
             Application.runInBackground = true;
             Time.timeScale = 1f;
 
             var ctx = new GameContext { Config = config };
+            _context = ctx;
 
             // The portal comes first: it reports loading, and its data module backs the save.
             ctx.Platform = PlatformServiceFactory.GetOrCreate(config.platform);
@@ -95,7 +141,6 @@ namespace BarberSimulator.Core
 
             WireScene(ctx);
 
-            _context = ctx;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             gameObject.AddComponent<Debugging.DevTools>().Initialize(scene.CustomerSpawner, ctx.Economy, scene.BarberMode);
 #endif
@@ -174,14 +219,21 @@ namespace BarberSimulator.Core
         private void Start()
         {
             if (_flow == null) return;
-            if (PendingStart.IntroRequested)
+            try
             {
-                PendingStart.IntroRequested = false;
-                _flow.StartIntro(skipApproach: true);
+                if (PendingStart.IntroRequested)
+                {
+                    PendingStart.IntroRequested = false;
+                    _flow.StartIntro(skipApproach: true);
+                }
+                else
+                {
+                    _flow.EnterMainMenu();
+                }
             }
-            else
+            catch (System.Exception e)
             {
-                _flow.EnterMainMenu();
+                Fail("Main menu failed: " + e.Message, e);
             }
         }
 
