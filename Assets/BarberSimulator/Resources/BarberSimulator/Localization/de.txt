@@ -72,13 +72,11 @@ objective.clean.hint = Schau auf Müll und drücke E, um ihn aufzuheben.
 objective.clean.hint.touch = Schau auf Müll und tippe auf den Hand-Button, um ihn aufzuheben.
 objective.station = Prüfe deinen Arbeitsplatz
 objective.station.hint = Deine Werkzeuge liegen auf der Ablage vor dem Spiegel.
-objectives.completed = Der Laden gehört dir. Morgen wartet mehr Arbeit.
 
 verb.use = Benutzen
 verb.open = Öffnen
 verb.close = Schließen
 verb.talk = Reden
-verb.cut = Schneiden
 verb.buy = Kaufen
 verb.clean = Putzen
 verb.sit = Setzen
@@ -100,3 +98,132 @@ toast.expansion_locked = Verschlossen. Das Hinterzimmer muss erst renoviert werd
 toast.station_inspected = Eine alte Haarschneidemaschine und eine Schere. Sie funktionieren noch... gerade so.
 
 hint.rotate_device = Bitte dreh dein Gerät\nBarbershop Simulator wird im Querformat gespielt.
+
+# ---------------- Phase 2: Laden, Kunden, Haarschnitt
+toast.shop_open = Der Laden hat geöffnet. Bald kommen die ersten Kunden.
+toast.customer_waiting = Ein Kunde wartet an der Theke.
+objective.serve = Bediene deinen ersten Kunden
+objective.serve.hint = Sprich mit dem Kunden an der Theke (E) und schneide ihm dann am Friseurstuhl die Haare.
+objective.serve.touch = Sprich mit dem Kunden an der Theke und schneide ihm dann am Friseurstuhl die Haare.
+objectives.completed = Geöffnet. Halte deine Kunden zufrieden.
+
+interact.customer = Kunde
+interact.barber_chair = Haarschnitt beginnen
+verb.cut = Schneiden
+reply.sure = Klar.
+reply.one_second = Einen Moment.
+customer.call_attention = Hallo? Ist jemand da?
+
+haircut.buzz_cut = Buzz Cut
+haircut.low_fade = Low Fade
+haircut.mid_fade = Mid Fade
+haircut.basic_taper = Klassischer Taper
+haircut.short_trim = Spitzen schneiden
+
+ask.buzz_cut.1 = Einfach alles kurz rasieren. Überall gleich, eine Zwei.
+ask.buzz_cut.2 = Kannst du alles kurz machen? Ein sauberer Buzz Cut.
+ask.low_fade.1 = Kann ich einen Low Fade bekommen? Oben etwas Länge lassen.
+ask.low_fade.2 = Low Fade an den Seiten und hinten, oben nur etwas in Form.
+ask.mid_fade.1 = Ich hätte gern einen Mid Fade. Seiten schön kurz, oben etwas weg.
+ask.mid_fade.2 = Mid Fade bitte, oben ruhig etwas kürzer als sonst.
+ask.taper.1 = Nur ein klassischer Taper. Nacken und um die Ohren sauber machen.
+ask.taper.2 = Natürlich halten, Ränder auslaufen lassen, oben bleibt.
+ask.trim.1 = Nur Spitzen schneiden. Überall ein bisschen weg.
+ask.trim.2 = Nichts Besonderes, einfach rundherum in Form.
+
+cust.greet.1 = Hey.
+cust.greet.2 = Hallo.
+cust.greet.3 = Morgen!
+cust.greet.4 = Servus.
+cust.agree.1 = Super, danke.
+cust.agree.2 = Perfekt.
+cust.agree.3 = Cool.
+cust.wait_ok.1 = Kein Stress.
+cust.wait_ok.2 = Lass dir Zeit.
+cust.wait_ok.3 = Klar, ich warte.
+cust.waiting.1 = Ich setz mich kurz.
+cust.waiting.2 = Ich warte da drüben.
+cust.react.great.1 = Sauber. Gute Arbeit.
+cust.react.great.2 = Wow, genau so wollte ich es.
+cust.react.great.3 = Sieht scharf aus. Danke!
+cust.react.great.4 = Bester Schnitt seit Langem.
+cust.react.okay.1 = Ja... passt schon.
+cust.react.okay.2 = Nicht schlecht. Gar nicht schlecht.
+cust.react.okay.3 = Hm. Ist okay.
+cust.react.bad.1 = Das ist nicht wirklich, was ich wollte.
+cust.react.bad.2 = Äh... okay. Wächst ja wieder.
+cust.react.bad.3 = Da bin ich mir nicht so sicher.
+cust.leave.1 = Vergiss es, ich hab nicht den ganzen Tag Zeit.
+cust.leave.2 = Ich komm ein andermal wieder.
+cust.leave.3 = Zu viel los hier. Tschüss.
+cust.thanks.1 = Danke, bis zum nächsten Mal.
+cust.thanks.2 = Danke dir!
+cust.thanks.3 = Schönen Tag noch.
+
+review.5.1 = Genau das, was ich wollte.
+review.5.2 = Sauberer Fade, toller Service. Komme wieder.
+review.5.3 = Bester Barber im Viertel.
+review.4.1 = Guter Schnitt, freundlicher Laden.
+review.3.1 = Ganz okay, aber geht besser.
+review.2.1 = Nicht das, was ich wollte.
+review.1.1 = Nie wieder.
+review.issue.harsh_fade.mild = Nicht schlecht, aber der Fade könnte sauberer sein.
+review.issue.harsh_fade.bad = Wo der Fade sein sollte, sieht man eine harte Kante.
+review.issue.unfinished.mild = Etwas gehetzt, manche Stellen waren nicht fertig.
+review.issue.unfinished.bad = Der halbe Haarschnitt fehlt.
+review.issue.too_short.mild = Ein bisschen kürzer als gewünscht.
+review.issue.too_short.bad = An den Seiten viel zu kurz.
+review.issue.top_too_short.mild = Oben etwas zu viel weg.
+review.issue.top_too_short.bad = Oben ist alles weg. Ich wollte Länge behalten.
+review.issue.too_long.mild = Hätte etwas kürzer sein dürfen.
+review.issue.too_long.bad = Da wurde kaum etwas geschnitten.
+review.issue.uneven.mild = Links und rechts passen nicht ganz zusammen.
+review.issue.uneven.bad = Total schief.
+review.tip = Trinkgeld
+review.reputation = Ruf
+
+barber.cut = Schneiden
+barber.finish = Haarschnitt beenden
+barber.step_away = Kurz weggehen
+barber.confirm_finish = Einige Stellen sehen noch ungeschnitten aus.\nTrotzdem beenden?
+barber.keep_cutting = Weiterschneiden
+barber.finish_anyway = Beenden
+barber.controls_desktop = Linke Maus: schneiden   ·   Rechte Maus / WASD: drehen   ·   Mausrad: Zoom   ·   1-4: Werkzeuge   ·   Q / E: Aufsatz   ·   F: beenden
+
+tool.clipper = Haarschneider
+tool.clipper.desc = Haarschneider · kürzerer Aufsatz = kürzere Haare
+tool.trimmer = Trimmer
+tool.trimmer.desc = Trimmer · Konturen, Nacken, Schläfen
+tool.scissors = Schere
+tool.scissors.desc = Schere · oben Länge wegnehmen
+tool.comb = Kamm
+tool.comb.desc = Kamm · vorher kämmen für einen gleichmäßigen Scherenschnitt
+
+check.sides = Seiten & hinten
+check.fade = Fade
+check.top = Oben
+check.edges = Konturen & Nacken
+
+zone.top = Oben
+zone.front = Vorne
+zone.crown = Wirbel
+zone.leftside = Linke Seite
+zone.rightside = Rechte Seite
+zone.lefttemple = Linke Schläfe
+zone.righttemple = Rechte Schläfe
+zone.back = Hinterkopf
+zone.nape = Nacken
+
+tut.fade.1 = Wähle den Haarschneider (1).
+tut.fade.2 = Nimm einen kurzen Aufsatz: #½ oder #1 (Q / E oder antippen).
+tut.fade.3 = Gedrückt halten und die unteren Seiten und den Hinterkopf rundherum schneiden.
+tut.fade.4 = Wechsle zu einem längeren Aufsatz: #2 oder #3.
+tut.fade.5 = Nach oben durch die Mitte der Seiten verblenden. Keine harte Kante.
+tut.fade.6 = Oben mit der Schere (3) kürzen. Etwas Länge lassen.
+tut.fade.7 = Sieht gut aus. Alle Seiten prüfen, dann Beenden drücken.
+tut.buzz.1 = Haarschneider mit Aufsatz #2 überall benutzen.
+tut.buzz.2 = Über den ganzen Kopf gehen, auch oben.
+tut.taper.1 = Den Trimmer am Nacken und um die Ohren benutzen.
+tut.taper.2 = Oben lang lassen.
+tut.trim.1 = Mit Schere und langem Aufsatz überall etwas wegnehmen.
+tut.trim.2 = Natürlich halten.

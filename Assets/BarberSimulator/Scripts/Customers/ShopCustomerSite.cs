@@ -129,5 +129,40 @@ namespace BarberSimulator.Customers
         }
 
         public List<Vector3> PathTo(Vector3 from, Transform goal) => navigation.FindPath(from, goal);
+
+        private float _doorCloseTimer;
+        private bool _openedByCustomers;
+
+        /// <summary>Customers open the front door when they reach it and it swings shut behind them.</summary>
+        private void Update()
+        {
+            if (frontDoor == null || _queue.Count == 0 && !_openedByCustomers) return;
+            var doorPosition = (doorOutside.position + entranceInside.position) * 0.5f;
+            bool someoneNear = false;
+            foreach (var customer in _queue)
+            {
+                if (customer == null || !customer.isActiveAndEnabled) continue;
+                var offset = customer.transform.position - doorPosition;
+                offset.y = 0f;
+                if (offset.sqrMagnitude < 1.6f * 1.6f) { someoneNear = true; break; }
+            }
+
+            if (someoneNear)
+            {
+                _doorCloseTimer = 1.6f;
+                if (!frontDoor.IsOpen)
+                {
+                    frontDoor.SetOpen(true, playSound: true);
+                    _openedByCustomers = true;
+                }
+                return;
+            }
+
+            if (!_openedByCustomers) return;
+            _doorCloseTimer -= Time.deltaTime;
+            if (_doorCloseTimer > 0f) return;
+            _openedByCustomers = false;
+            if (frontDoor.IsOpen) frontDoor.SetOpen(false, playSound: true);
+        }
     }
 }

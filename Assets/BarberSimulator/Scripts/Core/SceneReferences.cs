@@ -22,6 +22,9 @@ namespace BarberSimulator.Core
         public PlayerAudio PlayerAudio;
         public ShopState Shop;
         public PlanarMirror Mirror;
+        public Barber.BarberModeController BarberMode;
+        public Customers.ShopCustomerSite CustomerSite;
+        public Customers.CustomerSpawner CustomerSpawner;
         [Tooltip("Objects only shown behind the main menu (ambient barber + customers).")]
         public GameObject MenuOnly;
         [Tooltip("Lights whose shadows follow the quality settings.")]

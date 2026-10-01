@@ -2,7 +2,7 @@
 
 First-person barbershop simulator for Unity WebGL (CrazyGames, GamePix, Playgama), playable on desktop and mobile browsers.
 
-**Current state: Phase 1 (foundation and first playable slice).**
+**Current state: Phase 2: customer loop and haircut gameplay, on top of the Phase 1 foundation.**
 
 ## Opening the project
 
@@ -34,6 +34,19 @@ Other menu commands:
 | Pause | Esc | Pause button (top right) |
 | Skip intro | Space / Enter / Esc / "Skip" button | "Skip" button |
 
+**Barber mode** (interact with the barber chair while a customer is seated):
+
+| Action | Desktop | Touch |
+|---|---|---|
+| Cut | Hold left mouse on the hair | Hold the CUT button (aim with the centre reticle) |
+| Rotate around the head | Right mouse drag / WASD / arrows | Drag anywhere |
+| Zoom | Mouse wheel | – |
+| Tools | 1 Clipper · 2 Trimmer · 3 Scissors · 4 Comb | Tap the tool bar |
+| Clipper guard | Q / E | Tap a guard chip |
+| Finish | F or "Finish haircut" | "Finish haircut" |
+
+Debug keys (editor and development builds only): F5 spawn customer, F6 +$100, F7 reset hair, F8 complete haircut to target, F9 hair zone overlay.
+
 A gamepad also works through the same input actions: left stick, right stick, A to interact, Start to pause.
 
 ## Architecture
@@ -55,7 +68,11 @@ All code is in `Assets/BarberSimulator/Scripts`. It uses two assemblies: `Barber
 | `UI` | Code-built uGUI styled by the `UITheme` asset: menu, settings, pause, HUD, cinematic overlay and touch controls |
 | `Audio` | `AudioService` with Music, SFX, Ambience and UI volume categories |
 | `Economy` / `Shop` | Money, shop state restoration and expansion areas |
-| `Editor` | Project setup and the procedural content and scene generators |
+| `Haircut` | `HairGrid` (scalp cells with length per zone and band), `HaircutSession` (tools and guards), `HaircutEvaluator` (scoring), `HairShellRenderer` (visible hair), request and tool ScriptableObjects |
+| `Barber` | `BarberModeController` (orbit camera, tool hand, cutting, audio, particles) and `BarberTutorial` |
+| `Customers` | `CustomerBrain` (16-state visit), `ShopCustomerSite` (queue and reservations), `CustomerSpawner`, profiles and dialogue data, `BarberChairStation`, `WaitingSeat` |
+| `Navigation` | `NavGraph`, the authored walk graph that customers use (always through the real door) |
+| `Editor` | Project setup, the procedural content and scene generators, and validation (**Validate Customers & Haircuts**) |
 
 Localization tables are in `Assets/BarberSimulator/Resources/BarberSimulator/Localization` (English and German).
 

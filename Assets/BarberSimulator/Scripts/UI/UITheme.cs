@@ -40,6 +40,7 @@ namespace BarberSimulator.UI
         public Sprite iconGear;
         public Sprite iconCheck;
         public Sprite iconScissors;
+        public Sprite iconStar;
 
         [Header("Motion")]
         [Tooltip("Hover / tap response time in seconds (150-250 ms).")]

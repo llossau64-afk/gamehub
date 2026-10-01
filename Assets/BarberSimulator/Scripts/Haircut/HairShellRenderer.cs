@@ -18,7 +18,7 @@ namespace BarberSimulator.Haircut
         [SerializeField] private Vector3 center = new Vector3(0f, 0.11f, 0.005f);
         [SerializeField] private Vector3 radii = new Vector3(0.09f, 0.117f, 0.106f);
         [Tooltip("How far hair stands off the scalp per cm of length (metres).")]
-        [SerializeField] private float volumePerCm = 0.0075f;
+        [SerializeField] private float volumePerCm = 0.0052f;
         [SerializeField] private float baseOffset = 0.0018f;
 
         private const int VertexColumns = HairGrid.Columns + 1;
@@ -194,7 +194,7 @@ namespace BarberSimulator.Haircut
                     float lift = 1f + combed / growing * 0.12f;
                     float clump = 1f + _clump[i] * Mathf.Clamp01(length / 3f) * 0.18f;
                     offset = baseOffset + length * volumePerCm * lift * clump;
-                    if (growing < 4) offset *= 0.45f; // taper towards the hairline
+                    if (growing < 4) offset = baseOffset + (offset - baseOffset) * 0.22f; // thin, soft hairline instead of a helmet rim
                 }
                 _vertices[i] = scalp + normal * offset;
             }

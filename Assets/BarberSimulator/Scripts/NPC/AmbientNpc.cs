@@ -13,12 +13,15 @@ namespace BarberSimulator.NPC
         [SerializeField] private float talkToggleSeconds = 6f;
         [Tooltip("Optional seat (SeatPoint of a chair) used when the pose is Sit.")]
         [SerializeField] private Transform seat;
+        [Tooltip("Barber pose with raised arms, as if cutting.")]
+        [SerializeField] private bool cutting;
 
         private float _timer;
 
-        public void Configure(ProceduralCharacterAnimator characterAnimator, CharacterPose characterPose, Transform look, bool talks, Transform seatPoint = null)
+        public void Configure(ProceduralCharacterAnimator characterAnimator, CharacterPose characterPose, Transform look, bool talks, Transform seatPoint = null, bool cutting = false)
         {
             seat = seatPoint;
+            this.cutting = cutting;
             animator = characterAnimator;
             pose = characterPose;
             lookTarget = look;
@@ -29,6 +32,7 @@ namespace BarberSimulator.NPC
         {
             if (animator == null) return;
             animator.Pose = pose;
+            animator.CuttingPose = cutting;
             if (pose == CharacterPose.Sit && seat != null) Seating.PlaceOnSeat(transform, animator, seat);
             if (lookTarget != null) animator.SetLookTarget(lookTarget.position);
             _timer = Random.Range(0f, talkToggleSeconds);

@@ -25,6 +25,7 @@ Shader "BarberSimulator/Mirror"
             #pragma vertex Vert
             #pragma fragment Frag
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
             TEXTURE2D(_ReflectionTex); SAMPLER(sampler_ReflectionTex);
             TEXTURE2D(_DirtTex); SAMPLER(sampler_DirtTex);
@@ -40,6 +41,7 @@ Shader "BarberSimulator/Mirror"
             struct Attributes
             {
                 float4 positionOS : POSITION;
+                float3 normalOS : NORMAL;
                 float2 uv : TEXCOORD0;
             };
 
@@ -48,6 +50,8 @@ Shader "BarberSimulator/Mirror"
                 float4 positionCS : SV_POSITION;
                 float4 screenPos : TEXCOORD0;
                 float2 uv : TEXCOORD1;
+                float3 positionWS : TEXCOORD2;
+                float3 normalWS : TEXCOORD3;
             };
 
             Varyings Vert(Attributes input)
@@ -56,6 +60,8 @@ Shader "BarberSimulator/Mirror"
                 output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
                 output.screenPos = ComputeScreenPos(output.positionCS);
                 output.uv = TRANSFORM_TEX(input.uv, _DirtTex);
+                output.positionWS = TransformObjectToWorld(input.positionOS.xyz);
+                output.normalWS = TransformObjectToWorldNormal(input.normalOS);
                 return output;
             }
 
@@ -63,7 +69,13 @@ Shader "BarberSimulator/Mirror"
             {
                 float2 screenUV = input.screenPos.xy / input.screenPos.w;
                 half3 reflection = SAMPLE_TEXTURE2D(_ReflectionTex, sampler_ReflectionTex, screenUV).rgb * _Tint.rgb;
-                half3 color = lerp(_Fallback.rgb, reflection, saturate(_HasReflection));
+                // Without the live reflection, sample the environment (reflection probe) along the mirrored view ray.
+                float3 viewDir = normalize(GetWorldSpaceViewDir(input.positionWS));
+                float3 reflected = reflect(-viewDir, normalize(input.normalWS));
+                half4 probe = SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, reflected, 0);
+                half3 probeColor = DecodeHDREnvironment(probe, unity_SpecCube0_HDR) * _Tint.rgb;
+                half3 fallback = lerp(_Fallback.rgb, probeColor, 0.85);
+                half3 color = lerp(fallback, reflection, saturate(_HasReflection));
                 half4 dirt = SAMPLE_TEXTURE2D(_DirtTex, sampler_DirtTex, input.uv);
                 color = lerp(color, dirt.rgb, dirt.a * _DirtStrength);
                 return half4(color, 1);

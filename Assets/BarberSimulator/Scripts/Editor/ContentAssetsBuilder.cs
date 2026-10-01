@@ -18,6 +18,7 @@ namespace BarberSimulator.EditorTools
         {
             public GameConfig Config;
             public VolumeProfile PostProcessing;
+            public Phase2ContentBuilder.Result Phase2;
         }
 
         public static Result Build()
@@ -41,12 +42,12 @@ namespace BarberSimulator.EditorTools
             config.versionLabel = "v" + PlayerSettings.bundleVersion;
             EditorUtility.SetDirty(config);
 
-            var result = new Result { Config = config, PostProcessing = BuildPostProcessing() };
+            var result = new Result { Config = config, PostProcessing = BuildPostProcessing(), Phase2 = Phase2ContentBuilder.Build(sounds) };
             AssetDatabase.SaveAssets();
             return result;
         }
 
-        private static T GetOrCreate<T>(string path) where T : ScriptableObject
+        public static T GetOrCreate<T>(string path) where T : ScriptableObject
         {
             var asset = AssetDatabase.LoadAssetAtPath<T>(path);
             if (asset != null) return asset;
@@ -77,6 +78,7 @@ namespace BarberSimulator.EditorTools
             theme.iconGear = AssetUtility.Sprite("icon_gear.png");
             theme.iconCheck = AssetUtility.Sprite("icon_check.png");
             theme.iconScissors = AssetUtility.Sprite("icon_scissors.png");
+            theme.iconStar = AssetUtility.Sprite("icon_star.png");
             EditorUtility.SetDirty(theme);
             return theme;
         }
@@ -104,6 +106,27 @@ namespace BarberSimulator.EditorTools
             s.objectiveComplete = AssetUtility.Clip("SFX/objective_complete.wav");
             s.inspectTools = AssetUtility.Clip("SFX/inspect_tools.wav");
             s.clipperBuzz = AssetUtility.Clip("SFX/clipper_buzz.wav");
+            s.clipperStart = AssetUtility.Clip("SFX/clipper_start.wav");
+            s.clipperLoop = AssetUtility.Clip("SFX/clipper_loop.wav");
+            s.clipperCuttingLoop = AssetUtility.Clip("SFX/clipper_cutting_loop.wav");
+            s.clipperStop = AssetUtility.Clip("SFX/clipper_stop.wav");
+            s.trimmerLoop = AssetUtility.Clip("SFX/trimmer_loop.wav");
+            s.scissorSnips = new[]
+            {
+                AssetUtility.Clip("SFX/scissor_snip_01.wav"), AssetUtility.Clip("SFX/scissor_snip_02.wav"),
+                AssetUtility.Clip("SFX/scissor_snip_03.wav"), AssetUtility.Clip("SFX/scissor_snip_04.wav")
+            };
+            s.combStrokes = new[] { AssetUtility.Clip("SFX/comb_01.wav"), AssetUtility.Clip("SFX/comb_02.wav") };
+            s.hairFall = AssetUtility.Clip("SFX/hair_fall.wav");
+            s.uiToolSelect = AssetUtility.Clip("UI/ui_tool_select.wav");
+            s.chairCreak = AssetUtility.Clip("SFX/chair_creak.wav");
+            s.clothSit = AssetUtility.Clip("SFX/cloth_sit.wav");
+            s.clothStand = AssetUtility.Clip("SFX/cloth_stand.wav");
+            s.capeSnap = AssetUtility.Clip("SFX/cape_snap.wav");
+            s.cashRegister = AssetUtility.Clip("SFX/cash_register.wav");
+            s.coins = AssetUtility.Clip("SFX/coins.wav");
+            s.reviewGood = AssetUtility.Clip("SFX/review_good.wav");
+            s.reviewBad = AssetUtility.Clip("SFX/review_bad.wav");
             EditorUtility.SetDirty(s);
             return s;
         }
@@ -141,10 +164,12 @@ namespace BarberSimulator.EditorTools
             clean.Configure("clean_shop", "objective.clean", "objective.clean.hint", ObjectiveSignals.TrashCollected, 5, 25);
             var station = GetOrCreate<ObjectiveDefinition>(folder + "Objective_CheckStation.asset");
             station.Configure("check_station", "objective.station", "objective.station.hint", ObjectiveSignals.StationInspected, 1, 0);
-            foreach (var o in new[] { inspect, clean, station }) EditorUtility.SetDirty(o);
+            var serve = GetOrCreate<ObjectiveDefinition>(folder + "Objective_ServeFirstCustomer.asset");
+            serve.Configure("serve_first_customer", "objective.serve", "objective.serve.hint", ObjectiveSignals.CustomerServed, 1, 0);
+            foreach (var o in new[] { inspect, clean, station, serve }) EditorUtility.SetDirty(o);
 
             var sequence = GetOrCreate<ObjectiveSequence>(folder + "ObjectiveSequence_Day1.asset");
-            sequence.Configure(new List<ObjectiveDefinition> { inspect, clean, station }, "objectives.completed");
+            sequence.Configure(new List<ObjectiveDefinition> { inspect, clean, station, serve }, "objectives.completed");
             EditorUtility.SetDirty(sequence);
             return sequence;
         }

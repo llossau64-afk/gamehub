@@ -7,6 +7,7 @@ namespace BarberSimulator.Core
         Intro,
         Gameplay,
         Paused,
+        BarberMode,
         Transitioning
     }
 }

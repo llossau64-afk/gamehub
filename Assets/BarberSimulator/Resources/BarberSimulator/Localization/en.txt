@@ -72,13 +72,11 @@ objective.clean.hint = Look at trash and press E to pick it up.
 objective.clean.hint.touch = Look at trash and tap the hand button to pick it up.
 objective.station = Check your barber station
 objective.station.hint = Your tools are on the counter in front of the mirror.
-objectives.completed = The shop is yours. More work awaits tomorrow.
 
 verb.use = Use
 verb.open = Open
 verb.close = Close
 verb.talk = Talk
-verb.cut = Cut
 verb.buy = Buy
 verb.clean = Clean
 verb.sit = Sit
@@ -100,3 +98,132 @@ toast.expansion_locked = Locked. The back room needs a renovation before it can 
 toast.station_inspected = An old clipper and a pair of scissors. They still work... barely.
 
 hint.rotate_device = Rotate your device\nBarbershop Simulator is played in landscape.
+
+# ---------------- Phase 2: shop, customers, haircut
+toast.shop_open = The shop is open. Customers will start coming in.
+toast.customer_waiting = A customer is waiting at the counter.
+objective.serve = Serve your first customer
+objective.serve.hint = Talk to the customer at the counter (E), then cut their hair at the barber chair.
+objective.serve.touch = Talk to the customer at the counter, then cut their hair at the barber chair.
+objectives.completed = Open for business. Keep your customers happy.
+
+interact.customer = Customer
+interact.barber_chair = Start the haircut
+verb.cut = Cut
+reply.sure = Sure.
+reply.one_second = Give me a second.
+customer.call_attention = Excuse me? Anyone here?
+
+haircut.buzz_cut = Buzz Cut
+haircut.low_fade = Low Fade
+haircut.mid_fade = Mid Fade
+haircut.basic_taper = Basic Taper
+haircut.short_trim = Short Trim
+
+ask.buzz_cut.1 = Just buzz it all down. Same length everywhere, a number two.
+ask.buzz_cut.2 = Can you take it all short? A clean buzz cut.
+ask.low_fade.1 = Can I get a low fade? Keep some length on top.
+ask.low_fade.2 = Low fade on the sides and back, and just tidy the top.
+ask.mid_fade.1 = I'd like a mid fade. Nice and short on the sides, a bit off the top.
+ask.mid_fade.2 = Mid fade please, keep the top a little shorter than usual.
+ask.taper.1 = Just a basic taper. Clean up the neck and around the ears.
+ask.taper.2 = Keep it natural, taper the edges and leave the top.
+ask.trim.1 = Just a short trim. Take a bit off everywhere.
+ask.trim.2 = Nothing fancy, just a tidy trim all round.
+
+cust.greet.1 = Hey.
+cust.greet.2 = Hi there.
+cust.greet.3 = Morning!
+cust.greet.4 = Hello.
+cust.agree.1 = Great, thanks.
+cust.agree.2 = Perfect.
+cust.agree.3 = Cool.
+cust.wait_ok.1 = No rush.
+cust.wait_ok.2 = Take your time.
+cust.wait_ok.3 = Sure, I'll wait.
+cust.waiting.1 = I'll just grab a seat.
+cust.waiting.2 = I'll wait over here.
+cust.react.great.1 = That's clean. Nice work.
+cust.react.great.2 = Wow, exactly what I wanted.
+cust.react.great.3 = Looking sharp. Thanks!
+cust.react.great.4 = Best cut I've had in a while.
+cust.react.okay.1 = Yeah... that'll do.
+cust.react.okay.2 = Not bad. Not bad at all.
+cust.react.okay.3 = Hm. It's alright.
+cust.react.bad.1 = That's not really what I asked for.
+cust.react.bad.2 = Uh... okay. I guess it'll grow back.
+cust.react.bad.3 = I'm not sure about this.
+cust.leave.1 = Forget it, I don't have all day.
+cust.leave.2 = I'll come back another time.
+cust.leave.3 = Too busy here. Bye.
+cust.thanks.1 = Thanks, see you next time.
+cust.thanks.2 = Cheers!
+cust.thanks.3 = Have a good one.
+
+review.5.1 = Exactly what I wanted.
+review.5.2 = Clean fade, great service. Will be back.
+review.5.3 = Best barber in the neighbourhood.
+review.4.1 = Good cut, friendly place.
+review.3.1 = Decent, but could be better.
+review.2.1 = Not what I asked for.
+review.1.1 = Never again.
+review.issue.harsh_fade.mild = Not bad, but the fade could be cleaner.
+review.issue.harsh_fade.bad = You can see a hard line where the fade should be.
+review.issue.unfinished.mild = Felt a bit rushed, some parts weren't done.
+review.issue.unfinished.bad = Half the haircut is missing.
+review.issue.too_short.mild = A little shorter than I wanted.
+review.issue.too_short.bad = Way too short on the sides.
+review.issue.top_too_short.mild = Took a bit too much off the top.
+review.issue.top_too_short.bad = My top is gone. I asked to keep it.
+review.issue.too_long.mild = Could have gone a bit shorter.
+review.issue.too_long.bad = Barely anything was cut.
+review.issue.uneven.mild = Left and right don't quite match.
+review.issue.uneven.bad = It's lopsided.
+review.tip = tip
+review.reputation = reputation
+
+barber.cut = Cut
+barber.finish = Finish haircut
+barber.step_away = Step away
+barber.confirm_finish = Some parts still look uncut.\nFinish anyway?
+barber.keep_cutting = Keep cutting
+barber.finish_anyway = Finish
+barber.controls_desktop = Left mouse: cut   ·   Right mouse / WASD: rotate   ·   Wheel: zoom   ·   1-4: tools   ·   Q / E: guard   ·   F: finish
+
+tool.clipper = Clipper
+tool.clipper.desc = Clipper · shorter guard = shorter hair
+tool.trimmer = Trimmer
+tool.trimmer.desc = Trimmer · edges, neckline, temples
+tool.scissors = Scissors
+tool.scissors.desc = Scissors · take length off the top
+tool.comb = Comb
+tool.comb.desc = Comb · comb first for an even scissor cut
+
+check.sides = Sides & back
+check.fade = Fade
+check.top = Top
+check.edges = Edges & neckline
+
+zone.top = Top
+zone.front = Front
+zone.crown = Crown
+zone.leftside = Left side
+zone.rightside = Right side
+zone.lefttemple = Left temple
+zone.righttemple = Right temple
+zone.back = Back
+zone.nape = Nape
+
+tut.fade.1 = Select the clipper (1).
+tut.fade.2 = Pick a short guard: #½ or #1 (Q / E or tap a guard).
+tut.fade.3 = Hold to cut the lower sides and the back, all the way around.
+tut.fade.4 = Switch to a longer guard: #2 or #3.
+tut.fade.5 = Blend upward through the middle of the sides. No hard line.
+tut.fade.6 = Trim the top with the scissors (3). Keep some length.
+tut.fade.7 = Looks good. Check all sides, then press Finish.
+tut.buzz.1 = Use the clipper with a #2 guard everywhere.
+tut.buzz.2 = Go over the whole head, including the top.
+tut.taper.1 = Use the trimmer on the neckline and around the ears.
+tut.taper.2 = Leave the top long.
+tut.trim.1 = Take a little off everywhere with scissors and a long guard.
+tut.trim.2 = Keep it natural.

@@ -25,6 +25,8 @@ namespace BarberSimulator.Core
         private float _nextPositionSave;
         private bool _settingsFromPause;
         private bool _objectivesStarted;
+        private GameState _stateBeforePause = GameState.Gameplay;
+        private const string ServeFirstCustomerObjective = "serve_first_customer";
 
         public GameState State { get; private set; } = GameState.Booting;
 
@@ -59,6 +61,13 @@ namespace BarberSimulator.Core
             _ctx.Economy.MoneyChanged += (balance, delta) => ui.Hud.SetMoney(balance, delta);
 
             _scene.Interactor.FocusChanged += OnFocusChanged;
+            if (_scene.BarberMode != null)
+            {
+                _scene.BarberMode.Exited += OnBarberModeExited;
+                if (_scene.CustomerSite != null)
+                    foreach (var chair in _scene.CustomerSite.Chairs) chair.HaircutRequested += EnterBarberMode;
+            }
+            _ctx.Economy.ServicePaid += OnServicePaid;
             _scene.Intro.CutToStreet += () => SetMenuDressing(false);
 
             OnInputModeChanged(_ctx.Input.Mode);
@@ -249,6 +258,7 @@ namespace BarberSimulator.Core
                 _objectivesStarted = true;
                 StartCoroutine(BeginObjectivesSoon());
             }
+            if (_ctx.Save.Data.progression.shopOpen) OpenShop();
 
             _nextPositionSave = Time.unscaledTime + PositionSaveInterval;
             _ctx.Save.RequestSave();
@@ -266,6 +276,7 @@ namespace BarberSimulator.Core
 
         private void OnObjectiveStarted(ObjectiveDefinition objective)
         {
+            if (objective.ObjectiveId == ServeFirstCustomerObjective) OpenShop();
             var loc = _ctx.Localization;
             var title = loc.Get(objective.TitleKey);
             _ctx.UI.Hud.SetObjective(title, _ctx.Objectives.Progress, objective.TargetCount);
@@ -296,6 +307,7 @@ namespace BarberSimulator.Core
 
         private void OnSequenceCompleted()
         {
+            OpenShop();
             var key = _ctx.Objectives.Sequence.CompletedTitleKey;
             _ctx.UI.Hud.SetObjective(_ctx.Localization.Get(key), 0, 0);
         }
@@ -315,6 +327,58 @@ namespace BarberSimulator.Core
             hud.SetInteraction(true, verb, label, canInteract);
         }
 
+        // ---------------------------------------------------------------- Shop & barber mode
+
+        private void OpenShop()
+        {
+            var progression = _ctx.Save.Data.progression;
+            if (!progression.shopOpen)
+            {
+                progression.shopOpen = true;
+                _ctx.Save.RequestSave();
+                _ctx.UI.Hud.ShowToast(_ctx.Localization.Get("toast.shop_open"));
+            }
+            if (_scene.CustomerSpawner != null && !_scene.CustomerSpawner.IsOpen)
+                _scene.CustomerSpawner.SetOpen(true, tutorialFirst: !progression.firstCustomerTutorialCompleted);
+        }
+
+        private void OnServicePaid(Economy.ServicePayment payment)
+        {
+            var progression = _ctx.Save.Data.progression;
+            if (!progression.firstCustomerTutorialCompleted)
+            {
+                progression.firstCustomerTutorialCompleted = true;
+                _ctx.Save.RequestSave();
+            }
+        }
+
+        private void EnterBarberMode(Customers.BarberChairStation chair)
+        {
+            if (State != GameState.Gameplay || _scene.BarberMode == null || !_scene.BarberMode.CanStart(chair)) return;
+            State = GameState.BarberMode;
+            _scene.Interactor.SetActive(false);
+            _ctx.UI.Hud.SetInteraction(false, null, null, false);
+            _ctx.UI.Hud.Hide();
+            _scene.BarberMode.Begin(chair);
+            if (!_scene.BarberMode.IsActive)
+            {
+                // Could not start (e.g. missing hair data): fall back to normal play.
+                State = GameState.Gameplay;
+                _scene.Interactor.SetActive(true);
+                _ctx.UI.Hud.Show();
+            }
+        }
+
+        private void OnBarberModeExited()
+        {
+            if (State != GameState.BarberMode) return;
+            State = GameState.Gameplay;
+            _scene.Interactor.SetActive(true);
+            _ctx.UI.Hud.Show();
+            WritePlayerTransform();
+            _ctx.Save.RequestSave();
+        }
+
         // ---------------------------------------------------------------- Pause
 
         private void OnPausePressed()
@@ -322,6 +386,7 @@ namespace BarberSimulator.Core
             switch (State)
             {
                 case GameState.Gameplay:
+                case GameState.BarberMode:
                     Pause();
                     break;
                 case GameState.Paused:
@@ -337,10 +402,12 @@ namespace BarberSimulator.Core
 
         public void Pause()
         {
-            if (State != GameState.Gameplay) return;
+            if (State != GameState.Gameplay && State != GameState.BarberMode) return;
+            _stateBeforePause = State;
             State = GameState.Paused;
             Time.timeScale = 0f;
             _ctx.Input.GameplayEnabled = false;
+            _ctx.Input.BarberEnabled = false;
             _ctx.Input.SetCursorLock(false);
             _ctx.UI.Hud.SetInteraction(false, null, null, false);
             _ctx.UI.Pause.Show();
@@ -354,8 +421,13 @@ namespace BarberSimulator.Core
             if (State != GameState.Paused) return;
             _ctx.UI.Settings.Hide();
             _ctx.UI.Pause.Hide();
-            State = GameState.Gameplay;
+            State = _stateBeforePause;
             Time.timeScale = 1f;
+            if (State == GameState.BarberMode)
+            {
+                _ctx.Input.BarberEnabled = true;
+                return;
+            }
             _ctx.Input.GameplayEnabled = true;
             _ctx.Input.SetCursorLock(true);
         }
@@ -481,7 +553,7 @@ namespace BarberSimulator.Core
             WritePlayerTransform();
             _ctx.Save.SaveNow();
             // Losing the browser tab mid-game opens the pause menu instead of leaving the player walking.
-            if (State == GameState.Gameplay) Pause();
+            if (State == GameState.Gameplay || State == GameState.BarberMode) Pause();
         }
     }
 

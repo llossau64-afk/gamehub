@@ -81,6 +81,9 @@ namespace BarberSimulator.Core
             WireScene(ctx);
 
             _context = ctx;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            gameObject.AddComponent<Debugging.DevTools>().Initialize(scene.CustomerSpawner, ctx.Economy, scene.BarberMode);
+#endif
             _flow = gameObject.AddComponent<GameFlowController>();
             _flow.Initialize(ctx, scene);
         }
@@ -111,6 +114,24 @@ namespace BarberSimulator.Core
             scene.Shop.Initialize(ctx.Save, ctx.Objectives, services, player.transform);
 
             scene.MenuDirector.Initialize(scene.CinematicCamera, ctx.UI.SceneFade);
+
+            if (scene.BarberMode != null)
+                scene.BarberMode.Initialize(scene.CinematicCamera, player, scene.Hands, ctx.Input, ctx.Audio, ctx.Localization, ctx.UI.Barber, config.gameplayFieldOfView);
+
+            if (scene.CustomerSpawner != null)
+            {
+                scene.CustomerSpawner.Initialize(new Customers.CustomerServices
+                {
+                    Audio = ctx.Audio,
+                    Localization = ctx.Localization,
+                    Economy = ctx.Economy,
+                    Objectives = ctx.Objectives,
+                    Save = ctx.Save,
+                    Dialogue = ctx.UI.Conversation,
+                    Reviews = ctx.UI.Reviews,
+                    Toasts = ctx.UI.Hud
+                });
+            }
             scene.Intro.Initialize(ctx, scene.CinematicCamera);
         }
 

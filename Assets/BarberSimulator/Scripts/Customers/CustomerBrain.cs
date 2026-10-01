@@ -63,6 +63,9 @@ namespace BarberSimulator.Customers
         /// <summary>Starts a new visit (pooled reuse).</summary>
         public void BeginVisit(ShopCustomerSite site, CustomerServices services, CustomerProfile profile, int seed)
         {
+            // Activate first: pooled prefabs are stored inactive, and their Awake (which applies the default look)
+            // must run before this visit's randomised appearance is applied.
+            gameObject.SetActive(true);
             _site = site;
             _services = services;
             _rng = new System.Random(seed);
@@ -86,7 +89,6 @@ namespace BarberSimulator.Customers
                 animator.ClearLookTarget();
             }
 
-            gameObject.SetActive(true);
             _site.Join(this);
             _machine.Change(CustomerState.Spawn);
         }

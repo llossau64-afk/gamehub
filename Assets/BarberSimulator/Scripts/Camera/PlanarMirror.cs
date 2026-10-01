@@ -36,8 +36,10 @@ namespace BarberSimulator.CameraSystems
 
         public void ApplyQuality(QualityTier tier)
         {
-            _enabledByQuality = tier != QualityTier.Low;
-            _resolutionScale = tier == QualityTier.High ? 0.75f : 0.5f;
+            // A second scene render is the most expensive effect in the game: only High gets the live mirror.
+            // Low/Medium use the reflection probe fallback in the shader, which still reads as a mirror.
+            _enabledByQuality = tier == QualityTier.High;
+            _resolutionScale = 0.6f;
             if (!_enabledByQuality) SetHasReflection(false);
         }
 

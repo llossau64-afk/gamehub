@@ -20,6 +20,7 @@ namespace BarberSimulator.EditorTools
         public Material LiquidBlue, GlassClear, PriceBoard, HairClippings, CapeFabric, ChromeDark;
         // Characters (tinted per renderer)
         public Material Skin, Hair, Cloth, Pants, Shoes, Eyes, HairShell, Lips, EyeWhite, Iris;
+        public Material HairParticles;
 
         private Shader _lit;
         private Shader _unlit;
@@ -123,6 +124,13 @@ namespace BarberSimulator.EditorTools
             HairShell.EnableKeyword("_DETAIL_MULX2");
             HairShell.SetTextureScale("_DetailAlbedoMap", new Vector2(14f, 6f));
             EditorUtility.SetDirty(HairShell);
+
+            var particleShader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            HairParticles = GetOrCreate("Hair_Particles", particleShader != null ? particleShader : _unlit);
+            HairParticles.SetColor("_BaseColor", Color.white);
+            HairParticles.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(GeneratorPaths.UISprites + "/circle_soft.png"));
+            MakeTransparent(HairParticles);
+            EditorUtility.SetDirty(HairParticles);
 
             AssetDatabase.SaveAssets();
         }

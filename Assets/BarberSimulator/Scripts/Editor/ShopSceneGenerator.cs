@@ -3,7 +3,11 @@ using BarberSimulator.Art;
 using BarberSimulator.CameraSystems;
 using BarberSimulator.Characters;
 using BarberSimulator.Cinematics;
+using BarberSimulator.Barber;
 using BarberSimulator.Core;
+using BarberSimulator.Customers;
+using BarberSimulator.Haircut;
+using BarberSimulator.Navigation;
 using BarberSimulator.Environment;
 using BarberSimulator.Interaction;
 using BarberSimulator.NPC;
@@ -99,6 +103,8 @@ namespace BarberSimulator.EditorTools
             BuildPlayerAndCamera(refs);
             BuildCinematics(refs);
             BuildMenuDressing(refs);
+            refs.Phase2 = content.Phase2;
+            BuildCustomerSystems(gameplay, refs);
             BuildBootstrap(content, refs);
 
             var driver = new GameObject("Ambient Motion").AddComponent<AmbientMotionDriver>();
@@ -133,6 +139,12 @@ namespace BarberSimulator.EditorTools
             public readonly List<TrashPickup> Trash = new List<TrashPickup>();
             public readonly List<InspectionPoint> Points = new List<InspectionPoint>();
             public ExpansionArea Expansion;
+            public readonly List<GameObject> WaitingChairs = new List<GameObject>();
+            public BarberChairStation ChairStation;
+            public BarberModeController BarberMode;
+            public ShopCustomerSite Site;
+            public CustomerSpawner Spawner;
+            public Phase2ContentBuilder.Result Phase2;
         }
 
         // ================================================================== helpers
@@ -396,6 +408,7 @@ namespace BarberSimulator.EditorTools
             {
                 var chair = Place(props.WaitingChair(m.VinylGreen), waiting, new Vector3(-3.55f, 0f, 1.45f + i * 0.68f), 90f, "WaitingChair_" + i);
                 if (i == 1) refs.WaitingSeat = chair.transform.Find("SeatPoint");
+                refs.WaitingChairs.Add(chair);
             }
             Place(props.MagazineTable(), waiting, new Vector3(-3.5f, 0f, 3.75f), 90f);
             Place(props.Plant(), waiting, new Vector3(-3.6f, 0f, 0.45f), 30f);
@@ -437,6 +450,18 @@ namespace BarberSimulator.EditorTools
             var products = props.ProductBottles(3);
             products.transform.SetParent(surface != null ? surface : refs.Workstation.transform, false);
             products.transform.localPosition = new Vector3(-0.32f, 0f, -0.14f);
+            var toolParent = surface != null ? surface : refs.Workstation.transform;
+            void Extra(GameObject prop, Vector3 local, float yaw)
+            {
+                foreach (var c in prop.GetComponentsInChildren<Collider>()) Object.DestroyImmediate(c);
+                prop.transform.SetParent(toolParent, false);
+                prop.transform.localPosition = local;
+                prop.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            }
+            Extra(props.CounterMat(), new Vector3(0.02f, 0f, 0.04f), 0f);
+            Extra(props.BarbicideJar(), new Vector3(-0.68f, 0f, -0.13f), 0f);
+            Extra(props.DisinfectantBottle(), new Vector3(0.72f, 0f, -0.15f), 0f);
+            Extra(props.ClipperDock(), new Vector3(0.36f, 0f, -0.12f), -12f);
             refs.StationTools = tools.ToArray();
 
             // Mirror with real planar reflection.
@@ -464,6 +489,7 @@ namespace BarberSimulator.EditorTools
                 var box = props.CardboardBox(new Vector3(0.45f, 0.3f, 0.32f), false);
                 box.transform.SetParent(boardBottom, false);
             }
+            Place(props.PriceBoard(), right, new Vector3(RoomHalfWidth - 0.01f, 1.62f, 3.05f), -90f, "PriceBoard");
             QuadObject(right, "Poster", new Vector3(RoomHalfWidth - 0.012f, 1.7f, 6.4f), Quaternion.Euler(0f, -90f, 0f), new Vector2(0.6f, 0.9f), m.Poster);
             Place(props.Radiator(1.0f), right, new Vector3(RoomHalfWidth - 0.03f, 0f, 3.6f), -90f);
             Place(props.PowerOutlet(), right, new Vector3(RoomHalfWidth - 0.03f, 0.32f, 4.2f), -90f);
@@ -544,7 +570,20 @@ namespace BarberSimulator.EditorTools
 
             var warm = new Color(1f, 0.76f, 0.5f);
             PointLight(lighting, "Light_Waiting", new Vector3(-2.5f, 2.2f, 2.2f), warm, 1.25f, 5f);
-            PointLight(lighting, "Light_Chair", new Vector3(-2.5f, 2.15f, 5.2f), warm, 1.6f, 4.5f);
+            PointLight(lighting, "Light_Chair", new Vector3(-2.5f, 2.15f, 5.2f), warm, 1.4f, 4.5f);
+            // Work light: keeps the customer's hair readable while cutting without flattening the scene.
+            var workLightGo = new GameObject("Light_HaircutSpot");
+            workLightGo.transform.SetParent(lighting, false);
+            workLightGo.transform.position = new Vector3(-1.75f, 2.85f, 5.2f);
+            workLightGo.transform.rotation = Quaternion.LookRotation(new Vector3(-2.55f, 1.45f, 5.2f) - workLightGo.transform.position);
+            var workLight = workLightGo.AddComponent<Light>();
+            workLight.type = LightType.Spot;
+            workLight.color = new Color(1f, 0.93f, 0.84f);
+            workLight.intensity = 2.6f;
+            workLight.range = 4f;
+            workLight.spotAngle = 52f;
+            workLight.innerSpotAngle = 25f;
+            workLight.shadows = LightShadows.None;
             PointLight(lighting, "Light_Reception", new Vector3(2.6f, 2.2f, 2.2f), warm, 1.0f, 4.5f);
             var storageLight = PointLight(lighting, "Light_Storage", new Vector3(2.9f, 2.45f, 8.0f), new Color(1f, 0.82f, 0.62f), 0.7f, 4f);
             var flicker = storageLight.gameObject.AddComponent<LightFlicker>();
@@ -553,8 +592,8 @@ namespace BarberSimulator.EditorTools
             PointLight(lighting, "Light_StreetFill", new Vector3(0.5f, 2.6f, -2.5f), new Color(0.75f, 0.8f, 0.9f), 0.6f, 7f);
 
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.42f, 0.4f, 0.38f);
-            RenderSettings.ambientEquatorColor = new Color(0.3f, 0.26f, 0.22f);
+            RenderSettings.ambientSkyColor = new Color(0.46f, 0.44f, 0.42f);
+            RenderSettings.ambientEquatorColor = new Color(0.33f, 0.29f, 0.25f);
             RenderSettings.ambientGroundColor = new Color(0.13f, 0.11f, 0.09f);
             RenderSettings.skybox = null;
             RenderSettings.fog = false;
@@ -693,9 +732,27 @@ namespace BarberSimulator.EditorTools
             foreach (var r in clipper.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = ShadowCastingMode.Off;
             foreach (var c in clipper.GetComponentsInChildren<Collider>()) Object.DestroyImmediate(c);
 
+            GameObject HandTool(GameObject prop, Quaternion rotation)
+            {
+                prop.transform.SetParent(rightSocket, false);
+                prop.transform.localRotation = rotation;
+                foreach (var r in prop.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = ShadowCastingMode.Off;
+                foreach (var c in prop.GetComponentsInChildren<Collider>()) Object.DestroyImmediate(c);
+                return prop;
+            }
+            var trimmer = HandTool(props.TrimmerTool(), Quaternion.Euler(0f, 0f, 90f));
+            var scissors = HandTool(props.Scissors(), Quaternion.Euler(0f, 0f, 90f));
+            var comb = HandTool(props.Comb(), Quaternion.Euler(0f, 0f, 90f));
+
             refs.Hands = handsRoot.gameObject.AddComponent<FirstPersonHands>();
             refs.Hands.Configure(rightArm.transform, leftArm.transform, rightSocket, leftSocket,
-                new List<FirstPersonHands.ToolVisual> { new FirstPersonHands.ToolVisual { type = HandToolType.Clipper, visual = clipper } });
+                new List<FirstPersonHands.ToolVisual>
+                {
+                    new FirstPersonHands.ToolVisual { type = HandToolType.Clipper, visual = clipper },
+                    new FirstPersonHands.ToolVisual { type = HandToolType.Trimmer, visual = trimmer },
+                    new FirstPersonHands.ToolVisual { type = HandToolType.Scissors, visual = scissors },
+                    new FirstPersonHands.ToolVisual { type = HandToolType.Comb, visual = comb }
+                });
 
             // The single camera shared by menu, intro and gameplay.
             var rig = new GameObject("Camera Rig");
@@ -803,7 +860,21 @@ namespace BarberSimulator.EditorTools
             barber.transform.SetParent(root.transform, false);
             barber.transform.SetPositionAndRotation(refs.BarberStand.position + refs.BarberStand.right * 0.32f, Quaternion.LookRotation(refs.BarberChairSeat.position - refs.BarberStand.position, Vector3.up));
             var barberHead = refs.BarberChairSeat;
-            barber.AddComponent<AmbientNpc>().Configure(barber.GetComponent<ProceduralCharacterAnimator>(), CharacterPose.Stand, barberHead, talks: true);
+            barber.AddComponent<AmbientNpc>().Configure(barber.GetComponent<ProceduralCharacterAnimator>(), CharacterPose.Stand, barberHead, talks: true, null, cutting: true);
+            var barberHand = barber.transform.Find("Body/Pelvis/Spine/UpperArmR/ForearmR");
+            if (barberHand != null)
+            {
+                var heldClipper = props.Clipper();
+                foreach (var c in heldClipper.GetComponentsInChildren<Collider>()) Object.DestroyImmediate(c);
+                heldClipper.transform.SetParent(barberHand, false);
+                heldClipper.transform.localPosition = new Vector3(0f, -0.33f, 0.03f);
+                heldClipper.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+            }
+            // The customer in the chair wears a cape in the menu shot.
+            var menuCape = props.Cape();
+            menuCape.transform.SetParent(root.transform, false);
+            menuCape.transform.position = new Vector3(refs.BarberChairSeat.position.x, 1.36f, refs.BarberChairSeat.position.z);
+            menuCape.transform.rotation = Quaternion.Euler(0f, refs.BarberChairSeat.eulerAngles.y, 0f);
 
             var customerLook = new CharacterAppearanceData
             {
@@ -857,7 +928,10 @@ namespace BarberSimulator.EditorTools
                 Shop = refs.Shop,
                 Mirror = refs.Mirror,
                 MenuOnly = refs.MenuOnly,
-                ShadowLights = ShadowLights.ToArray()
+                ShadowLights = ShadowLights.ToArray(),
+                BarberMode = refs.BarberMode,
+                CustomerSite = refs.Site,
+                CustomerSpawner = refs.Spawner
             };
             bootstrap.Configure(content.Config, scene);
 
@@ -865,6 +939,96 @@ namespace BarberSimulator.EditorTools
             var first = refs.MenuDirector.Shots[0];
             refs.Camera.transform.SetPositionAndRotation(first.StartPoint.position, first.StartPoint.rotation);
             refs.Camera.fieldOfView = first.StartFov;
+        }
+
+        /// <summary>
+        /// Customer infrastructure: the walk graph (always through the real door), the barber chair station,
+        /// waiting seats, the customer site/queue, the spawner and the barber mode controller.
+        /// </summary>
+        private static void BuildCustomerSystems(Transform gameplay, SceneRefs refs)
+        {
+            var root = Group(gameplay, "Customers");
+
+            // ---- walk graph
+            var graphGo = new GameObject("NavGraph");
+            graphGo.transform.SetParent(root, false);
+            var nodes = new List<Transform>();
+            Transform Node(string name, Vector3 position, float yaw = 0f)
+            {
+                var t = new GameObject(name).transform;
+                t.SetParent(graphGo.transform, false);
+                t.position = position;
+                t.rotation = Quaternion.Euler(0f, yaw, 0f);
+                nodes.Add(t);
+                return t;
+            }
+            var streetL = Node("Street_L", new Vector3(-6.5f, 0f, -2.6f), 90f);
+            var streetR = Node("Street_R", new Vector3(7f, 0f, -2.6f), -90f);
+            var doorOutside = Node("DoorOutside", new Vector3(0.5f, 0f, -1.0f), 0f);
+            var doorInside = Node("DoorInside", new Vector3(0.5f, 0f, 0.75f), 0f);
+            var entrance = Node("Entrance", new Vector3(0.6f, 0f, 1.6f), 0f);
+            var reception = Node("Reception", new Vector3(1.9f, 0f, 2.3f), 90f);
+            var register = Node("Register", new Vector3(1.9f, 0f, 1.75f), 90f);
+            var waitingHub = Node("WaitingArea", new Vector3(-2.3f, 0f, 2.15f), -90f);
+            var chairArea = Node("ChairArea", new Vector3(-1.5f, 0f, 5.75f), -90f);
+
+            var seatPoint = refs.BarberChairSeat;
+            var chairApproach = Node("ChairApproach", new Vector3(seatPoint.position.x, 0f, seatPoint.position.z + 0.7f), seatPoint.eulerAngles.y);
+
+            var links = new List<NavGraph.Link>();
+            void Link(Transform a, Transform b) => links.Add(new NavGraph.Link { a = a, b = b });
+            Link(streetL, doorOutside); Link(streetR, doorOutside); Link(doorOutside, doorInside); Link(doorInside, entrance);
+            Link(entrance, reception); Link(entrance, register); Link(reception, register); Link(entrance, waitingHub);
+            Link(entrance, chairArea); Link(reception, chairArea); Link(chairArea, chairApproach); Link(waitingHub, chairArea);
+
+            var seats = new List<WaitingSeat>();
+            for (int i = 0; i < refs.WaitingChairs.Count; i++)
+            {
+                var chair = refs.WaitingChairs[i];
+                var seat = chair.transform.Find("SeatPoint");
+                var approach = Node("WaitApproach_" + i, new Vector3(seat.position.x + 0.55f, 0f, seat.position.z), seat.eulerAngles.y);
+                Link(waitingHub, approach);
+                var waitingSeat = chair.AddComponent<WaitingSeat>();
+                waitingSeat.Configure(seat, approach);
+                seats.Add(waitingSeat);
+            }
+
+            var graph = graphGo.AddComponent<NavGraph>();
+            graph.Configure(nodes, links);
+
+            // ---- barber chair station
+            var station = refs.BarberChair.AddComponent<BarberChairStation>();
+            var cape = props.Cape();
+            cape.transform.SetParent(refs.BarberChair.transform, false);
+            cape.transform.position = new Vector3(seatPoint.position.x, 1.36f, seatPoint.position.z);
+            cape.transform.rotation = Quaternion.Euler(0f, seatPoint.eulerAngles.y, 0f);
+            var debris = props.HairDebris(0.75f);
+            debris.transform.SetParent(refs.BarberChair.transform, false);
+            debris.transform.localPosition = new Vector3(0f, 0.002f, 0.05f);
+            var mirrorLook = new GameObject("MirrorLookPoint").transform;
+            mirrorLook.SetParent(refs.BarberChair.transform, false);
+            mirrorLook.position = new Vector3(-RoomHalfWidth, 1.5f, seatPoint.position.z);
+            var headrest = refs.BarberChair.transform.Find("Headrest");
+            station.Configure("chair_1", seatPoint, chairApproach, mirrorLook, cape, debris.GetComponentInChildren<Renderer>(),
+                headrest != null ? new[] { headrest.gameObject } : new GameObject[0]);
+            refs.ChairStation = station;
+
+            // ---- site, spawner, barber mode
+            var siteGo = new GameObject("CustomerSite");
+            siteGo.transform.SetParent(root, false);
+            refs.Site = siteGo.AddComponent<ShopCustomerSite>();
+            refs.Site.Configure(graph, new[] { streetL, streetR }, doorOutside, entrance, reception, register,
+                refs.FrontDoor.GetComponent<SwingDoor>(), new List<BarberChairStation> { station }, seats);
+
+            var pool = new GameObject("CustomerPool").transform;
+            pool.SetParent(root, false);
+            refs.Spawner = siteGo.AddComponent<CustomerSpawner>();
+            refs.Spawner.Configure(refs.Phase2 != null ? refs.Phase2.SpawnConfig : null, refs.Site, pool);
+
+            var barberGo = new GameObject("BarberMode");
+            barberGo.transform.SetParent(root, false);
+            refs.BarberMode = barberGo.AddComponent<BarberModeController>();
+            refs.BarberMode.Configure(refs.Phase2 != null ? refs.Phase2.Tools : new BarberToolDefinition[0], m.HairParticles);
         }
 
         /// <summary>
@@ -884,9 +1048,21 @@ namespace BarberSimulator.EditorTools
             // A pool-ready customer template for the customer phase: modular body + motor + brain.
             var customer = characters.Create("Customer", CharacterAppearanceData.CreateRandom(new System.Random(42)), withMotor: true);
             customer.AddComponent<CustomerBrain>().Configure(customer.GetComponent<ProceduralCharacterAnimator>(), customer.GetComponent<ModularCharacter>());
+            var capsule = customer.AddComponent<CapsuleCollider>();
+            capsule.center = new Vector3(0f, 0.9f, 0f);
+            capsule.height = 1.75f;
+            capsule.radius = 0.24f;
+            capsule.isTrigger = true; // interaction target only; NPCs never push the player around
+            customer.AddComponent<CustomerInteractable>();
+            customer.SetActive(false);
             AssetUtility.EnsureFolder(GeneratorPaths.PrefabsCharacters);
-            PrefabUtility.SaveAsPrefabAsset(customer, GeneratorPaths.PrefabsCharacters + "/Customer.prefab");
+            var customerPrefab = PrefabUtility.SaveAsPrefabAsset(customer, GeneratorPaths.PrefabsCharacters + "/Customer.prefab");
             Object.DestroyImmediate(customer);
+            if (refs.Phase2 != null && refs.Phase2.SpawnConfig != null)
+            {
+                refs.Phase2.SpawnConfig.customerPrefab = customerPrefab;
+                EditorUtility.SetDirty(refs.Phase2.SpawnConfig);
+            }
         }
 
         private static void MarkStatic(Transform root)

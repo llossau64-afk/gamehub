@@ -21,6 +21,9 @@ namespace BarberSimulator.UI
         public PauseView Pause { get; private set; }
         public HudView Hud { get; private set; }
         public CinematicView Cinematic { get; private set; }
+        public BarberModeView Barber { get; private set; }
+        public GameplayDialogueView Conversation { get; private set; }
+        public ReviewCardView Reviews { get; private set; }
         public UIFactory Factory { get; private set; }
 
         private ResponsiveCanvasScaler _scaler;
@@ -39,6 +42,9 @@ namespace BarberSimulator.UI
 
             Hud = CreateView<HudView>("HUD", safe, v => { });
             Hud.BuildTouchControls(input, audio.PlayClick);
+            Barber = CreateView<BarberModeView>("Barber Mode", safe, v => v.Bind(input, audio.PlayClick));
+            Conversation = CreateView<GameplayDialogueView>("Conversation", safe, v => v.Bind(input, audio.PlayClick));
+            Reviews = CreateView<ReviewCardView>("Reviews", safe, v => { });
             Cinematic = CreateView<CinematicView>("Cinematic", safe, v => { });
             MainMenu = CreateView<MainMenuView>("Main Menu", safe, v => v.RegisterSounds = RegisterSounds);
             Credits = CreateView<CreditsView>("Credits", safe, v => v.RegisterSounds = RegisterSounds);
