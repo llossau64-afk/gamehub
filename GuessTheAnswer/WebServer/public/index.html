@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Guess the Answer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap">
@@ -1133,7 +1138,7 @@ const buzz = ms => { try { if (SET.vibe && navigator.vibrate) navigator.vibrate(
 // ═══════════════════════════ Session: local practice, host or client ═══════════════════════════
 // Every mode ends up with the same two snapshots: R (room) and M (match). Screens only render those.
 // Build-time config: { server: "wss://…/ws" | "auto", cg: true } (empty in the Claude artifact build, which uses artifact rooms).
-const CFG = /*@@CFG@@*/{};
+const CFG = {"server":"auto"};
 const Net = { room: null, lobby: null, sub: [], hostPeer: null, code: null, seq: 0, seen: {}, lastSnap: 0, ready: false };
 const S = { mode: "none", room: null, R: null, M: null, stamp: 0, search: null, prevSt: -1 };
 let tickTimer = null;
@@ -2204,3 +2209,5 @@ Screens.results = {
   if (code) roomApi().then(api => { if (api && Screens.cur === "menu") joinOnline(code); });
 })();
 </script>
+
+</html>

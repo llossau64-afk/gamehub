@@ -68,6 +68,25 @@ Unity -batchmode -projectPath GuessTheAnswer -executeMethod GuessTheAnswer.Edito
 
 Zip the contents of `Builds/WebGL` (with `index.html` at the zip root) for the portal.
 
+### 4. Browser version with online play (CrazyGames)
+
+`Web/template.html` is a complete HTML5 version of the game. `python3 Tools/build_web.py <font.ttf> <codepoints> [--server-url wss://host/ws]` builds it in four flavours:
+
+| Output | What it is |
+|---|---|
+| `Web/crazygames/index.html` | Upload this to CrazyGames. Includes the CrazyGames SDK (rooms, invite links, `isInstantMultiplayer`, gameplay events, happytime) and connects to `--server-url`. |
+| `WebServer/public/index.html` | The page the game server hosts itself at its own URL. |
+| `WebServer/game-core.js` | The page's rules engine and questions for the server. |
+| `Web/guess-the-answer.html` | The Claude artifact build (online play through artifact rooms). |
+
+`WebServer/` is a small Node.js server (`ws` package). It runs the same `Room`/`Engine` code as the page as the single authority. It also does public 1v1/2v2 matchmaking, private rooms with 6-letter codes, reconnects after a reload or a dropped connection, and emotes.
+
+```bash
+cd GuessTheAnswer/WebServer && npm ci && node server.js   # http://localhost:8080 plays the game, ws://localhost:8080/ws
+```
+
+Deploy on Render with the `render.yaml` blueprint in the repository root (New → Blueprint → this repository). The free plan sleeps after 15 minutes without visitors and takes about a minute to wake up. The page shows "CONNECTING TO THE SERVER..." meanwhile. Use a paid plan for a launch. If Render gives the service a different URL than `gta-quiz-llossau.onrender.com`, rebuild with `--server-url wss://<your-url>/ws`. For testing, `?server=wss://host/ws` in the page URL overrides it, and `?room=CODE` opens a room directly.
+
 ## How it works
 
 ### Multiplayer architecture

@@ -1053,9 +1053,11 @@ class Room {
   }
 }
 
+/*@@CORE_END@@*/
 const ERR = { ROOM_NOT_FOUND: "ROOM NOT FOUND", ROOM_FULL: "ROOM IS FULL", GAME_STARTED: "GAME ALREADY STARTED", NOT_HOST: "ONLY THE HOST CAN DO THAT",
   NOT_ENOUGH_PLAYERS: "ADD A PLAYER OR BOT TO THE OTHER TEAM", TEAMS_INVALID: "TEAMS DON'T MATCH THE MODE", PLAYERS_NOT_READY: "WAITING FOR PLAYERS TO BE READY",
-  PLAYER_RECONNECTING: "A PLAYER IS RECONNECTING", TEAM_FULL: "THAT TEAM IS FULL", OFFLINE: "ONLINE PLAY IS NOT AVAILABLE HERE" };
+  PLAYER_RECONNECTING: "A PLAYER IS RECONNECTING", TEAM_FULL: "THAT TEAM IS FULL", OFFLINE: "ONLINE PLAY IS NOT AVAILABLE HERE", NO_SERVER: "CAN'T REACH THE GAME SERVER · TRY AGAIN",
+  NOT_IN_ROOM: "YOU ARE NOT IN THAT ROOM ANY MORE", INVALID_CODE: "THAT CODE IS NOT VALID", BUSY: "THE SERVER IS BUSY · TRY AGAIN" };
 
 // ═══════════════════════════ Profile, settings, audio ═══════════════════════════
 const ME = (() => {
@@ -1066,7 +1068,7 @@ const ME = (() => {
 })();
 const SET = Object.assign({ master: .9, music: .5, sfx: .85, muted: false, vibe: true }, store("settings") || {});
 const STATS = Object.assign({ played: 0, wins: 0, correct: 0, answered: 0, best: 0, xp: 0 }, store("stats") || {});
-const saveProfile = () => store("profile", { name: ME.name, av: ME.av });
+const saveProfile = () => { store("profile", { name: ME.name, av: ME.av }); if (typeof srvSend === "function" && Srv.open) srvSend({ t: "profile", name: ME.name, av: ME.av }); };
 
 const Sound = (() => {
   let ctx = null, master = null, musicGain = null, musicTimer = null, musicOn = null, step = 0;
@@ -1128,6 +1130,8 @@ const buzz = ms => { try { if (SET.vibe && navigator.vibrate) navigator.vibrate(
 
 // ═══════════════════════════ Session: local practice, host or client ═══════════════════════════
 // Every mode ends up with the same two snapshots: R (room) and M (match). Screens only render those.
+// Build-time config: { server: "wss://…/ws" | "auto", cg: true } (empty in the Claude artifact build, which uses artifact rooms).
+const CFG = /*@@CFG@@*/{};
 const Net = { room: null, lobby: null, sub: [], hostPeer: null, code: null, seq: 0, seen: {}, lastSnap: 0, ready: false };
 const S = { mode: "none", room: null, R: null, M: null, stamp: 0, search: null, prevSt: -1 };
 let tickTimer = null;
@@ -1137,6 +1141,7 @@ function startLoop() {
   tickTimer = setInterval(() => {
     if (S.room && (S.mode === "local" || S.mode === "host")) { S.room.tick(nowS()); publish(); }
     if (S.mode === "client") clientWatch();
+    srvWatch(); CG.tick();
     Screens.tick();
   }, 100);
 }
@@ -1157,6 +1162,8 @@ function act(k, v) {
     const err = S.room.apply(ME.pid, k, v, nowS());
     if (err) Flow.onError(err);
     publish();
+  } else if (S.mode === "server") {
+    srvSend({ t: "act", k, v: v ?? null });
   } else if (S.mode === "client" && Net.room) {
     Net.seq++;
     Net.room.presence({ pid: ME.pid, name: ME.name, av: ME.av, act: { n: Net.seq, k, v: v ?? null } }).catch(() => { });
@@ -1178,6 +1185,7 @@ async function roomApi() {
   return Net.api;
 }
 async function hostOnline(code, opts) {
+  if (SERVER) { leaveAll(); S.mode = "server"; Srv.pending = { at: Date.now() }; srvSend({ t: "create" }); return true; }
   const api = await roomApi(); if (!api) { Flow.onError("OFFLINE"); return false; }
   leaveAll();
   let room;
@@ -1217,6 +1225,7 @@ function hostPeers(ch) {
   publish();
 }
 async function joinOnline(code) {
+  if (SERVER) { leaveAll(); S.mode = "server"; Srv.pending = { at: Date.now(), join: code }; srvSend({ t: "join", code }); return; }
   const api = await roomApi(); if (!api) { Flow.onError("OFFLINE"); return; }
   leaveAll();
   let room;
@@ -1253,6 +1262,7 @@ function clientWatch() {
   else if (S.R && silent > 8000) Flow.left("THE HOST LEFT THE GAME");
 }
 function leaveAll() {
+  if (S.mode === "server") { srvSend({ t: "leave" }); Srv.pending = null; }
   if (S.mode === "client" && Net.room) { Net.seq++; Net.room.presence({ pid: ME.pid, act: { n: Net.seq, k: "leave" } }).catch(() => { }); }
   const r = Net.room;
   for (const u of Net.sub) try { u(); } catch (e) { }
@@ -1264,6 +1274,11 @@ function leaveAll() {
 
 // ── public matchmaking over the shared lobby presence ──
 async function startSearch(mode) {
+  if (SERVER) {
+    leaveAll();
+    S.search = { mode, since: Date.now(), found: 1, assigned: null, expanded: false, srv: true };
+    srvSend({ t: "queue", mode }); Screens.show("search"); return;
+  }
   const api = await roomApi(); if (!api) { Flow.onError("OFFLINE"); Flow.menu(); return; }
   leaveAll();
   S.search = { mode, since: Date.now(), found: 1, assigned: null, expanded: false };
@@ -1273,6 +1288,7 @@ async function startSearch(mode) {
   clearInterval(Net.searchTimer); Net.searchTimer = setInterval(matchTick, 500);
 }
 function stopSearch() {
+  if (S.search && S.search.srv && !S.search.assigned) srvSend({ t: "unqueue" });
   clearInterval(Net.searchTimer); S.search = null;
   if (Net.api) Net.api.presence({ q: null, code: null, with: null, since: null }).catch(() => { });
 }
@@ -1311,6 +1327,143 @@ function searchWithBots() {
   r.s.rounds = 5; r.startMatch(nowS()); publish(true);
 }
 
+
+// ── online through the game server (WebSocket). The server runs the same Room/Engine code and sends snapshots. ──
+const SERVER = (() => {
+  let u = null; try { u = new URLSearchParams(location.search).get("server"); } catch (e) { }
+  u = u || CFG.server || null;
+  if (u === "auto") { try { u = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws"; } catch (e) { u = null; } }
+  return u;
+})();
+const Srv = { ws: null, open: false, wait: [], retry: 0, timer: null, pending: null, downAt: 0, online: 0, key: null };
+Srv.key = (() => { let k = null; try { k = sessionStorage.getItem("gta.key"); } catch (e) { }
+  if (!k) { k = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); try { sessionStorage.setItem("gta.key", k); } catch (e) { } } return k; })();
+function srvConnect() {
+  if (!SERVER || (Srv.ws && Srv.ws.readyState <= 1)) return;
+  clearTimeout(Srv.timer);
+  let ws; try { ws = new WebSocket(SERVER); } catch (e) { srvRetry(); return; }
+  Srv.ws = ws;
+  ws.onopen = () => {
+    Srv.open = true; Srv.retry = 0; Srv.downAt = 0;
+    ws.send(JSON.stringify({ t: "hello", v: 1, pid: ME.pid, key: Srv.key, name: ME.name, av: ME.av }));
+    const w = Srv.wait; Srv.wait = []; for (const m of w) ws.send(JSON.stringify(m));
+    onlineStatus();
+  };
+  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (err) { return; } if (m && typeof m.t === "string") srvMsg(m); };
+  ws.onclose = () => { if (Srv.ws !== ws) return; Srv.open = false; Srv.ws = null; if (!Srv.downAt) Srv.downAt = Date.now(); onlineStatus(); srvRetry(); };
+  ws.onerror = () => { };
+}
+function srvRetry() { clearTimeout(Srv.timer); Srv.timer = setTimeout(srvConnect, Math.min(6000, 600 * 2 ** Srv.retry++)); }
+function srvSend(m) {
+  if (!SERVER) return;
+  if (Srv.open && Srv.ws) { Srv.ws.send(JSON.stringify(m)); return; }
+  if (m.t === "leave" || m.t === "unqueue") Srv.wait = Srv.wait.filter(x => x.t !== "act");
+  Srv.wait.push(m); if (Srv.wait.length > 20) Srv.wait.shift();
+  srvConnect();
+}
+function srvMsg(m) {
+  switch (m.t) {
+    case "hi": case "n": Srv.online = m.n | 0; onlineStatus(); break;
+    case "reset": // Another tab owns this player id: start over with a fresh one.
+      ME.pid = "p" + Math.random().toString(36).slice(2, 10); try { sessionStorage.setItem("gta.pid", ME.pid); } catch (e) { }
+      if (Srv.ws) Srv.ws.send(JSON.stringify({ t: "hello", v: 1, pid: ME.pid, key: Srv.key, name: ME.name, av: ME.av }));
+      break;
+    case "s": {
+      if (S.mode !== "server") {
+        // Back in a running room after a reload: pick it up from the menu, otherwise leave it.
+        if (S.mode === "none" && (Screens.cur === "menu" || Screens.cur === "search" || Screens.cur === "private")) { stopSearch(); S.mode = "server"; }
+        else { srvSend({ t: "leave" }); return; }
+      }
+      Srv.pending = null;
+      S.R = m.r; S.M = m.m; S.stamp = Date.now();
+      Flow.onState(); CG.sync();
+      break;
+    }
+    case "found": {
+      const sr = S.search; if (!sr) return;
+      sr.assigned = true; S.mode = "server"; Sound.play("found"); buzz(40);
+      Screens.search.found(() => { }); break;
+    }
+    case "q": {
+      const sr = S.search; if (!sr || sr.assigned) return;
+      sr.found = m.found | 0; sr.expanded = !!m.ex;
+      Screens.search.update(sr, (Date.now() - sr.since) / 1000); break;
+    }
+    case "err":
+      if (S.mode === "server" && !S.R) { const c = m.code; leaveAll(); Flow.joinFailed(c); }
+      else Flow.onError(m.code);
+      break;
+    case "left":
+      if (S.mode === "server") Flow.left(m.why === "timeout" ? "YOU WERE DISCONNECTED FROM THE GAME" : m.why === "closed" ? "THE ROOM WAS CLOSED" : null);
+      break;
+    case "emo": if (typeof m.pid === "string") showEmote(m.pid, m.e | 0); break;
+  }
+}
+function srvWatch() {
+  if (!SERVER) return;
+  const down = Srv.open ? 0 : Date.now() - (Srv.downAt || Date.now());
+  if (Srv.pending && Date.now() - Srv.pending.at > 60000) { Srv.pending = null; const was = S.mode === "server" && !S.R; if (was) { leaveAll(); Flow.joinFailed("NO_SERVER"); } }
+  if (S.mode === "server" && S.R && down > 25000) Flow.left("CONNECTION LOST");
+  if (S.search && S.search.srv && !S.search.assigned && Screens.cur === "search") {
+    const st = $("#s-st"); if (st && !Srv.open) st.textContent = "CONNECTING TO THE SERVER...";
+  }
+}
+function onlineStatus() {
+  const d = $("#m-dot"), t = $("#m-st"); if (!d || !t) return;
+  if (SERVER) {
+    d.style.background = Srv.open ? "var(--ok)" : "var(--yellow)";
+    t.textContent = Srv.open ? "ONLINE" + (Srv.online > 1 ? ` · ${Srv.online} PLAYERS ONLINE` : "") : "CONNECTING TO THE SERVER...";
+    return;
+  }
+  roomApi().then(api => { const d2 = $("#m-dot"), t2 = $("#m-st"); if (!d2) return;
+    d2.style.background = api ? "var(--ok)" : "var(--bad)"; t2.textContent = api ? "ONLINE · PLAY WITH ANYONE WHO HAS THIS PAGE OPEN" : "OFFLINE · PRACTICE IS AVAILABLE"; });
+}
+
+// ── CrazyGames SDK (only when the page runs on CrazyGames): rooms, invites, gameplay events ──
+const CG = {
+  sdk: null, room: undefined, gp: false,
+  async init() {
+    const s = window.CrazyGames && window.CrazyGames.SDK; if (!s) return;
+    try { await s.init(); } catch (e) { return; }
+    this.sdk = s;
+    try { s.game.loadingStop && s.game.loadingStop(); } catch (e) { }
+    try { s.game.addJoinRoomListener && s.game.addJoinRoomListener(p => this.join(p)); } catch (e) { }
+    let code = null; try { code = s.game.getInviteParam && s.game.getInviteParam("roomId"); } catch (e) { }
+    if (code) this.join({ roomId: code });
+    else if (s.game.isInstantMultiplayer && SERVER && Screens.cur === "menu") hostOnline(null, {});
+  },
+  join(p) {
+    const code = String((p && (p.roomId || (p.inviteParams && p.inviteParams.roomId))) || "").toUpperCase();
+    if (!SERVER || !/^[A-Z0-9]{6}$/.test(code)) return;
+    if (S.R && S.R.c === code) return;
+    Screens.show("private"); Screens.private.entry(); Screens.private.code = code; Screens.private.joining = true; Screens.private.paint();
+    joinOnline(code);
+  },
+  call(fn, ...a) { try { const g = this.sdk && this.sdk.game; if (g && typeof g[fn] === "function") return g[fn](...a); } catch (e) { } return undefined; },
+  sync() {
+    if (!this.sdk) return;
+    const R = S.mode === "server" ? S.R : null;
+    const joinable = !!(R && !R.pub && R.st === 0 && R.p.length < 4);
+    const key = R ? R.c + (joinable ? "+" : "-") : "";
+    if (key === this.room) return; this.room = key;
+    if (!R) { if (this.call("leftRoom") === undefined) this.call("updateRoom", { isJoinable: false }); return; }
+    this.call("updateRoom", { roomId: R.c, isJoinable: joinable, inviteParams: { roomId: R.c } });
+  },
+  link(code) { const l = this.call("inviteLink", { roomId: code }); return typeof l === "string" ? l : null; },
+  tick() {
+    if (!this.sdk) return;
+    const on = Screens.cur === "game" && !!S.M && S.M.ph !== PH.Finished;
+    if (on !== this.gp) { this.gp = on; this.call(on ? "gameplayStart" : "gameplayStop"); }
+    if (!S.R && this.room) this.sync();
+  },
+  happy() { this.call("happytime"); },
+};
+// Link that opens this game straight in a room (CrazyGames invite link when available).
+function inviteLink(code) {
+  const cg = CG.link(code); if (cg) return cg;
+  try { const u = new URL(location.href); u.search = ""; u.hash = ""; u.searchParams.set("room", code); return u.toString(); } catch (e) { return null; }
+}
+
 // ── Emotes: quick reactions over a player's face, shared through presence ──
 const EMOTES = ["😂", "🔥", "😱", "👏", "🤔", "😎"];
 let emoSeq = 0, emoAt = 0;
@@ -1318,7 +1471,8 @@ const emoSeen = {};
 function sendEmote(i) {
   if (Date.now() - emoAt < 700) return; emoAt = Date.now();
   showEmote(ME.pid, i); Sound.play("click");
-  if (Net.room) Net.room.presence({ emo: { e: i, n: ++emoSeq } }).catch(() => { });
+  if (S.mode === "server") srvSend({ t: "emo", e: i });
+  else if (Net.room) Net.room.presence({ emo: { e: i, n: ++emoSeq } }).catch(() => { });
 }
 function showEmote(pid, i) {
   const e = EMOTES[i]; if (!e || Screens.cur !== "game") return;
@@ -1368,12 +1522,13 @@ const Flow = {
     const t = this.myTeam(), st = S.M.end.st[t];
     STATS.played++; if (S.M.end.w === t) STATS.wins++; STATS.correct += st[1]; STATS.answered += st[2]; STATS.best = Math.max(STATS.best, st[4]);
     STATS.xp += (S.M.end.w === t ? 60 : 25) + st[1] * 5; store("stats", STATS);
+    if (S.M.end.w === t) CG.happy();
   },
   onError(code) { Sound.play("err"); toast(ERR[code] || "NOT POSSIBLE RIGHT NOW", "var(--bad)"); if (Screens.cur === "private") Screens.private.error(code); },
   joinFailed(code) { if (Screens.cur === "private") Screens.private.error(code); else toast(ERR[code], "var(--bad)"); leaveAll(); },
-  left(msg) { leaveAll(); this.menu(); if (msg) toast(msg, "var(--bad)"); },
+  left(msg) { leaveAll(); CG.sync(); this.menu(); if (msg) toast(msg, "var(--bad)"); },
   menu() { stopSearch(); Screens.show("menu"); },
-  leave() { leaveAll(); this.menu(); },
+  leave() { leaveAll(); CG.sync(); this.menu(); },
 };
 
 // ═══════════════════════════ UI helpers ═══════════════════════════
@@ -1484,8 +1639,7 @@ Screens.menu = {
     $("#m-look").onclick = () => { Sound.play("click"); Screens.show("builder"); };
     $("#m-set").onclick = () => { Sound.play("click"); settingsModal(); };
     $("#m-snd").onclick = () => { SET.muted = !SET.muted; store("settings", SET); Sound.apply(); $("#m-snd").innerHTML = icon(SET.muted ? "volume_off" : "volume_up"); };
-    roomApi().then(api => { const d = $("#m-dot"), t = $("#m-st"); if (!d) return;
-      d.style.background = api ? "var(--ok)" : "var(--bad)"; t.textContent = api ? "ONLINE · PLAY WITH ANYONE WHO HAS THIS PAGE OPEN" : "OFFLINE · PRACTICE IS AVAILABLE"; });
+    onlineStatus();
   },
   render() { },
 };
@@ -1542,7 +1696,7 @@ Screens.private = {
         <div class="err" id="p-err"></div>
         <div class="keypad" id="p-pad">${CODE_ABC.split("").map(c => `<button data-c="${c}">${c}</button>`).join("")}</div>
         <div class="actions" style="justify-content:center"><button class="btn" id="p-del">${icon("backspace")} DELETE</button><button class="btn primary" id="p-go" disabled>${icon("login")} JOIN</button></div>
-        <div class="hint" style="max-width:520px">Your friends need this same game page open. The person who created the room keeps it running.</div>
+        <div class="hint" style="max-width:520px">${SERVER ? "Ask your friend for the 6-letter code from their lobby." : "Your friends need this same game page open. The person who created the room keeps it running."}</div>
       </div></div>`;
     $("#p-back").onclick = () => { Sound.play("click"); if (!$("#p-entry").hidden) this.choice(); else Flow.menu(); };
     $("#p-create").onclick = async () => { Sound.play("click"); $("#p-create").disabled = true; if (!await hostOnline(genCode(), {})) $("#p-create").disabled = false; };
@@ -1591,7 +1745,7 @@ Screens.lobby = {
     const title = R.loc ? "PRACTICE" : R.pub ? "PUBLIC LOBBY" : "LOBBY";
     el.innerHTML = `<div class="wrap">
       <div class="topbar"><div class="head"><button class="btn sq" id="l-back" aria-label="Leave">${icon("arrow_back")}</button><h1>${title}</h1></div>
-        ${!R.loc && !R.pub ? `<div class="codecard card"><div><div class="eyebrow">ROOM CODE</div><div class="c">${esc(R.c)}</div></div><button class="btn" id="l-copy">${icon("content_copy")} COPY CODE</button></div>` : ""}</div>
+        ${!R.loc && !R.pub ? `<div class="codecard card"><div><div class="eyebrow">ROOM CODE</div><div class="c">${esc(R.c)}</div></div><div class="actions"><button class="btn" id="l-copy">${icon("content_copy")} COPY CODE</button>${SERVER ? `<button class="btn primary" id="l-link">${icon("groups")} INVITE</button>` : ""}</div></div>` : ""}</div>
       <div class="lobby">
         <div class="card teamsbox" style="min-width:0">
           <div class="teams">
@@ -1616,6 +1770,12 @@ Screens.lobby = {
     if (copy) copy.onclick = () => {
       const done = () => { copy.innerHTML = icon("check") + " COPIED!"; copy.classList.add("ok"); Sound.play("score"); setTimeout(() => { if (copy.isConnected) { copy.innerHTML = icon("content_copy") + " COPY CODE"; copy.classList.remove("ok"); } }, 1600); };
       try { navigator.clipboard.writeText(R.c).then(done, () => { toast("CODE: " + R.c); }); } catch (e) { toast("CODE: " + R.c); }
+    };
+    const link = $("#l-link");
+    if (link) link.onclick = () => {
+      Sound.play("click"); const url = inviteLink(R.c); if (!url) return;
+      const done = () => { link.innerHTML = icon("check") + " LINK COPIED!"; link.classList.add("ok"); setTimeout(() => { if (link.isConnected) { link.innerHTML = icon("groups") + " INVITE"; link.classList.remove("ok"); } }, 1600); };
+      try { navigator.clipboard.writeText(url).then(done, () => toast(url)); } catch (e) { toast(url); }
     };
     $("#l-switch").onclick = () => { Sound.play("click"); if (me) act("team", 1 - me[3]); };
     const ready = $("#l-ready"); if (ready) ready.onclick = () => { Sound.play("click"); act("ready", !(me && me[4])); };
@@ -2029,6 +2189,14 @@ Screens.results = {
   window.addEventListener("pagehide", () => { if (S.mode === "client") leaveAll(); });
   Screens.show("menu");
   startLoop();
+  if (SERVER) {
+    // The server remembers our room, so a reload lands back in it. ?room=CODE opens a friend's room.
+    srvConnect();
+    let code = null; try { code = new URLSearchParams(location.search).get("room"); } catch (e) { }
+    if (code) CG.join({ roomId: code });
+    CG.init();
+    return;
+  }
   // Back into a running online room after a reload.
   let code = null; try { code = sessionStorage.getItem("gta.code"); } catch (e) { }
   if (code) roomApi().then(api => { if (api && Screens.cur === "menu") joinOnline(code); });
