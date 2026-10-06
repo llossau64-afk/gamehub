@@ -176,7 +176,7 @@ namespace GuessTheAnswer.Server
                 case Msg.Queue:
                     {
                         var msg = Json.Payload<QueueMsg>(envelope);
-                        var mode = msg != null && msg.mode == (int)QueueMode.TwoVsTwo ? QueueMode.TwoVsTwo : QueueMode.OneVsOne;
+                        var mode = msg != null && msg.mode == (int)QueueKind.TwoVsTwo ? QueueKind.TwoVsTwo : QueueKind.OneVsOne;
                         LeaveCurrent(session, now);
                         matchmaker.Enqueue(session, mode, now);
                         return;
@@ -192,69 +192,24 @@ namespace GuessTheAnswer.Server
                     break;
             }
 
-            if (error == null && room == null && IsRoomCommand(envelope.t)) error = ErrorCodes.NotInRoom;
-
-            if (error == null && room != null)
+            if (error == null && RoomCommands.IsRoomCommand(envelope.t))
             {
-                string id = session.PlayerId;
-                switch (envelope.t)
-                {
-                    case Msg.SetReady: error = room.SetReady(id, Json.Payload<ReadyMsg>(envelope)?.ready ?? false); break;
-                    case Msg.SetTeam: error = room.SetTeam(id, Json.Payload<TeamMsg>(envelope)?.team ?? -1); break;
-                    case Msg.UpdateSettings: error = room.UpdateSettings(id, Json.Payload<SettingsMsg>(envelope)?.settings); break;
-                    case Msg.AddBot: error = room.HostAddBot(id); break;
-                    case Msg.RemoveBot: error = room.HostRemoveBot(id, Json.Payload<PlayerRefMsg>(envelope)?.playerId); break;
-                    case Msg.MovePlayer: error = room.MovePlayer(id, Json.Payload<PlayerRefMsg>(envelope)?.playerId); break;
-                    case Msg.StartMatch: error = room.StartMatch(id, now); break;
-                    case Msg.Answer: error = room.Answer(id, Json.Payload<IndexMsg>(envelope)?.index ?? -1, now); break;
-                    case Msg.UseJoker: error = room.UseJoker(id, Json.Payload<JokerMsg>(envelope)?.joker ?? -1, now); break;
-                    case Msg.TeamVote: error = room.TeamVote(id, Json.Payload<IndexMsg>(envelope)?.index ?? -1, now); break;
-                    case Msg.Steal: error = room.Steal(id, Json.Payload<IndexMsg>(envelope)?.index ?? -1, now); break;
-                    case Msg.SkipSteal: error = room.SkipSteal(id, now); break;
-                    case Msg.Rematch: error = room.Rematch(id, now); break;
-                    case Msg.ToLobby: error = room.ToLobby(id); break;
-                    default:
-                        if (!IsRoomCommand(envelope.t) && !IsLobbyFreeCommand(envelope.t)) error = ErrorCodes.BadRequest;
-                        break;
-                }
-                room.Flush(now);
+                var payload = Json.Payload(envelope, RoomCommands.PayloadType(envelope.t));
+                error = payload == null ? ErrorCodes.BadRequest : RoomCommands.Apply(room, session.PlayerId, envelope.t, payload, now);
+                room?.Flush(now);
             }
-            else if (error == null && !IsRoomCommand(envelope.t) && !IsLobbyFreeCommand(envelope.t))
+            else if (error == null && !IsLobbyFreeCommand(envelope.t))
             {
                 error = ErrorCodes.BadRequest;
             }
 
-            if (error != null) Send(session, Msg.Error, new ErrorMsg { code = error, message = ErrorText(error) });
+            if (error != null) Send(session, Msg.Error, new ErrorMsg { code = error, message = RoomCommands.ErrorText(error) });
         }
 
         static bool IsLobbyFreeCommand(string t)
         {
             return t == Msg.Ping || t == Msg.CreateRoom || t == Msg.JoinRoom || t == Msg.LeaveRoom || t == Msg.Queue
                 || t == Msg.CancelQueue || t == Msg.QueueFillBots;
-        }
-
-        static bool IsRoomCommand(string t)
-        {
-            switch (t)
-            {
-                case Msg.SetReady:
-                case Msg.SetTeam:
-                case Msg.UpdateSettings:
-                case Msg.AddBot:
-                case Msg.RemoveBot:
-                case Msg.MovePlayer:
-                case Msg.StartMatch:
-                case Msg.Answer:
-                case Msg.UseJoker:
-                case Msg.TeamVote:
-                case Msg.Steal:
-                case Msg.SkipSteal:
-                case Msg.Rematch:
-                case Msg.ToLobby:
-                    return true;
-                default:
-                    return false;
-            }
         }
 
         void HandleHello(ClientConnection connection, HelloMsg hello, double now)
@@ -349,12 +304,12 @@ namespace GuessTheAnswer.Server
             room.Flush(now);
         }
 
-        void CreatePublicMatch(List<PlayerSession> players, QueueMode mode, double now)
+        void CreatePublicMatch(List<PlayerSession> players, QueueKind mode, double now)
         {
             var settings = new MatchSettings
             {
                 rounds = PublicRounds,
-                teamMode = (int)(mode == QueueMode.TwoVsTwo ? TeamMode.TwoVsTwo : TeamMode.OneVsOne),
+                teamMode = (int)(mode == QueueKind.TwoVsTwo ? TeamMode.TwoVsTwo : TeamMode.OneVsOne),
             };
             var room = CreateRoom(true, settings);
             foreach (var p in players)
@@ -363,7 +318,7 @@ namespace GuessTheAnswer.Server
                 room.TryJoin(p.PlayerId, p.Name, p.Avatar, now);
                 p.RoomCode = room.Code;
             }
-            int capacity = mode == QueueMode.TwoVsTwo ? 4 : 2;
+            int capacity = mode == QueueKind.TwoVsTwo ? 4 : 2;
             while (room.Members.Count < capacity) room.AddBot();
 
             const float countdown = 3.2f;
@@ -444,25 +399,6 @@ namespace GuessTheAnswer.Server
         static void SendTo(ClientConnection connection, string type, object payload)
         {
             connection.Send(Json.Wrap(type, payload));
-        }
-
-        public static string ErrorText(string code)
-        {
-            switch (code)
-            {
-                case ErrorCodes.RoomNotFound: return "Room not found.";
-                case ErrorCodes.RoomFull: return "Room is full.";
-                case ErrorCodes.GameStarted: return "Game already started.";
-                case ErrorCodes.NotHost: return "Only the host can do that.";
-                case ErrorCodes.NotEnoughPlayers: return "Not enough players.";
-                case ErrorCodes.TeamsInvalid: return "The teams do not fit the selected mode.";
-                case ErrorCodes.PlayersNotReady: return "Not everyone is ready.";
-                case ErrorCodes.PlayerReconnecting: return "Waiting for a player to reconnect.";
-                case ErrorCodes.TeamFull: return "That team is full.";
-                case ErrorCodes.NotInRoom: return "You are not in a room.";
-                case ErrorCodes.ServerFull: return "The server is full. Please try again soon.";
-                default: return "That is not possible right now.";
-            }
         }
     }
 }

@@ -70,7 +70,7 @@ namespace GuessTheAnswer.Shared
         Cancelled = 4,
     }
 
-    public enum QueueMode
+    public enum QueueKind
     {
         OneVsOne = 1,
         TwoVsTwo = 2,

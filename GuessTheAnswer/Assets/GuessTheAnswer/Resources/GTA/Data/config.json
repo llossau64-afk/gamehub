@@ -1,0 +1,5 @@
+{
+ "serverUrl": "wss://YOUR-GAME-SERVER.example.com/ws",
+ "editorServerUrl": "ws://localhost:8080/ws",
+ "gameVersion": "1.0.0"
+}

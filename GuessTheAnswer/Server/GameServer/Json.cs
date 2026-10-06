@@ -51,6 +51,19 @@ namespace GuessTheAnswer.Server
             }
         }
 
+        public static object Payload(Envelope envelope, Type type)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(envelope.d)) return Activator.CreateInstance(type);
+                return JsonSerializer.Deserialize(envelope.d, type, Options) ?? Activator.CreateInstance(type);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+
         public static T Read<T>(string text) where T : class
         {
             return JsonSerializer.Deserialize<T>(text, Options);

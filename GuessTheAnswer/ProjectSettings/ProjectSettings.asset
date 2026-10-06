@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!129 &1
+PlayerSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 28
+  productGUID: 3c8d1f6a9b2e4c7d8e1f0a2b3c4d5e6f
+  AndroidProfiler: 0
+  defaultScreenOrientation: 3
+  targetDevice: 2
+  companyName: GuessTheAnswerStudio
+  productName: Guess the Answer
+  defaultCursor: {fileID: 0}
+  cursorHotspot: {x: 0, y: 0}
+  m_SplashScreenBackgroundColor: {r: 0.05490196, g: 0.06666667, b: 0.1254902, a: 1}
+  m_ShowUnitySplashScreen: 0
+  m_ShowUnitySplashLogo: 0
+  m_SplashScreenStyle: 1
+  m_ActiveColorSpace: 0
+  defaultScreenWidth: 1280
+  defaultScreenHeight: 720
+  defaultScreenWidthWeb: 1280
+  defaultScreenHeightWeb: 720
+  m_StereoRenderingPath: 0
+  runInBackground: 1
+  activeInputHandler: 0
+  bundleVersion: 1.0.0
+  stripEngineCode: 1
+  webGLMemorySize: 32
+  webGLExceptionSupport: 1
+  webGLNameFilesAsHashes: 0
+  webGLShowDiagnostics: 0
+  webGLDataCaching: 1
+  webGLDebugSymbols: 0
+  webGLEmscriptenArgs: 
+  webGLModulesDirectory: 
+  webGLTemplate: PROJECT:GuessTheAnswer
+  webGLAnalyzeBuildSize: 0
+  webGLUseEmbeddedResources: 0
+  webGLCompressionFormat: 1
+  webGLWasmArithmeticExceptions: 0
+  webGLLinkerTarget: 1
+  webGLThreadsSupport: 0
+  webGLDecompressionFallback: 1
+  webGLInitialMemorySize: 32
+  webGLMaximumMemorySize: 2048
+  webGLMemoryGrowthMode: 2
+  webGLPowerPreference: 2

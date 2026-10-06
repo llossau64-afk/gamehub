@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0E1120">
+  <title>{{{ PRODUCT_NAME }}}</title>
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0E1120; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+    #unity-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: #0E1120; outline: none; }
+    #loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+      background: radial-gradient(ellipse at 50% 0%, #151A33 0%, #0E1120 70%); color: #F3F5FB; z-index: 10;
+      font-family: "Outfit", "Segoe UI", Roboto, Helvetica, Arial, sans-serif; transition: opacity .45s ease; overflow: hidden; }
+    #loader.done { opacity: 0; pointer-events: none; }
+    .logo { display: flex; align-items: center; gap: 22px; position: relative; z-index: 1; }
+    .badge { width: 110px; height: 110px; border-radius: 22px; background: #FFC83D; color: #1B1405; font-weight: 800; font-size: 86px;
+      display: flex; align-items: center; justify-content: center; transform: rotate(7deg); box-shadow: 0 12px 30px rgba(0,0,0,.45); }
+    .words { display: flex; flex-direction: column; line-height: .95; }
+    .words .a { font-size: 36px; font-weight: 800; letter-spacing: .02em; }
+    .words .b { font-size: 70px; font-weight: 800; color: #FFC83D; letter-spacing: .01em; }
+    .tagline { color: #8E97B8; font-weight: 600; letter-spacing: .14em; font-size: 15px; position: relative; z-index: 1; }
+    .bar { width: min(440px, 72vw); height: 12px; background: #1A2038; border-radius: 8px; overflow: hidden; position: relative; z-index: 1; }
+    .fill { height: 100%; width: 0%; background: #FFC83D; border-radius: 8px; transition: width .2s ease; }
+    .status { width: min(440px, 72vw); display: flex; justify-content: space-between; color: #8E97B8; font-size: 13px; font-weight: 600; letter-spacing: .08em; position: relative; z-index: 1; }
+    .status b { color: #F3F5FB; }
+    .card { position: absolute; width: 64px; height: 76px; border-radius: 14px; background: rgba(255,255,255,.04); border: 2px solid rgba(255,255,255,.05);
+      color: rgba(255,255,255,.14); font-weight: 800; font-size: 34px; display: flex; align-items: center; justify-content: center;
+      animation: drift linear infinite; will-change: transform; }
+    @keyframes drift { from { transform: translateY(110vh) rotate(-8deg); } to { transform: translateY(-20vh) rotate(8deg); } }
+    #error { display: none; position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #FF5468; color: #fff; padding: 12px 20px;
+      border-radius: 12px; font: 600 14px "Segoe UI", Roboto, Arial, sans-serif; z-index: 20; max-width: 90vw; text-align: center; }
+    @media (max-height: 420px) { .badge { width: 72px; height: 72px; font-size: 56px; border-radius: 16px; } .words .a { font-size: 24px; } .words .b { font-size: 46px; } #loader { gap: 14px; } }
+  </style>
+</head>
+<body>
+  <canvas id="unity-canvas" tabindex="-1"></canvas>
+  <div id="loader">
+    <div class="logo"><div class="badge">?</div><div class="words"><span class="a">GUESS THE</span><span class="b">ANSWER</span></div></div>
+    <div class="tagline">THINK FAST. GUESS TOGETHER.</div>
+    <div class="bar"><div class="fill" id="fill"></div></div>
+    <div class="status"><span>LOADING...</span><b id="percent">0%</b></div>
+  </div>
+  <div id="error"></div>
+
+  <script>
+    // Floating quiz cards behind the loader (pure CSS animation, no JS per frame).
+    (function () {
+      var loader = document.getElementById('loader');
+      var glyphs = ['?', 'A', 'B', 'C', 'D', '?', 'A', 'B', 'C', 'D', '?', '?'];
+      for (var i = 0; i < glyphs.length; i++) {
+        var c = document.createElement('div');
+        c.className = 'card';
+        c.textContent = glyphs[i];
+        c.style.left = (4 + (i * 83) % 92) + 'vw';
+        c.style.animationDuration = (16 + (i * 7) % 12) + 's';
+        c.style.animationDelay = (-(i * 2.3)) + 's';
+        loader.appendChild(c);
+      }
+    })();
+
+    // Portal adapter. The game only calls window.GTAPlatform; this maps it to whichever SDK the page loaded
+    // (add the portal's SDK <script> above this block). Without an SDK everything is a harmless no-op.
+    window.GTAPlatform = (function () {
+      var cg = null, poki = null, ready = false;
+      var api = {
+        name: 'none',
+        init: function () {
+          try {
+            if (window.CrazyGames && window.CrazyGames.SDK) {
+              cg = window.CrazyGames.SDK;
+              api.name = 'crazygames';
+              return Promise.resolve(cg.init ? cg.init() : null).then(function () { ready = true; }).catch(function () { cg = null; api.name = 'none'; });
+            }
+            if (window.PokiSDK) {
+              poki = window.PokiSDK;
+              api.name = 'poki';
+              return poki.init().then(function () { ready = true; }).catch(function () { ready = true; });
+            }
+          } catch (e) { console.warn('[GTA] platform init failed', e); }
+          return Promise.resolve();
+        },
+        loadingStart: function () { try { if (cg && cg.game) cg.game.loadingStart(); } catch (e) { } },
+        loadingStop: function () {
+          try { if (cg && cg.game) cg.game.loadingStop(); if (poki) poki.gameLoadingFinished(); } catch (e) { }
+        },
+        gameplayStart: function () { try { if (cg && cg.game) cg.game.gameplayStart(); if (poki) poki.gameplayStart(); } catch (e) { } },
+        gameplayStop: function () { try { if (cg && cg.game) cg.game.gameplayStop(); if (poki) poki.gameplayStop(); } catch (e) { } },
+        happyTime: function () { try { if (cg && cg.game) cg.game.happytime(); } catch (e) { } },
+        // kind: 'midgame' or 'rewarded'. done(true) only when a rewarded ad was watched to the end.
+        showAd: function (kind, done) {
+          try {
+            if (cg && cg.ad) {
+              cg.ad.requestAd(kind === 'rewarded' ? 'rewarded' : 'midgame', {
+                adFinished: function () { done(true); },
+                adError: function () { done(false); }
+              });
+              return;
+            }
+            if (poki) {
+              var p = kind === 'rewarded' ? poki.rewardedBreak() : poki.commercialBreak();
+              Promise.resolve(p).then(function (r) { done(kind === 'rewarded' ? !!r : true); }).catch(function () { done(false); });
+              return;
+            }
+          } catch (e) { }
+          done(false);
+        }
+      };
+      return api;
+    })();
+  </script>
+  <script src="Build/{{{ LOADER_FILENAME }}}"></script>
+  <script>
+    (function () {
+      var canvas = document.getElementById('unity-canvas');
+      var fill = document.getElementById('fill');
+      var percent = document.getElementById('percent');
+      var loader = document.getElementById('loader');
+      var errorBox = document.getElementById('error');
+
+      function showError(message) {
+        errorBox.textContent = message;
+        errorBox.style.display = 'block';
+      }
+
+      // Keep the page from scrolling or zooming on mobile.
+      document.addEventListener('touchmove', function (e) { if (e.target === canvas) e.preventDefault(); }, { passive: false });
+      document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+
+      var config = {
+        dataUrl: "Build/{{{ DATA_FILENAME }}}",
+        frameworkUrl: "Build/{{{ FRAMEWORK_FILENAME }}}",
+#if USE_THREADS
+        workerUrl: "Build/{{{ WORKER_FILENAME }}}",
+#endif
+#if USE_WASM
+        codeUrl: "Build/{{{ CODE_FILENAME }}}",
+#endif
+#if MEMORY_FILENAME
+        memoryUrl: "Build/{{{ MEMORY_FILENAME }}}",
+#endif
+#if SYMBOLS_FILENAME
+        symbolsUrl: "Build/{{{ SYMBOLS_FILENAME }}}",
+#endif
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+        productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+        productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+        // Cap the render resolution on very dense phone screens: same sharp UI, far less GPU work.
+        devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+        showBanner: function (msg, type) { if (type === 'error') showError(msg); else console.warn(msg); }
+      };
+
+      // Wait for the portal SDK (at most 4 s) so portal data is ready when the game boots.
+      var sdkReady = Promise.race([
+        window.GTAPlatform.init(),
+        new Promise(function (resolve) { setTimeout(resolve, 4000); })
+      ]);
+
+      sdkReady.then(function () {
+        createUnityInstance(canvas, config, function (progress) {
+          var p = Math.round(progress * 100);
+          fill.style.width = p + '%';
+          percent.textContent = p + '%';
+        }).then(function (instance) {
+          window.unityInstance = instance;
+          loader.classList.add('done');
+          setTimeout(function () { loader.style.display = 'none'; }, 500);
+          canvas.focus();
+        }).catch(function (message) {
+          showError('The game could not start: ' + message);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

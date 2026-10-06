@@ -15,7 +15,7 @@ namespace GuessTheAnswer.Server
         sealed class Ticket
         {
             public PlayerSession Session;
-            public QueueMode Mode;
+            public QueueKind Mode;
             public double Since;
             public bool Expanded;
         }
@@ -24,11 +24,11 @@ namespace GuessTheAnswer.Server
         double lastStatusAt;
 
         /// <summary>Creates the public room for the given players (bots fill the rest). Implemented by the hub.</summary>
-        public delegate void CreateMatch(List<PlayerSession> players, QueueMode mode, double now);
+        public delegate void CreateMatch(List<PlayerSession> players, QueueKind mode, double now);
 
         public int Count => tickets.Count;
 
-        public void Enqueue(PlayerSession session, QueueMode mode, double now)
+        public void Enqueue(PlayerSession session, QueueKind mode, double now)
         {
             Remove(session);
             tickets.Add(new Ticket { Session = session, Mode = mode, Since = now });
@@ -54,7 +54,7 @@ namespace GuessTheAnswer.Server
         {
             Ticket mine = Find(session);
             if (mine == null || now - mine.Since < BotsAvailableAfterSeconds) return false;
-            int capacity = mine.Mode == QueueMode.TwoVsTwo ? 4 : 2;
+            int capacity = mine.Mode == QueueKind.TwoVsTwo ? 4 : 2;
             var group = new List<PlayerSession> { session };
             foreach (var t in tickets)
             {
@@ -86,23 +86,23 @@ namespace GuessTheAnswer.Server
 
             foreach (var t in tickets)
             {
-                if (t.Mode == QueueMode.TwoVsTwo && !t.Expanded && now - t.Since >= ExpandAfterSeconds) t.Expanded = true;
+                if (t.Mode == QueueKind.TwoVsTwo && !t.Expanded && now - t.Since >= ExpandAfterSeconds) t.Expanded = true;
             }
 
             // 2v2: four players in arrival order.
             while (true)
             {
-                var four = Take(QueueMode.TwoVsTwo, 4, false);
+                var four = Take(QueueKind.TwoVsTwo, 4, false);
                 if (four == null) break;
-                create(four, QueueMode.TwoVsTwo, now);
+                create(four, QueueKind.TwoVsTwo, now);
             }
 
             // 1v1: two players from the 1v1 queue or from expanded 2v2 searches.
             while (true)
             {
-                var two = Take(QueueMode.OneVsOne, 2, true);
+                var two = Take(QueueKind.OneVsOne, 2, true);
                 if (two == null) break;
-                create(two, QueueMode.OneVsOne, now);
+                create(two, QueueKind.OneVsOne, now);
             }
 
             if (now - lastStatusAt >= 1.0)
@@ -111,13 +111,13 @@ namespace GuessTheAnswer.Server
                 int waiting1 = 0, waiting2 = 0;
                 foreach (var t in tickets)
                 {
-                    if (t.Mode == QueueMode.TwoVsTwo) waiting2++;
+                    if (t.Mode == QueueKind.TwoVsTwo) waiting2++;
                     else waiting1++;
                 }
                 foreach (var t in tickets)
                 {
-                    int needed = t.Mode == QueueMode.TwoVsTwo ? 4 : 2;
-                    int found = t.Mode == QueueMode.TwoVsTwo ? waiting2 : waiting1;
+                    int needed = t.Mode == QueueKind.TwoVsTwo ? 4 : 2;
+                    int found = t.Mode == QueueKind.TwoVsTwo ? waiting2 : waiting1;
                     sendStatus(t.Session, new QueueStatusMsg
                     {
                         mode = (int)t.Mode,
@@ -132,7 +132,7 @@ namespace GuessTheAnswer.Server
             }
         }
 
-        List<PlayerSession> Take(QueueMode mode, int count, bool includeExpanded)
+        List<PlayerSession> Take(QueueKind mode, int count, bool includeExpanded)
         {
             var picked = new List<Ticket>(count);
             foreach (var t in tickets)

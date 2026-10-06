@@ -1,0 +1,17 @@
+{
+    "name": "GuessTheAnswer.Runtime",
+    "rootNamespace": "GuessTheAnswer",
+    "references": [
+        "GuessTheAnswer.Shared",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

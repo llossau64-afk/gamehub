@@ -1,0 +1,8 @@
+<!-- Keep the network and save data types intact for JsonUtility in stripped WebGL builds. -->
+<linker>
+  <assembly fullname="GuessTheAnswer.Shared" preserve="all" />
+  <assembly fullname="GuessTheAnswer.Runtime">
+    <namespace fullname="GuessTheAnswer.Save" preserve="all" />
+    <namespace fullname="GuessTheAnswer.Core" preserve="all" />
+  </assembly>
+</linker>

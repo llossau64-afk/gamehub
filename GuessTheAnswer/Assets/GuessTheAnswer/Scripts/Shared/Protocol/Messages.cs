@@ -138,7 +138,7 @@ namespace GuessTheAnswer.Shared
     [Serializable]
     public class QueueMsg
     {
-        public int mode = (int)QueueMode.OneVsOne;
+        public int mode = (int)QueueKind.OneVsOne;
     }
 
     [Serializable]

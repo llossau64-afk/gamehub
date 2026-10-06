@@ -255,9 +255,9 @@ namespace GuessTheAnswer.Tests
             string u = await Server();
             await using var a = await TestClient.Connect(u, "Q1");
             await using var b = await TestClient.Connect(u, "Q2");
-            a.Send(Msg.Queue, new QueueMsg { mode = (int)QueueMode.OneVsOne });
+            a.Send(Msg.Queue, new QueueMsg { mode = (int)QueueKind.OneVsOne });
             a.Expect<QueueStatusMsg>(Msg.QueueStatus, s => s.searching && s.needed == 2);
-            b.Send(Msg.Queue, new QueueMsg { mode = (int)QueueMode.OneVsOne });
+            b.Send(Msg.Queue, new QueueMsg { mode = (int)QueueKind.OneVsOne });
             var found = a.Expect<MatchFoundMsg>(Msg.MatchFound);
             Assert.True(found.countdown > 2, "countdown");
             b.Expect<MatchFoundMsg>(Msg.MatchFound);
@@ -271,7 +271,7 @@ namespace GuessTheAnswer.Tests
         {
             string u = await Server();
             await using var a = await TestClient.Connect(u, "Solo");
-            a.Send(Msg.Queue, new QueueMsg { mode = (int)QueueMode.TwoVsTwo });
+            a.Send(Msg.Queue, new QueueMsg { mode = (int)QueueKind.TwoVsTwo });
             a.Expect<QueueStatusMsg>(Msg.QueueStatus, s => s.searching && s.needed == 4);
             a.Send(Msg.CancelQueue, new EmptyMsg());
             a.Expect<QueueStatusMsg>(Msg.QueueStatus, s => !s.searching);
