@@ -63,7 +63,7 @@ export const ACHIEVEMENTS = [
   { id: 'crusher', name: 'Unbroken', desc: 'Defeat The Crusher' },
   { id: 'hunter', name: 'Outfoxed', desc: 'Defeat The Hunter' },
   { id: 'f40', name: 'Thin Air', desc: 'Reach floor 40' },
-  { id: 'argus', name: 'Tower of God', desc: 'Defeat Argus and clear the tower' },
+  { id: 'argus', name: 'Overthrown', desc: 'Defeat Argus and clear the tower' },
   { id: 'chest', name: 'Treasure Hunter', desc: 'Open your first chest' },
   { id: 'coins1k', name: 'Pocket Change', desc: 'Collect 1,000 coins in total' },
   { id: 'coins10k', name: 'Tower Tycoon', desc: 'Collect 10,000 coins in total' },

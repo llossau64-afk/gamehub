@@ -1,4 +1,4 @@
-# TOWER OF GOD
+# TOWER OF ARGUS
 
 A fast roguelite tower climber for the browser. Forty floors, eight worlds and a guardian every ten floors. At the top, Argus, the overseer who has been talking to you the whole way, waits for you himself.
 
@@ -31,7 +31,7 @@ On the upgrade screen use 1/2/3 (or arrows + Enter) and R to reroll. On the resu
 
 ## What's new in v6
 
-- **Renamed to Tower of God.** Saves from earlier versions are kept.
+- **Renamed to Tower of Argus.** Saves from earlier versions are kept.
 - **The tower has an end:** floor 40 is the top. Argus falls from the sky in a cutscene, talks, then fights: rune spirals, sweeping eye beams, a meteor rain, blink strikes and summons from all eight worlds. Below half health his crown ignites (phase II). Beating him plays an ending dialog, pays 3,000 coins and 5 keys, and unlocks the Overseer skin (later clears pay 1,000 coins and 2 keys).
 - **Chests (shop → CHESTS):** Wooden (1,200 coins), Silver (1 key) and Gold (5 keys, always Super Rare or better). They drop in, shake, leak light in the colour of what is inside, burst open with light rays, and the prize rises out with a rarity fanfare.
 - **Chest exclusives:** 5 skins (Pumpkin King, Crystal Knight, Oni Samurai, Dragon Lord with beating wings, Celestial) and 5 weapons (Bone Cleaver, Frostfang that slows, Soul Reaper that heals on kills, Dragonfang that burns, Starfall that arcs lightning). Duplicates turn into coins.

@@ -1312,7 +1312,7 @@ export class Game {
     crazy.happytime();
     this.say(first ? ARGUS_END : ARGUS_END_AGAIN).then(() => {
       audio.play('best');
-      this.ui.letterbox(true, 'TOWER OF GOD', 'CLEARED');
+      this.ui.letterbox(true, 'TOWER OF ARGUS', 'CLEARED');
       setTimeout(() => { this.ui.letterbox(false); this.phase = 'dead'; this.ui.showResults(this, this.finishRun()); }, 2600);
     });
   }
@@ -2273,7 +2273,7 @@ const ARGUS_END = [
   'Impossible... the crown... it was never meant to fall.',
   'Listen, climber. The tower does not end with me. It never did.',
   'Take what I guarded: keys, gold, and my own armour. Wear it well.',
-  'From now on, this is your tower. Your Tower of God.',
+  'The Tower of Argus has a new master. From now on, it is yours.',
 ];
 const ARGUS_END_AGAIN = ['Again you stand over me. Fine. Take your reward.', 'The tower will rise again. It always does.'];
 
