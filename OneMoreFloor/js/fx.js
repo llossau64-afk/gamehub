@@ -68,6 +68,42 @@ export class FX {
       this.markers.push({ g, disc, outline, lineFill, lineBack, mat, mat2, active: false, t: 0, dur: 1, kind: 'circle' });
     }
 
+    // ---- impact stars (camera-facing sprites) ----
+    const sc = document.createElement('canvas'); sc.width = sc.height = 128;
+    const sg = sc.getContext('2d');
+    const rg = sg.createRadialGradient(64, 64, 0, 64, 64, 64); rg.addColorStop(0, 'rgba(255,255,255,0.9)'); rg.addColorStop(0.25, 'rgba(255,255,255,0.25)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+    sg.fillStyle = rg; sg.fillRect(0, 0, 128, 128);
+    sg.fillStyle = '#fff'; sg.beginPath();
+    for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, r = k % 2 ? 9 : 62; sg.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r); }
+    sg.closePath(); sg.fill();
+    const starTex = new THREE.CanvasTexture(sc); starTex.colorSpace = THREE.SRGBColorSpace;
+    this.impacts = [];
+    for (let i = 0; i < 24; i++) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+      sp.visible = false; sp.renderOrder = 5; scene.add(sp);
+      this.impacts.push({ sp, t: 0, life: 0, size: 1 });
+    }
+
+    // ---- dash afterimages ----
+    this.ghosts = [];
+    const gBody = new THREE.CylinderGeometry(0.27, 0.33, 0.52, 7); gBody.translate(0, 0.42, 0);
+    const gHead = new THREE.DodecahedronGeometry(0.27, 0); gHead.translate(0, 0.9, 0);
+    for (let i = 0; i < 10; i++) {
+      const mat = new THREE.MeshBasicMaterial({ transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+      const grp = new THREE.Group(); grp.add(new THREE.Mesh(gBody, mat), new THREE.Mesh(gHead, mat));
+      grp.visible = false; scene.add(grp);
+      this.ghosts.push({ grp, mat, t: 0, life: 0 });
+    }
+
+    // ---- spawn light columns ----
+    this.beams = [];
+    const beamGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 14, 1, true); beamGeo.translate(0, 0.5, 0);
+    for (let i = 0; i < 20; i++) {
+      const m = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+      m.visible = false; scene.add(m);
+      this.beams.push({ m, t: 0, life: 0, r: 0.5 });
+    }
+
     // ---- damage numbers on a 2D overlay ----
     this.cv = overlayCanvas; this.ctx = overlayCanvas.getContext('2d');
     this.nums = [];
@@ -87,6 +123,9 @@ export class FX {
     for (const r of this.rings) { r.life = 0; r.m.visible = false; }
     for (const s of this.slashes) { s.life = 0; s.m.visible = false; }
     for (const b of this.bolts) { b.life = 0; b.line.visible = false; }
+    for (const i of this.impacts) { i.life = 0; i.sp.visible = false; }
+    for (const g of this.ghosts) { g.life = 0; g.grp.visible = false; }
+    for (const b of this.beams) { b.life = 0; b.m.visible = false; }
     for (const m of this.markers) this.releaseMarker(m);
   }
 
@@ -154,6 +193,25 @@ export class FX {
     b.line.geometry.attributes.position.needsUpdate = true;
     b.line.material.color.set(color);
     b.t = 0; b.life = life; b.line.visible = true;
+  }
+
+  impact(x, y, z, color = 0xffffff, size = 1.2, life = 0.13) {
+    const it = this.impacts.find(i => i.life <= 0) || this.impacts[0];
+    it.sp.material.color.set(color); it.sp.position.set(x, y, z);
+    it.sp.material.rotation = Math.random() * Math.PI;
+    it.t = 0; it.life = life; it.size = size; it.sp.visible = true;
+  }
+
+  ghost(x, y, z, rotY, color, life = 0.26) {
+    const g = this.ghosts.find(g => g.life <= 0) || this.ghosts[0];
+    g.grp.position.set(x, y, z); g.grp.rotation.y = rotY; g.mat.color.set(color);
+    g.t = 0; g.life = life; g.grp.visible = true;
+  }
+
+  beam(x, z, color, r = 0.5, life = 0.7) {
+    const b = this.beams.find(b => b.life <= 0) || this.beams[0];
+    b.m.position.set(x, 0, z); b.m.material.color.set(color);
+    b.t = 0; b.life = life; b.r = r; b.m.visible = true;
   }
 
   // ---------- telegraph markers ----------
@@ -228,6 +286,27 @@ export class FX {
       if (f >= 1) { s.life = 0; s.m.visible = false; continue; }
       s.m.material.opacity = 1 - f * f;
       s.m.scale.setScalar(s.range * (0.92 + f * 0.12));
+    }
+    for (const it of this.impacts) {
+      if (it.life <= 0) continue;
+      it.t += dt; const f = it.t / it.life;
+      if (f >= 1) { it.life = 0; it.sp.visible = false; continue; }
+      const s = it.size * (0.45 + Math.sqrt(f) * 0.8);
+      it.sp.scale.set(s, s, 1); it.sp.material.opacity = 1 - f * f; it.sp.material.rotation += dt * 4;
+    }
+    for (const g of this.ghosts) {
+      if (g.life <= 0) continue;
+      g.t += dt; const f = g.t / g.life;
+      if (f >= 1) { g.life = 0; g.grp.visible = false; continue; }
+      g.mat.opacity = 0.42 * (1 - f); g.grp.scale.setScalar(1 + f * 0.15);
+    }
+    for (const b of this.beams) {
+      if (b.life <= 0) continue;
+      b.t += dt; const f = b.t / b.life;
+      if (f >= 1) { b.life = 0; b.m.visible = false; continue; }
+      const grow = Math.min(1, f * 4), h = 3.2 * grow;
+      b.m.scale.set(b.r * (1 - f * 0.6), h, b.r * (1 - f * 0.6));
+      b.m.material.opacity = 0.35 * (1 - f);
     }
     for (const b of this.bolts) {
       if (b.life <= 0) continue;

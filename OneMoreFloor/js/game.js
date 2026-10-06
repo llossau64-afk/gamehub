@@ -1,7 +1,7 @@
 // Core gameplay: player, combat, enemies, projectiles, coins, traps, room flow and the run itself.
 import * as THREE from '../lib/three.module.min.js';
 import { RNG, clamp, damp, angleDiff, rand, TAU, dist2 } from './util.js';
-import { TILE, T, makeRoom, menuRoom, toWorld, toTile, tileAt, collideCircle, lineOfSight, FlowField, solidAt } from './rooms.js';
+import { TILE, T, makeRoom, menuRoom, tutorialRoom, toWorld, toTile, tileAt, collideCircle, lineOfSight, FlowField, solidAt } from './rooms.js';
 import { buildPlayer, buildEnemy, ENEMY_COLORS } from './models.js';
 import { baseStats, rollCards, UPGRADE_BY_ID } from './upgrades.js';
 import { SKINS, ACHIEVEMENTS, checkSkinProgress } from './meta.js';
@@ -18,6 +18,7 @@ const ETYPES = {
   splitter: { hp: 34, speed: 2.4, r: 0.46, dmg: 2, coins: 1, cost: 2, unlock: 3, weight: 2 },
   dasher: { hp: 30, speed: 3.2, r: 0.4, dmg: 3, coins: 2, cost: 2.5, unlock: 5, weight: 1.6 },
   tank: { hp: 85, speed: 1.75, r: 0.7, dmg: 4, coins: 4, cost: 4, unlock: 6, weight: 1 },
+  dummy: { hp: 30, speed: 0, r: 0.42, dmg: 0, coins: 0, cost: 99, unlock: 999, weight: 0 },
 };
 
 const _v3 = new THREE.Vector3();
@@ -60,6 +61,7 @@ export class Game {
     this.world.waveMat.color.set(skin.c.blade).lerp(new THREE.Color(skin.c.trail), 0.4);
     this.world.orbitMat.color.set(skin.c.blade);
     this.world.dynamic.add(this.pm.root);
+    this.world.playerLight.material.color.copy(this.trailColor).multiplyScalar(0.2);
   }
 
   later(delay, fn) { this.timers.push({ t: this.time + delay, fn }); }
@@ -97,15 +99,119 @@ export class Game {
     this.run = {
       seed, rng: new RNG(seed), floor: 0, owned: {}, picks: [], kills: 0, coins: 0, bossKills: 0,
       rerolls: d.perm.fortune, phoenixUsed: false, prevBest: d.bestFloor, bestToastShown: false,
-      startTime: performance.now(), swings: 0, hurtThisFloor: false, newDiscoveries: 0,
+      startTime: performance.now(), swings: 0, hurtThisFloor: false, newDiscoveries: 0, tutorial: !!opts.tutorial,
     };
+    this.tut = null; this.holdWaves = false;
     this.stats = baseStats(d.perm);
     this.player = this.makePlayerState(0, 0);
     this.player.maxHp = this.stats.maxHp; this.player.hp = this.player.maxHp;
     this.player.dashCharges = this.stats.dashCharges;
-    d.runs++; save.write();
+    if (!opts.tutorial) d.runs++;
+    save.write();
     this.ui.onRunStart(this);
-    this.nextFloor();
+    if (opts.tutorial) this.enterTutorial(); else this.nextFloor();
+  }
+
+  // ------------------------------------------------------------------ dialog + tutorial
+  say(lines, choices) {
+    this.dialog = true;
+    return this.ui.dialog(lines, choices).then(v => { this.dialog = false; this.graceUntil = performance.now() + 220; return v; });
+  }
+
+  enterTutorial() {
+    const run = this.run;
+    run.floor = 0;
+    this.clearEntities();
+    const room = tutorialRoom();
+    this.room = room;
+    this.world.buildRoom(room, 0);
+    this.flow = new FlowField(room);
+    this.crates = [];
+    const [ex, ez] = toWorld(room, room.entry[0], room.entry[1]);
+    const p = this.player;
+    p.x = ex; p.z = ez; p.vx = p.vz = 0; p.face = Math.PI;
+    this.phase = 'arrive'; this.phaseT = 0;
+    this.waves = []; this.waveIdx = 0; this.isBossFloor = false; this.magnetAll = false;
+    this.tut = { step: -1, busy: false, dashes: 0, marker: null };
+    this.world.updateCamera(1, ex, ez - 1.5, { snap: true });
+    audio.setMode('run'); audio.setIntensity(0.05);
+    this.ui.onFloor(this, 0);
+  }
+
+  tutSteps() {
+    const kb = !input.touchMode;
+    const room = this.room;
+    return [
+      {
+        intro: ['This is the training floor. Nothing in here hits hard.', 'First, get moving. Walk onto the marked spot.'],
+        obj: 'Walk onto the marker',
+        hint: kb ? '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrow keys' : 'Drag anywhere on the left half of the screen',
+        enter: () => { const [x, z] = toWorld(room, 7, 5); this.tut.target = [x, z]; this.tut.marker = this.fx.circleMarker(x, z, 0.85, 0.6, 0xf2b24a); },
+        done: () => { const [x, z] = this.tut.target; return dist2(x, z, this.player.x, this.player.z) < 0.8; },
+      },
+      {
+        intro: ['Good. See those dummies? Break them.'],
+        obj: 'Destroy the 3 training dummies',
+        hint: kb ? 'Hold <kbd>left mouse</kbd> and aim with the mouse, or hold <kbd>J</kbd>' : 'Hold the sword button. It aims for you.',
+        enter: () => { for (const [i, j] of [[3, 3], [7, 3], [11, 3]]) { const [x, z] = toWorld(room, i, j); const e = this.spawnEnemy('dummy', x, z, { delay: 0.1 }); e.face = 0; } },
+        done: () => !this.enemies.some(e => e.type === 'dummy' && !e.dead),
+      },
+      {
+        intro: ['Clean. Gold numbers are critical hits. Some upgrades make them far more common.', 'Now the dash. It is the most important thing you have.'],
+        obj: 'Dash 2 times',
+        hint: kb ? '<kbd>Space</kbd> or <kbd>Shift</kbd>. The bars under your health show your charges.' : 'Tap DASH. The bars under your health show your charges.',
+        enter: () => { this.tut.dashes = 0; },
+        done: () => this.tut.dashes >= 2,
+      },
+      {
+        intro: ['While you dash, nothing can touch you. Remember that when things get busy.', 'Now something that fights back. Runners crouch right before they lunge.'],
+        obj: 'Defeat the runners',
+        hint: 'Watch for the crouch, then hit first or dash away',
+        enter: () => { for (const [i, j] of [[3, 7], [11, 7], [7, 3]]) { const [x, z] = toWorld(room, i, j); this.spawnEnemy('runner', x, z, { delay: 0.15 }); } },
+        done: () => !this.enemies.some(e => !e.dead && !e.decor),
+      },
+    ];
+  }
+
+  tutAdvance() {
+    const tut = this.tut, steps = this.tutSteps();
+    tut.step++;
+    if (tut.step >= steps.length) {
+      this.ui.objective(null);
+      this.roomClear();
+      this.say(['Floor clear. When a floor is clear, the lift opens.', 'Step onto the glowing ring to ride up.']).then(() => {
+        this.ui.objective({ label: 'TRAINING', text: 'Step onto the lift', hint: 'Follow the arrow to the glowing ring' });
+      });
+      return;
+    }
+    const st = steps[tut.step];
+    tut.busy = true;
+    this.say(st.intro).then(() => {
+      tut.busy = false;
+      st.enter();
+      this.ui.objective({ label: `TRAINING · ${tut.step + 1}/${steps.length}`, text: st.obj, hint: st.hint });
+    });
+  }
+
+  updateTutorial(dt) {
+    const tut = this.tut;
+    if (tut.busy || tut.step < 0) return;
+    const st = this.tutSteps()[tut.step];
+    if (st && st.done()) {
+      tut.busy = true;
+      if (tut.marker) { this.fx.releaseMarker(tut.marker); tut.marker = null; this.fx.ring(this.player.x, this.player.z, 0xf2b24a, 0.3, 1.6, 0.4); }
+      this.ui.objectiveDone();
+      audio.play('objective');
+      this.later(0.7, () => this.tutAdvance());
+    }
+  }
+
+  finishTutorial() {
+    save.data.tutorialDone = true; save.write();
+    this.tut = null; this.holdWaves = false;
+    this.run.tutorial = false;
+    this.run.fromTutorial = true;
+    this.ui.objective(null);
   }
 
   makePlayerState(x, z) {
@@ -160,6 +266,7 @@ export class Game {
 
   nextFloor() {
     const run = this.run;
+    if (run.tutorial) this.finishTutorial();
     run.floor++;
     run.hurtThisFloor = false;
     this.clearEntities();
@@ -288,7 +395,7 @@ export class Game {
       elite: !!o.elite, mini, decor: !!o.decor, dead: false, deathT: 0,
       spawnT: o.instant ? 0 : 0.75 + (o.delay || 0), pop: o.instant ? 1 : 0, orbitCd: 0, dashHit: -1, touchCd: 0,
       strafe: Math.random() < 0.5 ? 1 : -1, wob: rand(0, TAU), trapHit: -1, kbResist: type === 'tank' ? 0.75 : 0,
-      bossMinion: !!o.bossMinion,
+      bossMinion: !!o.bossMinion, y: 0, dvx: 0, dvy: 0, dvz: 0, spin: 0, sq: 0, sqv: 0, hitT: 0, hx: 0, hz: 1, popped: false,
     };
     e.maxHp = e.hp;
     model.eliteBand.visible = e.elite;
@@ -311,6 +418,7 @@ export class Game {
     if (this.mode === 'menu') { this.updateMenu(dt); return; }
     if (input.pausePressed && ['fight', 'clear', 'arrive'].includes(this.phase)) this.ui.togglePause(this);
     if (this.paused) return;
+    if (this.dialog) { this.updateVisuals(0, dt); return; }
 
     if (this.hitstop > 0) { this.hitstop -= dt; this.updateVisuals(0, dt); return; }
     this.timeScale = damp(this.timeScale, 1, this.phase === 'dying' ? 1.4 : 5, dt);
@@ -345,17 +453,37 @@ export class Game {
         const lift = w.entryLift;
         if (lift) { lift.group.position.y = -2.6 * (1 - e); p.y = lift.group.position.y; }
         if (this.phaseT >= 0.85) {
-          p.y = 0;
+          p.y = 0; p.landT = 0.25;
+          this.fx.burst(p.x, 0.1, p.z, 10, 0xb8b0a4, { speed: 4, up: 1.5, life: 0.45, size: 0.12, debris: false });
           audio.play('doorOpen');
-          if (this.isBossFloor) { this.phase = 'bossIntro'; this.phaseT = 0; this.startBossIntro(); }
+          if (this.tut) { this.phase = 'fight'; this.phaseT = 0; this.tutAdvance(); }
+          else if (this.run.floor === 1 && this.run.fromTutorial) {
+            this.run.fromTutorial = false;
+            this.phase = 'fight'; this.phaseT = 0; this.holdWaves = true;
+            this.say([
+              "That's the training done. From here on it's real, and every floor is harder than the last.",
+              'Clear the room, take an upgrade, ride up. How high can you get?',
+            ]).then(() => { this.holdWaves = false; this.spawnWave(this.waves[0]); this.waveIdx = 1; this.waveT = 0; });
+          }
+          else if (this.isBossFloor) { this.phase = 'bossIntro'; this.phaseT = 0; this.startBossIntro(); }
           else { this.phase = 'fight'; this.phaseT = 0; this.spawnWave(this.waves[0]); this.waveIdx = 1; this.waveT = 0; }
         }
         break;
       }
       case 'bossIntro':
-        if (this.phaseT > 2.1) { this.phase = 'fight'; this.phaseT = 0; this.ui.letterbox(false); this.boss.active = true; audio.setMode('boss'); }
+        if (this.phaseT > 2.1 && !this._bossTalk) {
+          const kind = this.boss.kind, seen = save.data.seenBoss || (save.data.seenBoss = {});
+          const go = () => { this._bossTalk = false; this.phase = 'fight'; this.phaseT = 0; this.boss.active = true; audio.setMode('boss'); };
+          this.ui.letterbox(false);
+          if (!seen[kind]) {
+            seen[kind] = true; save.write(); this._bossTalk = true;
+            this.say(BOSS_LINES[kind]).then(go);
+          } else go();
+        }
         break;
       case 'fight': {
+        if (this.tut) { this.updateTutorial(dt); break; }
+        if (this.holdWaves) break;
         this.waveT += dt;
         const alive = this.enemies.filter(e => !e.dead && !e.decor).length;
         if (this.boss) { if (this.boss.dead && this.boss.deathT > 1.4 && alive === 0) this.roomClear(); break; }
@@ -371,6 +499,7 @@ export class Game {
         const lift = w.exitLift;
         if (lift && !p.dead && dist2(p.x, p.z, lift.x, lift.z) < (TILE * 0.55) ** 2 && this.phaseT > 0.25) {
           this.phase = 'leave'; this.phaseT = 0;
+          if (this.tut) this.ui.objective(null);
           audio.play('doorClose');
           this.ui.fade(true, 0.55, 0.35);
         }
@@ -387,6 +516,11 @@ export class Game {
           this.phase = 'cards'; this.phaseT = 0;
           audio.setMuffled(true);
           this.ui.showCards(this, this.rollCards());
+          if (this.run.tutorial) {
+            this.ui.cardLock = Infinity;
+            this.say(['After every floor you choose one upgrade. They stack, and many of them combine into something much stronger.', 'This first one is on the house. Pick whatever looks fun.'])
+              .then(() => { this.ui.cardLock = performance.now() + 200; });
+          }
         }
         break;
       }
@@ -454,6 +588,7 @@ export class Game {
       if (p.dashRecharge >= s.dashCooldown) { p.dashRecharge = 0; p.dashCharges++; }
     } else p.dashRecharge = 0;
 
+    if (performance.now() < (this.graceUntil || 0)) { input.dashPressed = false; input.attackPressed = false; }
     const mx = canAct ? input.move.x : 0, mz = canAct ? input.move.z : 0;
     const moving = Math.hypot(mx, mz) > 0.1;
 
@@ -523,6 +658,7 @@ export class Game {
 
   dash(mx, mz, moving) {
     const p = this.player;
+    if (this.tut) this.tut.dashes++;
     let dx = mx, dz = mz;
     if (!moving) { dx = Math.sin(p.face); dz = Math.cos(p.face); }
     const l = Math.hypot(dx, dz) || 1;
@@ -662,6 +798,7 @@ export class Game {
     audio.play('hurt');
     this.ui.hurtFlash();
     if (this.stats.thorns > 0) this.explosion(p.x, p.z, 2.6, this.stats.damage * this.stats.damageMul * 0.9 * this.stats.thorns, { color: 0xff8a6a, kb: 2.5 });
+    if (p.hp <= 0 && this.run.tutorial) { p.hp = 1; this.ui.toast('TRAINING', 'You cannot fall here. Keep going.'); }
     if (p.hp <= 0) {
       if (this.stats.phoenix && !this.run.phoenixUsed) {
         this.run.phoenixUsed = true;
@@ -710,7 +847,13 @@ export class Game {
     e.hp -= dmg;
     e.flash = 0.1;
     const kb = (o.kb ?? 1) * (1 - e.kbResist) * (e.mini ? 1.3 : 1);
-    if (o.dirx !== undefined) { e.kbx += o.dirx * 7 * kb; e.kbz += o.dirz * 7 * kb; }
+    if (o.dirx !== undefined) { e.kbx += o.dirx * 7 * kb; e.kbz += o.dirz * 7 * kb; e.hx = o.dirx; e.hz = o.dirz; }
+    e.sqv += o.aoe ? 5 : 11; e.hitT = 0.18;
+    if (!o.aoe) {
+      const hy = e.model ? e.model.height * (e.r / e.def.r) * 0.55 : 0.6;
+      this.fx.impact(e.x - (o.dirx || 0) * e.r * 0.7, hy, e.z - (o.dirz || 0) * e.r * 0.7, crit ? 0xffc35a : 0xffffff, crit ? 2.4 : 1.4);
+      if (crit) this.world.punch(0.03);
+    }
     if (s.frost > 0 && o.proc) e.slow = 1.5;
     const y = e.model ? e.model.height * (e.r / e.def.r) * 0.6 : 0.8;
     this.fx.number(e.x, y + 0.5, e.z, dmg, crit ? 'crit' : o.aoe ? 'aoe' : 'normal');
@@ -784,9 +927,10 @@ export class Game {
     run.kills++;
     save.data.totalKills++;
     const col = ENEMY_COLORS[e.type];
-    this.fx.burst(e.x, 0.5, e.z, e.type === 'tank' ? 16 : 10, col, { speed: 7, up: 6, life: 0.9, size: e.type === 'tank' ? 0.22 : 0.16, debris: true, grav: 20 });
-    this.fx.burst(e.x, 0.5, e.z, 8, 0xfff2dc, { speed: 8, up: 3, life: 0.3, size: 0.1 });
-    this.fx.ring(e.x, e.z, col, 0.2, 1.4 * (e.r / 0.4), 0.3);
+    const fling = e.type === 'tank' ? 3 : 7;
+    e.dvx = (e.hx || 0) * fling + rand(-1, 1); e.dvz = (e.hz || 0) * fling + rand(-1, 1); e.dvy = e.type === 'tank' ? 3 : 6;
+    e.spin = rand(8, 16) * (Math.random() < 0.5 ? -1 : 1);
+    this.fx.burst(e.x, 0.5, e.z, 5, col, { speed: 5, up: 4, life: 0.5, size: 0.12, debris: true });
     if (!o.silent) audio.play('death');
     // coins
     const sc = this.floorScale();
@@ -811,6 +955,7 @@ export class Game {
       this.hitstop = Math.max(this.hitstop, 0.12);
       this.timeScale = 0.35;
       this.world.addShake(0.3);
+      this.world.punch(0.07);
     }
   }
 
@@ -895,8 +1040,21 @@ export class Game {
     for (let i = list.length - 1; i >= 0; i--) {
       const e = list[i];
       if (e.dead) {
+        // Knocked away, spinning, then it bursts.
         e.deathT += dt;
-        if (e.deathT > 0.14) { this.releaseModel(e); list.splice(i, 1); }
+        e.x += e.dvx * dt; e.z += e.dvz * dt; e.y += e.dvy * dt; e.dvy -= 26 * dt;
+        if (e.y < 0) { e.y = 0; e.dvy = 0; }
+        e.dvx *= Math.exp(-3 * dt); e.dvz *= Math.exp(-3 * dt);
+        if (e.deathT > 0.26 && !e.popped) {
+          e.popped = true;
+          const col = ENEMY_COLORS[e.type], big = e.type === 'tank';
+          this.fx.burst(e.x, e.y + 0.5, e.z, big ? 18 : 11, col, { speed: 7, up: 6, life: 0.9, size: big ? 0.22 : 0.16, debris: true, grav: 20 });
+          this.fx.burst(e.x, e.y + 0.5, e.z, 10, 0xfff2dc, { speed: 9, up: 3, life: 0.3, size: 0.1 });
+          this.fx.impact(e.x, e.y + 0.6, e.z, col, big ? 3.2 : 2.2, 0.16);
+          this.fx.ring(e.x, e.z, col, 0.2, 1.5 * (e.r / 0.4), 0.32);
+        }
+        collideCircle(this.room, e, e.r * 0.5);
+        if (e.deathT > 0.3) { this.releaseModel(e); list.splice(i, 1); }
         continue;
       }
       e.flash -= dt; e.slow -= dt;
@@ -906,7 +1064,9 @@ export class Game {
           e.state = 'chase'; e.pop = 0;
           if (e.marker) { this.fx.releaseMarker(e.marker); e.marker = null; }
           e.model.root.visible = true;
-          this.fx.burst(e.x, 0.2, e.z, 6, 0xf2d6a0, { speed: 3, up: 3, life: 0.35, size: 0.1 });
+          this.fx.burst(e.x, 0.2, e.z, 8, 0xf2d6a0, { speed: 3.5, up: 4, life: 0.4, size: 0.1 });
+          this.fx.beam(e.x, e.z, e.elite ? 0xf2b24a : 0xffd9a8, e.r + 0.25, 0.55);
+          this.fx.ring(e.x, e.z, 0xf2d6a0, 0.1, e.r + 0.9, 0.35);
         }
         continue;
       }
@@ -1241,7 +1401,10 @@ export class Game {
       const run = p.moving, t = time;
       const bob = Math.abs(Math.sin(t * 13)) * 0.08 * run;
       pm.rig.position.y = bob + Math.sin(t * 2.4) * 0.015 * (1 - run);
-      pm.rig.rotation.x = 0.16 * run + (p.dashT > 0 ? 0.35 : 0);
+      const hurtK = Math.max(0, p.hurtT) / 0.3, atkK = Math.max(0, 1 - p.swingT / 0.12);
+      pm.rig.rotation.x = 0.16 * run + (p.dashT > 0 ? 0.35 : 0) + atkK * 0.22 - hurtK * 0.45;
+      pm.rig.rotation.z = Math.sin(t * 6.5) * 0.04 * run;
+      if (pm.armL) pm.armL.rotation.x = p.swingT < 0.3 ? -0.7 : Math.sin(t * 13) * 0.9 * run + Math.sin(t * 2.4) * 0.05;
       pm.footL.position.z = Math.sin(t * 13) * 0.16 * run; pm.footR.position.z = -Math.sin(t * 13) * 0.16 * run;
       pm.footL.position.y = 0.05 + Math.max(0, Math.cos(t * 13)) * 0.08 * run; pm.footR.position.y = 0.05 + Math.max(0, -Math.cos(t * 13)) * 0.08 * run;
       // swing: pivot rotates through the arc quickly then eases back to rest
@@ -1252,9 +1415,28 @@ export class Game {
       pm.pivot.rotation.y = pa;
       pm.pivot.rotation.z = p.swingT < 0.2 ? 0 : 0.1;
       pm.body.rotation.y = pa * 0.25;
-      const squash = p.dashT > 0 ? 1.2 : 1;
-      pm.rig.scale.set(1 / Math.sqrt(squash), 1, squash);
-      if (pm.root.userData.tail) pm.root.userData.tail.rotation.x = 0.5 + run * 0.6 + Math.sin(t * 9) * 0.15 * run;
+      // squash & stretch: dash stretches, attacks lunge, landings squash, idle breathes
+      p.landT = (p.landT || 0) - dt;
+      const land = Math.max(0, p.landT) / 0.25;
+      const stretch = (p.dashT > 0 ? 1.22 : 1) * (1 + atkK * 0.12);
+      const sqY = (1 - land * 0.22) * (1 + Math.sin(t * 2.4) * 0.015 * (1 - run));
+      pm.rig.scale.set((1 + land * 0.18) / Math.sqrt(stretch), sqY, stretch);
+      // cloth chain lags behind movement and turning
+      const chain = pm.root.userData.chain;
+      if (chain) {
+        const turn = angleDiff(p._lastFace ?? p.face, p.face) / Math.max(dt, 1e-3);
+        p._lastFace = p.face;
+        p._sway = damp(p._sway || 0, Math.max(-1, Math.min(1, -turn * 0.08)), 6, dt);
+        const spd = Math.min(1, Math.hypot(p.vx, p.vz) / 7) + (p.dashT > 0 ? 0.6 : 0);
+        chain.forEach((seg, k) => {
+          const target = 0.2 + spd * 0.35 * (k ? 0.6 : 1) + Math.sin(t * 10 - k * 1.2) * (0.08 + spd * 0.12);
+          seg.rotation.x = damp(seg.rotation.x, k === 0 ? -0.9 + spd * 0.7 + target * 0.3 : target - 0.15, 10 - k * 1.5, dt);
+          seg.rotation.y = damp(seg.rotation.y, p._sway * (0.3 + k * 0.15), 8, dt);
+        });
+      }
+      // dash afterimages
+      if (p.dashT > 0 && this.time - (p.lastGhost || 0) > 0.028) { p.lastGhost = this.time; this.fx.ghost(p.x, p.y, p.z, p.face, this.trailColor); }
+      w.playerLight.position.set(p.x, 0.015, p.z);
       const flashOn = p.flash > 0 || (p.iframes > 0 && p.dashT <= 0 && Math.floor(time * 20) % 2 === 0 && this.phase !== 'arrive');
       for (const m of pm.mats) { m.emissive.setHex(flashOn ? 0xffffff : 0x000000); m.emissiveIntensity = flashOn ? 0.8 : 0; }
       pm.hand.visible = true;
@@ -1265,23 +1447,32 @@ export class Game {
       const m = e.model; if (!m) continue;
       const base = e.r / e.def.r;
       let sx = 1, sy = 1;
-      if (e.dead) { const k = 1 + e.deathT * 4; sx = k; sy = Math.max(0.01, 1 - e.deathT * 7); }
+      // squash spring driven by hits
+      e.sqv += (-170 * e.sq - 13 * e.sqv) * gdt; e.sq += e.sqv * gdt; e.hitT -= gdt;
+      if (e.dead) { const k = Math.max(0, (e.deathT - 0.18) / 0.12); sx = 1 + k * 0.5; sy = Math.max(0.05, 1 - k * 0.9); }
       else if (e.state === 'windup' || e.state === 'aim') { const k = 1 - Math.max(0, e.t) * 0.5; sx = 1 + 0.18 * k; sy = 1 - 0.15 * k; }
       else if (e.state === 'spawn') continue;
-      const pop = e.pop < 1 ? 0.3 + 0.7 * (1 - Math.pow(1 - e.pop, 3)) * (1 + Math.sin(e.pop * Math.PI) * 0.25) : 1;
-      m.root.position.set(e.x, 0, e.z);
-      m.root.rotation.y = e.face;
+      sx *= 1 + e.sq * 0.035; sy *= 1 - e.sq * 0.035;
+      const pe = 1 - Math.pow(1 - Math.min(1, e.pop), 3);
+      const pop = e.pop < 1 ? 0.3 + 0.7 * pe * (1 + Math.sin(e.pop * Math.PI) * 0.25) : 1;
+      m.root.position.set(e.x, (e.y || 0) - (1 - pe) * 0.9, e.z);
+      m.root.rotation.y = e.face + (e.dead ? e.deathT * e.spin : 0);
+      m.root.rotation.z = e.dead ? e.deathT * e.spin * 0.4 : 0;
       m.root.scale.set(base * sx * pop, base * sy * pop, base * sx * pop);
       const speed = Math.hypot(e.vx, e.vz);
       const t = time + e.wob;
       if (m.float) m.rig.position.y = Math.sin(t * 2.5) * 0.08;
       else m.rig.position.y = Math.abs(Math.sin(t * 12)) * 0.06 * Math.min(1, speed / 2);
-      m.rig.rotation.x = Math.min(0.3, speed * 0.04);
+      const hitK = Math.max(0, e.hitT) / 0.18;
+      m.rig.rotation.x = Math.min(0.3, speed * 0.04) - hitK * 0.45;
+      if (e.type === 'dummy') m.rig.rotation.z = Math.sin(time * 26) * hitK * 0.35;
+      if (m.orbiters) m.orbiters.rotation.y = t * (e.state === 'windup' ? 9 : 2.2);
+      if (m.thruster) { const k = e.state === 'dash' ? 1.8 : 0.7 + Math.sin(t * 30) * 0.15; m.thruster.scale.set(1, 1, k); }
       if (m.legL) { m.legL.position.z = Math.sin(t * 16) * 0.12 * Math.min(1, speed / 2); m.legR.position.z = -m.legL.position.z; }
       if (m.ring) m.ring.rotation.z = t * 2;
       if (m.core) { const g = e.state === 'windup' ? 1.6 + Math.sin(t * 40) * 0.3 : 1; m.core.scale.setScalar(g); }
       if (m.armL) { const k = e.state === 'windup' ? 0.6 * (1 - Math.max(0, e.t)) : 0; m.armL.position.y = 0.42 + k; m.armR.position.y = 0.42 + k; }
-      const fl = e.flash > 0 ? 0.9 : e.slow > 0 ? 0.25 : 0;
+      const fl = e.dead ? 0.4 + e.deathT * 2 : e.flash > 0 ? 0.9 : e.slow > 0 ? 0.25 : 0;
       for (const mat of m.mats) { mat.emissiveIntensity = fl; mat.emissive.setHex(e.slow > 0 && e.flash <= 0 ? 0x7fc8ff : 0xffffff); }
       if (m.eliteBand.visible) m.eliteBand.rotation.z = t;
     }
@@ -1290,7 +1481,7 @@ export class Game {
     // batches
     const sh = w.shadows; sh.begin();
     if (p && !p.dead) sh.push(p.x, 0.02, p.z, 1.0 - Math.min(0.5, p.y * 0.1));
-    for (const e of this.enemies) if (e.model && e.state !== 'spawn') sh.push(e.x, 0.02, e.z, e.r * 2.6 * (e.dead ? 1 - e.deathT * 5 : 1));
+    for (const e of this.enemies) if (e.model && e.state !== 'spawn' && !(e.dead && e.popped)) sh.push(e.x, 0.02, e.z, e.r * 2.6 * Math.min(1, e.pop * 1.5));
     if (this.boss && this.boss.model.root.visible) sh.push(this.boss.x, 0.02, this.boss.z, this.boss.r * 2.8);
 
     const cb = w.coins; cb.begin();
@@ -1328,6 +1519,8 @@ export class Game {
     const now = performance.now() / 1000;
     if (w.exitLift) {
       const open = this.phase === 'clear' || this.phase === 'leave';
+      const k = open ? 0.45 + Math.sin(now * 4) * 0.1 : 0;
+      w.exitLift.poolMat.color.setRGB(0.95 * k, 0.7 * k, 0.29 * k);
       w.exitLift.beamMat.opacity = open ? 0.18 + Math.sin(now * 4) * 0.06 : 0;
       w.exitLift.ring.scale.setScalar(open ? 1 + Math.sin(now * 5) * 0.04 : 1);
     }
@@ -1408,5 +1601,11 @@ export class Game {
     if (a && quiet) this.ui.queueResultNote(`Achievement: ${a.name}`);
   }
 }
+
+const BOSS_LINES = {
+  warden: ['That is the Warden. It keeps this part of the tower locked down.', 'It glows before every volley. The gaps in its bullet rings are your way through.'],
+  crusher: ['The Crusher. Big, slow and very angry.', 'When it charges, step aside and let it hit the wall. It is stunned for a moment after that.'],
+  hunter: ['The Hunter. Fast, and it likes to vanish.', 'Every one of its dashes is drawn on the floor first. Read the lines, then dash through them.'],
+};
 
 export { ETYPES };

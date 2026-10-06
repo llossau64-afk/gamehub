@@ -4,7 +4,7 @@
 // Templates are randomly mirrored, so 11 layouts give ~20 distinct rooms.
 
 export const TILE = 1.35;
-export const T = { VOID: 0, FLOOR: 1, WALL: 2, PILLAR: 3, CRATE: 4, TRAP: 5 };
+export const T = { VOID: 0, FLOOR: 1, WALL: 2, PILLAR: 3, CRATE: 4, TRAP: 5, PROP: 6 };
 
 const TEMPLATES = [
   { name: 'Box', minFloor: 1, map: `
@@ -176,7 +176,7 @@ function parse(tpl, mirror) {
   if (mirror) rows = rows.map(r => r.split('').reverse().join(''));
   const h = rows.length;
   const tiles = new Uint8Array(w * h);
-  const room = { name: tpl.name, w, h, tiles, spawns: [], traps: [], crates: [], pillars: [], entry: null, exit: null };
+  const room = { name: tpl.name, w, h, tiles, spawns: [], traps: [], crates: [], pillars: [], props: [], entry: null, exit: null };
   for (let j = 0; j < h; j++) {
     for (let i = 0; i < w; i++) {
       const ch = rows[j][i];
@@ -197,22 +197,65 @@ function parse(tpl, mirror) {
 
 export function makeRoom(rng, floor, recent) {
   if (floor % 10 === 0) return parse(BOSS_ROOM, false);
-  if (floor === 1) return parse(TEMPLATES[0], rng.chance(0.5));
+  if (floor === 1) { const r = parse(TEMPLATES[0], rng.chance(0.5)); decorateRoom(r, rng); return r; }
   const pool = TEMPLATES.filter(t => t.minFloor <= floor && !recent.includes(t.name));
   const tpl = rng.pick(pool.length ? pool : TEMPLATES);
   recent.push(tpl.name);
   if (recent.length > 3) recent.shift();
-  return parse(tpl, rng.chance(0.5));
+  const room = parse(tpl, rng.chance(0.5));
+  decorateRoom(room, rng);
+  return room;
 }
 
-export function menuRoom() { return parse(TEMPLATES[2], false); }
+export function menuRoom() { const r = parse(TEMPLATES[2], false); decorateRoom(r, { next: () => Math.random() }); return r; }
+
+const TUTORIAL_ROOM = { name: 'Training', map: `
+###############
+#......E......#
+#.............#
+#..s...s...s..#
+#.............#
+#.............#
+#.............#
+#..s.......s..#
+#.............#
+#......B......#
+###############` };
+export function tutorialRoom() { return parse(TUTORIAL_ROOM, false); }
+
+// Props (barrels, stacked boxes, rubble, lockers) hug the walls. They block movement, so they are
+// only placed where a wall is on exactly one side and the tile is far from spawns, lifts and traps.
+export function decorateRoom(room, rng) {
+  const { w, h } = room;
+  const near = (list, i, j, r) => list.some(p => p && Math.abs(p[0] - i) <= r && Math.abs(p[1] - j) <= r);
+  const cand = [];
+  for (let j = 1; j < h - 1; j++) for (let i = 1; i < w - 1; i++) {
+    if (room.tiles[j * w + i] !== T.FLOOR) continue;
+    const solid = (a, b) => room.tiles[b * w + a] === T.WALL;
+    const n = solid(i, j - 1), s = solid(i, j + 1), e = solid(i + 1, j), wv = solid(i - 1, j);
+    if (n + s + e + wv !== 1) continue;
+    // keep both side neighbours open so we never close a gap
+    if ((n || s) && (room.tiles[j * w + i - 1] !== T.FLOOR || room.tiles[j * w + i + 1] !== T.FLOOR)) continue;
+    if ((e || wv) && (room.tiles[(j - 1) * w + i] !== T.FLOOR || room.tiles[(j + 1) * w + i] !== T.FLOOR)) continue;
+    if (near(room.spawns, i, j, 1) || near([room.entry, room.exit], i, j, 2) || near(room.traps, i, j, 1) || near(room.props, i, j, 2)) continue;
+    cand.push([i, j, n ? 0 : s ? 2 : e ? 1 : 3]);
+  }
+  const want = Math.min(cand.length, 3 + Math.floor(rng.next() * 4));
+  for (let k = 0; k < want && cand.length; k++) {
+    const idx = Math.floor(rng.next() * cand.length);
+    const [i, j, side] = cand.splice(idx, 1)[0];
+    if (near(room.props, i, j, 2)) { k--; continue; }
+    room.tiles[j * w + i] = T.PROP;
+    room.props.push([i, j, side, Math.floor(rng.next() * 4)]);
+  }
+}
 
 // ---------- grid helpers ----------
 export function tileAt(room, i, j) {
   if (i < 0 || j < 0 || i >= room.w || j >= room.h) return T.VOID;
   return room.tiles[j * room.w + i];
 }
-export const isSolidTile = t => t === T.WALL || t === T.PILLAR || t === T.CRATE || t === T.VOID;
+export const isSolidTile = t => t === T.WALL || t === T.PILLAR || t === T.CRATE || t === T.VOID || t === T.PROP;
 export const toWorld = (room, i, j) => [(i - room.w / 2 + 0.5) * TILE, (j - room.h / 2 + 0.5) * TILE];
 export const toTile = (room, x, z) => [Math.floor(x / TILE + room.w / 2), Math.floor(z / TILE + room.h / 2)];
 export function solidAt(room, x, z) { const [i, j] = toTile(room, x, z); return isSolidTile(tileAt(room, i, j)); }

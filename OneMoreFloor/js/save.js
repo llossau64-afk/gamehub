@@ -16,12 +16,15 @@ const DEFAULTS = () => ({
   skin: 'default',
   achievements: [],
   discovered: [],
+  tutorialDone: false,
+  seenBoss: {},
   settings: { master: 0.8, music: 0.6, sfx: 0.9, shake: 1, numbers: true, quality: 'auto' },
 });
 
 function merge(base, data) {
   for (const k in data) {
-    if (base[k] && typeof base[k] === 'object' && !Array.isArray(base[k]) && data[k] && typeof data[k] === 'object') merge(base[k], data[k]);
+    // empty default objects are free-form maps (e.g. seenBoss): take them as saved
+    if (base[k] && typeof base[k] === 'object' && !Array.isArray(base[k]) && Object.keys(base[k]).length && data[k] && typeof data[k] === 'object') merge(base[k], data[k]);
     else if (k in base) base[k] = data[k];
   }
   return base;

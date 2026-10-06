@@ -37,6 +37,7 @@
     <div class="floor-label">FLOOR <b>01</b></div>
     <div class="room-info"></div>
     <div class="boss-bar"><div class="boss-name"></div><div class="bb"><div class="bb-lag"></div><div class="bb-fill"></div></div></div>
+    <div id="objective"><div class="obj-label"></div><div class="obj-text"><i class="obj-check"></i><span></span></div><div class="obj-hint"></div></div>
   </div>
   <div class="hud-tr">
     <div class="coins"><i class="coin-ico"></i><span>0</span></div>
@@ -80,6 +81,18 @@
 <section id="cards" class="screen"></section>
 <section id="results" class="screen"></section>
 <section id="pause" class="screen"></section>
+
+<!-- Intercom dialog -->
+<div id="dialog" role="dialog" aria-live="polite">
+  <div class="dlg">
+    <div class="dlg-portrait" aria-hidden="true"><div class="grille"></div><div class="wave"><i></i><i></i><i></i><i></i><i></i></div><div class="led"></div></div>
+    <div class="dlg-main">
+      <div class="dlg-name">OPERATOR <span>· INTERCOM</span></div>
+      <p class="dlg-text"></p>
+      <div class="dlg-foot"><div class="dlg-choices"></div><span class="dlg-next">CONTINUE <b>▸</b></span></div>
+    </div>
+  </div>
+</div>
 
 <div id="banner"><div class="b-main"></div><div class="b-sub"></div></div>
 <div id="toasts"></div>

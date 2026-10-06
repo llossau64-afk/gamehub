@@ -41,6 +41,7 @@ export class UI {
       this.menuAction(b.dataset.act);
     });
     $('#pause-btn').addEventListener('click', () => this.togglePause(game));
+    $('#dialog').addEventListener('click', e => { if (!e.target.closest('.dlg-choices button')) this.dialogAdvance(); });
     document.addEventListener('keydown', e => this.onKey(e));
     this.applySettings();
   }
@@ -74,7 +75,18 @@ export class UI {
 
   menuAction(act) {
     audio.play('click');
-    if (act === 'play') { this.game.startRun(); }
+    if (act === 'play') {
+      if (save.data.tutorialDone) { this.game.startRun(); return; }
+      this.show('none');
+      this.game.say([
+        "Signal's up. Can you hear me, climber?",
+        'Nobody has ever seen the top of this tower. Every floor is guarded, and every floor you clear sends you higher.',
+        "I'll be on the intercom the whole way up. Want a quick warm-up before the real thing?",
+      ], [{ label: 'START TRAINING', value: 'tut' }, { label: 'SKIP, JUST PLAY', value: 'skip' }]).then(v => {
+        if (v === 'skip') { save.data.tutorialDone = true; save.write(); this.game.startRun(); }
+        else this.game.startRun({ tutorial: true });
+      });
+    }
     else if (act === 'upgrades') this.showUpgrades();
     else if (act === 'skins') this.showSkins('skins');
     else if (act === 'settings') { this.prevScreen = 'menu'; this.showSettings(); }
@@ -88,6 +100,12 @@ export class UI {
 
   onKey(e) {
     const k = e.code;
+    if (this.dlg) {
+      if (k === 'Space' || k === 'Enter' || k === 'NumpadEnter') { e.preventDefault(); if (this.dlg.choicesShown && this.dlg.choices) this.dialogChoose(this.dlg.choices[this.dlg.focus || 0].value); else this.dialogAdvance(); }
+      else if (this.dlg.choicesShown && (k === 'Digit1' || k === 'Digit2')) this.dialogChoose(this.dlg.choices[k === 'Digit1' ? 0 : 1].value);
+      else if (this.dlg.choicesShown && /Arrow|KeyA|KeyD|KeyW|KeyS/.test(k)) { this.dlg.focus = 1 - (this.dlg.focus || 0); this.renderChoiceFocus(); audio.play('hover'); }
+      return;
+    }
     if (this.screen === 'menu') {
       if (k === 'ArrowDown' || k === 'KeyS') { this.setMenuFocus(this.focusIdx + 1); audio.play('hover'); }
       else if (k === 'ArrowUp' || k === 'KeyW') { this.setMenuFocus(this.focusIdx - 1); audio.play('hover'); }
@@ -218,7 +236,7 @@ export class UI {
         <b>Dash</b><span>Space · Shift · right mouse · K</span>
         <b>Pause</b><span>Esc · P</span>
       </div>
-      <div class="danger-zone"><button class="btn ghost" data-full>FULLSCREEN</button><button class="btn danger" data-reset>RESET PROGRESS</button></div>`;
+      <div class="danger-zone"><button class="btn ghost" data-tut>REPLAY TUTORIAL</button><button class="btn ghost" data-full>FULLSCREEN</button><button class="btn danger" data-reset>RESET PROGRESS</button></div>`;
     const el = this.panel('settings', 'SETTINGS', body);
     el.querySelectorAll('[data-range]').forEach(r => r.addEventListener('input', () => { s[r.dataset.range] = r.value / 100; this.applySettings(); save.write(); }));
     el.querySelectorAll('[data-seg]').forEach(g => g.addEventListener('click', e => {
@@ -232,6 +250,11 @@ export class UI {
       audio.play('click');
       const de = document.documentElement;
       if (document.fullscreenElement) document.exitFullscreen(); else (de.requestFullscreen || de.webkitRequestFullscreen || (() => { })).call(de);
+    });
+    $('[data-tut]', el).addEventListener('click', () => {
+      audio.play('click');
+      if (this.game.mode === 'run') { this.game.paused = false; audio.setMuffled(false); }
+      this.game.startRun({ tutorial: true });
     });
     const reset = $('[data-reset]', el);
     reset.addEventListener('click', () => {
@@ -250,6 +273,7 @@ export class UI {
 
   // ---------------------------------------------------------------- run HUD
   onRunStart(game) {
+    this.objective(null);
     this.el.build.innerHTML = '';
     this._last = {};
     this.el.bossBar.classList.remove('on');
@@ -263,9 +287,10 @@ export class UI {
     this.show('hud');
     this.fade(false, 0.45);
     this.el.bossBar.classList.toggle('on', false);
-    if (f % 10 !== 0) {
+    if (f === 0) this.banner('TRAINING', 'FLOOR 00', true);
+    else if (f % 10 !== 0) {
       const th = themeFor(f), prevTh = themeFor(f - 1);
-      this.banner(`FLOOR ${pad2(f)}`, f === 1 || th !== prevTh ? th.name.toUpperCase() : '', true);
+      this.floorBanner(f, f === 1 || th !== prevTh ? th.name.toUpperCase() : '');
     }
   }
 
@@ -295,7 +320,8 @@ export class UI {
     if (L.coins !== game.run.coins) { el.coinNum.textContent = fmt(game.run.coins); L.coins = game.run.coins; }
     // room info
     let info = '', exit = false;
-    if (game.phase === 'fight' && !game.boss) {
+    if (game.tut) info = '';
+    else if (game.phase === 'fight' && !game.boss) {
       const alive = game.enemies.filter(e => !e.dead && !e.decor).length;
       let pending = 0; for (let k = game.waveIdx; k < game.waves.length; k++) pending += game.waves[k].length;
       info = `${alive + pending} LEFT` + (game.waves.length > 1 ? ` &nbsp;·&nbsp; WAVE ${Math.min(game.waveIdx, game.waves.length)}/${game.waves.length}` : '');
@@ -331,6 +357,7 @@ export class UI {
   hurtFlash() {
     const h = this.el.hurt;
     h.classList.add('on');
+    const tl = $('.hud-tl'); tl.classList.remove('shake'); void tl.offsetWidth; tl.classList.add('shake');
     clearTimeout(this._hurtT);
     this._hurtT = setTimeout(() => h.classList.remove('on'), 90);
   }
@@ -356,6 +383,15 @@ export class UI {
     b.classList.remove('on', 'small'); void b.offsetWidth;
     b.classList.toggle('small', small);
     b.classList.add('on');
+  }
+
+  // Elevator-style counter: the previous floor number rolls up into the new one.
+  floorBanner(f, sub) {
+    const b = this.el.banner;
+    $('.b-main', b).innerHTML = `FLOOR <span class="roll"><span class="roll-col"><i>${pad2(Math.max(0, f - 1))}</i><i>${pad2(f)}</i></span></span>`;
+    $('.b-sub', b).textContent = sub;
+    b.classList.remove('on', 'small'); void b.offsetWidth;
+    b.classList.add('small', 'on');
   }
 
   clearBanner(isBoss) { if (!isBoss) this.banner('CLEAR', '', true); }
@@ -385,7 +421,7 @@ export class UI {
       const isNew = !save.data.discovered.includes(u.id);
       const syn = synergyWith(u, run.owned);
       const motes = u.rarity === 'legendary' ? `<div class="motes">${Array.from({ length: 7 }, (_, i) => `<i style="left:${10 + i * 13}%;animation-delay:${(i * 0.43) % 3}s"></i>`).join('')}</div>` : '';
-      return `<button class="card ${u.rarity}" data-k="${k}" style="--d:${0.06 + k * 0.08}s;--rot:${(k - 1) * 2}deg">
+      return `<button class="card ${u.rarity}" data-k="${k}" style="--d:${0.08 + k * 0.11}s;--rot:${(k - 1) * 2}deg">
         ${motes}<span class="c-key">${keys[k]}</span>
         <div class="c-ico">${icon(u.icon)}</div>
         <div class="c-name">${u.name}</div>
@@ -406,7 +442,7 @@ export class UI {
     });
     const rr = $('[data-reroll]', el); if (rr) rr.addEventListener('click', () => this.reroll());
     this.show('cards');
-    cards.forEach((u, k) => setTimeout(() => audio.play('card'), 60 + k * 80));
+    cards.forEach((u, k) => setTimeout(() => { audio.play('card'); audio.play('flip'); }, 80 + k * 110));
     if (cards.some(u => u.rarity === 'legendary')) setTimeout(() => audio.play('legendary'), 300);
   }
 
@@ -541,6 +577,88 @@ export class UI {
     }));
     this.show('pause');
   }
+
+  // ---------------------------------------------------------------- intercom dialog
+  dialog(lines, choices) {
+    return new Promise(resolve => {
+      const el = $('#dialog');
+      this.dlg = { lines, choices, idx: -1, resolve, choicesShown: false, focus: 0 };
+      el.classList.add('on');
+      document.body.classList.add('dialog-open');
+      $('.dlg-choices', el).innerHTML = '';
+      audio.play('dialogOpen');
+      this.dialogNext();
+    });
+  }
+
+  dialogNext() {
+    const d = this.dlg, el = $('#dialog');
+    d.idx++;
+    if (d.idx >= d.lines.length) { this.dialogClose(undefined); return; }
+    const text = d.lines[d.idx];
+    const tEl = $('.dlg-text', el);
+    tEl.textContent = '';
+    el.classList.add('talking'); el.classList.remove('waiting');
+    d.typing = true; d.chars = 0;
+    clearInterval(d.timer);
+    d.timer = setInterval(() => {
+      d.chars += 1;
+      tEl.textContent = text.slice(0, d.chars);
+      if (d.chars % 3 === 1 && text[d.chars - 1] !== ' ') audio.play('talk');
+      if (d.chars >= text.length) this.dialogTypeDone();
+    }, 22);
+  }
+
+  dialogTypeDone() {
+    const d = this.dlg, el = $('#dialog');
+    clearInterval(d.timer); d.typing = false;
+    $('.dlg-text', el).textContent = d.lines[d.idx];
+    el.classList.remove('talking'); el.classList.add('waiting');
+    if (d.idx === d.lines.length - 1 && d.choices) {
+      d.choicesShown = true;
+      el.classList.add('has-choices');
+      const box = $('.dlg-choices', el);
+      box.innerHTML = d.choices.map((c, i) => `<button class="btn ${i === 0 ? 'primary' : 'ghost'}" data-v="${c.value}">${c.label}</button>`).join('');
+      box.querySelectorAll('button').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); this.dialogChoose(b.dataset.v); }));
+      this.renderChoiceFocus();
+    }
+  }
+
+  renderChoiceFocus() {
+    const btns = document.querySelectorAll('#dialog .dlg-choices button');
+    btns.forEach((b, i) => b.classList.toggle('kfocus', i === (this.dlg.focus || 0) && !input.touchMode));
+  }
+
+  dialogAdvance() {
+    const d = this.dlg; if (!d) return;
+    if (d.typing) { this.dialogTypeDone(); return; }
+    if (d.choicesShown) return;
+    audio.play('click');
+    this.dialogNext();
+  }
+
+  dialogChoose(v) { audio.play('select'); this.dialogClose(v); }
+
+  dialogClose(v) {
+    const d = this.dlg, el = $('#dialog');
+    clearInterval(d.timer);
+    el.classList.remove('on', 'talking', 'waiting', 'has-choices');
+    document.body.classList.remove('dialog-open');
+    this.dlg = null;
+    d.resolve(v);
+  }
+
+  // ---------------------------------------------------------------- tutorial objective
+  objective(o) {
+    const el = $('#objective');
+    if (!o) { el.classList.remove('on', 'done'); return; }
+    $('.obj-label', el).textContent = o.label;
+    $('.obj-text span', el).textContent = o.text;
+    $('.obj-hint', el).innerHTML = o.hint || '';
+    el.classList.remove('on', 'done'); void el.offsetWidth;
+    el.classList.add('on');
+  }
+  objectiveDone() { $('#objective').classList.add('done'); }
 
   // ---------------------------------------------------------------- world-space indicators
   drawIndicators(game) {

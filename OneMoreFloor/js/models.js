@@ -40,6 +40,11 @@ export function buildPlayer(skin) {
   const footL = part(footG, mBody, rig, -0.13, 0.05, 0, 0.12);
   const footR = part(footG, mBody, rig, 0.13, 0.05, 0, 0.12);
 
+  part(geo('pBuckle', () => new THREE.BoxGeometry(0.12, 0.08, 0.05)), mTrim, rig, 0, 0.26, 0.33);
+  // Free (left) arm, pivoted at the shoulder so it can swing while running.
+  const armL = new THREE.Group(); armL.position.set(-0.33, 0.62, 0); rig.add(armL);
+  part(geo('pArm', () => { const g = new THREE.BoxGeometry(0.11, 0.3, 0.11); g.translate(0, -0.13, 0); return g; }), mBody, armL, 0, 0, 0, 0.1);
+  part(geo('pFist', () => new THREE.BoxGeometry(0.12, 0.12, 0.12)), mHead, armL, 0, -0.3, 0);
   // Weapon on a pivot so swings rotate around the body.
   const pivot = new THREE.Group(); pivot.position.set(0, 0.5, 0); rig.add(pivot);
   const hand = part(geo('pHand', () => new THREE.BoxGeometry(0.12, 0.12, 0.12)), mHead, pivot, 0.36, 0, 0.12);
@@ -50,14 +55,22 @@ export function buildPlayer(skin) {
   // Accessories per skin.
   const acc = new THREE.Group(); rig.add(acc);
   const a = skin.acc;
+  // Cloth tails are chains of short segments; the game bends each one with a little lag.
+  const chain = (parent, x, y, z, w, n, segLen) => {
+    const segs = []; let p = parent;
+    const g = geo('chain' + w + segLen, () => { const g = new THREE.BoxGeometry(w, 0.045, segLen); g.translate(0, 0, -segLen / 2); return g; });
+    for (let k = 0; k < n; k++) {
+      const seg = new THREE.Group(); seg.position.set(k ? 0 : x, k ? 0 : y, k ? -segLen : z); p.add(seg);
+      part(g, mTrim, seg, 0, 0, 0); segs.push(seg); p = seg;
+    }
+    return segs;
+  };
   if (a === 'scarf') {
     part(geo('sc1', () => new THREE.CylinderGeometry(0.25, 0.29, 0.1, 7)), mTrim, acc, 0, 0.68, 0);
-    const tail = part(geo('sc2', () => { const g = new THREE.BoxGeometry(0.12, 0.05, 0.4); g.translate(0, 0, -0.2); return g; }), mTrim, acc, 0.08, 0.68, -0.2);
-    tail.rotation.x = 0.5; root.userData.tail = tail;
+    root.userData.chain = chain(acc, 0.08, 0.68, -0.22, 0.13, 4, 0.13);
   } else if (a === 'band') {
     part(geo('bd1', () => new THREE.CylinderGeometry(0.255, 0.255, 0.07, 9)), mTrim, head, 0, 0.1, 0);
-    const tail = part(geo('bd2', () => { const g = new THREE.BoxGeometry(0.05, 0.05, 0.36); g.translate(0, 0, -0.18); return g; }), mTrim, head, 0.06, 0.1, -0.22);
-    tail.rotation.x = 0.4; root.userData.tail = tail;
+    root.userData.chain = chain(head, 0.06, 0.1, -0.24, 0.06, 4, 0.1);
   } else if (a === 'visor') {
     eyeL.visible = eyeR.visible = false;
     part(geo('vs', () => new THREE.BoxGeometry(0.4, 0.08, 0.1)), mEyes, head, 0, 0.02, 0.21);
@@ -72,12 +85,16 @@ export function buildPlayer(skin) {
     cr.material = lambert(c.trim, { side: THREE.DoubleSide, emissive: c.trim, emissiveIntensity: 0.25 });
   }
 
-  return { root, rig, body, head, footL, footR, pivot, hand, blade, bladeMat, mats, mEyes };
+  if (a === 'plume' || a === 'crown' || a === 'hood' || a === 'visor') {
+    // short cape for the heavier skins
+    root.userData.chain = chain(rig, 0, 0.66, -0.26, 0.34, 3, 0.15);
+  }
+  return { root, rig, body, head, footL, footR, pivot, hand, blade, bladeMat, mats, mEyes, armL };
 }
 
 // ---------------- ENEMIES ----------------
 export const ENEMY_COLORS = {
-  runner: 0xe8584a, shooter: 0x9b6cff, tank: 0x8c4a3a, dasher: 0x2fb8c8, splitter: 0x8fcf4a,
+  runner: 0xe8584a, shooter: 0x9b6cff, tank: 0x8c4a3a, dasher: 0x2fb8c8, splitter: 0x8fcf4a, dummy: 0xb48a5c,
 };
 
 export function buildEnemy(type) {
@@ -95,6 +112,8 @@ export function buildEnemy(type) {
     part(geo('rE', () => new THREE.BoxGeometry(0.16, 0.09, 0.06)), mEye, body, 0, 0.1, 0.1);
     const legG = geo('rL', () => new THREE.BoxGeometry(0.08, 0.2, 0.08));
     m.legL = part(legG, mDark, rig, -0.15, 0.1, -0.05); m.legR = part(legG, mDark, rig, 0.15, 0.1, -0.05);
+    const spk = geo('rS', () => new THREE.ConeGeometry(0.06, 0.2, 4));
+    part(spk, mDark, body, 0, 0.17, -0.12).rotation.x = -0.5; part(spk, mDark, body, 0, 0.13, -0.24).rotation.x = -0.7;
     m.body = body; m.radius = 0.36; m.height = 0.7;
   } else if (type === 'shooter') {
     const body = part(geo('sB', () => new THREE.OctahedronGeometry(0.38, 0)), mMain, rig, 0, 0.95, 0, 0.09);
@@ -102,6 +121,9 @@ export function buildEnemy(type) {
     m.core = part(geo('sC', () => new THREE.IcosahedronGeometry(0.13, 0)), new THREE.MeshBasicMaterial({ color: 0xffd0ff }), rig, 0, 0.95, 0.3);
     const ring = part(geo('sR', () => new THREE.TorusGeometry(0.55, 0.035, 4, 12)), mDark, rig, 0, 0.95, 0);
     ring.rotation.x = Math.PI / 2;
+    m.orbiters = new THREE.Group(); m.orbiters.position.y = 0.95; rig.add(m.orbiters);
+    const shardG = geo('sSh', () => new THREE.TetrahedronGeometry(0.09, 0));
+    for (let k = 0; k < 3; k++) { const a = k * Math.PI * 2 / 3; part(shardG, mMain, m.orbiters, Math.sin(a) * 0.62, 0, Math.cos(a) * 0.62); }
     m.ring = ring; m.body = body; m.radius = 0.42; m.height = 1.4; m.float = true;
   } else if (type === 'tank') {
     const body = part(geo('tB', () => new THREE.BoxGeometry(1.05, 0.8, 0.95)), mMain, rig, 0, 0.5, 0, 0.06);
@@ -109,6 +131,8 @@ export function buildEnemy(type) {
     part(geo('tE', () => new THREE.BoxGeometry(0.5, 0.07, 0.05)), mEye, body, 0, 0.12, 0.49);
     const armG = geo('tA', () => new THREE.BoxGeometry(0.28, 0.5, 0.38));
     m.armL = part(armG, mDark, rig, -0.68, 0.42, 0.1, 0.08); m.armR = part(armG, mDark, rig, 0.68, 0.42, 0.1, 0.08);
+    const horn = geo('tH', () => new THREE.ConeGeometry(0.09, 0.32, 5));
+    part(horn, mEye, body, -0.36, 0.6, 0.22).rotation.set(0.5, 0, 0.5); part(horn, mEye, body, 0.36, 0.6, 0.22).rotation.set(0.5, 0, -0.5);
     m.body = body; m.radius = 0.7; m.height = 1.1;
   } else if (type === 'dasher') {
     const body = part(geo('dB', () => { const g = new THREE.OctahedronGeometry(0.4, 0); g.scale(0.65, 0.6, 1.4); return g; }), mMain, rig, 0, 0.5, 0, 0.09);
@@ -116,12 +140,23 @@ export function buildEnemy(type) {
     part(finG, mDark, rig, -0.32, 0.55, -0.1).rotation.y = 0.5;
     part(finG, mDark, rig, 0.32, 0.55, -0.1).rotation.set(0, -0.5, Math.PI);
     part(geo('dE', () => new THREE.BoxGeometry(0.2, 0.06, 0.05)), mEye, body, 0, 0.08, 0.42);
+    m.thruster = part(geo('dT', () => { const g = new THREE.ConeGeometry(0.13, 0.36, 6); g.rotateX(-Math.PI / 2); return g; }), new THREE.MeshBasicMaterial({ color: 0x9ff3ff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }), rig, 0, 0.5, -0.62);
     m.body = body; m.radius = 0.4; m.height = 0.9;
   } else if (type === 'splitter') {
     const body = part(geo('spB', () => new THREE.IcosahedronGeometry(0.46, 0)), mMain, rig, 0, 0.46, 0, 0.08);
     const eG = geo('spE', () => new THREE.BoxGeometry(0.08, 0.12, 0.05));
     part(eG, mEye, body, -0.12, 0.08, 0.4); part(eG, mEye, body, 0.12, 0.08, 0.4);
+    const bump = geo('spBu', () => new THREE.IcosahedronGeometry(0.17, 0));
+    part(bump, mMain, body, 0.3, 0.25, -0.2, 0.1); part(bump, mDark, body, -0.28, 0.3, -0.15, 0.1); part(bump, mMain, body, 0.05, 0.4, -0.25, 0.1);
     m.body = body; m.radius = 0.46; m.height = 0.95;
+  } else if (type === 'dummy') {
+    part(geo('duP', () => new THREE.CylinderGeometry(0.06, 0.08, 0.5, 6)), mDark, rig, 0, 0.25, 0);
+    const body = part(geo('duB', () => new THREE.CylinderGeometry(0.3, 0.34, 0.62, 8)), mMain, rig, 0, 0.78, 0, 0.08);
+    part(geo('duBand', () => new THREE.CylinderGeometry(0.345, 0.345, 0.07, 8)), mDark, body, 0, 0.05, 0);
+    part(geo('duH', () => new THREE.DodecahedronGeometry(0.2, 0)), mMain, rig, 0, 1.25, 0, 0.08);
+    const ring = part(geo('duT', () => new THREE.TorusGeometry(0.17, 0.035, 4, 16)), new THREE.MeshBasicMaterial({ color: 0xe8584a }), body, 0, 0.02, 0.33);
+    part(geo('duTc', () => new THREE.CircleGeometry(0.06, 10)), new THREE.MeshBasicMaterial({ color: 0xe8584a }), body, 0, 0.02, 0.34);
+    m.body = body; m.radius = 0.4; m.height = 1.4;
   }
   // Elite trim: a gold band; toggled by the game.
   const band = part(geo('elite', () => new THREE.TorusGeometry(0.62, 0.045, 4, 14)), new THREE.MeshBasicMaterial({ color: 0xf2b24a }), root, 0, 0.06, 0);

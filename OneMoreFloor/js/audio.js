@@ -132,7 +132,7 @@ class AudioEngine {
   play(name, p = {}) {
     if (!this.ready) return;
     const ctx = this.ctx, t = ctx.currentTime;
-    const gap = { hit: 0.035, swing: 0.04, coin: 0.025, enemyShoot: 0.05, death: 0.04, explode: 0.06, zap: 0.06, step: 0.1, hover: 0.03, telegraph: 0.08, hurtEnemy: 0.03 }[name] || 0;
+    const gap = { hit: 0.035, swing: 0.04, coin: 0.025, enemyShoot: 0.05, death: 0.04, explode: 0.06, zap: 0.06, step: 0.1, hover: 0.03, telegraph: 0.08, hurtEnemy: 0.03, talk: 0.045 }[name] || 0;
     if (gap && this.last[name] && t - this.last[name] < gap) return;
     this.last[name] = t;
     const r = (a = 0.06) => 1 + (Math.random() * 2 - 1) * a;
@@ -268,6 +268,20 @@ class AudioEngine {
       case 'spike':
         this.noiseHit(t, 0.08, 0.15, 'highpass', 2500);
         this.osc('square', 900, t, 0.05, 0.03, null, { to: 300 });
+        break;
+      case 'talk': // intercom voice blip
+        this.osc('square', 300 + Math.random() * 140, t, 0.045, 0.035, null, { filter: 'bandpass', cutoff: 1400, q: 2 });
+        break;
+      case 'dialogOpen':
+        this.noiseHit(t, 0.12, 0.08, 'bandpass', 2400, null, { q: 3 });
+        this.osc('sine', 880, t + 0.05, 0.12, 0.05);
+        this.osc('sine', 1320, t + 0.11, 0.16, 0.04);
+        break;
+      case 'objective':
+        [0, 7, 12].forEach((n, i) => this.osc('triangle', NOTE(79 + n), t + i * 0.06, 0.35, 0.09, null, { send: 0.5 }));
+        break;
+      case 'flip':
+        this.noiseHit(t, 0.07, 0.1, 'highpass', 4000, null, { cutoffTo: 9000 });
         break;
       case 'revive':
         [0, 7, 12, 19, 24].forEach((n, i) => this.osc('sine', NOTE(60 + n), t + i * 0.08, 1, 0.12, null, { send: 0.8 }));
