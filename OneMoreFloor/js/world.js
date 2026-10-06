@@ -2,6 +2,7 @@
 import * as THREE from '../lib/three.module.min.js';
 import { TILE, T, tileAt, toWorld } from './rooms.js';
 import { lambert } from './models.js';
+import { toonRamp as toonRampW } from './characters.js';
 import { damp, clamp } from './util.js';
 
 // Biomes shift the palette every 10 floors while keeping the same materials and lighting.
@@ -123,6 +124,11 @@ export class World {
     this.scorch.mesh.renderOrder = -1;
     const fzGeo = new THREE.CircleGeometry(0.5, 20); fzGeo.rotateX(-Math.PI / 2);
     this.zones = add(new Batch(fzGeo, new THREE.MeshBasicMaterial({ map: radialTexture('rgba(255,255,255,1)'), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }), 30, true));
+    // Ground spikes for Earth Throw and Frost Nova (erupt, hold, sink).
+    const stoneG = new THREE.ConeGeometry(0.22, 1, 5); stoneG.translate(0, 0.5, 0);
+    this.stoneSpikes = add(new Batch(stoneG, new THREE.MeshToonMaterial({ color: 0x8a7258, gradientMap: toonRampW() }), 120));
+    const iceG = new THREE.OctahedronGeometry(0.2, 0); iceG.scale(1, 2.6, 1); iceG.translate(0, 0.4, 0);
+    this.iceSpikes = add(new Batch(iceG, new THREE.MeshToonMaterial({ color: 0xcff4ff, emissive: 0x2a7a9a, emissiveIntensity: 0.6, gradientMap: toonRampW() }), 120));
     const droneGeo = new THREE.OctahedronGeometry(0.2, 0);
     this.drones = add(new Batch(droneGeo, lambert(0xe9e2d4, { emissive: 0xf2b24a, emissiveIntensity: 0.35 }), 8));
 

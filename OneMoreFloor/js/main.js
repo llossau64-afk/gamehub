@@ -6,9 +6,11 @@ import { World } from './world.js';
 import { FX } from './fx.js';
 import { Game } from './game.js';
 import { UI } from './ui.js';
+import { crazy } from './crazy.js';
 
 async function boot() {
   save.load();
+  const sdkReady = crazy.init();
   // Wait for the display font so the canvas-drawn floor numbers use it.
   try { await Promise.race([document.fonts.load('800 40px "Big Shoulders Display"'), new Promise(r => setTimeout(r, 1500))]); } catch (e) { /* fine */ }
 
@@ -53,12 +55,14 @@ async function boot() {
   };
   requestAnimationFrame(frame);
 
+  await Promise.race([sdkReady, new Promise(r => setTimeout(r, 2500))]);
+  crazy.loadingStop();
   const bootEl = document.getElementById('boot');
   bootEl.classList.add('gone');
   setTimeout(() => bootEl.remove(), 500);
 
   // Small hook for automated testing / debugging from the console.
-  window.__omf = { game, world, fx, ui, save, audio };
+  window.__omf = { game, world, fx, ui, save, audio, crazy };
 }
 
 boot().catch(err => {

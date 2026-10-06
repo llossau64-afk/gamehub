@@ -69,6 +69,21 @@ export class Preview {
     this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
   }
 
+  // Render a model once into an image (used for shop thumbnails).
+  snap(obj, frame, w = 192, h = 192) {
+    this.renderer.setSize(w, h, false); this._w = w; this._h = h;
+    this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
+    this.setModel(obj, frame);
+    this.holder.rotation.y = frame.rot ?? 0.5;
+    const c = this.camera, d = this.dist;
+    c.position.set(this.target.x, this.target.y + Math.sin(this.pitch) * d, this.target.z + Math.cos(this.pitch) * d);
+    c.lookAt(this.target);
+    this.renderer.render(this.scene, c);
+    const url = this.canvas.toDataURL('image/png');
+    this.setModel(null);
+    return url;
+  }
+
   render(dt) {
     if (!this.mounted || !this.canvas.isConnected) return;
     this.t += dt;

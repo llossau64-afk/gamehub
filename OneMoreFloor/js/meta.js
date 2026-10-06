@@ -13,19 +13,29 @@ export const PERMS = [
 export const SKINS = [
   { id: 'default', name: 'Climber', unlock: { type: 'free' }, c: { body: 0x2f3a4a, trim: 0xf2b24a, head: 0xe9d9c2, eyes: 0x1b1d22, blade: 0xffe2a8, trail: 0xf2b24a }, acc: 'scarf' },
   { id: 'street', name: 'Street', unlock: { type: 'coins', cost: 250 }, c: { body: 0xeeeae2, trim: 0xd8402f, head: 0xe0c3a0, eyes: 0x1b1d22, blade: 0xfff1e0, trail: 0xff6a4d }, acc: 'band' },
+  { id: 'scout', name: 'Scout', unlock: { type: 'coins', cost: 400 }, c: { body: 0x3a4a32, trim: 0x5a7a3a, head: 0xe6cba8, eyes: 0x1b1d22, blade: 0xe8f0d0, trail: 0xa8d86a } },
   { id: 'cyber', name: 'Cyber', unlock: { type: 'coins', cost: 700 }, c: { body: 0x1d2330, trim: 0x46d8e8, head: 0x2a3140, eyes: 0x66f0ff, blade: 0xa8f6ff, trail: 0x46d8e8 }, acc: 'visor' },
   { id: 'knight', name: 'Knight', unlock: { type: 'floor', floor: 11, label: 'Defeat The Warden' }, c: { body: 0x9aa3ad, trim: 0x3d5a9e, head: 0xb5bdc6, eyes: 0x1b1d22, blade: 0xe8eef6, trail: 0xcfe0ff }, acc: 'plume' },
   { id: 'shadow', name: 'Shadow', unlock: { type: 'kills', kills: 1500, label: 'Defeat 1,500 enemies' }, c: { body: 0x17161c, trim: 0x8b5cf6, head: 0x232129, eyes: 0xc4a6ff, blade: 0xc9b2ff, trail: 0x8b5cf6 }, acc: 'hood' },
   { id: 'golden', name: 'Golden', unlock: { type: 'floor', floor: 30, label: 'Reach floor 30' }, c: { body: 0xc9962e, trim: 0xfff0c0, head: 0xe8c66a, eyes: 0x3a2a0a, blade: 0xfff4d0, trail: 0xffd36b }, acc: 'crown' },
   { id: 'ronin', name: 'Ronin', unlock: { type: 'coins', cost: 1200 }, c: { body: 0x2a2630, trim: 0xb8322a, head: 0xe2c9a6, eyes: 0x1b1d22, blade: 0xf0f0f0, trail: 0xe8584a }, acc: 'hat' },
-  { id: 'warlord', name: 'Warlord', unlock: { type: 'coins', cost: 2200 }, c: { body: 0x3a3f48, trim: 0x8a2a22, head: 0x50565f, eyes: 0xff6a3a, blade: 0xffd0b0, trail: 0xff6a3a }, acc: 'horns' },
+  { id: 'pirate', name: 'Pirate', unlock: { type: 'coins', cost: 1800 }, c: { body: 0x3a2a24, trim: 0xd8a83a, head: 0xe2c49e, eyes: 0x1b1d22, blade: 0xf0e8d8, trail: 0xd8a83a } },
+  { id: 'astro', name: 'Astronaut', unlock: { type: 'coins', cost: 2400 }, c: { body: 0xe8e8ee, trim: 0xf2802a, head: 0xe6cba8, eyes: 0x1b1d22, blade: 0xd8f0ff, trail: 0x9fd8ff } },
+  { id: 'warlord', name: 'Warlord', unlock: { type: 'coins', cost: 3200 }, c: { body: 0x3a3f48, trim: 0x8a2a22, head: 0x50565f, eyes: 0xff6a3a, blade: 0xffd0b0, trail: 0xff6a3a }, acc: 'horns' },
   { id: 'ember', name: 'Ember', unlock: { type: 'mastery', ability: 'fire', label: 'Fireball mastery 20' }, c: { body: 0x2a1a16, trim: 0xff7a2a, head: 0x3a2620, eyes: 0xffc06a, blade: 0xffb05a, trail: 0xff7a2a }, acc: 'flame' },
   { id: 'storm', name: 'Stormcaller', unlock: { type: 'mastery', ability: 'lightning', label: 'Lightning mastery 20' }, c: { body: 0x1e2534, trim: 0x9fd4ff, head: 0x2c3548, eyes: 0xd8f0ff, blade: 0xd8f0ff, trail: 0x9fd4ff }, acc: 'halo' },
   { id: 'stone', name: 'Stoneborn', unlock: { type: 'mastery', ability: 'earth', label: 'Earth Throw mastery 20' }, c: { body: 0x5a4a3a, trim: 0xc9a06a, head: 0x7a6a58, eyes: 0xffd36b, blade: 0xe0c8a0, trail: 0xc9a06a }, acc: 'rocks' },
   { id: 'frostguard', name: 'Frostguard', unlock: { type: 'mastery', ability: 'frost', label: 'Frost Nova mastery 20' }, c: { body: 0xd8e6ee, trim: 0x5fb4e8, head: 0xa8c8dc, eyes: 0x1b3a5a, blade: 0xd8f6ff, trail: 0x9feaff }, acc: 'icehorns' },
   { id: 'zephyr', name: 'Zephyr', unlock: { type: 'mastery', ability: 'wind', label: 'Wind Blades mastery 20' }, c: { body: 0x2a3a34, trim: 0xc8ffd8, head: 0xd8e8dc, eyes: 0x1b2a22, blade: 0xe8fff0, trail: 0xc8ffd8 }, acc: 'longscarf' },
 ];
-export const SKIN_RARITY = { default: 'common', street: 'common', cyber: 'rare', knight: 'rare', ronin: 'rare', shadow: 'epic', warlord: 'epic', golden: 'legendary', ember: 'legendary', storm: 'legendary', stone: 'legendary', frostguard: 'legendary', zephyr: 'legendary' };
+export const SKIN_RARITY = { default: 'common', street: 'common', scout: 'common', cyber: 'rare', knight: 'rare', ronin: 'rare', pirate: 'superrare', astro: 'superrare', shadow: 'epic', warlord: 'epic', golden: 'legendary', ember: 'legendary', storm: 'legendary', stone: 'legendary', frostguard: 'legendary', zephyr: 'legendary' };
+export const RARITY_TIERS = [
+  { id: 'common', label: 'COMMON', color: '#b9b4a8' },
+  { id: 'rare', label: 'RARE', color: '#5fb4e8' },
+  { id: 'superrare', label: 'SUPER RARE', color: '#3fd0a0' },
+  { id: 'epic', label: 'EPIC', color: '#b07cf0' },
+  { id: 'legendary', label: 'LEGENDARY', color: '#f2b24a' },
+];
 
 // The Register: every monster in the tower.
 export const BESTIARY = [

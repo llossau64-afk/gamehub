@@ -696,3 +696,48 @@ body.touch.playing #btn-attack { grid-column: 2; grid-row: 2; }
   .stat { margin-top: 4px; }
   .pc-cta { text-align: center; }
 }
+
+/* ================= v4: rarity tiers + 3D thumbnails ================= */
+.tier { margin-bottom: 16px; }
+.tier-h { display: flex; align-items: center; gap: 10px; margin: 4px 2px 8px; font: 900 13px var(--display); letter-spacing: .26em; color: var(--rc); }
+.tier-h i { flex: 1; height: 1px; background: color-mix(in srgb, var(--rc) 40%, transparent); }
+.tier-h small { font: 800 11px var(--display); letter-spacing: .12em; color: var(--muted); }
+.stile { border-bottom-color: var(--rc); }
+.stile .thumb { display: block; width: 100%; aspect-ratio: 1; border-radius: 3px; overflow: hidden; background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--rc) 26%, #1f2027), #111114 72%); }
+.stile .thumb img { width: 100%; height: 100%; display: block; transition: transform .25s var(--ease); }
+.stile:hover .thumb img { transform: scale(1.06) translateY(-2px); }
+.stile.locked .thumb img { filter: brightness(.42) saturate(.5); }
+.stile.locked .thumb { background: radial-gradient(circle at 50% 38%, #1d1e24, #0f0f12 72%); }
+.tier[style*="f2b24a"] .stile:not(.locked) .thumb { box-shadow: inset 0 0 0 1px rgba(242,178,74,.35); }
+.stile .sw { display: none; }
+@media (max-width: 760px) { .stile b { font-size: 13px; } .stile { padding: 7px; gap: 4px; } }
+
+/* ---------------- daily reward + revive ---------------- */
+.daily-chip { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 4px; border: 1px solid var(--line-2); background: rgba(12,12,15,.6); text-align: left; transition: transform .15s var(--ease), border-color .2s; }
+.daily-chip .dc-ico { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 3px; background: rgba(242,178,74,.12); }
+.daily-chip b { display: block; font: 800 14px var(--display); letter-spacing: .14em; color: var(--text); }
+.daily-chip small { font-size: 11px; color: var(--muted); }
+.daily-chip.ready { border-color: var(--accent); animation: dailyPulse 1.8s ease-in-out infinite; }
+.daily-chip.ready b { color: var(--accent); }
+.daily-chip:hover { transform: translateY(-2px); }
+@keyframes dailyPulse { 50% { box-shadow: 0 0 0 5px rgba(242,178,74,.12); } }
+.daily .daily-note { font-size: 13px; color: var(--muted); margin: 6px 0 14px; }
+.days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+.day { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 4px; border-radius: 4px; background: #17171c; border: 1px solid var(--line); }
+.day small { font: 800 10px var(--display); letter-spacing: .14em; color: var(--muted); }
+.day b { font: 900 18px var(--display); }
+.day .coin-ico { width: 18px; height: 18px; }
+.day.big { background: linear-gradient(180deg, rgba(242,178,74,.12), #17171c); }
+.day.got { opacity: .45; } .day.got b::after { content: ' ✓'; color: var(--good); }
+.day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; animation: slotPop .6s var(--ease); }
+#revive { background: rgba(8,8,10,.82); z-index: 12; }
+.rev { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; animation: panelIn .3s var(--ease); }
+.rev small { font: 800 14px var(--display); letter-spacing: .3em; color: var(--danger); }
+.rev h2 { font: 900 64px / .9 var(--display); }
+.rev-ring { position: relative; width: 96px; height: 96px; margin: 6px 0; }
+.rev-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.rev-ring circle { fill: none; stroke: var(--accent); stroke-width: 6; stroke-dasharray: 276; animation: revRing 6s linear forwards; }
+@keyframes revRing { to { stroke-dashoffset: 276; } }
+.rev-ring b { position: absolute; inset: 0; display: grid; place-items: center; font: 900 40px var(--display); }
+.rev .btn.primary { min-height: 56px; padding: 0 28px; font-size: 22px; }
+@media (max-width: 760px) { .days { grid-template-columns: repeat(4, 1fr); } .menu-foot .daily-chip { order: -1; width: 100%; } }

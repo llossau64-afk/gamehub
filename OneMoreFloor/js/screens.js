@@ -4,18 +4,21 @@ import * as THREE from '../lib/three.module.min.js';
 import { save, levelFromXp } from './save.js';
 import { audio } from './audio.js';
 import { icon } from './upgrades.js';
-import { PERMS, SKINS, ACHIEVEMENTS, BESTIARY, SKIN_RARITY } from './meta.js';
+import { PERMS, SKINS, ACHIEVEMENTS, BESTIARY, SKIN_RARITY, RARITY_TIERS } from './meta.js';
+import { animateOutfit, buildPowerModel } from './characters.js';
 import { WEAPONS, WEAPON_BY_ID, buildWeapon } from './weapons.js';
 import { ABILITIES, ABILITY_BY_ID, masteryFromXp, TRACK, MAX_MASTERY, rewardLabel } from './abilities.js';
 import { buildPlayer, buildEnemy, buildBoss, buildOperator } from './models.js';
 import { Preview } from './preview.js';
 import { fmt, pad2 } from './util.js';
+import { crazy } from './crazy.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const hex = n => '#' + n.toString(16).padStart(6, '0');
 const BACK = '<svg viewBox="0 0 24 24"><path d="M15 5 L8 12 L15 19"/></svg>';
 const LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11 V8 A4 4 0 0 1 16 8 V11"/></svg>';
-const RCOL = { common: 'var(--common)', rare: 'var(--rare)', epic: 'var(--epic)', legendary: 'var(--legendary)' };
+const RCOL = Object.fromEntries(RARITY_TIERS.map(r => [r.id, r.color]));
+const RLABEL = Object.fromEntries(RARITY_TIERS.map(r => [r.id, r.label]));
 
 // Extra icons for powers and weapons.
 const XI = {
@@ -56,6 +59,19 @@ export function installScreens(UI) {
     }
     return this._pv;
   };
+  P.skinThumb = function (s) {
+    this._thumbs = this._thumbs || {};
+    const key = s.id;
+    if (this._thumbs[key]) return this._thumbs[key];
+    if (!this._thumbPv) this._thumbPv = new Preview({ spin: 0, floor: false });
+    const m = buildPlayer(s, 'stick');
+    m.armL.rotation.set(0.15, 0, -0.1); m.pivot.rotation.set(0, 0.45, 0.15);
+    animateOutfit(m.root, 0.4);
+    const url = this._thumbPv.snap(m.root, { y: 0.66, dist: 2.7, pitch: 0.16, rot: 0.42, floor: false }, 168, 168);
+    this._thumbs[key] = url;
+    return url;
+  };
+
   P.renderPreviews = function (dt) {
     if (this._pv) this._pv.render(dt);
     if (this._op) this._op.render(dt);
@@ -161,13 +177,17 @@ export function installScreens(UI) {
       }).join('');
     } else {
       sel = sel || this.shopSel?.skins || d.skin;
-      list = `<div class="skin-grid">${SKINS.map(s => {
-        const owned = d.skins.includes(s.id), r = SKIN_RARITY[s.id] || 'common';
-        return `<button class="stile ${sel === s.id ? 'sel' : ''} ${owned ? '' : 'locked'}" data-sel="${s.id}" style="--rc:${RCOL[r]}">
-          <span class="sw"><i style="background:${hex(s.c.body)}"></i><i style="background:${hex(s.c.trim)}"></i></span>
-          <b>${s.name}</b>${d.skin === s.id ? '<em>ON</em>' : owned ? '' : s.unlock.type === 'coins' ? `<small><i class="coin-ico"></i>${fmt(s.unlock.cost)}</small>` : `<small>${LOCK}</small>`}
-        </button>`;
-      }).join('')}</div>`;
+      list = RARITY_TIERS.map(tier => {
+        const group = SKINS.filter(s => (SKIN_RARITY[s.id] || 'common') === tier.id);
+        if (!group.length) return '';
+        return `<div class="tier" style="--rc:${tier.color}"><div class="tier-h"><span>${tier.label}</span><i></i><small>${group.filter(s => d.skins.includes(s.id)).length}/${group.length}</small></div><div class="skin-grid">${group.map(s => {
+          const owned = d.skins.includes(s.id);
+          return `<button class="stile ${sel === s.id ? 'sel' : ''} ${owned ? '' : 'locked'}" data-sel="${s.id}">
+            <span class="thumb"><img alt="" src="${this.skinThumb(s)}"></span>
+            <b>${s.name}</b>${d.skin === s.id ? '<em>ON</em>' : owned ? '' : s.unlock.type === 'coins' ? `<small><i class="coin-ico"></i>${fmt(s.unlock.cost)}</small>` : `<small>${LOCK}</small>`}
+          </button>`;
+        }).join('')}</div></div>`;
+      }).join('');
     }
     this.shopSel = this.shopSel || {};
     if (tab !== 'upgrades') this.shopSel[tab] = sel;
@@ -194,10 +214,11 @@ export function installScreens(UI) {
     let html = '', action = '';
     if (tab === 'skins') {
       const s = SKINS.find(x => x.id === id), owned = d.skins.includes(id), r = SKIN_RARITY[id] || 'common';
-      const m = buildPlayer(s, d.weapon); m.armL.rotation.x = 0.1;
-      pv.setModel(m.root, { y: 0.62, dist: 3.0, pitch: 0.2 });
+      const m = buildPlayer(s, d.weapon); m.armL.rotation.set(0.1, 0, -0.1); m.pivot.rotation.set(0, 0.45, 0.15);
+      pv.setModel(m.root, { y: 0.66, dist: 3.1, pitch: 0.18 });
+      pv.onFrame = (dt, t) => { animateOutfit(m.root, t); m.rig.position.y = Math.sin(t * 2.3) * 0.008; m.head.rotation.y = Math.sin(t * 0.8) * 0.15; m.eyes.scale.y = (t % 3.2) < 0.09 ? 0.12 : 1; };
       const u = s.unlock;
-      html = `<div class="si-rar" style="color:${RCOL[r]}">${r.toUpperCase()} SKIN</div><h3>${s.name}</h3><p>${owned ? 'You own this skin.' : u.type === 'coins' ? 'Buy it with coins.' : u.label + '.'} Skins only change how you look.</p>`;
+      html = `<div class="si-rar" style="color:${RCOL[r]}">${RLABEL[r]} SKIN</div><h3>${s.name}</h3><p>${owned ? 'You own this skin.' : u.type === 'coins' ? 'Buy it with coins.' : u.label + '.'} Skins only change how you look.</p>`;
       if (d.skin === id) action = `<button class="btn equipped off">EQUIPPED</button>`;
       else if (owned) action = `<button class="btn primary" data-act="equip-skin">EQUIP</button>`;
       else if (u.type === 'coins') action = `<button class="btn ${d.coins >= u.cost ? 'primary' : ''}" data-act="buy-skin"><i class="coin-ico"></i>BUY · ${fmt(u.cost)}</button>`;
@@ -215,12 +236,9 @@ export function installScreens(UI) {
       else action = `<button class="btn ${d.coins >= w.cost ? 'primary' : ''}" data-act="buy-weapon"><i class="coin-ico"></i>BUY · ${fmt(w.cost)}</button>`;
     } else if (tab === 'powers') {
       const a = ABILITY_BY_ID[id], own = d.abilities[id];
-      const g = new THREE.Group();
-      const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42, 1), new THREE.MeshBasicMaterial({ color: a.color }));
-      const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62, 0), new THREE.MeshBasicMaterial({ color: a.color, wireframe: true, transparent: true, opacity: 0.5 }));
-      orb.position.y = shell.position.y = 0.85; g.add(orb, shell);
-      pv.onFrame = (dt, t) => { shell.rotation.x = t * 0.7; orb.scale.setScalar(1 + Math.sin(t * 4) * 0.05); };
-      pv.setModel(g, { y: 0.8, dist: 3, pitch: 0.15 });
+      const pm = buildPowerModel(id);
+      pv.onFrame = (dt, t) => pm.animate(t);
+      pv.setModel(pm.group, { y: 0.85, dist: 3.2, pitch: 0.12 });
       const lv = own ? masteryFromXp(own.xp).level : 1;
       html = `<div class="si-rar" style="color:${a.css}">POWER${own ? ` · MASTERY ${lv}/20` : ''}</div><h3>${a.name}</h3><p>${a.desc}</p>
         <ul class="perks">${[3, 7, 10, 14, 20].map(l => `<li class="${own && lv >= l ? 'got' : ''}"><b>LV ${l}</b>${a.perks[l]}</li>`).join('')}</ul>`;
@@ -230,7 +248,7 @@ export function installScreens(UI) {
       else if (lvl < a.shop.level) action = `<button class="btn off">${LOCK} REACH LEVEL ${a.shop.level}</button>`;
       else action = `<button class="btn ${d.coins >= a.shop.cost ? 'primary' : ''}" data-act="buy-power"><i class="coin-ico"></i>BUY · ${fmt(a.shop.cost)}</button>`;
     }
-    if (tab !== 'powers') pv.onFrame = null;
+    if (tab === 'weapons') pv.onFrame = null;
     info.innerHTML = html + `<div class="stage-act">${action}</div>`;
     const btn = info.querySelector('[data-act]');
     if (btn) btn.addEventListener('click', () => this.shopAct(btn.dataset.act, tab, id));
@@ -343,6 +361,71 @@ export function installScreens(UI) {
     audio.play('ride');
     this.show('hud');
     setTimeout(() => { cb(); setTimeout(() => el.classList.remove('on'), 120); }, 1050);
+  };
+
+  // ------------------------------------------------------------ revive offer (CrazyGames rewarded ad)
+  P.showRevive = function (g) {
+    const el = $('#revive');
+    el.innerHTML = `<div class="rev"><small>YOU FELL ON FLOOR ${g.run.floor}</small><h2>CONTINUE?</h2>
+      <div class="rev-ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" /></svg><b>6</b></div>
+      <button class="btn primary" data-rv="ad">REVIVE · WATCH AN AD</button><button class="btn ghost" data-rv="no">NO THANKS</button></div>`;
+    this.show('revive');
+    let left = 6, done = false;
+    const num = $('.rev-ring b', el);
+    const finish = ok => { if (done) return; done = true; clearInterval(timer); ok ? g.revive() : g.giveUp(); };
+    const timer = setInterval(() => { left--; num.textContent = left; audio.play('hover'); if (left <= 0) finish(false); }, 1000);
+    $('[data-rv=ad]', el).addEventListener('click', () => { if (done) return; clearInterval(timer); audio.play('click'); crazy.rewarded().then(ok => { done = false; finish(ok); }); });
+    $('[data-rv=no]', el).addEventListener('click', () => { audio.play('back'); finish(false); });
+  };
+
+  // ------------------------------------------------------------ daily reward (7-day streak)
+  const DAILY = [50, 80, 120, 160, 220, 300, 500];
+  const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+  const yesterday = () => { const d = new Date(Date.now() - 864e5); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+  P.dailyState = function () {
+    const dl = save.data.daily;
+    const can = dl.last !== today();
+    const streak = can ? (dl.last === yesterday() ? dl.streak % 7 : 0) : (dl.streak - 1) % 7;
+    return { can, day: streak };
+  };
+  P.updateDailyChip = function () {
+    let chip = $('#daily-chip');
+    if (!chip) {
+      chip = document.createElement('button'); chip.id = 'daily-chip'; chip.className = 'daily-chip';
+      chip.innerHTML = '<span class="dc-ico"><i class="coin-ico"></i></span><span><b>DAILY REWARD</b><small></small></span>';
+      $('.menu-foot').prepend(chip);
+      chip.addEventListener('click', () => { audio.play('click'); this.showDaily(); });
+    }
+    const st = this.dailyState();
+    chip.classList.toggle('ready', st.can);
+    $('small', chip).textContent = st.can ? `Day ${st.day + 1} · ${DAILY[st.day]} coins` : 'Come back tomorrow';
+  };
+  P.showDaily = function () {
+    const st = this.dailyState(), el = $('#daily');
+    el.innerHTML = `<div class="panel daily"><div class="panel-head"><button class="back" aria-label="Back">${BACK}</button><h2>DAILY REWARD</h2><div class="wallet"><i class="coin-ico"></i><span>${fmt(save.data.coins)}</span></div></div>
+      <div class="panel-body"><p class="daily-note">Come back every day. Miss a day and the streak starts over.</p>
+      <div class="days">${DAILY.map((c, k) => `<div class="day ${k < st.day || (!st.can && k === st.day) ? 'got' : ''} ${st.can && k === st.day ? 'today' : ''} ${k === 6 ? 'big' : ''}"><small>DAY ${k + 1}</small><i class="coin-ico"></i><b>${c}</b></div>`).join('')}</div>
+      <div class="stage-act">${st.can ? `<button class="btn primary" data-claim>CLAIM ${DAILY[st.day]} COINS</button>` : '<button class="btn off">CLAIMED TODAY</button>'}</div></div></div>`;
+    $('.back', el).addEventListener('click', () => this.back());
+    const cl = $('[data-claim]', el);
+    if (cl) cl.addEventListener('click', () => {
+      const dl = save.data.daily, s2 = this.dailyState();
+      if (!s2.can) return;
+      save.data.coins += DAILY[s2.day];
+      dl.streak = s2.day + 1; dl.last = today(); save.write();
+      audio.play('levelUp'); audio.play('buy');
+      const tile = el.querySelector('.day.today'), w = $('.wallet', el);
+      if (tile && w) {
+        const a = tile.getBoundingClientRect(), b = w.getBoundingClientRect();
+        for (let k = 0; k < 12; k++) {
+          const c = document.createElement('i'); c.className = 'coin-ico fly'; c.style.left = (a.left + a.width / 2) + 'px'; c.style.top = (a.top + a.height / 2) + 'px'; document.body.appendChild(c);
+          const dx = b.left + 10 - a.left - a.width / 2 + (Math.random() - 0.5) * 10, dy = b.top + 12 - a.top - a.height / 2;
+          c.animate([{ transform: 'translate(-50%,-50%) scale(1.4)' }, { transform: `translate(calc(-50% + ${dx * 0.2 + (Math.random() - 0.5) * 120}px), calc(-50% + ${-60 - Math.random() * 60}px)) scale(1.2)`, offset: 0.35 }, { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.7)` }], { duration: 700 + k * 40, easing: 'cubic-bezier(.5,0,.8,.6)' }).onfinish = () => { c.remove(); audio.play('coin'); };
+        }
+      }
+      setTimeout(() => { this.showDaily(); this.updateDailyChip(); }, 1300);
+    });
+    this.show('daily');
   };
 
   // ------------------------------------------------------------ effects

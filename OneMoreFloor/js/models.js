@@ -1,11 +1,15 @@
 // Procedural low-poly models. Every character is built from a handful of flat-shaded primitives,
 // with an inverted-hull outline on the main shapes so everything reads as one consistent style.
 import * as THREE from '../lib/three.module.min.js';
-import { buildWeapon } from './weapons.js';
+import { toonRamp } from './characters.js';
 
 const OUTLINE = new THREE.MeshBasicMaterial({ color: 0x0b0c10, side: THREE.BackSide });
 const geoCache = new Map();
 function geo(key, make) { if (!geoCache.has(key)) geoCache.set(key, make()); return geoCache.get(key); }
+
+export function charMat(color, extra = {}) {
+  return new THREE.MeshToonMaterial({ color, gradientMap: toonRamp(), ...extra });
+}
 
 export function lambert(color, extra = {}) {
   return new THREE.MeshLambertMaterial({ color, flatShading: true, ...extra });
@@ -23,109 +27,7 @@ function part(g, mat, parent, x = 0, y = 0, z = 0, outline = 0) {
   return m;
 }
 
-// ---------------- PLAYER ----------------
-export function buildPlayer(skin, weaponId = 'stick') {
-  const root = new THREE.Group();
-  const rig = new THREE.Group(); root.add(rig);
-  const c = skin.c;
-  const mBody = lambert(c.body), mTrim = lambert(c.trim), mHead = lambert(c.head), mEyes = new THREE.MeshBasicMaterial({ color: c.eyes });
-  const mats = [mBody, mTrim, mHead];
-
-  const body = part(geo('pBody', () => new THREE.CylinderGeometry(0.27, 0.33, 0.52, 7)), mBody, rig, 0, 0.42, 0, 0.09);
-  part(geo('pBelt', () => new THREE.CylinderGeometry(0.335, 0.335, 0.09, 7)), mTrim, rig, 0, 0.26, 0);
-  const head = part(geo('pHead', () => new THREE.DodecahedronGeometry(0.27, 0)), mHead, rig, 0, 0.9, 0, 0.08);
-  const eyeG = geo('pEye', () => new THREE.BoxGeometry(0.055, 0.1, 0.04));
-  const eyeL = part(eyeG, mEyes, head, -0.09, 0.02, 0.24);
-  const eyeR = part(eyeG, mEyes, head, 0.09, 0.02, 0.24);
-  const footG = geo('pFoot', () => new THREE.BoxGeometry(0.13, 0.1, 0.22));
-  const footL = part(footG, mBody, rig, -0.13, 0.05, 0, 0.12);
-  const footR = part(footG, mBody, rig, 0.13, 0.05, 0, 0.12);
-
-  part(geo('pBuckle', () => new THREE.BoxGeometry(0.12, 0.08, 0.05)), mTrim, rig, 0, 0.26, 0.33);
-  // Free (left) arm, pivoted at the shoulder so it can swing while running.
-  const armL = new THREE.Group(); armL.position.set(-0.33, 0.62, 0); rig.add(armL);
-  part(geo('pArm', () => { const g = new THREE.BoxGeometry(0.11, 0.3, 0.11); g.translate(0, -0.13, 0); return g; }), mBody, armL, 0, 0, 0, 0.1);
-  part(geo('pFist', () => new THREE.BoxGeometry(0.12, 0.12, 0.12)), mHead, armL, 0, -0.3, 0);
-  // Weapon on a pivot so swings rotate around the body.
-  const pivot = new THREE.Group(); pivot.position.set(0, 0.5, 0); rig.add(pivot);
-  const hand = part(geo('pHand', () => new THREE.BoxGeometry(0.12, 0.12, 0.12)), mHead, pivot, 0.36, 0, 0.12);
-  const bladeMat = new THREE.MeshBasicMaterial({ color: c.blade });
-  const blade = buildWeapon(weaponId);
-  hand.add(blade);
-
-  // Accessories per skin.
-  const acc = new THREE.Group(); rig.add(acc);
-  const a = skin.acc;
-  // Cloth tails are chains of short segments; the game bends each one with a little lag.
-  const chain = (parent, x, y, z, w, n, segLen) => {
-    const segs = []; let p = parent;
-    const g = geo('chain' + w + segLen, () => { const g = new THREE.BoxGeometry(w, 0.045, segLen); g.translate(0, 0, -segLen / 2); return g; });
-    for (let k = 0; k < n; k++) {
-      const seg = new THREE.Group(); seg.position.set(k ? 0 : x, k ? 0 : y, k ? -segLen : z); p.add(seg);
-      part(g, mTrim, seg, 0, 0, 0); segs.push(seg); p = seg;
-    }
-    return segs;
-  };
-  if (a === 'longscarf') {
-    root.userData.chain = chain(acc, 0.06, 0.68, -0.22, 0.15, 7, 0.13);
-  } else if (a === 'scarf') {
-    part(geo('sc1', () => new THREE.CylinderGeometry(0.25, 0.29, 0.1, 7)), mTrim, acc, 0, 0.68, 0);
-    root.userData.chain = chain(acc, 0.08, 0.68, -0.22, 0.13, 4, 0.13);
-  } else if (a === 'band') {
-    part(geo('bd1', () => new THREE.CylinderGeometry(0.255, 0.255, 0.07, 9)), mTrim, head, 0, 0.1, 0);
-    root.userData.chain = chain(head, 0.06, 0.1, -0.24, 0.06, 4, 0.1);
-  } else if (a === 'visor') {
-    eyeL.visible = eyeR.visible = false;
-    part(geo('vs', () => new THREE.BoxGeometry(0.4, 0.08, 0.1)), mEyes, head, 0, 0.02, 0.21);
-    part(geo('ant', () => new THREE.BoxGeometry(0.03, 0.22, 0.03)), mTrim, head, 0.16, 0.25, -0.05);
-  } else if (a === 'plume') {
-    part(geo('hl', () => new THREE.CylinderGeometry(0.29, 0.29, 0.2, 8)), mBody, head, 0, 0.07, 0);
-    part(geo('pl', () => new THREE.ConeGeometry(0.08, 0.38, 5)), mTrim, head, 0, 0.36, -0.06).rotation.x = -0.4;
-  } else if (a === 'hood') {
-    part(geo('hd', () => new THREE.ConeGeometry(0.34, 0.5, 6)), mBody, head, 0, 0.14, -0.05, 0.06).rotation.x = -0.25;
-  } else if (a === 'crown') {
-    const cr = part(geo('cr', () => new THREE.CylinderGeometry(0.2, 0.17, 0.12, 6, 1, true)), mTrim, head, 0, 0.27, 0);
-    cr.material = lambert(c.trim, { side: THREE.DoubleSide, emissive: c.trim, emissiveIntensity: 0.25 });
-  } else if (a === 'hat') { // wide straw hat + sash
-    const hat = part(geo('hat', () => new THREE.ConeGeometry(0.55, 0.24, 10)), lambert(0xc9a86a), head, 0, 0.24, 0, 0.05);
-    hat.rotation.x = -0.08;
-    part(geo('hatb', () => new THREE.CylinderGeometry(0.2, 0.2, 0.05, 10)), mTrim, head, 0, 0.16, 0);
-    part(geo('sash', () => new THREE.BoxGeometry(0.62, 0.09, 0.1)), mTrim, rig, 0, 0.5, 0.05).rotation.z = 0.5;
-  } else if (a === 'horns') { // heavy helm with horns and pauldrons
-    part(geo('helm', () => new THREE.CylinderGeometry(0.29, 0.3, 0.26, 8)), mBody, head, 0, 0.06, 0, 0.06);
-    const hornG = geo('horn', () => { const g = new THREE.ConeGeometry(0.06, 0.34, 5); g.translate(0, 0.17, 0); return g; });
-    part(hornG, lambert(0xe8dcc4), head, -0.26, 0.12, 0).rotation.z = 1.0;
-    part(hornG, lambert(0xe8dcc4), head, 0.26, 0.12, 0).rotation.z = -1.0;
-    const pg = geo('paul', () => new THREE.DodecahedronGeometry(0.17, 0));
-    part(pg, mTrim, rig, -0.33, 0.66, 0, 0.08).scale.set(1.1, 0.7, 1); part(pg, mTrim, rig, 0.33, 0.66, 0, 0.08).scale.set(1.1, 0.7, 1);
-  } else if (a === 'flame') { // burning crown of flames
-    const fg = geo('flm', () => new THREE.ConeGeometry(0.07, 0.3, 4));
-    const fm = new THREE.MeshBasicMaterial({ color: 0xff8a3a, transparent: true, opacity: 0.9 });
-    for (let k = 0; k < 5; k++) { const a2 = k * Math.PI * 2 / 5; part(fg, fm, head, Math.sin(a2) * 0.16, 0.3, Math.cos(a2) * 0.16).scale.y = 0.8 + (k % 2) * 0.5; }
-    root.userData.flames = true;
-  } else if (a === 'halo') {
-    const ring = part(geo('halo', () => new THREE.TorusGeometry(0.3, 0.025, 4, 24)), new THREE.MeshBasicMaterial({ color: c.trim }), head, 0, 0.42, 0);
-    ring.rotation.x = Math.PI / 2; root.userData.halo = ring;
-  } else if (a === 'rocks') {
-    const rg = geo('rk', () => new THREE.DodecahedronGeometry(0.15, 0));
-    const rm = lambert(0x8a7a62);
-    part(rg, rm, rig, -0.36, 0.68, 0, 0.08).scale.set(1.2, 0.9, 1.1); part(rg, rm, rig, 0.36, 0.68, 0, 0.08).scale.set(1.2, 0.9, 1.1);
-    part(geo('rkc', () => new THREE.DodecahedronGeometry(0.1, 0)), rm, head, 0.1, 0.25, -0.05, 0.08);
-  } else if (a === 'icehorns') {
-    const ig = geo('ih', () => { const g = new THREE.ConeGeometry(0.05, 0.4, 4); g.translate(0, 0.2, 0); return g; });
-    const im = new THREE.MeshLambertMaterial({ color: 0xbfefff, emissive: 0x3a7a9a, emissiveIntensity: 0.5, flatShading: true });
-    part(ig, im, head, -0.18, 0.15, 0).rotation.z = 0.45; part(ig, im, head, 0.18, 0.15, 0).rotation.z = -0.45; part(ig, im, head, 0, 0.22, -0.08).rotation.x = -0.4;
-  }
-  if (a === 'longscarf') {
-    part(geo('sc1', () => new THREE.CylinderGeometry(0.25, 0.29, 0.1, 7)), mTrim, acc, 0, 0.68, 0);
-  }
-
-  if (a === 'plume' || a === 'crown' || a === 'hood' || a === 'visor' || a === 'horns' || a === 'flame' || a === 'halo' || a === 'rocks' || a === 'icehorns' || a === 'hat') {
-    // short cape for the heavier skins
-    root.userData.chain = chain(rig, 0, 0.66, -0.26, 0.34, 3, 0.15);
-  }
-  return { root, rig, body, head, footL, footR, pivot, hand, blade, bladeMat, mats, mEyes, armL };
-}
+export { buildPlayer } from './characters.js';
 
 // ---------------- ENEMIES ----------------
 export const ENEMY_COLORS = {
@@ -136,8 +38,8 @@ export function buildEnemy(type) {
   const root = new THREE.Group();
   const rig = new THREE.Group(); root.add(rig);
   const col = ENEMY_COLORS[type];
-  const mMain = lambert(col, { emissive: 0xffffff, emissiveIntensity: 0 });
-  const mDark = lambert(new THREE.Color(col).multiplyScalar(0.45).getHex(), { emissive: 0xffffff, emissiveIntensity: 0 });
+  const mMain = charMat(col, { emissive: 0xffffff, emissiveIntensity: 0 });
+  const mDark = charMat(new THREE.Color(col).multiplyScalar(0.45).getHex(), { emissive: 0xffffff, emissiveIntensity: 0 });
   const mEye = new THREE.MeshBasicMaterial({ color: 0xfff3d6 });
   const mats = [mMain, mDark];
   const m = { root, rig, mats, mEye, type };
@@ -204,8 +106,8 @@ export function buildBoss(kind) {
   const root = new THREE.Group();
   const rig = new THREE.Group(); root.add(rig);
   const m = { root, rig, kind };
-  const steel = lambert(0x3a3f4b, { emissive: 0xffffff, emissiveIntensity: 0 });
-  const dark = lambert(0x23262e, { emissive: 0xffffff, emissiveIntensity: 0 });
+  const steel = charMat(0x3a3f4b, { emissive: 0xffffff, emissiveIntensity: 0 });
+  const dark = charMat(0x23262e, { emissive: 0xffffff, emissiveIntensity: 0 });
   m.mats = [steel, dark];
   if (kind === 'warden') {
     const accent = 0xff4fa3;
@@ -238,7 +140,7 @@ export function buildBoss(kind) {
     const bm = new THREE.MeshBasicMaterial({ color: 0xcff8ff });
     m.armL = part(bladeG, bm, rig, -0.75, 1.3, 0); m.armR = part(bladeG, bm, rig, 0.75, 1.3, 0);
     m.armL.rotation.y = -0.35; m.armR.rotation.y = 0.35;
-    part(new THREE.ConeGeometry(0.9, 0.9, 5, 1, true), lambert(0x15171c, { side: THREE.DoubleSide }), rig, 0, 1.75, -0.15).rotation.x = 0.15;
+    part(new THREE.ConeGeometry(0.9, 0.9, 5, 1, true), charMat(0x15171c, { side: THREE.DoubleSide }), rig, 0, 1.75, -0.15).rotation.x = 0.15;
     m.body = body; m.radius = 0.9; m.height = 2.8;
   }
   return m;
@@ -258,9 +160,9 @@ function glowTex() {
 }
 export function buildOperator() {
   const root = new THREE.Group();
-  const steel = lambert(0x2c2f36), steelLite = lambert(0x4b505a), steelDark = lambert(0x1a1c21);
-  const gold = lambert(0xc08f34, { emissive: 0x3a2400, emissiveIntensity: 0.45 });
-  const cloth = lambert(0x6a1c1c), fur = lambert(0x4a3f38), leather = lambert(0x2a211c), horn = lambert(0x2a2420);
+  const steel = charMat(0x2c2f36), steelLite = charMat(0x4b505a), steelDark = charMat(0x1a1c21);
+  const gold = charMat(0xc08f34, { emissive: 0x3a2400, emissiveIntensity: 0.45 });
+  const cloth = charMat(0x6a1c1c), fur = charMat(0x4a3f38), leather = charMat(0x2a211c), horn = charMat(0x2a2420);
   const glow = new THREE.MeshBasicMaterial({ color: 0xffb347 });
   const add = (g, m, p, x, y, z, o = 0) => part(g, m, p, x, y, z, o);
   const body = new THREE.Group(); root.add(body);
@@ -321,7 +223,7 @@ export function buildOperator() {
       const seg = add(new THREE.CylinderGeometry(0.075 * r * 0.7, 0.075 * r, 0.3, 6), horn, p, 0, 0.15, 0); seg.position.y = 0.15;
       const nx = new THREE.Group(); nx.position.y = 0.28; nx.rotation.z = sx * 0.55; nx.rotation.x = -0.15; p.add(nx); p = nx; r *= 0.7;
     }
-    add(new THREE.ConeGeometry(0.035, 0.16, 6), lambert(0xd8ccb4), p, 0, 0.08, 0);
+    add(new THREE.ConeGeometry(0.035, 0.16, 6), charMat(0xd8ccb4), p, 0, 0.08, 0);
   }
 
   // rune staff in the right gauntlet

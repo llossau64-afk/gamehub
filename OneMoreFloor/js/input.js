@@ -18,6 +18,7 @@ export const input = {
   lastDevice: 'keyboard',
 };
 
+let lastTouch = 0;
 const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0, el: null, knob: null };
 const btn = { attack: null, dash: null, attackId: null };
 let gpPrev = {};
@@ -43,21 +44,29 @@ export function initInput(canvas, ui) {
   window.addEventListener('keyup', e => onKey(e, false));
   window.addEventListener('blur', () => { k.clear(); input.attackHeld = false; });
 
-  canvas.addEventListener('mousemove', e => {
+  // Mouse: pointer events only, so the fake mouse events iOS/Android send after a tap can
+  // never switch the game out of touch mode (that used to hide the joystick).
+  const onGameSurface = t => t === canvas || (t && t.id === 'touch-zone');
+  window.addEventListener('pointermove', e => {
+    if (e.pointerType !== 'mouse') return;
+    if (performance.now() - lastTouch < 800) return;
     input.aimScreen = { x: e.clientX, y: e.clientY };
     input.mouseActive = true;
     input.lastDevice = 'mouse';
-    if (input.touchMode) setTouchMode(false);
+    if (input.touchMode && (Math.abs(e.movementX) + Math.abs(e.movementY) > 2)) setTouchMode(false);
   });
-  canvas.addEventListener('mousedown', e => {
+  window.addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'mouse' || !onGameSurface(e.target)) return;
+    if (performance.now() - lastTouch < 800) return;
     input.anyPressed = true;
     input.aimScreen = { x: e.clientX, y: e.clientY };
     input.mouseActive = true;
     if (e.button === 0) { input.attackHeld = true; input.attackPressed = true; }
     if (e.button === 2) input.abilityPressed = true;
   });
-  window.addEventListener('mouseup', e => { if (e.button === 0) input.attackHeld = false; });
+  window.addEventListener('pointerup', e => { if (e.pointerType === 'mouse' && e.button === 0) input.attackHeld = false; });
   canvas.addEventListener('contextmenu', e => e.preventDefault());
+  document.getElementById('touch-zone').addEventListener('contextmenu', e => e.preventDefault());
 
   // ----- touch -----
   joy.el = document.getElementById('joy');
@@ -66,13 +75,18 @@ export function initInput(canvas, ui) {
   btn.dash = document.getElementById('btn-dash');
   btn.skill = document.getElementById('btn-skill');
 
-  const touchZone = document.getElementById('touch-zone');
-  touchZone.addEventListener('touchstart', e => {
+  // Any touch anywhere means touch controls, immediately.
+  document.addEventListener('touchstart', () => { lastTouch = performance.now(); if (!input.touchMode) setTouchMode(true); }, { capture: true, passive: true });
+
+  // The joystick listens on the whole document while playing, so it works even if the very first
+  // touch lands before the touch layer is shown. UI elements (buttons, panels, dialog) are skipped.
+  const isUi = t => t && t.closest && t.closest('button, .screen.on, #dialog, input, #hud .icon-btn');
+  document.addEventListener('touchstart', e => {
+    if (!document.body.classList.contains('playing') || isUi(e.target)) return;
     e.preventDefault();
-    setTouchMode(true);
     input.anyPressed = true;
     for (const t of e.changedTouches) {
-      if (joy.id === null && t.clientX < window.innerWidth * 0.55) {
+      if (joy.id === null && t.clientX < window.innerWidth * 0.6) {
         joy.id = t.identifier; joy.ox = t.clientX; joy.oy = t.clientY; joy.x = 0; joy.y = 0;
         joy.el.style.transform = `translate(${t.clientX}px, ${t.clientY}px)`;
         joy.el.classList.add('on');
@@ -87,7 +101,6 @@ export function initInput(canvas, ui) {
       let dx = t.clientX - joy.ox, dy = t.clientY - joy.oy;
       const R = 52, d = Math.hypot(dx, dy);
       if (d > R) {
-        // Drag the base along so the stick never "runs out".
         const over = d - R;
         joy.ox += dx / d * over; joy.oy += dy / d * over;
         dx = t.clientX - joy.ox; dy = t.clientY - joy.oy;
@@ -104,18 +117,20 @@ export function initInput(canvas, ui) {
       joy.el.classList.remove('on');
     }
   };
-  touchZone.addEventListener('touchmove', moveJoy, { passive: false });
-  touchZone.addEventListener('touchend', endJoy);
-  touchZone.addEventListener('touchcancel', endJoy);
+  document.addEventListener('touchmove', moveJoy, { passive: false });
+  document.addEventListener('touchend', endJoy);
+  document.addEventListener('touchcancel', endJoy);
+  // if play stops (dialog, cards, death) the stick lets go
+  input.releaseStick = () => { joy.id = null; joy.x = 0; joy.y = 0; joy.el.classList.remove('on'); input.attackHeld = false; };
 
   const press = (el, onDown, onUp) => {
     el.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); setTouchMode(true); el.classList.add('down'); onDown(e); }, { passive: false });
     const up = e => { e.preventDefault(); el.classList.remove('down'); onUp && onUp(e); };
     el.addEventListener('touchend', up); el.addEventListener('touchcancel', up);
     // Allow testing the buttons with a mouse too.
-    el.addEventListener('mousedown', e => { e.preventDefault(); el.classList.add('down'); onDown(e); });
-    el.addEventListener('mouseup', e => { el.classList.remove('down'); onUp && onUp(e); });
-    el.addEventListener('mouseleave', e => { if (el.classList.contains('down')) { el.classList.remove('down'); onUp && onUp(e); } });
+    el.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') return; e.preventDefault(); el.classList.add('down'); onDown(e); });
+    el.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') return; el.classList.remove('down'); onUp && onUp(e); });
+    el.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && el.classList.contains('down')) { el.classList.remove('down'); onUp && onUp(e); } });
   };
   press(btn.attack, () => { input.attackHeld = true; input.attackPressed = true; }, () => { input.attackHeld = false; });
   press(btn.dash, () => { input.dashPressed = true; });
@@ -125,7 +140,8 @@ export function initInput(canvas, ui) {
   document.addEventListener('gesturestart', e => e.preventDefault());
   document.addEventListener('dblclick', e => e.preventDefault());
 
-  if (matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches) setTouchMode(true);
+  const coarse = matchMedia('(pointer: coarse)').matches || matchMedia('(any-pointer: coarse)').matches;
+  if ((navigator.maxTouchPoints > 0 && coarse) || ('ontouchstart' in window && !matchMedia('(any-pointer: fine)').matches)) setTouchMode(true);
 }
 
 function isTyping(e) { return e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'); }

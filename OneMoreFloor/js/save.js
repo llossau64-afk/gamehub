@@ -23,6 +23,7 @@ const DEFAULTS = () => ({
   abilities: {},
   ability: null,
   bestiary: {},
+  daily: { last: '', streak: 0 },
   settings: { master: 0.8, music: 0.6, sfx: 0.9, shake: 1, numbers: true, quality: 'auto' },
 });
 

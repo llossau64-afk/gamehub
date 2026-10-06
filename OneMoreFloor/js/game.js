@@ -3,6 +3,7 @@ import * as THREE from '../lib/three.module.min.js';
 import { RNG, clamp, damp, angleDiff, rand, TAU, dist2 } from './util.js';
 import { TILE, T, makeRoom, menuRoom, tutorialRoom, toWorld, toTile, tileAt, collideCircle, lineOfSight, FlowField, solidAt } from './rooms.js';
 import { buildPlayer, buildEnemy, ENEMY_COLORS } from './models.js';
+import { animateOutfit } from './characters.js';
 import { baseStats, rollCards, UPGRADE_BY_ID } from './upgrades.js';
 import { SKINS, ACHIEVEMENTS, checkSkinProgress } from './meta.js';
 import { input, wantsAttack } from './input.js';
@@ -11,6 +12,7 @@ import { save, levelFromXp } from './save.js';
 import { themeFor } from './world.js';
 import { createBoss, updateBoss, BOSS_INFO } from './boss.js';
 import { WEAPON_BY_ID } from './weapons.js';
+import { crazy } from './crazy.js';
 import { ABILITY_BY_ID, abilityPower, masteryFromXp, TRACK } from './abilities.js';
 
 // Enemy archetypes. hp/speed are scaled per floor; dmg is what they deal to the player.
@@ -80,6 +82,7 @@ export class Game {
 
   // ------------------------------------------------------------------ menu scene
   enterMenu() {
+    crazy.gameplayStop();
     this.mode = 'menu'; this.phase = 'menu'; this.paused = false;
     this.clearEntities();
     const room = menuRoom();
@@ -119,12 +122,13 @@ export class Game {
     this.player.maxHp = this.stats.maxHp; this.player.hp = this.player.maxHp;
     this.run.power = opts.tutorial ? null : this.power();
     this.player.abilityCd = 0.5;
-    this.zones = []; this.scorches = [];
+    this.zones = []; this.scorches = []; this.spikes = [];
     this.player.dashCharges = this.stats.dashCharges;
     if (!opts.tutorial) d.runs++;
     save.write();
     this.ui.onRunStart(this);
     if (opts.tutorial) this.enterTutorial(); else this.nextFloor();
+    crazy.gameplayStart();
   }
 
   // ------------------------------------------------------------------ register
@@ -174,8 +178,14 @@ export class Game {
     const ang = target ? Math.atan2(target.x - p.x, target.z - p.z) : aim;
     p.face = ang; p.aim = ang;
     const col = new THREE.Color(a.color);
-    this.fx.ring(p.x, p.z, a.color, 0.3, 1.6, 0.3);
-    this.fx.burst(p.x, 0.8, p.z, 10, a.color, { speed: 4, up: 3, life: 0.35, size: 0.12 });
+    const hx = p.x + Math.sin(ang) * 0.45, hz = p.z + Math.cos(ang) * 0.45;
+    // charge-up: particles rush into the casting hand, then a flash
+    for (let k = 0; k < 14; k++) {
+      const an = rand(0, TAU), r = rand(0.7, 1.2);
+      this.fx.emit(hx + Math.sin(an) * r, 0.8 + rand(-0.4, 0.5), hz + Math.cos(an) * r, -Math.sin(an) * r * 7, rand(-1, 1), -Math.cos(an) * r * 7, 0.13, 0.12, col, { grav: 0, drag: 0 });
+    }
+    this.fx.impact(hx, 0.8, hz, a.color, 1.6, 0.14);
+    this.fx.ring(p.x, p.z, a.color, 0.3, 1.4, 0.3);
     if (a.id === 'fire') {
       const n = has(20) ? 3 : has(10) ? 2 : 1;
       for (let k = 0; k < n; k++) {
@@ -184,6 +194,7 @@ export class Game {
           life: 1.1, r: has(20) ? 0.42 : 0.3, pierce: 0, bounce: 0, hit: new Set(), split: false, age: 0, power: pw, big: has(20) });
       }
       audio.play('fireCast');
+      this.fx.burst(hx, 0.8, hz, 12, 0xffb050, { speed: 5, up: 2, life: 0.3, size: 0.14, dir: ang, spread: 0.6, col2: 0xd8300a, grav: 0 });
     } else if (a.id === 'lightning') {
       const strikes = has(20) ? 5 : has(10) ? 2 : 1;
       const used = new Set();
@@ -199,7 +210,11 @@ export class Game {
     } else if (a.id === 'earth') {
       const tx = target ? target.x : p.x + Math.sin(ang) * 6, tz = target ? target.z : p.z + Math.cos(ang) * 6;
       const flight = has(14) ? 0.42 : 0.58;
-      this.projs.push({ kind: 'boulder', x: p.x, z: p.z, sx: p.x, sz: p.z, tx, tz, t: 0, flight, angle: ang, vx: 0, vz: 0, dmg: dmg * (has(14) ? 1.3 : 1) * (has(20) ? 2 : 1),
+      const ex = p.x + Math.sin(ang) * 0.9, ez = p.z + Math.cos(ang) * 0.9;
+      this.addScorch(ex, ez, 0.8, 0x4a3a2a);
+      for (let k = 0; k < 8; k++) this.fx.emit(ex + rand(-0.4, 0.4), 0.1, ez + rand(-0.4, 0.4), rand(-1, 1), rand(0.5, 1.5), rand(-1, 1), 0.9, 0.2, DUST_COL, { smoke: true, grav: -0.3, drag: 2 });
+      this.spikes.push({ x: ex + 0.35, z: ez, h: 0.6, t: 0, life: 0.5, kind: 'stone', rot: 0.3 }, { x: ex - 0.35, z: ez + 0.1, h: 0.5, t: 0, life: 0.45, kind: 'stone', rot: -0.4 });
+      this.projs.push({ kind: 'boulder', x: ex, z: ez, sx: ex, sz: ez, tx, tz, t: -0.13, flight, angle: ang, vx: 0, vz: 0, dmg: dmg * (has(14) ? 1.3 : 1) * (has(20) ? 2 : 1),
         life: 99, r: 0.4, hit: new Set(), age: 0, power: pw, big: has(20), pierce: 0, bounce: 0 });
       this.fx.burst(p.x, 0.1, p.z, 12, 0x9a8a72, { speed: 4, up: 5, life: 0.6, size: 0.16, debris: true });
       audio.play('earthCast');
@@ -208,7 +223,16 @@ export class Game {
         const R = 3 * (has(7) ? 1.4 : 1) * (has(20) ? 1.5 : 1);
         this.fx.ring(p.x, p.z, 0x9feaff, 0.4, R, 0.45);
         this.fx.ring(p.x, p.z, 0xffffff, 0.2, R * 0.8, 0.3);
-        this.fx.burst(p.x, 0.4, p.z, 30, 0xbff3ff, { speed: R * 3, up: 2, life: 0.5, size: 0.12 });
+        this.fx.impact(p.x, 0.5, p.z, 0xdff8ff, R * 1.4, 0.2);
+        // two rings of ice spikes erupt outward
+        for (const [rr, n, dl] of [[R * 0.45, 8, 0], [R * 0.85, 14, 0.07]]) {
+          for (let k = 0; k < n; k++) {
+            const an = k / n * TAU + rr;
+            this.spikes.push({ x: p.x + Math.sin(an) * rr, z: p.z + Math.cos(an) * rr, h: rand(0.5, 0.9) * (rr > R * 0.6 ? 1 : 0.8), t: -dl, life: 0.9, kind: 'ice', rot: an, tilt: 0.35 });
+          }
+        }
+        for (let k = 0; k < 18; k++) { const an = rand(0, TAU); this.fx.emit(p.x, 0.2, p.z, Math.sin(an) * R * 2.2, rand(0.2, 0.8), Math.cos(an) * R * 2.2, 0.8, 0.3, FROST_COL, { smoke: true, grav: -0.2, drag: 3 }); }
+        this.fx.burst(p.x, 0.4, p.z, 30, 0xffffff, { speed: R * 3, up: 2, life: 0.6, size: 0.08, grav: 0.5 });
         this.addZone(p.x, p.z, R, 0x5fc8e8, 0.7, 0);
         audio.play('frostCast');
         for (const e of this.enemies) {
@@ -228,43 +252,64 @@ export class Game {
           pierce: has(7) ? 99 : 2, bounce: 0, hit: new Set(), split: false, age: 0, power: pw, returns: has(10) });
       }
       audio.play('windCast');
+      for (let k = 0; k < 20; k++) { const an = k / 20 * TAU; this.fx.emit(p.x + Math.sin(an) * 0.6, 0.6, p.z + Math.cos(an) * 0.6, Math.cos(an) * 5, rand(0, 1), -Math.sin(an) * 5, 0.35, 0.1, WIND_COL, { grav: 0, drag: 2 }); }
     }
     this.world.addShake(0.12);
   }
 
   lightningStrike(x, z, t, dmg, pw) {
     const has = pw.has;
-    this.fx.bolt(x + rand(-0.6, 0.6), 10, z - 3, x, 0.2, z, 0xe8f4ff, 0.22);
-    this.fx.bolt(x + rand(-0.6, 0.6), 10, z - 3, x, 0.2, z, 0x9fd4ff, 0.18);
-    this.fx.impact(x, 0.6, z, 0xcfe8ff, 3, 0.18);
-    this.fx.ring(x, z, 0x9fd4ff, 0.2, 1.6, 0.3);
-    this.fx.burst(x, 0.3, z, 16, 0xcfe8ff, { speed: 7, up: 5, life: 0.35, size: 0.1 });
-    this.addScorch(x, z, 0.9);
-    this.ui.flash();
-    audio.play('thunder');
-    this.world.addShake(0.2);
-    if (t && t !== this.boss) {
-      if (has(7)) t.stun = Math.max(t.stun || 0, 0.7);
-      this.damageEnemy(t, dmg, { aoe: true });
-      const chains = has(14) ? 4 : has(3) ? 2 : 0;
-      if (chains) this.chainLightning(t.x, t.z, chains, dmg * 0.6, t);
-    } else if (t === this.boss && t) this.damageBoss(dmg, { aoe: true });
+    // a split second of warning: charge glow where it will land
+    this.fx.ring(x, z, 0x9fd4ff, 1.4, 0.2, 0.12);
+    this.fx.burst(x, 0.15, z, 8, 0xcfe8ff, { speed: 2, up: 0.5, life: 0.12, size: 0.1, grav: 0 });
+    this.later(0.1, () => {
+      if (t && t !== this.boss && t.dead) t = null;
+      const sx = x + rand(-1.2, 1.2), sz = z - 3.5;
+      this.fx.bolt(sx, 11, sz, x, 0.15, z, 0xffffff, 0.24);
+      this.fx.bolt(sx + rand(-0.4, 0.4), 11, sz, x, 0.15, z, 0x9fd4ff, 0.2);
+      // branches
+      for (let k = 0; k < 2; k++) { const my = rand(2.5, 6), mx = sx + (x - sx) * (1 - my / 11), mz = sz + (z - sz) * (1 - my / 11); this.fx.bolt(mx, my, mz, mx + rand(-1.6, 1.6), my - rand(1.5, 3), mz + rand(-1, 1), 0x7ab8ff, 0.15); }
+      this.fx.impact(x, 0.5, z, 0xe8f6ff, 3.6, 0.2);
+      this.fx.ring(x, z, 0x9fd4ff, 0.2, 2, 0.32);
+      this.fx.burst(x, 0.3, z, 22, 0xcfe8ff, { speed: 9, up: 6, life: 0.4, size: 0.09, grav: 12, col2: 0x3a7aff });
+      for (let k = 0; k < 6; k++) this.fx.emit(x + rand(-0.3, 0.3), 0.2, z + rand(-0.3, 0.3), rand(-1, 1), rand(0.5, 1.4), rand(-1, 1), 1, 0.22, SMOKE_COL, { smoke: true, grav: -0.3, drag: 2 });
+      this.addScorch(x, z, 1);
+      this.addZone(x, z, 1.6, 0x6ab8ff, 0.25, 0);
+      this.ui.flash();
+      audio.play('thunder');
+      this.world.addShake(0.24); this.world.punch(0.02);
+      // electricity keeps crawling over the target for a moment
+      for (let k = 1; k <= 3; k++) this.later(k * 0.1, () => { const tx = t ? t.x : x, tz = t ? t.z : z; this.fx.bolt(tx + rand(-0.5, 0.5), rand(0.2, 1.2), tz + rand(-0.5, 0.5), tx + rand(-0.5, 0.5), rand(0.2, 1.2), tz + rand(-0.5, 0.5), 0xcfe8ff, 0.08); });
+      if (t && t !== this.boss) {
+        if (has(7)) t.stun = Math.max(t.stun || 0, 0.7);
+        this.damageEnemy(t, dmg, { aoe: true });
+        const chains = has(14) ? 4 : has(3) ? 2 : 0;
+        if (chains) this.chainLightning(t.x, t.z, chains, dmg * 0.6, t);
+      } else if (t === this.boss && t) this.damageBoss(dmg, { aoe: true });
+      else for (const e of this.enemies) if (!e.dead && e.state !== 'spawn' && !e.decor && dist2(e.x, e.z, x, z) < 1.4) this.damageEnemy(e, dmg, { aoe: true });
+    });
   }
 
-  addScorch(x, z, r) { this.scorches.push({ x, z, r, t: 0, life: 5 }); if (this.scorches.length > 30) this.scorches.shift(); }
+  addScorch(x, z, r, col) { this.scorches.push({ x, z, r, t: 0, life: 5, rot: rand(0, TAU) }); if (this.scorches.length > 30) this.scorches.shift(); }
   addZone(x, z, r, color, life, dps) { this.zones.push({ x, z, r, color: new THREE.Color(color), t: 0, life, dps, tick: 0 }); }
 
   fireExplode(pr) {
     const pw = pr.power, has = pw.has;
     const R = 1.3 * (has(7) ? 1.5 : 1) * (pr.big ? 1.4 : 1);
-    this.fx.ring(pr.x, pr.z, 0xff8a3a, 0.2, R, 0.32);
-    this.fx.impact(pr.x, 0.6, pr.z, 0xffb05a, R * 2, 0.18);
-    this.fx.burst(pr.x, 0.5, pr.z, 22, 0xff7a2a, { speed: R * 5, up: 5, life: 0.5, size: 0.16 });
-    this.fx.burst(pr.x, 0.5, pr.z, 10, 0xffe0a0, { speed: R * 3, up: 3, life: 0.3, size: 0.1 });
-    this.fx.burst(pr.x, 0.5, pr.z, 6, 0x3a3030, { speed: 2, up: 3, life: 1.2, size: 0.25, grav: -1.5, drag: 1.5 });
-    this.addScorch(pr.x, pr.z, R);
+    const x = pr.x, z = pr.z;
+    this.fx.impact(x, 0.7, z, 0xfff0c0, R * 2.8, 0.2);
+    this.fx.ring(x, z, 0xffa04a, 0.2, R * 1.1, 0.3);
+    // the fireball itself: hot core turning to deep red as it expands and rises
+    for (let k = 0; k < 30; k++) {
+      const an = rand(0, TAU), sp = rand(0.4, 1) * R * 3.4;
+      this.fx.emit(x, 0.5 + rand(0, 0.4), z, Math.sin(an) * sp, rand(1, 4), Math.cos(an) * sp, rand(0.35, 0.6), rand(0.3, 0.5) * (pr.big ? 1.3 : 1), FIRE_HOT, { grav: -3, drag: 4.5, col2: 0xb01e06 });
+    }
+    for (let k = 0; k < 12; k++) this.fx.emit(x + rand(-0.5, 0.5) * R, 0.4, z + rand(-0.5, 0.5) * R, rand(-0.8, 0.8), rand(1.2, 2.5), rand(-0.8, 0.8), rand(1, 1.6), rand(0.25, 0.4), SMOKE_COL, { smoke: true, grav: -0.4, drag: 1.5, grow: 2.5 });
+    for (let k = 0; k < 14; k++) { const an = rand(0, TAU), sp = rand(4, 9); this.fx.emit(x, 0.6, z, Math.sin(an) * sp, rand(3, 7), Math.cos(an) * sp, rand(0.5, 0.9), 0.06, FIRE_COL, { grav: 14, drag: 1 }); }
+    this.addScorch(x, z, R);
+    this.addZone(x, z, R * 1.6, 0xff7a2a, 0.35, 0);
     audio.play('explode');
-    this.world.addShake(0.16);
+    this.world.addShake(0.18); this.world.punch(0.015);
     for (const e of this.enemies) {
       if (e.dead || e.state === 'spawn' || e.decor || dist2(e.x, e.z, pr.x, pr.z) > (R + e.r) ** 2) continue;
       const d = Math.sqrt(dist2(e.x, e.z, pr.x, pr.z)) || 1;
@@ -280,9 +325,13 @@ export class Game {
     const pw = pr.power, has = pw.has;
     const R = (has(7) ? 2.2 : 1.4) * (pr.big ? 1.6 : 1);
     this.fx.ring(pr.x, pr.z, 0xc9a06a, 0.3, R + 0.4, 0.4);
-    this.fx.burst(pr.x, 0.2, pr.z, pr.big ? 34 : 20, 0x8a7258, { speed: R * 5, up: 7, life: 1, size: pr.big ? 0.3 : 0.2, debris: true, grav: 22 });
-    this.fx.burst(pr.x, 0.2, pr.z, 12, 0xb8a888, { speed: 4, up: 1.5, life: 0.7, size: 0.22, grav: -0.5, drag: 2 });
-    this.addScorch(pr.x, pr.z, R * 0.8);
+    this.fx.impact(pr.x, 0.4, pr.z, 0xffe0b0, R * 1.6, 0.15);
+    this.fx.burst(pr.x, 0.3, pr.z, pr.big ? 34 : 22, 0x8a7258, { speed: R * 5, up: 7, life: 1, size: pr.big ? 0.3 : 0.2, debris: true, grav: 22 });
+    for (let k = 0; k < 18; k++) { const an = k / 18 * TAU; this.fx.emit(pr.x + Math.sin(an) * 0.4, 0.15, pr.z + Math.cos(an) * 0.4, Math.sin(an) * R * 3, rand(0.3, 1), Math.cos(an) * R * 3, rand(0.9, 1.4), 0.3, DUST_COL, { smoke: true, grav: -0.2, drag: 3, grow: 2 }); }
+    // a crown of stone spikes bursts out of the floor
+    const ns = pr.big ? 12 : 8;
+    for (let k = 0; k < ns; k++) { const an = k / ns * TAU + rand(-0.2, 0.2), rr = R * rand(0.55, 0.85); this.spikes.push({ x: pr.x + Math.sin(an) * rr, z: pr.z + Math.cos(an) * rr, h: rand(0.5, 0.95) * (pr.big ? 1.4 : 1), t: -k * 0.012, life: 0.85, kind: 'stone', rot: an, tilt: 0.4 }); }
+    this.addScorch(pr.x, pr.z, R * 0.9);
     audio.play('slam');
     this.world.addShake(pr.big ? 0.5 : 0.28); this.world.punch(0.03);
     for (const e of this.enemies) {
@@ -318,6 +367,7 @@ export class Game {
       }
     }
     for (let i = this.scorches.length - 1; i >= 0; i--) { const sc = this.scorches[i]; sc.t += dt; if (sc.t > sc.life) this.scorches.splice(i, 1); }
+    for (let i = this.spikes.length - 1; i >= 0; i--) { const sp = this.spikes[i]; sp.t += dt; if (sp.t > sp.life) this.spikes.splice(i, 1); else if (sp.t >= 0 && !sp.puffed) { sp.puffed = true; this.fx.emit(sp.x, 0.1, sp.z, 0, 0.6, 0, 0.6, 0.18, sp.kind === 'ice' ? FROST_COL : DUST_COL, { smoke: true, grav: -0.2, drag: 3 }); } }
   }
 
   // ------------------------------------------------------------------ dialog + tutorial
@@ -503,7 +553,7 @@ export class Game {
     // Progress moments, kept rare on purpose.
     if (!run.bestToastShown && run.prevBest > 0 && f === run.prevBest + 1) {
       run.bestToastShown = true;
-      this.later(1.2, () => { this.ui.toast('NEW BEST!', `Past floor ${run.prevBest}`); audio.play('best'); });
+      this.later(1.2, () => { this.ui.toast('NEW BEST!', `Past floor ${run.prevBest}`); audio.play('best'); crazy.happytime(); });
     }
     if (f === 5) this.unlock('f5');
     if (f === 40) this.unlock('f40');
@@ -560,6 +610,7 @@ export class Game {
     this.timers.length = 0;
     if (this.zones) this.zones.length = 0;
     if (this.scorches) this.scorches.length = 0;
+    if (this.spikes) this.spikes.length = 0;
     if (this.boss) { this.world.dynamic.remove(this.boss.model.root); this.boss = null; }
     this.fx.clear();
     this.killTimes.length = 0;
@@ -745,7 +796,11 @@ export class Game {
         break;
       }
       case 'dying':
-        if (this.phaseT > 1.25) { this.phase = 'dead'; this.ui.showResults(this, this.finishRun()); }
+        if (this.phaseT > 1.25) {
+          // On CrazyGames: one revive per run for watching an ad.
+          if (crazy.ads && !this.run.revived && !this.run.tutorial && this.run.floor >= 3) { this.phase = 'revive'; this.ui.showRevive(this); }
+          else this.giveUp();
+        }
         break;
     }
   }
@@ -899,12 +954,21 @@ export class Game {
 
   swing(angle, mult, isEcho) {
     const p = this.player, s = this.stats, run = this.run;
-    if (!isEcho) { p.swingCount++; p.swingFlip = !p.swingFlip; p.swingT = 0; }
+    if (!isEcho) {
+      // combo: right swing, left swing, then a spin finisher (if you keep the pressure on)
+      p.combo = p.swingT < 0.62 ? ((p.combo || 0) + 1) % 3 : 0;
+      p.finisher = p.combo === 2;
+      p.swingDir = p.combo === 1 ? -1 : 1;
+      p.swingFlip = p.swingDir < 0;
+      p.swingCount++; p.swingT = 0;
+    }
+    const finisher = !isEcho && p.finisher;
     const fifth = s.fifth > 0 && !isEcho && p.swingCount % 5 === 0;
     const berserk = s.berserk && p.hp <= p.maxHp / 2 ? 1 + 0.4 * s.berserk : 1;
-    const dmg = s.damage * s.damageMul * berserk * mult * (fifth ? 2 + 0.5 * (s.fifth - 1) : 1);
-    const range = s.range, arc = s.arc;
-    this.fx.slash(p.x, 0.55, p.z, angle, arc, range + 0.15, fifth ? 0xffffff : this.trailColor, isEcho ? 0.12 : 0.16, p.swingFlip);
+    const dmg = s.damage * s.damageMul * berserk * mult * (fifth ? 2 + 0.5 * (s.fifth - 1) : 1) * (finisher ? 1.35 : 1);
+    const range = s.range + (finisher ? 0.3 : 0), arc = finisher ? Math.PI * 2.05 : s.arc;
+    this.fx.slash(p.x, 0.55, p.z, angle, Math.min(arc, Math.PI * 1.98), range + 0.15, fifth || finisher ? 0xffffff : this.trailColor, isEcho ? 0.12 : finisher ? 0.22 : 0.15, p.swingFlip);
+    if (finisher) { audio.play('heavy'); this.world.addShake(0.16); this.fx.ring(p.x, p.z, this.trailColor, 0.4, range + 0.4, 0.28); }
     if (isEcho) this.fx.slash(p.x, 0.5, p.z, angle, arc, range * 0.9, this.trailColor, 0.1, !p.swingFlip);
     audio.play('swing');
     if (fifth) { audio.play('heavy'); this.world.addShake(0.18); }
@@ -922,7 +986,8 @@ export class Game {
     for (const e of this.enemies) {
       if (e.dead || e.state === 'spawn' || e.decor) continue;
       if (!inArc(e.x, e.z, e.r)) continue;
-      const res = this.damageEnemy(e, dmg, { dirx, dirz, kb: s.knockback * (fifth ? 1.8 : 1), proc: true, forceCrit: fifth });
+      const ex = e.x - p.x, ez = e.z - p.z, el = Math.hypot(ex, ez) || 1;
+      const res = this.damageEnemy(e, dmg, { dirx: finisher ? ex / el : dirx, dirz: finisher ? ez / el : dirz, kb: s.knockback * (fifth ? 1.8 : 1) * (finisher ? 1.7 : 1), proc: true, forceCrit: fifth });
       hits++; if (res.crit) crit = true; if (res.kill) kill = true;
     }
     const b = this.boss;
@@ -1043,8 +1108,27 @@ export class Game {
     return true;
   }
 
+  giveUp() { this.phase = 'dead'; this.ui.showResults(this, this.finishRun()); }
+
+  revive() {
+    const p = this.player, run = this.run;
+    run.revived = true;
+    p.dead = false; p.hp = Math.ceil(p.maxHp * 0.5); p.iframes = 2.5; p.dashT = 0;
+    this.bullets.length = 0; this.hazards.length = 0;
+    for (const e of this.enemies) { const ex = e.x - p.x, ez = e.z - p.z, el = Math.hypot(ex, ez) || 1; e.kbx += ex / el * 14; e.kbz += ez / el * 14; e.stun = 1; }
+    this.phase = this.prePhase || 'fight'; this.phaseT = 1; this.timeScale = 1;
+    this.pm.root.visible = true;
+    this.fx.ring(p.x, p.z, 0xf2b24a, 0.5, 7, 0.7);
+    this.fx.burst(p.x, 0.6, p.z, 40, 0xf2b24a, { speed: 9, up: 6, life: 0.8, size: 0.18 });
+    audio.play('revive'); audio.setMode(this.boss && !this.boss.dead ? 'boss' : 'run');
+    this.ui.show('hud');
+    crazy.gameplayStart();
+  }
+
   killPlayer() {
     const p = this.player;
+    this.prePhase = this.phase === 'dying' ? this.prePhase : this.phase;
+    crazy.gameplayStop();
     p.dead = true; p.hp = 0; p.deathT = 0;
     this.phase = 'dying'; this.phaseT = 0;
     this.timeScale = 0.25;
@@ -1136,6 +1220,7 @@ export class Game {
     this.bullets.length = 0; this.hazards.length = 0;
     for (const m of this.fx.markers) this.fx.releaseMarker(m);
     audio.play('bossDown');
+    crazy.happytime();
     this.ui.banner('BOSS DEFEATED', BOSS_INFO[b.kind].name);
     for (let k = 0; k < 5; k++) this.later(k * 0.12, () => {
       this.fx.burst(b.x + rand(-1, 1), 1.5, b.z + rand(-1, 1), 26, k % 2 ? 0xffd08a : 0xff6a4a, { speed: 10, up: 8, life: 0.9, size: 0.2 });
@@ -1482,15 +1567,26 @@ export class Game {
       pr.age += dt; pr.life -= dt;
       if (pr.kind === 'boulder') {
         pr.t += dt;
+        pr.spin = (pr.spin || 0) + dt * 9;
+        if (pr.t < 0) { const q = 1 + pr.t / 0.13; pr.x = pr.sx; pr.z = pr.sz; pr.y = -0.5 + q * 1.2; continue; }
         const k = Math.min(1, pr.t / pr.flight);
         pr.x = pr.sx + (pr.tx - pr.sx) * k; pr.z = pr.sz + (pr.tz - pr.sz) * k;
-        pr.y = Math.sin(k * Math.PI) * (2.4 + (pr.big ? 1.5 : 0)) + 0.4;
-        pr.spin = (pr.spin || 0) + dt * 9;
+        pr.y = Math.sin(k * Math.PI) * (2.4 + (pr.big ? 1.5 : 0)) + 0.7 * (1 - k) + 0.3;
         if (Math.random() < dt * 30) this.fx.emit(pr.x, pr.y, pr.z, 0, 0, 0, 0.4, 0.12, DUST_COL, { grav: 2, drag: 2, debris: true });
         if (k >= 1) { this.boulderLand(pr); this.projs.splice(i, 1); }
         continue;
       }
-      if (pr.kind === 'fireball' && Math.random() < dt * 60) this.fx.emit(pr.x + rand(-0.12, 0.12), 0.75, pr.z + rand(-0.12, 0.12), rand(-0.5, 0.5), 1, rand(-0.5, 0.5), 0.35, pr.big ? 0.3 : 0.2, FIRE_COL, { grav: -1, drag: 2 });
+      if (pr.kind === 'fireball') {
+        pr.tr = (pr.tr || 0) + dt;
+        while (pr.tr > 0.012) {
+          pr.tr -= 0.012;
+          const bk = rand(0.05, 0.25);
+          this.fx.emit(pr.x - pr.vx * 0.01 + rand(-0.1, 0.1), 0.75 + rand(-0.08, 0.08), pr.z - pr.vz * 0.01 + rand(-0.1, 0.1), -pr.vx * bk * 0.15, rand(0.5, 1.5), -pr.vz * bk * 0.15, rand(0.22, 0.38), (pr.big ? 0.42 : 0.3), FIRE_HOT, { grav: -2, drag: 3, col2: 0xb01e06 });
+          if (Math.random() < 0.3) this.fx.emit(pr.x, 0.8, pr.z, rand(-0.5, 0.5), rand(0.6, 1.2), rand(-0.5, 0.5), 0.9, 0.22, SMOKE_COL, { smoke: true, grav: -0.3, drag: 1.5, grow: 2 });
+          if (Math.random() < 0.15) this.fx.emit(pr.x, 0.75, pr.z, rand(-2, 2), rand(1, 3), rand(-2, 2), 0.5, 0.05, FIRE_COL, { grav: 8, drag: 1 });
+        }
+      }
+      if (pr.kind === 'wind' && Math.random() < dt * 50) { const sd = Math.sin(pr.age * 30) * 0.3; this.fx.emit(pr.x + Math.cos(pr.angle) * sd, 0.6, pr.z - Math.sin(pr.angle) * sd, 0, 0.2, 0, 0.3, 0.12, WIND_COL, { grav: 0, drag: 2 }); }
       if (pr.kind === 'wind' && pr.returns && pr.age > 0.35 && !pr.back) { pr.back = true; pr.hit.clear(); pr.life = 0.8; }
       if (pr.back) { const p = this.player, dx = p.x - pr.x, dz = p.z - pr.z, dd = Math.hypot(dx, dz) || 1; pr.vx = damp(pr.vx, dx / dd * 16, 8, dt); pr.vz = damp(pr.vz, dz / dd * 16, 8, dt); pr.angle = Math.atan2(pr.vx, pr.vz); if (dd < 0.6) pr.life = 0; }
       pr.x += pr.vx * dt; pr.z += pr.vz * dt;
@@ -1655,48 +1751,101 @@ export class Game {
   // ------------------------------------------------------------------ visuals
   updateVisuals(gdt, dt) {
     const p = this.player, w = this.world, pm = this.pm, time = this.time;
-    // player model
+    // player model: speed-driven run cycle + 3-hit combo swings
     if (p && !p.dead) {
       pm.root.visible = true;
       pm.root.position.set(p.x, p.y, p.z);
-      pm.root.rotation.y = p.face;
-      const run = p.moving, t = time;
-      const bob = Math.abs(Math.sin(t * 13)) * 0.08 * run;
-      pm.rig.position.y = bob + Math.sin(t * 2.4) * 0.015 * (1 - run);
-      const hurtK = Math.max(0, p.hurtT) / 0.3, atkK = Math.max(0, 1 - p.swingT / 0.12);
-      pm.rig.rotation.x = 0.16 * run + (p.dashT > 0 ? 0.35 : 0) + atkK * 0.22 - hurtK * 0.45;
-      pm.rig.rotation.z = Math.sin(t * 6.5) * 0.04 * run;
-      p.castT = (p.castT || 0) - dt;
-      if (pm.armL) pm.armL.rotation.x = p.castT > 0 ? -1.6 : p.swingT < 0.3 ? -0.7 : Math.sin(t * 13) * 0.9 * run + Math.sin(t * 2.4) * 0.05;
-      if (pm.root.userData.halo) pm.root.userData.halo.rotation.z = t * 2;
-      pm.footL.position.z = Math.sin(t * 13) * 0.16 * run; pm.footR.position.z = -Math.sin(t * 13) * 0.16 * run;
-      pm.footL.position.y = 0.05 + Math.max(0, Math.cos(t * 13)) * 0.08 * run; pm.footR.position.y = 0.05 + Math.max(0, -Math.cos(t * 13)) * 0.08 * run;
-      // swing: pivot rotates through the arc quickly then eases back to rest
-      const sw = Math.min(1, p.swingT / 0.11), arc = this.stats ? this.stats.arc : 2;
-      let pa;
-      if (p.swingT < 0.11) pa = (p.swingFlip ? 1 : -1) * (-arc / 2 + arc * (1 - Math.pow(1 - sw, 2)));
-      else { const back = Math.min(1, (p.swingT - 0.11) / 0.25); pa = (p.swingFlip ? 1 : -1) * (arc / 2) * (1 - back) + (-0.9) * back; }
-      pm.pivot.rotation.y = pa;
-      pm.pivot.rotation.z = p.swingT < 0.2 ? 0 : 0.1;
-      pm.body.rotation.y = pa * 0.25;
-      // squash & stretch: dash stretches, attacks lunge, landings squash, idle breathes
-      p.landT = (p.landT || 0) - dt;
+      const A = p.anim || (p.anim = { ph: 0, lean: 0, prevSpd: 0, blink: 2, spin: 0 });
+      const t = time, adt = gdt;
+      const spd = Math.hypot(p.vx, p.vz), maxS = this.stats ? this.stats.moveSpeed : 6.4;
+      const run = p.dashT > 0 ? 0 : Math.min(1, spd / maxS);
+      if (run > 0.04) A.ph += adt * (6.5 + 6 * run); else A.ph = damp(A.ph, Math.round(A.ph / Math.PI) * Math.PI, 10, adt);
+      const ph = A.ph, sn = Math.sin(ph), cs = Math.cos(ph);
+      const accel = (spd - A.prevSpd) / Math.max(adt, 1e-3); A.prevSpd = spd;
+      A.lean = damp(A.lean, 0.16 * run + Math.max(-0.1, Math.min(0.15, accel * 0.006)), 10, adt);
+      // swing timeline (scaled down when attacking very fast)
+      const rate = this.stats ? this.stats.attackRate : 2.5, k = Math.min(1, 1 / rate / 0.36);
+      const S = 0.095 * k, F = 0.11 * k, Rc = 0.2 * k;
+      const st = p.swingT, d = p.swingDir || 1, fin = p.finisher, arcH = (this.stats ? this.stats.arc : 2.2) / 2;
+      const restYaw = 0.45, restRoll = 0.15;
+      let yaw = restYaw, roll = restRoll, lunge = 0, atk = 0, spinY = 0;
+      if (st < S + F + Rc) {
+        if (fin) {
+          const q = Math.min(1, st / (S * 1.7)), e = 1 - Math.pow(1 - q, 3);
+          spinY = -e * Math.PI * 2; yaw = -0.15; roll = 0.5; lunge = Math.sin(q * Math.PI) * 0.15; atk = 1 - q;
+          if (st > S * 1.7) { const r2 = Math.min(1, (st - S * 1.7) / Rc); yaw = -0.15 + (restYaw + 0.15) * r2 * r2; roll = 0.5 + (restRoll - 0.5) * r2; }
+        } else {
+          const y0 = d * (arcH + 0.4), y1 = -d * (arcH + 0.2);
+          if (st < S) { const q = st / S, e = 1 - Math.pow(1 - q, 4); yaw = y0 + (y1 - y0) * e; lunge = e * 0.14; atk = 1; roll = d * 0.45; }
+          else if (st < S + F) { const q = (st - S) / F; yaw = y1 - d * 0.12 * Math.sin(q * Math.PI); lunge = 0.14 * (1 - q * 0.5); atk = 1 - q; roll = d * 0.45 * (1 - q * 0.3); }
+          else { const q = (st - S - F) / Rc, e = q * q * (3 - 2 * q); yaw = y1 + (restYaw - y1) * e; roll = d * 0.32 + (restRoll - d * 0.32) * e; lunge = 0.07 * (1 - e); }
+        }
+      }
+      pm.root.rotation.y = p.face + spinY;
+      // body: bob twice per stride, hip sway, torso counter-twist, lean into speed and attacks
+      const bob = Math.abs(sn) * 0.075 * run;
+      const breathe = Math.sin(t * 2.3) * (1 - run);
+      pm.rig.position.set(0, bob + breathe * 0.008, lunge);
+      pm.rig.rotation.x = A.lean + atk * 0.18 + (p.dashT > 0 ? 0.32 : 0) - Math.max(0, p.hurtT) / 0.3 * 0.5;
+      pm.rig.rotation.z = sn * 0.06 * run;
+      pm.body.rotation.y = -sn * 0.2 * run + (yaw - restYaw) * 0.3;
+      pm.head.position.y = 0.98 - bob * 0.35 + breathe * 0.006;
+      pm.head.rotation.x = -A.lean * 0.55 + Math.sin(t * 1.1) * 0.03 * (1 - run);
+      pm.head.rotation.y = (yaw - restYaw) * 0.15 + Math.sin(t * 0.7) * 0.08 * (1 - run) * (st > 1 ? 1 : 0);
+      // feet: lift on the forward swing, plant on the back swing
+      pm.footL.position.set(-0.12, 0.06 + Math.max(0, cs) * 0.11 * run, 0.02 + sn * 0.19 * run);
+      pm.footR.position.set(0.12, 0.06 + Math.max(0, -cs) * 0.11 * run, 0.02 - sn * 0.19 * run);
+      pm.footL.rotation.x = -cs * 0.4 * run; pm.footR.rotation.x = cs * 0.4 * run;
+      // arms
+      p.castT = (p.castT || 0) - adt;
+      if (p.castT > 0) { pm.armL.rotation.set(-1.7, 0, 0.15); }
+      else if (st < S + F) { pm.armL.rotation.set(0.7, 0, -0.55); }
+      else pm.armL.rotation.set(sn * 0.85 * run + breathe * 0.04, 0, -0.08 - 0.05 * run);
+      pm.pivot.rotation.set(0, yaw, roll);
+      // squash & stretch: dash stretches, strike stretches forward, landings squash
+      p.landT = (p.landT || 0) - adt;
       const land = Math.max(0, p.landT) / 0.25;
-      const stretch = (p.dashT > 0 ? 1.22 : 1) * (1 + atkK * 0.12);
-      const sqY = (1 - land * 0.22) * (1 + Math.sin(t * 2.4) * 0.015 * (1 - run));
-      pm.rig.scale.set((1 + land * 0.18) / Math.sqrt(stretch), sqY, stretch);
+      const stretch = (p.dashT > 0 ? 1.22 : 1) * (1 + atk * 0.1);
+      pm.rig.scale.set((1 + land * 0.2) / Math.sqrt(stretch), (1 - land * 0.24) * (1 + breathe * 0.012), stretch);
+      // blink every few seconds
+      A.blink -= dt;
+      const eyes = pm.root.userData.eyesRef;
+      if (eyes) eyes.scale.y = A.blink < 0.09 ? 0.12 : 1;
+      if (A.blink < 0) A.blink = 2 + Math.random() * 3;
       // cloth chain lags behind movement and turning
       const chain = pm.root.userData.chain;
       if (chain) {
         const turn = angleDiff(p._lastFace ?? p.face, p.face) / Math.max(dt, 1e-3);
         p._lastFace = p.face;
         p._sway = damp(p._sway || 0, Math.max(-1, Math.min(1, -turn * 0.08)), 6, dt);
-        const spd = Math.min(1, Math.hypot(p.vx, p.vz) / 7) + (p.dashT > 0 ? 0.6 : 0);
-        chain.forEach((seg, k) => {
-          const target = 0.2 + spd * 0.35 * (k ? 0.6 : 1) + Math.sin(t * 10 - k * 1.2) * (0.08 + spd * 0.12);
-          seg.rotation.x = damp(seg.rotation.x, k === 0 ? -0.9 + spd * 0.7 + target * 0.3 : target - 0.15, 10 - k * 1.5, dt);
-          seg.rotation.y = damp(seg.rotation.y, p._sway * (0.3 + k * 0.15), 8, dt);
+        const sp2 = Math.min(1, spd / 7) + (p.dashT > 0 ? 0.6 : 0);
+        chain.forEach((seg, k2) => {
+          const target = 0.2 + sp2 * 0.35 * (k2 ? 0.6 : 1) + Math.sin(t * 10 - k2 * 1.2) * (0.06 + sp2 * 0.12);
+          seg.rotation.x = damp(seg.rotation.x, k2 === 0 ? -0.9 + sp2 * 0.7 + target * 0.3 : target - 0.15, 10 - k2, dt);
+          seg.rotation.y = damp(seg.rotation.y, p._sway * (0.3 + k2 * 0.15), 8, dt);
         });
+      }
+      animateOutfit(pm.root, t);
+      // real sword trail from the blade's path
+      if (st < S * (fin ? 1.9 : 1) + F * 0.7) {
+        pm.root.updateMatrixWorld(true);
+        const v1 = this._tv1 || (this._tv1 = new THREE.Vector3()), v2 = this._tv2 || (this._tv2 = new THREE.Vector3());
+        v1.set(0, 0, 0.18); pm.hand.localToWorld(v1);
+        v2.set(0, 0, pm.bladeLen * 1.05); pm.hand.localToWorld(v2);
+        this.fx.trailPush(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, fin ? 0xffffff : this.trailColor);
+      }
+      // legendary auras
+      const aura = pm.root.userData.aura;
+      if (aura && this.time - (p.lastAura || 0) > 0.05) {
+        p.lastAura = this.time;
+        const c = this._auraCol || (this._auraCol = new THREE.Color()); c.set(aura.color);
+        const ax = p.x + rand(-0.35, 0.35), az = p.z + rand(-0.35, 0.35);
+        if (aura.kind === 'fire') this.fx.emit(ax, rand(0.6, 1.3), az, 0, rand(0.8, 1.6), 0, 0.5, 0.11, c, { grav: 0, drag: 1, col2: 0xb8200a });
+        else if (aura.kind === 'sparkle') this.fx.emit(ax, rand(0.2, 1.3), az, 0, 0.6, 0, 0.6, 0.07, c, { grav: 0, drag: 1 });
+        else if (aura.kind === 'spark') { this.fx.emit(ax, rand(0.3, 1.3), az, rand(-2, 2), rand(-1, 2), rand(-2, 2), 0.18, 0.06, c, { grav: 0, drag: 3 }); if (Math.random() < 0.06) this.fx.bolt(p.x, 1.4, p.z, ax, 0.4, az, aura.color, 0.08); }
+        else if (aura.kind === 'snow') this.fx.emit(ax, rand(1.2, 1.6), az, rand(-0.2, 0.2), -0.4, rand(-0.2, 0.2), 1.0, 0.06, c, { grav: 0, drag: 0.3 });
+        else if (aura.kind === 'dust' && run > 0.3) this.fx.emit(p.x, 0.1, p.z, rand(-0.5, 0.5), 0.4, rand(-0.5, 0.5), 0.7, 0.12, c, { smoke: true, grav: -0.2, drag: 2 });
+        else if (aura.kind === 'wind') { const an = this.time * 6; this.fx.emit(p.x + Math.sin(an) * 0.55, rand(0.2, 1.1), p.z + Math.cos(an) * 0.55, Math.cos(an) * 2, 0.4, -Math.sin(an) * 2, 0.35, 0.07, c, { grav: 0, drag: 0.5 }); }
       }
       // dash afterimages
       if (p.dashT > 0 && this.time - (p.lastGhost || 0) > 0.028) { p.lastGhost = this.time; this.fx.ghost(p.x, p.y, p.z, p.face, this.trailColor); }
@@ -1775,6 +1924,15 @@ export class Game {
       const k = zb.push(zn.x, 0.02, zn.z, zn.r * 2 * (zn.dps ? 1 : 0.6 + f * 0.5)); zb.color(k, zn.color.r * a, zn.color.g * a, zn.color.b * a);
     }
     sc.end(); zb.end();
+    const ss = w.stoneSpikes, is = w.iceSpikes; ss.begin(); is.begin();
+    for (const sp of this.spikes || []) {
+      if (sp.t < 0) continue;
+      const up = Math.min(1, sp.t / 0.07), out = Math.max(0, (sp.t - sp.life + 0.25) / 0.25);
+      const h = sp.h * (up < 1 ? up * 1.15 : 1 + Math.max(0, 0.15 - (sp.t - 0.07) * 1.5)) * (1 - out);
+      const b = sp.kind === 'ice' ? is : ss;
+      b.push(sp.x, -0.05, sp.z, 0.9 + sp.h * 0.4, Math.max(0.001, h), 0.9 + sp.h * 0.4, sp.rot);
+    }
+    ss.end(); is.end();
 
     const ob = w.orbits, dr = w.drones; ob.begin(); dr.begin();
     if (p && !p.dead && this.mode === 'run' && this.stats) {
@@ -1894,6 +2052,7 @@ export class Game {
 }
 
 const FIRE_COL = new THREE.Color(0xff7a2a), STUN_COL = new THREE.Color(0xfff0a0), DUST_COL = new THREE.Color(0x8a7a62);
+const FIRE_HOT = new THREE.Color(0xffe08a), SMOKE_COL = new THREE.Color(0x2e2a28), FROST_COL = new THREE.Color(0xcfeeff), WIND_COL = new THREE.Color(0xc8ffd8);
 const REG_NAMES = { dummy: 'Training Dummy', runner: 'Runner', shooter: 'Shooter', splitter: 'Splitter', splitling: 'Splitling', dasher: 'Dasher', tank: 'Tank', warden: 'The Warden', crusher: 'The Crusher', hunter: 'The Hunter' };
 
 const BOSS_LINES = {

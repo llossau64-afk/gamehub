@@ -29,6 +29,15 @@ To deploy (itch.io, CrazyGames, GitHub Pages, any static host), upload the `OneM
 
 On the upgrade screen use 1/2/3 (or arrows + Enter) and R to reroll. On the results screen, Space/Enter starts the next run immediately.
 
+## What's new in v4
+
+- **Fixed:** on phones the joystick could stop working after a tap on the background (iOS sends fake mouse events that switched the game to mouse mode). Input now uses pointer events and a document-wide touch stick.
+- **New look:** cel-shaded (toon) characters with ink outlines, soft glowing particles with smoke, a real sword trail.
+- **Animation:** speed-synced run cycle (no foot sliding), hip/torso counter-motion, blinking, and a 3-hit combo: right swing, left swing, 360° spin finisher (+35% damage).
+- **Skins:** 16 hand-built outfits (beanie + backpack, pirate with parrot, astronaut, ninja, warlord, golden king, living-flame Ember, …) in 5 rarity tiers (Common, Rare, Super Rare, Epic, Legendary) with rendered 3D thumbnails. Legendary skins have auras.
+- **Powers:** charge-up, fire with smoke and embers, branching lightning with crawling arcs, a boulder that rips out of the floor and lands in a crown of stone spikes, a frost nova of ice spikes, wind blades with swirl trails. Animated showcase models in the shop.
+- **CrazyGames:** SDK v3 is loaded only on CrazyGames (gameplay start/stop, happy time, a revive for a rewarded ad once per run). Daily reward with a 7-day streak. `python3 tools/build.py` writes a single-file `dist/index.html` to upload.
+
 ## What's new in v3
 
 - **Powers + mastery pass:** after the tutorial you pick Fireball, Lightning Strike or Earth Throw (Frost Nova and Wind Blades are in the shop). Each power has a 20-level mastery pass that every run fills up: damage, cooldown, coins, five big perks and an exclusive skin at level 20. Cast with Q / E / right mouse / the power button on touch.

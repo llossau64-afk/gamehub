@@ -16,13 +16,51 @@ export class FX {
       life: new Float32Array(MAXP), max: new Float32Array(MAXP), size: new Float32Array(MAXP),
       r: new Float32Array(MAXP), g: new Float32Array(MAXP), b: new Float32Array(MAXP),
       grav: new Float32Array(MAXP), drag: new Float32Array(MAXP), rot: new Float32Array(MAXP), add: new Uint8Array(MAXP),
+      r2: new Float32Array(MAXP), g2: new Float32Array(MAXP), b2: new Float32Array(MAXP), grow: new Float32Array(MAXP),
     };
     this.pn = 0;
     const sparkGeo = new THREE.OctahedronGeometry(0.5, 0);
     this.sparks = new Batch(sparkGeo, new THREE.MeshBasicMaterial({ transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }), MAXP, true);
     const debrisGeo = new THREE.TetrahedronGeometry(0.5, 0);
-    this.debris = new Batch(debrisGeo, new THREE.MeshLambertMaterial({ flatShading: true }), MAXP, true);
+    this.debris = new Batch(debrisGeo, new THREE.MeshLambertMaterial({ flatShading: true }), 500, true);
+    this.sparks.mesh.visible = false; // glow particles are drawn as soft points now
     scene.add(this.sparks.mesh, this.debris.mesh);
+    // Soft round particles: additive "glow" (fire, sparks, magic) and normal-blended "smoke".
+    const mkPoints = (additive) => {
+      const geo = new THREE.BufferGeometry();
+      const pos = new Float32Array(MAXP * 3), col = new Float32Array(MAXP * 3), size = new Float32Array(MAXP), alpha = new Float32Array(MAXP);
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage));
+      geo.setAttribute('color', new THREE.BufferAttribute(col, 3).setUsage(THREE.DynamicDrawUsage));
+      geo.setAttribute('size', new THREE.BufferAttribute(size, 1).setUsage(THREE.DynamicDrawUsage));
+      geo.setAttribute('alpha', new THREE.BufferAttribute(alpha, 1).setUsage(THREE.DynamicDrawUsage));
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { scale: { value: 600 }, soft: { value: additive ? 1.6 : 1.2 } },
+        vertexShader: `attribute float size; attribute float alpha; attribute vec3 color; varying vec3 vC; varying float vA; uniform float scale;
+          void main() { vC = color; vA = alpha; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = size * scale / -mv.z; gl_Position = projectionMatrix * mv; }`,
+        fragmentShader: `varying vec3 vC; varying float vA; uniform float soft;
+          void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c) * 2.0; if (d > 1.0) discard; float a = pow(1.0 - d, soft) * vA;
+          ${additive ? 'gl_FragColor = vec4(vC + vec3(pow(1.0 - d, 6.0)) * 0.35 * vA, a);' : 'gl_FragColor = vec4(vC, a);'}
+          #include <colorspace_fragment>
+          }`,
+        transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+      });
+      const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; pts.renderOrder = additive ? 4 : 3;
+      scene.add(pts);
+      return { pts, geo, mat, pos, col, size, alpha, n: 0 };
+    };
+    this.glow = mkPoints(true);
+    this.smoke = mkPoints(false);
+
+    // Sword trail ribbon that follows the real blade path.
+    this.trail = { n: 0, max: 22, base: [], tip: [], t: [], color: new THREE.Color(1, 1, 1) };
+    const tg = new THREE.BufferGeometry();
+    tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(22 * 2 * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    tg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(22 * 2 * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    const idx = []; for (let k = 0; k < 21; k++) { const a = k * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    tg.setIndex(idx);
+    this.trailMesh = new THREE.Mesh(tg, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    this.trailMesh.frustumCulled = false; this.trailMesh.renderOrder = 5;
+    scene.add(this.trailMesh);
 
     // ---- expanding rings ----
     this.rings = [];
@@ -127,6 +165,7 @@ export class FX {
     for (const g of this.ghosts) { g.life = 0; g.grp.visible = false; }
     for (const b of this.beams) { b.life = 0; b.m.visible = false; }
     for (const m of this.markers) this.releaseMarker(m);
+    this.trailClear();
   }
 
   // ---------- particles ----------
@@ -137,8 +176,20 @@ export class FX {
     p.life[i] = life; p.max[i] = life; p.size[i] = size;
     p.r[i] = color.r; p.g[i] = color.g; p.b[i] = color.b;
     p.grav[i] = opts.grav ?? 14; p.drag[i] = opts.drag ?? 2.5; p.rot[i] = rand(0, TAU);
-    p.add[i] = opts.debris ? 0 : 1;
+    p.add[i] = opts.debris ? 0 : opts.smoke ? 2 : 1;
+    const c2 = opts.col2 ? (opts.col2.isColor ? opts.col2 : (opts.col2 = new THREE.Color(opts.col2))) : color;
+    p.r2[i] = c2.r; p.g2[i] = c2.g; p.b2[i] = c2.b;
+    p.grow[i] = opts.grow ?? (opts.smoke ? 2.5 : 0);
   }
+
+  // Sword trail: called every frame with the blade's base and tip in world space.
+  trailPush(bx, by, bz, tx, ty, tz, color) {
+    const T = this.trail, now = performance.now() / 1000;
+    T.base.unshift([bx, by, bz]); T.tip.unshift([tx, ty, tz]); T.t.unshift(now);
+    if (T.base.length > T.max) { T.base.pop(); T.tip.pop(); T.t.pop(); }
+    if (color) T.color.set(color);
+  }
+  trailClear() { const T = this.trail; T.base.length = T.tip.length = T.t.length = 0; }
 
   burst(x, y, z, n, color, o = {}) {
     const c = color.isColor ? color : new THREE.Color(color);
@@ -163,7 +214,7 @@ export class FX {
       const seg = 24, inner = 0.6, pos = [], col = [], idx = [];
       for (let k = 0; k <= seg; k++) {
         const t = k / seg, a = -arc / 2 + arc * (flip ? 1 - t : t);
-        const bright = Math.pow(t, 2.2) * 0.9;
+        const bright = Math.pow(t, 3) * 0.42;
         pos.push(Math.sin(a) * inner, 0, Math.cos(a) * inner, Math.sin(a), 0, Math.cos(a));
         col.push(0, 0, 0, bright, bright, bright);
         // a bright rim on the outer edge reads as the blade's path
@@ -192,6 +243,13 @@ export class FX {
     }
     b.line.geometry.attributes.position.needsUpdate = true;
     b.line.material.color.set(color);
+    // soft glow along the bolt gives it body (a 1px line alone looks thin)
+    const gc = this._boltCol || (this._boltCol = new THREE.Color());
+    gc.set(color);
+    for (let k = 0; k < 10; k++) for (let m = 0; m < 2; m++) {
+      const t = m / 2, k2 = Math.min(9, k + 1);
+      this.emit(arr[k * 3] + (arr[k2 * 3] - arr[k * 3]) * t, arr[k * 3 + 1] + (arr[k2 * 3 + 1] - arr[k * 3 + 1]) * t, arr[k * 3 + 2] + (arr[k2 * 3 + 2] - arr[k * 3 + 2]) * t, 0, 0, 0, life * 1.1, 0.26, gc, { grav: 0, drag: 0 });
+    }
     b.t = 0; b.life = life; b.line.visible = true;
   }
 
@@ -261,15 +319,51 @@ export class FX {
       if (p.y[i] < 0.03) { p.y[i] = 0.03; p.vy[i] *= -0.35; p.vx[i] *= 0.7; p.vz[i] *= 0.7; }
       p.rot[i] += dt * 6;
     }
-    this.sparks.begin(); this.debris.begin();
+    this.debris.begin();
+    const G = this.glow, S = this.smoke; G.n = 0; S.n = 0;
     for (let i = 0; i < this.pn; i++) {
-      const f = p.life[i] / p.max[i], s = p.size[i] * (p.add[i] ? f : Math.min(1, f * 3));
-      const b = p.add[i] ? this.sparks : this.debris;
-      const k = b.push(p.x[i], p.y[i], p.z[i], s, s, s, p.rot[i]);
-      const br = p.add[i] ? Math.min(1, f * 1.6) : 1;
-      b.color(k, p.r[i] * br, p.g[i] * br, p.b[i] * br);
+      const f = p.life[i] / p.max[i], k1 = 1 - f;
+      const r = p.r[i] + (p.r2[i] - p.r[i]) * k1, g = p.g[i] + (p.g2[i] - p.g[i]) * k1, b = p.b[i] + (p.b2[i] - p.b[i]) * k1;
+      if (p.add[i] === 0) {
+        const s = p.size[i] * Math.min(1, f * 3);
+        const k = this.debris.push(p.x[i], p.y[i], p.z[i], s, s, s, p.rot[i]);
+        this.debris.color(k, r, g, b);
+        continue;
+      }
+      const P = p.add[i] === 1 ? G : S, n = P.n++;
+      P.pos[n * 3] = p.x[i]; P.pos[n * 3 + 1] = p.y[i]; P.pos[n * 3 + 2] = p.z[i];
+      P.col[n * 3] = r; P.col[n * 3 + 1] = g; P.col[n * 3 + 2] = b;
+      const grow = 1 + p.grow[i] * k1;
+      if (p.add[i] === 1) { P.size[n] = p.size[i] * 2.8 * (p.grow[i] ? grow : 0.35 + 0.65 * f); P.alpha[n] = Math.min(1, f * 2.2); }
+      else { P.size[n] = p.size[i] * 3.2 * grow; P.alpha[n] = Math.min(1, f * 1.5, k1 * 8) * 0.55; }
     }
-    this.sparks.end(); this.debris.end();
+    this.debris.end();
+    const cam = this.world.camera, h = this.world.renderer.domElement.height;
+    const scale = h / (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2));
+    for (const P of [G, S]) {
+      P.mat.uniforms.scale.value = scale;
+      P.geo.setDrawRange(0, P.n);
+      for (const k of ['position', 'color', 'size', 'alpha']) P.geo.attributes[k].needsUpdate = true;
+    }
+    // sword trail
+    const T = this.trail, now = performance.now() / 1000, tp = this.trailMesh.geometry.attributes.position.array, tc = this.trailMesh.geometry.attributes.color.array;
+    while (T.t.length && now - T.t[T.t.length - 1] > 0.13) { T.base.pop(); T.tip.pop(); T.t.pop(); }
+    const nT = T.base.length;
+    this.trailMesh.visible = nT > 1;
+    if (nT > 1) {
+      for (let k = 0; k < T.max; k++) {
+        const q = Math.min(k, nT - 1), b = T.base[q], t = T.tip[q], o = k * 6;
+        // pull the inner edge toward the tip so the ribbon tapers like a smear
+        tp[o] = b[0] + (t[0] - b[0]) * 0.35; tp[o + 1] = b[1] + (t[1] - b[1]) * 0.35; tp[o + 2] = b[2] + (t[2] - b[2]) * 0.35;
+        tp[o + 3] = t[0]; tp[o + 4] = t[1]; tp[o + 5] = t[2];
+        const age = k < nT ? Math.max(0, 1 - (now - T.t[q]) / 0.13) * (1 - k / T.max) : 0;
+        const a = age * age;
+        tc[o] = T.color.r * a * 0.25; tc[o + 1] = T.color.g * a * 0.25; tc[o + 2] = T.color.b * a * 0.25;
+        tc[o + 3] = Math.min(1, T.color.r * a * 1.3 + a * 0.3); tc[o + 4] = Math.min(1, T.color.g * a * 1.3 + a * 0.3); tc[o + 5] = Math.min(1, T.color.b * a * 1.3 + a * 0.3);
+      }
+      this.trailMesh.geometry.attributes.position.needsUpdate = true;
+      this.trailMesh.geometry.attributes.color.needsUpdate = true;
+    }
 
     for (const r of this.rings) {
       if (r.life <= 0) continue;

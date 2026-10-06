@@ -10,6 +10,7 @@ import { toWorld } from './rooms.js';
 import * as THREE from '../lib/three.module.min.js';
 import { installScreens, xicon } from './screens.js';
 import { WEAPONS } from './weapons.js';
+import { crazy } from './crazy.js';
 import { ABILITY_BY_ID } from './abilities.js';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -56,6 +57,7 @@ export class UI {
     this.screen = id;
     this.focusIdx = 0;
     document.body.classList.toggle('playing', id === 'hud');
+    if (id !== 'hud' && input.releaseStick) input.releaseStick();
     this.hud.classList.toggle('on', id === 'hud' || id === 'pause' || id === 'cards');
   }
 
@@ -70,6 +72,7 @@ export class UI {
     $('[data-act=shop]').classList.toggle('has-dot', this.canAffordPerm() || this.canAffordSkin());
     this.show('menu');
     this.setMenuFocus(0);
+    this.updateDailyChip();
     this.game.player && (this.game.player.face = 0.5);
   }
 
@@ -113,7 +116,7 @@ export class UI {
       if (k === 'ArrowDown' || k === 'KeyS') { this.setMenuFocus(this.focusIdx + 1); audio.play('hover'); }
       else if (k === 'ArrowUp' || k === 'KeyW') { this.setMenuFocus(this.focusIdx - 1); audio.play('hover'); }
       else if (k === 'Enter' || k === 'Space') { const items = document.querySelectorAll('#menu .mi'); this.menuAction(items[this.focusIdx].dataset.act); }
-    } else if (['upgrades', 'skins', 'settings', 'shop', 'mastery', 'register'].includes(this.screen)) {
+    } else if (['upgrades', 'skins', 'settings', 'shop', 'mastery', 'register', 'daily'].includes(this.screen)) {
       if (k === 'Escape' || k === 'Backspace') this.back();
     } else if (this.screen === 'cards') {
       if (k === 'Digit1' || k === 'Numpad1') this.pickCard(0);
@@ -567,11 +570,11 @@ export class UI {
   togglePause(game) {
     if (game.mode !== 'run') return;
     if (game.paused) {
-      game.paused = false; audio.setMuffled(false); this.show('hud'); audio.play('back');
+      game.paused = false; audio.setMuffled(false); this.show('hud'); audio.play('back'); crazy.gameplayStart();
       return;
     }
     if (!['fight', 'clear', 'arrive'].includes(game.phase)) return;
-    game.paused = true; audio.setMuffled(true); audio.play('click');
+    game.paused = true; audio.setMuffled(true); audio.play('click'); crazy.gameplayStop();
     const run = game.run;
     const order = [...new Set(run.picks)];
     const el = $('#pause');
@@ -584,7 +587,7 @@ export class UI {
       const a = b.dataset.p;
       if (a === 'resume') this.togglePause(game);
       else if (a === 'settings') { audio.play('click'); this.prevScreen = 'pause'; this.showSettings(); }
-      else if (a === 'quit') { game.paused = false; audio.setMuffled(false); game.killPlayer(); this.show('hud'); }
+      else if (a === 'quit') { game.paused = false; audio.setMuffled(false); game.run.revived = true; game.killPlayer(); this.show('hud'); }
     }));
     this.show('pause');
   }
@@ -596,6 +599,7 @@ export class UI {
       this.dlg = { lines, choices, idx: -1, resolve, choicesShown: false, focus: 0 };
       el.classList.add('on');
       document.body.classList.add('dialog-open');
+      if (input.releaseStick) input.releaseStick();
       $('.dlg-choices', el).innerHTML = '';
       audio.play('dialogOpen');
       this.mountOperator($('.dlg-portrait .op-view', el));
