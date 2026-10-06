@@ -7,6 +7,7 @@
   { "id": "countries",   "name": "COUNTRIES",   "icon": "public",                   "color": "#3DC2FF", "enabled": true, "includeInClassic": true,  "pack": "questions_countries" },
   { "id": "cities",      "name": "CITIES",      "icon": "location_city",            "color": "#FF9F43", "enabled": true, "includeInClassic": true,  "pack": "questions_cities" },
   { "id": "sports",      "name": "SPORTS",      "icon": "sports_soccer",            "color": "#2FD27A", "enabled": true, "includeInClassic": true,  "pack": "questions_sports" },
-  { "id": "movies",      "name": "MOVIES",      "icon": "movie",                    "color": "#FF5C8A", "enabled": true, "includeInClassic": true,  "pack": "questions_movies" }
+  { "id": "movies",      "name": "MOVIES",      "icon": "movie",                    "color": "#FF5C8A", "enabled": true, "includeInClassic": true,  "pack": "questions_movies" },
+  { "id": "footballers", "name": "FOOTBALLERS", "icon": "swap_horiz",               "color": "#00C2A8", "enabled": true, "includeInClassic": true,  "pack": "questions_footballers" }
  ]
 }

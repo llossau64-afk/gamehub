@@ -1,0 +1,852 @@
+{
+ "category": "footballers",
+ "version": 1,
+ "questions": [
+  {
+   "id": "ftb-001",
+   "questionText": "Whose career path is this? Sporting CP → Manchester United → Real Madrid → Juventus → Manchester United → Al Nassr",
+   "difficulty": "easy",
+   "answers": [
+    "Nani",
+    "Ricardo Quaresma",
+    "Luís Figo",
+    "Cristiano Ronaldo"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "ftb-002",
+   "questionText": "Whose career path is this? Barcelona → Paris Saint-Germain → Inter Miami",
+   "difficulty": "easy",
+   "answers": [
+    "Neymar",
+    "Luis Suárez",
+    "Lionel Messi",
+    "Ángel Di María"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-003",
+   "questionText": "Whose career path is this? Santos → Barcelona → Paris Saint-Germain → Al Hilal → Santos",
+   "difficulty": "easy",
+   "answers": [
+    "Ronaldinho",
+    "Neymar",
+    "Vinícius Júnior",
+    "Philippe Coutinho"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "ftb-004",
+   "questionText": "Whose career path is this? Monaco → Paris Saint-Germain → Real Madrid",
+   "difficulty": "easy",
+   "answers": [
+    "Antoine Griezmann",
+    "Kingsley Coman",
+    "Kylian Mbappé",
+    "Ousmane Dembélé"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-005",
+   "questionText": "Whose career path is this? Molde → RB Salzburg → Borussia Dortmund → Manchester City",
+   "difficulty": "easy",
+   "answers": [
+    "Martin Ødegaard",
+    "Erling Haaland",
+    "Jadon Sancho",
+    "Karim Adeyemi"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "ftb-006",
+   "questionText": "Whose career path is this? Manchester United → Real Madrid → LA Galaxy → AC Milan → Paris Saint-Germain",
+   "difficulty": "easy",
+   "answers": [
+    "Michael Owen",
+    "Steven Gerrard",
+    "Wayne Rooney",
+    "David Beckham"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "ftb-007",
+   "questionText": "Whose career path is this? Everton → Manchester United → Everton → DC United → Derby County",
+   "difficulty": "easy",
+   "answers": [
+    "Wayne Rooney",
+    "Ross Barkley",
+    "David Beckham",
+    "Michael Owen"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "ftb-008",
+   "questionText": "Whose career path is this? Lille → Chelsea → Real Madrid",
+   "difficulty": "easy",
+   "answers": [
+    "Eden Hazard",
+    "Thorgan Hazard",
+    "Yannick Carrasco",
+    "Kevin De Bruyne"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "ftb-009",
+   "questionText": "Whose career path is this? Lyon → Real Madrid → Al Ittihad",
+   "difficulty": "easy",
+   "answers": [
+    "Karim Benzema",
+    "Olivier Giroud",
+    "Antoine Griezmann",
+    "Hatem Ben Arfa"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "ftb-010",
+   "questionText": "Whose career path is this? Birmingham City → Borussia Dortmund → Real Madrid",
+   "difficulty": "easy",
+   "answers": [
+    "Jude Bellingham",
+    "Declan Rice",
+    "Jobe Bellingham",
+    "Jadon Sancho"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "ftb-011",
+   "questionText": "Whose career path is this? Barcelona → Vissel Kobe → Emirates Club",
+   "difficulty": "easy",
+   "answers": [
+    "Cesc Fàbregas",
+    "Xavi",
+    "Sergio Busquets",
+    "Andrés Iniesta"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "ftb-012",
+   "questionText": "Whose career path is this? Malmö → Ajax → Juventus → Inter → Barcelona → AC Milan → Paris Saint-Germain → Manchester United → LA Galaxy → AC Milan",
+   "difficulty": "normal",
+   "answers": [
+    "Zlatan Ibrahimović",
+    "Romelu Lukaku",
+    "Edin Džeko",
+    "Olivier Giroud"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "ftb-013",
+   "questionText": "Whose career path is this? Lech Poznań → Borussia Dortmund → Bayern Munich → Barcelona",
+   "difficulty": "normal",
+   "answers": [
+    "Mario Götze",
+    "Jakub Błaszczykowski",
+    "Arkadiusz Milik",
+    "Robert Lewandowski"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "ftb-014",
+   "questionText": "Whose career path is this? Nacional → Groningen → Ajax → Liverpool → Barcelona → Atlético Madrid → Nacional → Grêmio → Inter Miami",
+   "difficulty": "normal",
+   "answers": [
+    "Edinson Cavani",
+    "Darwin Núñez",
+    "Luis Suárez",
+    "Diego Forlán"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-015",
+   "questionText": "Whose career path is this? Danubio → Palermo → Napoli → Paris Saint-Germain → Manchester United → Valencia → Boca Juniors",
+   "difficulty": "normal",
+   "answers": [
+    "Gonzalo Higuaín",
+    "Radamel Falcao",
+    "Edinson Cavani",
+    "Luis Suárez"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-016",
+   "questionText": "Whose career path is this? River Plate → Real Madrid → Napoli → Juventus → Inter Miami",
+   "difficulty": "normal",
+   "answers": [
+    "Gonzalo Higuaín",
+    "Mauro Icardi",
+    "Carlos Tevez",
+    "Sergio Agüero"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "ftb-017",
+   "questionText": "Whose career path is this? Boca Juniors → Corinthians → West Ham → Manchester United → Manchester City → Juventus → Boca Juniors",
+   "difficulty": "normal",
+   "answers": [
+    "Carlos Tevez",
+    "Javier Mascherano",
+    "Sergio Agüero",
+    "Gonzalo Higuaín"
+   ],
+   "correctAnswerIndex": 0,
+   "optionalExplanation": "Mascherano also went Corinthians → West Ham, but then joined Liverpool."
+  },
+  {
+   "id": "ftb-018",
+   "questionText": "Whose career path is this? Independiente → Atlético Madrid → Manchester City → Barcelona",
+   "difficulty": "normal",
+   "answers": [
+    "Fernando Torres",
+    "Sergio Agüero",
+    "Diego Forlán",
+    "Lautaro Martínez"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "ftb-019",
+   "questionText": "Whose career path is this? Atlético Madrid → Liverpool → Chelsea → AC Milan → Atlético Madrid → Sagan Tosu",
+   "difficulty": "normal",
+   "answers": [
+    "David Villa",
+    "Álvaro Morata",
+    "Fernando Torres",
+    "Diego Costa"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-020",
+   "questionText": "Whose career path is this? Arsenal → Barcelona → Chelsea → Monaco → Como",
+   "difficulty": "normal",
+   "answers": [
+    "Gerard Piqué",
+    "Xavi",
+    "Cesc Fàbregas",
+    "Thiago Alcântara"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-021",
+   "questionText": "Whose career path is this? Monaco → Juventus → Arsenal → Barcelona → New York Red Bulls",
+   "difficulty": "normal",
+   "answers": [
+    "Nicolas Anelka",
+    "Thierry Henry",
+    "Robert Pirès",
+    "David Trezeguet"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "ftb-022",
+   "questionText": "Whose career path is this? Le Mans → Guingamp → Marseille → Chelsea → Shanghai Shenhua → Galatasaray → Chelsea → Montreal Impact",
+   "difficulty": "normal",
+   "answers": [
+    "Samuel Eto'o",
+    "Nicolas Anelka",
+    "Emmanuel Adebayor",
+    "Didier Drogba"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "ftb-023",
+   "questionText": "Whose career path is this? Genk → Chelsea → Wolfsburg → Manchester City → Napoli",
+   "difficulty": "normal",
+   "answers": [
+    "Kevin De Bruyne",
+    "Kevin Mirallas",
+    "Eden Hazard",
+    "Thorgan Hazard"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "ftb-024",
+   "questionText": "Whose career path is this? Al Mokawloon → Basel → Chelsea → Fiorentina → Roma → Liverpool",
+   "difficulty": "normal",
+   "answers": [
+    "Sadio Mané",
+    "Riyad Mahrez",
+    "Mohamed Salah",
+    "Mohamed Elneny"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-025",
+   "questionText": "Whose career path is this? Metz → RB Salzburg → Southampton → Liverpool → Bayern Munich → Al Nassr",
+   "difficulty": "normal",
+   "answers": [
+    "Mohamed Salah",
+    "Takumi Minamino",
+    "Sadio Mané",
+    "Naby Keïta"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-026",
+   "questionText": "Whose career path is this? Groningen → Celtic → Southampton → Liverpool",
+   "difficulty": "normal",
+   "answers": [
+    "Matthijs de Ligt",
+    "Joël Matip",
+    "Victor Wanyama",
+    "Virgil van Dijk"
+   ],
+   "correctAnswerIndex": 3,
+   "optionalExplanation": "Victor Wanyama also went Celtic → Southampton, then joined Tottenham."
+  },
+  {
+   "id": "ftb-027",
+   "questionText": "Whose career path is this? Southampton → Tottenham → Real Madrid → Tottenham → Real Madrid → LAFC",
+   "difficulty": "normal",
+   "answers": [
+    "Luka Modrić",
+    "Aaron Ramsey",
+    "Gareth Bale",
+    "Theo Walcott"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-028",
+   "questionText": "Whose career path is this? Dinamo Zagreb → Tottenham → Real Madrid → AC Milan",
+   "difficulty": "normal",
+   "answers": [
+    "Mateo Kovačić",
+    "Gareth Bale",
+    "Luka Modrić",
+    "Ivan Rakitić"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-029",
+   "questionText": "Whose career path is this? Real Sociedad → Atlético Madrid → Barcelona → Atlético Madrid",
+   "difficulty": "normal",
+   "answers": [
+    "Antoine Griezmann",
+    "Kylian Mbappé",
+    "Olivier Giroud",
+    "Ousmane Dembélé"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "ftb-030",
+   "questionText": "Whose career path is this? Rennes → Borussia Dortmund → Barcelona → Paris Saint-Germain",
+   "difficulty": "normal",
+   "answers": [
+    "Kylian Mbappé",
+    "Jadon Sancho",
+    "Ousmane Dembélé",
+    "Kingsley Coman"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-031",
+   "questionText": "Whose career path is this? Borussia Dortmund → Chelsea → AC Milan",
+   "difficulty": "normal",
+   "answers": [
+    "Jadon Sancho",
+    "Christian Pulisic",
+    "Tyler Adams",
+    "Weston McKennie"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "ftb-032",
+   "questionText": "Whose career path is this? Manchester United → Juventus → Manchester United → Juventus → Monaco",
+   "difficulty": "normal",
+   "answers": [
+    "Adrien Rabiot",
+    "Blaise Matuidi",
+    "Paul Pogba",
+    "N'Golo Kanté"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-033",
+   "questionText": "Whose career path is this? Boulogne → Caen → Leicester City → Chelsea → Al Ittihad",
+   "difficulty": "normal",
+   "answers": [
+    "Blaise Matuidi",
+    "Paul Pogba",
+    "N'Golo Kanté",
+    "Riyad Mahrez"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-034",
+   "questionText": "Whose career path is this? Le Havre → Leicester City → Manchester City → Al Ahli",
+   "difficulty": "normal",
+   "answers": [
+    "N'Golo Kanté",
+    "Jamie Vardy",
+    "Islam Slimani",
+    "Riyad Mahrez"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "ftb-035",
+   "questionText": "Whose career path is this? Tottenham → Leyton Orient → Millwall → Norwich City → Leicester City → Tottenham → Bayern Munich",
+   "difficulty": "normal",
+   "answers": [
+    "Harry Kane",
+    "Son Heung-min",
+    "Dele Alli",
+    "Jamie Vardy"
+   ],
+   "correctAnswerIndex": 0,
+   "optionalExplanation": "The early clubs were loans before his breakthrough at Spurs."
+  },
+  {
+   "id": "ftb-036",
+   "questionText": "Whose career path is this? Vasco da Gama → Inter → Liverpool → Barcelona → Bayern Munich → Aston Villa → Vasco da Gama",
+   "difficulty": "normal",
+   "answers": [
+    "Lucas Moura",
+    "Roberto Firmino",
+    "Neymar",
+    "Philippe Coutinho"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "ftb-037",
+   "questionText": "Whose career path is this? Figueirense → Hoffenheim → Liverpool → Al Ahli",
+   "difficulty": "normal",
+   "answers": [
+    "Gabriel Jesus",
+    "Fabinho",
+    "Philippe Coutinho",
+    "Roberto Firmino"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "ftb-038",
+   "questionText": "Whose career path is this? Rosario Central → Benfica → Real Madrid → Manchester United → Paris Saint-Germain → Juventus → Benfica → Rosario Central",
+   "difficulty": "normal",
+   "answers": [
+    "Gonzalo Higuaín",
+    "Lionel Messi",
+    "Ángel Di María",
+    "Javier Pastore"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-039",
+   "questionText": "Whose career path is this? Grenoble → Tours → Montpellier → Arsenal → Chelsea → AC Milan → LAFC → Lille",
+   "difficulty": "normal",
+   "answers": [
+    "Olivier Giroud",
+    "Karim Benzema",
+    "Wissam Ben Yedder",
+    "Alexandre Lacazette"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "ftb-040",
+   "questionText": "Whose career path is this? Schalke → Werder Bremen → Real Madrid → Arsenal → Fenerbahçe → İstanbul Başakşehir",
+   "difficulty": "normal",
+   "answers": [
+    "Sami Khedira",
+    "Mesut Özil",
+    "İlkay Gündoğan",
+    "Toni Kroos"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "ftb-041",
+   "questionText": "Whose career path is this? Bayern Munich → Bayer Leverkusen → Bayern Munich → Real Madrid",
+   "difficulty": "normal",
+   "answers": [
+    "Leon Goretzka",
+    "Sami Khedira",
+    "Mesut Özil",
+    "Toni Kroos"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "ftb-042",
+   "questionText": "Whose career path is this? Grêmio → Paris Saint-Germain → Barcelona → AC Milan → Flamengo → Atlético Mineiro",
+   "difficulty": "normal",
+   "answers": [
+    "Ronaldinho",
+    "Ronaldo Nazário",
+    "Rivaldo",
+    "Kaká"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "ftb-043",
+   "questionText": "Whose career path is this? Cruzeiro → PSV → Barcelona → Inter → Real Madrid → AC Milan → Corinthians",
+   "difficulty": "normal",
+   "answers": [
+    "Rivaldo",
+    "Romário",
+    "Ronaldo Nazário",
+    "Ronaldinho"
+   ],
+   "correctAnswerIndex": 2,
+   "optionalExplanation": "Romário also played for PSV and Barcelona, but never for Inter or Real Madrid."
+  },
+  {
+   "id": "ftb-044",
+   "questionText": "Whose career path is this? São Paulo → AC Milan → Real Madrid → AC Milan → Orlando City",
+   "difficulty": "normal",
+   "answers": [
+    "Ronaldinho",
+    "Kaká",
+    "Clarence Seedorf",
+    "Andriy Shevchenko"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "ftb-045",
+   "questionText": "Whose career path is this? Liverpool → Real Madrid → Newcastle United → Manchester United → Stoke City",
+   "difficulty": "normal",
+   "answers": [
+    "Michael Owen",
+    "Wayne Rooney",
+    "Steve McManaman",
+    "Robbie Fowler"
+   ],
+   "correctAnswerIndex": 0,
+   "optionalExplanation": "Steve McManaman also went Liverpool → Real Madrid, then joined Manchester City."
+  },
+  {
+   "id": "ftb-046",
+   "questionText": "Whose career path is this? Liverpool → Manchester City → Chelsea → Arsenal",
+   "difficulty": "normal",
+   "answers": [
+    "Raheem Sterling",
+    "Philippe Coutinho",
+    "Jadon Sancho",
+    "Jordan Henderson"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "ftb-047",
+   "questionText": "Whose career path is this? Novara → Udinese → Sampdoria → Sporting CP → Manchester United",
+   "difficulty": "normal",
+   "answers": [
+    "Cristiano Ronaldo",
+    "Bernardo Silva",
+    "Bruno Fernandes",
+    "João Félix"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-048",
+   "questionText": "Whose career path is this? Benfica → Atlético Madrid → Chelsea → Barcelona → Chelsea → AC Milan → Al Nassr",
+   "difficulty": "normal",
+   "answers": [
+    "Rafael Leão",
+    "João Félix",
+    "Bruno Fernandes",
+    "Bernardo Silva"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "ftb-049",
+   "questionText": "Whose career path is this? Groningen → PSV → Chelsea → Real Madrid → Bayern Munich → Groningen",
+   "difficulty": "normal",
+   "answers": [
+    "Wesley Sneijder",
+    "Robin van Persie",
+    "Ruud van Nistelrooy",
+    "Arjen Robben"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "ftb-050",
+   "questionText": "Whose career path is this? Feyenoord → Arsenal → Manchester United → Fenerbahçe → Feyenoord",
+   "difficulty": "normal",
+   "answers": [
+    "Ruud van Nistelrooy",
+    "Arjen Robben",
+    "Klaas-Jan Huntelaar",
+    "Robin van Persie"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "ftb-051",
+   "questionText": "Whose career path is this? Junior → Porto → Liverpool → Bayern Munich",
+   "difficulty": "normal",
+   "answers": [
+    "Luis Díaz",
+    "Darwin Núñez",
+    "James Rodríguez",
+    "Luis Muriel"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "ftb-052",
+   "questionText": "Whose career path is this? Peñarol → Almería → Benfica → Liverpool → Al Hilal",
+   "difficulty": "normal",
+   "answers": [
+    "Darwin Núñez",
+    "Edinson Cavani",
+    "Luis Suárez",
+    "Luis Díaz"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "ftb-053",
+   "questionText": "Whose career path is this? Instituto → Palermo → Juventus → Roma",
+   "difficulty": "normal",
+   "answers": [
+    "Mauro Icardi",
+    "Ángel Di María",
+    "Paulo Dybala",
+    "Gonzalo Higuaín"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-054",
+   "questionText": "Whose career path is this? River Plate → Corinthians → West Ham → Liverpool → Barcelona → Hebei China Fortune → Estudiantes",
+   "difficulty": "hard",
+   "answers": [
+    "Javier Mascherano",
+    "Carlos Tevez",
+    "Lucas Biglia",
+    "Fernando Gago"
+   ],
+   "correctAnswerIndex": 0,
+   "optionalExplanation": "Carlos Tevez also went Corinthians → West Ham, but then joined Manchester United."
+  },
+  {
+   "id": "ftb-055",
+   "questionText": "Whose career path is this? Sporting Gijón → Real Zaragoza → Valencia → Barcelona → Atlético Madrid → New York City FC → Vissel Kobe",
+   "difficulty": "hard",
+   "answers": [
+    "Fernando Torres",
+    "Pedro",
+    "David Villa",
+    "David Silva"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-056",
+   "questionText": "Whose career path is this? Mallorca → Barcelona → Inter → Anzhi Makhachkala → Chelsea → Everton → Sampdoria",
+   "difficulty": "hard",
+   "answers": [
+    "Didier Drogba",
+    "Samuel Eto'o",
+    "Yaya Touré",
+    "Wesley Sneijder"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "ftb-057",
+   "questionText": "Whose career path is this? Beveren → Metalurh Donetsk → Olympiacos → Monaco → Barcelona → Manchester City",
+   "difficulty": "hard",
+   "answers": [
+    "Yaya Touré",
+    "Kolo Touré",
+    "Samuel Eto'o",
+    "Seydou Keita"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "ftb-058",
+   "questionText": "Whose career path is this? Dinamo Zagreb → Inter → Real Madrid → Chelsea → Manchester City",
+   "difficulty": "hard",
+   "answers": [
+    "Marcelo Brozović",
+    "Ivan Perišić",
+    "Luka Modrić",
+    "Mateo Kovačić"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "ftb-059",
+   "questionText": "Whose career path is this? Basel → Schalke → Sevilla → Barcelona → Sevilla → Al Shabab → Hajduk Split",
+   "difficulty": "hard",
+   "answers": [
+    "Xherdan Shaqiri",
+    "Luka Modrić",
+    "Ivan Rakitić",
+    "Granit Xhaka"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-060",
+   "questionText": "Whose career path is this? Anderlecht → Chelsea → Everton → Manchester United → Inter → Chelsea → Napoli",
+   "difficulty": "hard",
+   "answers": [
+    "Christian Benteke",
+    "Divock Origi",
+    "Romelu Lukaku",
+    "Michy Batshuayi"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-061",
+   "questionText": "Whose career path is this? Pyunik → Metalurh Donetsk → Shakhtar Donetsk → Borussia Dortmund → Manchester United → Arsenal → Roma → Inter",
+   "difficulty": "hard",
+   "answers": [
+    "Marco Reus",
+    "Henrikh Mkhitaryan",
+    "Shinji Kagawa",
+    "Alexis Sánchez"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "ftb-062",
+   "questionText": "Whose career path is this? Colo-Colo → Bayer Leverkusen → Juventus → Bayern Munich → Barcelona → Inter → Flamengo",
+   "difficulty": "hard",
+   "answers": [
+    "Arturo Vidal",
+    "Charles Aránguiz",
+    "Alexis Sánchez",
+    "Gary Medel"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "ftb-063",
+   "questionText": "Whose career path is this? Bochum → Nürnberg → Borussia Dortmund → Manchester City → Barcelona → Manchester City → Galatasaray",
+   "difficulty": "hard",
+   "answers": [
+    "Marco Reus",
+    "Emre Can",
+    "Mesut Özil",
+    "İlkay Gündoğan"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "ftb-064",
+   "questionText": "Whose career path is this? Dynamo Kyiv → AC Milan → Chelsea → AC Milan → Dynamo Kyiv",
+   "difficulty": "hard",
+   "answers": [
+    "Filippo Inzaghi",
+    "Hernán Crespo",
+    "Andriy Shevchenko",
+    "Kaká"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-065",
+   "questionText": "Whose career path is this? Den Bosch → Heerenveen → PSV → Manchester United → Real Madrid → Hamburg → Málaga",
+   "difficulty": "hard",
+   "answers": [
+    "Robin van Persie",
+    "Roy Makaay",
+    "Patrick Kluivert",
+    "Ruud van Nistelrooy"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "ftb-066",
+   "questionText": "Whose career path is this? Ajax → Real Madrid → Inter → Galatasaray → Nice → Al-Gharafa",
+   "difficulty": "hard",
+   "answers": [
+    "Klaas-Jan Huntelaar",
+    "Arjen Robben",
+    "Wesley Sneijder",
+    "Rafael van der Vaart"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "ftb-067",
+   "questionText": "Whose career path is this? River Plate → Porto → Atlético Madrid → Monaco → Manchester United → Chelsea → Monaco → Galatasaray → Rayo Vallecano",
+   "difficulty": "hard",
+   "answers": [
+    "Radamel Falcao",
+    "Jackson Martínez",
+    "James Rodríguez",
+    "Edinson Cavani"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "ftb-068",
+   "questionText": "Whose career path is this? Banfield → Porto → Monaco → Real Madrid → Bayern Munich → Everton → Al-Rayyan → Olympiacos → São Paulo",
+   "difficulty": "hard",
+   "answers": [
+    "Juan Cuadrado",
+    "James Rodríguez",
+    "Radamel Falcao",
+    "Luis Díaz"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "ftb-069",
+   "questionText": "Whose career path is this? Real Madrid → Borussia Dortmund → Inter → Paris Saint-Germain",
+   "difficulty": "hard",
+   "answers": [
+    "Noussair Mazraoui",
+    "Achraf Hakimi",
+    "Theo Hernández",
+    "Hakim Ziyech"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "ftb-070",
+   "questionText": "Whose career path is this? Heerenveen → Twente → Ajax → Chelsea → Galatasaray",
+   "difficulty": "hard",
+   "answers": [
+    "Hakim Ziyech",
+    "Dušan Tadić",
+    "Achraf Hakimi",
+    "Noussair Mazraoui"
+   ],
+   "correctAnswerIndex": 0
+  }
+ ]
+}

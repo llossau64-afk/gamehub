@@ -342,6 +342,46 @@ h1,h2,h3,.disp{font-family:var(--display);font-weight:400;letter-spacing:.02em}
 .conf{position:absolute;width:12px;height:18px;z-index:8;pointer-events:none;border:2px solid var(--ink);border-radius:3px;animation:fall linear forwards}
 @keyframes fall{to{transform:translate(var(--dx),110vh) rotate(var(--rot))}}
 
+/* Footballer career paths */
+.qcard .qt.pathq{display:flex;flex-direction:column;align-items:center;gap:10px;font-family:var(--body)}
+.fhead{font-size:14px;font-weight:900;letter-spacing:.12em;color:var(--violet-d);display:inline-flex;align-items:center;gap:6px}
+.path{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 4px;max-width:100%}
+.club{display:inline-flex;align-items:center;gap:6px;padding:5px 12px 5px 5px;border-radius:999px;background:var(--card);border:var(--line) solid var(--ink);
+  box-shadow:0 3px 0 var(--ink);font-weight:900;font-size:clamp(13px,1.5vw,17px);white-space:nowrap;animation:clubIn .35s cubic-bezier(.2,1.5,.4,1) both}
+.club b{width:24px;height:24px;border-radius:50%;background:var(--cl);display:grid;place-items:center;font-family:var(--display);font-weight:400;font-size:13px;border:2px solid var(--ink);color:#fff;
+  -webkit-text-stroke:3px var(--ink);paint-order:stroke fill}
+.arr{font-style:normal;color:var(--violet);font-size:18px;animation:clubIn .3s ease both}
+@keyframes clubIn{from{opacity:0;transform:translateX(-12px) scale(.7)}}
+
+/* Emotes */
+.emotes{display:flex;gap:6px;background:var(--card);border:var(--line) solid var(--ink);border-radius:999px;padding:4px 8px;box-shadow:0 4px 0 var(--ink)}
+.emotes button{font-size:22px;width:38px;height:38px;border-radius:50%;transition:transform .1s;line-height:1}
+.emotes button:hover{transform:scale(1.25) rotate(-8deg);background:var(--card2)}
+.emotes button:active{transform:scale(.9)}
+.emo{position:absolute;z-index:9;font-size:44px;pointer-events:none;transform:translate(-50%,-60%);animation:emo 1.6s cubic-bezier(.2,1.3,.4,1) forwards;
+  filter:drop-shadow(0 3px 0 rgba(36,16,79,.5))}
+@keyframes emo{0%{opacity:0;transform:translate(-50%,-20%) scale(.3)}15%{opacity:1;transform:translate(-50%,-80%) scale(1.25)}70%{opacity:1;transform:translate(-50%,-120%) scale(1)}100%{opacity:0;transform:translate(-50%,-190%) scale(.9)}}
+
+/* VS intro */
+.vsrow{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:12px;flex-wrap:wrap}
+.vsteam{display:flex;gap:10px;padding:8px 12px;border-radius:20px;background:var(--tc);border:var(--line) solid var(--ink)}
+.vsp{display:flex;flex-direction:column;align-items:center;gap:4px;animation:drop .5s cubic-bezier(.2,1.5,.4,1) both}
+.vsp:nth-child(2){animation-delay:.12s}
+.vsp b{font-family:var(--display);font-weight:400;font-size:15px;color:#fff;-webkit-text-stroke:4px var(--ink);paint-order:stroke fill;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vsbadge{font-family:var(--display);font-size:40px;color:var(--yellow);-webkit-text-stroke:7px var(--ink);paint-order:stroke fill;transform:rotate(-8deg)}
+
+/* Level badge, builder extras */
+.chip .who{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
+.lvl{display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:.06em}
+.lvl b{background:var(--violet);color:#fff;border-radius:6px;padding:0 6px;border:2px solid var(--ink)}
+.lvl i{width:64px;height:8px;border-radius:4px;background:var(--card3);border:2px solid var(--ink);position:relative;overflow:hidden}
+.lvl i::after{content:"";position:absolute;inset:0;width:var(--p);background:var(--green)}
+.opts button{position:relative}
+.opts button .on{position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:9px;letter-spacing:.06em;border-radius:6px;padding:1px 6px;white-space:nowrap;opacity:0;transition:opacity .12s}
+.opts button:hover .on,.opts button.sel .on{opacity:1}
+.moods{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.moods button{padding:5px 12px;border-radius:999px;background:var(--card2);border:2px solid var(--ink);font-weight:900;font-size:12px;letter-spacing:.06em}
+.moods button.sel{background:var(--pink);color:#fff}
 @media (max-width:820px){
   .menu,.lobby,.builder{grid-template-columns:1fr}
   .stagecard{display:none}
@@ -362,11 +402,14 @@ h1,h2,h3,.disp{font-family:var(--display);font-weight:400;letter-spacing:.02em}
   .teams{grid-template-columns:1fr}.vs{margin:0 auto}
   .head h1{font-size:34px}
   .jk .key{display:none}
+  .emotes button{width:30px;height:30px;font-size:18px}
+  .vsp .avs{width:64px;height:64px}
 }
 @media (max-height:900px) and (min-width:700px){
   #scr-game .wrap{gap:10px}
   .tp{padding:6px 12px}.tp .sc{font-size:40px}.tp .ppl .avs{width:46px;height:46px}
-  .qcard{min-height:118px;padding:46px 24px 14px;margin-top:38px}
+  .qcard{min-height:118px;padding:54px 24px 14px;margin-top:38px}
+  .timer{width:80px;height:80px;top:-40px}.timer svg{width:64px;height:64px}.timer b{font-size:30px}
   .qcard .qt{font-size:clamp(22px,2.6vw,32px)}
   .ans{min-height:64px;padding:6px 14px}.ans .l{width:44px;height:44px;font-size:24px}
   .jk{min-height:54px;padding:4px 10px}
@@ -400,6 +443,9 @@ h1,h2,h3,.disp{font-family:var(--display);font-weight:400;letter-spacing:.02em}
   .jk{min-height:38px;padding:3px 8px;border-radius:12px;box-shadow:0 3px 0 var(--ink)}.jk svg{width:20px;height:20px}.jk small,.jk .key{display:none}.jk b{font-size:14px}
   .gfoot .btn{min-height:40px;box-shadow:0 3px 0 var(--ink)}.gfoot .btn.sq{width:40px}
   .banner{padding:12px 24px}.banner b{font-size:46px}.banner span{font-size:14px}
+  .vsp .avs{width:56px;height:56px}.vsrow{margin-top:6px}
+  .fhead{font-size:11px}.qcard .qt.pathq{gap:5px;align-items:flex-start}.path{justify-content:flex-start}.club{font-size:12px;padding:2px 8px 2px 3px}.club b{width:18px;height:18px;font-size:10px}
+  .emotes{padding:2px 6px;box-shadow:0 2px 0 var(--ink)}.emotes button{width:30px;height:30px;font-size:18px}
 }
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
@@ -437,50 +483,84 @@ const CAT = Object.fromEntries(CATS.map(c => [c.id, c]));
 function store(k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem("gta." + k)); localStorage.setItem("gta." + k, JSON.stringify(v)); } catch (e) { return null; } }
 
 // ═══════════════════════════ Characters (SVG, built from parts) ═══════════════════════════
-// An avatar is 9 small numbers: skin, eyes, mouth, hair, hair colour, outfit, outfit colour, accessory, background.
+// An avatar is a short list of numbers, one per part (index order below). Older 9-part saves still load.
 const AV = {
-  keys: ["skin", "eyes", "mouth", "hair", "hairc", "top", "topc", "acc", "bg"],
-  skin: ["#ffdcbd", "#f6c393", "#e0a370", "#c6814f", "#9b5b34", "#6b3d22"],
-  hairc: ["#2b1b10", "#5a3418", "#a8642a", "#efb94a", "#f4e6bb", "#e2492f", "#8a5cff", "#29b6ff", "#ff5fa2", "#ffffff"],
-  cloth: ["#ff4d6d", "#3d9bff", "#ffd23f", "#3ee08a", "#9b6bff", "#ff9a3c", "#33d6f2", "#ff5fa2", "#24104f", "#ffffff"],
-  bg: ["#ffd23f", "#33d6f2", "#ff5fa2", "#3ee08a", "#c9b3ff", "#ff9a3c", "#ffffff", "#3d9bff"],
-  names: { eyes: ["DOTS", "BIG", "HAPPY", "SLEEPY", "WINK", "WOW", "ANGRY"], mouth: ["SMILE", "GRIN", "OH", "MEH", "TONGUE", "SMIRK"],
-    hair: ["NONE", "SHORT", "SPIKY", "LONG", "CURLY", "MOHAWK", "BUN", "SWOOP"], top: ["TEE", "HOODIE", "SUIT", "STRIPES", "JERSEY", "OVERALLS"],
-    acc: ["NONE", "GLASSES", "SHADES", "CAP", "CROWN", "HEADPHONES", "BEANIE", "PARTY HAT"] },
+  keys: ["skin", "eyes", "mouth", "hair", "hairc", "top", "topc", "acc", "bg", "brows", "beard", "face", "bgp"],
+  skin: ["#ffe2c6", "#ffd1a8", "#f2b98a", "#e0a370", "#c6814f", "#9b5b34", "#7a4528", "#5a3220", "#9be7c4", "#c4b5ff"],
+  hairc: ["#2b1b10", "#5a3418", "#a8642a", "#efb94a", "#f4e6bb", "#e2492f", "#8a5cff", "#29b6ff", "#ff5fa2", "#ffffff", "#3ee08a", "#9aa3b8"],
+  cloth: ["#ff4d6d", "#3d9bff", "#ffd23f", "#3ee08a", "#9b6bff", "#ff9a3c", "#33d6f2", "#ff5fa2", "#24104f", "#ffffff", "#00c2a8", "#c9b3ff"],
+  bg: ["#ffd23f", "#33d6f2", "#ff5fa2", "#3ee08a", "#c9b3ff", "#ff9a3c", "#ffffff", "#3d9bff", "#00c2a8", "#ffb3d1"],
+  names: {
+    eyes: ["DOTS", "BIG", "HAPPY", "SLEEPY", "WINK", "WOW", "ANGRY", "HEARTS", "STARS", "LASHES"],
+    mouth: ["SMILE", "GRIN", "OH", "MEH", "TONGUE", "SMIRK", "SAD", "BRACES", "KISS"],
+    hair: ["NONE", "SHORT", "SPIKY", "LONG", "CURLY", "MOHAWK", "BUN", "SWOOP", "AFRO", "PONYTAIL", "BUZZ", "PIGTAILS", "QUIFF"],
+    top: ["TEE", "HOODIE", "SUIT", "STRIPES", "JERSEY", "OVERALLS", "FOOTBALL KIT", "JACKET", "TANK TOP", "HEART SWEATER"],
+    acc: ["NONE", "GLASSES", "SHADES", "CAP", "CROWN", "HEADPHONES", "BEANIE", "PARTY HAT", "BANDANA", "FLOWER", "HALO", "HORNS", "COWBOY HAT"],
+    brows: ["SOFT", "THICK", "RAISED", "ANGRY", "WORRIED", "NONE"],
+    beard: ["NONE", "STUBBLE", "FULL", "GOATEE", "MOUSTACHE", "CHIN STRAP", "VIKING"],
+    face: ["NONE", "FRECKLES", "MOLE", "PLASTER", "STAR", "FACE PAINT", "SPARKLES"],
+    bgp: ["PLAIN", "DOTS", "STRIPES", "STARS", "RAYS"],
+  },
 };
-AV.count = [AV.skin.length, 7, 6, 8, AV.hairc.length, 6, AV.cloth.length, 8, AV.bg.length];
-const randomAv = (r = rnd) => AV.count.map(n => Math.floor(r() * n));
+AV.count = [AV.skin.length, 10, 9, 13, AV.hairc.length, 10, AV.cloth.length, 13, AV.bg.length, 6, 7, 7, 5];
+const randomAv = (r = rnd) => AV.count.map((n, i) => {
+  // Keep random looks friendly: mostly no beard, face details or headwear.
+  if (i === 10 && r() < .7) return 0; if (i === 11 && r() < .6) return 0; if (i === 7 && r() < .45) return 0; if (i === 12 && r() < .5) return 0;
+  return Math.floor(r() * n);
+});
 function normAv(a) {
   if (!Array.isArray(a)) return randomAv();
   return AV.count.map((n, i) => { const v = Math.floor(+a[i]); return Number.isFinite(v) ? ((v % n) + n) % n : 0; });
 }
 let avUid = 0;
-function avatarSVG(a, size) {
+const star = (cx, cy, r) => { let d = ""; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .45 : r; d += (i ? "L" : "M") + (cx + Math.cos(a) * rr).toFixed(1) + " " + (cy + Math.sin(a) * rr).toFixed(1); } return d + "Z"; };
+const heart = (cx, cy, s) => `M${cx} ${cy + s * .9} C${cx - s * 1.6} ${cy - s * .2} ${cx - s * .7} ${cy - s * 1.3} ${cx} ${cy - s * .45} C${cx + s * .7} ${cy - s * 1.3} ${cx + s * 1.6} ${cy - s * .2} ${cx} ${cy + s * .9}Z`;
+// mood: "happy" | "sad" | "wow" temporarily swaps the face (used for reactions in the game).
+function avatarSVG(a, size, mood) {
   a = normAv(a);
-  const [sk, ey, mo, ha, hc, tp, tc, ac, bg] = a, S = AV.skin[sk], H = AV.hairc[hc], C = AV.cloth[tc], K = "#24104f", id = "avc" + (++avUid);
+  let [sk, ey, mo, ha, hc, tp, tc, ac, bg, br, bd, fc, bgp] = a;
+  if (mood === "happy") { ey = 2; mo = 1; } else if (mood === "sad") { ey = 3; mo = 6; br = 4; } else if (mood === "wow") { ey = 5; mo = 2; br = 2; }
+  const S = AV.skin[sk], H = AV.hairc[hc], C = AV.cloth[tc], K = "#24104f", id = "avc" + (++avUid);
   const st = `stroke="${K}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"`;
-  const accent = AV.cloth[(tc + 3) % AV.cloth.length];
-  let back = "", body = "", hair = "", eyes = "", mouth = "", acc = "";
+  const accent = AV.cloth[(tc + 3) % AV.cloth.length], font = `font-family="Lilita One,Arial Rounded MT Bold,sans-serif"`;
+  let pattern = "", back = "", body = "", hair = "", eyes = "", mouth = "", acc = "", brows = "", beard = "", face = "";
+  switch (bgp) {
+    case 1: for (let y = 10; y < 100; y += 16) for (let x = (y / 16 % 2) * 8 + 6; x < 100; x += 16) pattern += `<circle cx="${x}" cy="${y}" r="3" fill="#fff" opacity=".45"/>`; break;
+    case 2: for (let x = -100; x < 100; x += 16) pattern += `<path d="M${x} 100 L${x + 100} 0" stroke="#fff" stroke-width="5" opacity=".35"/>`; break;
+    case 3: [[16, 22], [80, 18], [12, 70], [86, 64], [30, 90], [72, 92]].forEach(([x, y]) => pattern += `<path d="${star(x, y, 7)}" fill="#fff" opacity=".6"/>`); break;
+    case 4: for (let i = 0; i < 12; i += 2) { const a1 = i * Math.PI / 6, a2 = (i + 1) * Math.PI / 6; pattern += `<path d="M50 50 L${50 + 80 * Math.cos(a1)} ${50 + 80 * Math.sin(a1)} L${50 + 80 * Math.cos(a2)} ${50 + 80 * Math.sin(a2)} Z" fill="#fff" opacity=".28"/>`; } break;
+  }
   if (ha === 3) back = `<path d="M27 46 C24 22 40 15 50 15 C60 15 76 22 73 46 L75 74 C66 78 34 78 25 74 Z" fill="${H}" ${st}/>`;
   if (ha === 6) back = `<circle cx="50" cy="13" r="9" fill="${H}" ${st}/>`;
+  if (ha === 8) back = `<circle cx="50" cy="36" r="31" fill="${H}" ${st}/>`;
+  if (ha === 9) back = `<path d="M66 30 C86 34 84 60 76 72 C74 60 72 48 64 40 Z" fill="${H}" ${st}/>`;
+  if (ha === 11) back = `<circle cx="24" cy="38" r="9" fill="${H}" ${st}/><circle cx="76" cy="38" r="9" fill="${H}" ${st}/>`;
   const tee = `<path d="M16 102 C16 80 30 72 50 72 C70 72 84 80 84 102 Z" fill="${C}" ${st}/>`;
   switch (tp) {
     case 1: body = `<path d="M30 76 C30 64 70 64 70 76 Z" fill="${C}" ${st}/>${tee}<path d="M45 78 L44 90 M55 78 L56 90" ${st} fill="none"/>`; break;
     case 2: body = `${tee}<path d="M41 72 L50 92 L59 72 Z" fill="#fff" ${st}/><path d="M50 76 L47 82 L50 94 L53 82 Z" fill="${accent}" ${st}/>`; break;
     case 3: body = `${tee}<path d="M18 88 H82 M17 97 H83" stroke="#fff" stroke-width="5" opacity=".8"/><path d="M16 102 C16 80 30 72 50 72 C70 72 84 80 84 102" fill="none" ${st}/>`; break;
-    case 4: body = `${tee}<path d="M42 72 L50 81 L58 72" fill="none" ${st}/><text x="50" y="98" text-anchor="middle" font-family="Lilita One,Arial Rounded MT Bold,sans-serif" font-size="16" fill="#fff" stroke="${K}" stroke-width="2" paint-order="stroke">7</text>`; break;
+    case 4: body = `${tee}<path d="M42 72 L50 81 L58 72" fill="none" ${st}/><text x="50" y="98" text-anchor="middle" ${font} font-size="16" fill="#fff" stroke="${K}" stroke-width="2" paint-order="stroke">7</text>`; break;
     case 5: body = `<path d="M16 102 C16 80 30 72 50 72 C70 72 84 80 84 102 Z" fill="#fff" ${st}/><path d="M33 102 V84 H67 V102 Z" fill="${C}" ${st}/><path d="M36 84 L32 74 M64 84 L68 74" ${st}/>`; break;
+    case 6: body = `${tee}<path d="M30 75 V102 M40 72.5 V102 M60 72.5 V102 M70 75 V102" stroke="#fff" stroke-width="4" opacity=".9"/><path d="M16 102 C16 80 30 72 50 72 C70 72 84 80 84 102" fill="none" ${st}/>
+      <path d="M41 72 Q50 80 59 72" fill="#fff" ${st}/><text x="50" y="99" text-anchor="middle" ${font} font-size="15" fill="${C}" stroke="#fff" stroke-width="3" paint-order="stroke">10</text>`; break;
+    case 7: body = `<path d="M16 102 C16 80 30 72 50 72 C70 72 84 80 84 102 Z" fill="#fff" ${st}/><path d="M16 102 C16 80 30 72 42 72 L46 102 Z M84 102 C84 80 70 72 58 72 L54 102 Z" fill="${C}" ${st}/><path d="M42 72 L38 84 L44 86 M58 72 L62 84 L56 86" fill="none" ${st}/>`; break;
+    case 8: body = `<path d="M16 102 C16 82 26 74 36 73 L64 73 C74 74 84 82 84 102 Z" fill="${S}" ${st}/><path d="M32 102 C32 86 34 76 38 73 Q50 84 62 73 C66 76 68 86 68 102 Z" fill="${C}" ${st}/>`; break;
+    case 9: body = `${tee}<path d="${heart(50, 88, 7)}" fill="${accent}" ${st} stroke-width="2.5"/><path d="M40 73 Q50 78 60 73" fill="none" ${st}/>`; break;
     default: body = tee;
   }
   switch (ha) {
-    case 1: hair = `<path d="M28 43 C26 22 40 16 50 16 C62 16 74 22 72 43 C66 33 58 30 50 31 C42 30 34 34 28 43 Z" fill="${H}" ${st}/>`; break;
+    case 1: case 6: case 9: hair = `<path d="M28 43 C26 22 40 16 50 16 C62 16 74 22 72 43 C66 33 58 30 50 31 C42 30 34 34 28 43 Z" fill="${H}" ${st}/>`; break;
     case 2: hair = `<path d="M28 41 L30 23 L37 29 L40 15 L47 26 L52 12 L56 26 L63 16 L65 29 L72 23 L72 41 C64 32 36 32 28 41 Z" fill="${H}" ${st}/>`; break;
     case 3: hair = `<path d="M28 52 C25 26 38 16 50 16 C62 16 75 26 72 52 L67 52 C67 38 60 31 50 31 C40 31 33 38 33 52 Z" fill="${H}" ${st}/>`; break;
     case 4: hair = [[31, 36], [36, 26], [45, 20], [55, 20], [64, 26], [69, 36]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="9" fill="${H}" ${st}/>`).join("") +
       `<path d="M30 40 C36 30 64 30 70 40 L70 30 C60 22 40 22 30 30 Z" fill="${H}"/>`; break;
     case 5: hair = `<path d="M43 31 C42 16 47 7 50 4 C53 7 58 16 57 31 Z" fill="${H}" ${st}/>`; break;
-    case 6: hair = `<path d="M28 43 C26 22 40 18 50 18 C62 18 74 22 72 43 C66 33 58 30 50 31 C42 30 34 34 28 43 Z" fill="${H}" ${st}/>`; break;
     case 7: hair = `<path d="M28 45 C25 24 44 13 61 17 C70 19 75 30 72 45 C65 31 49 26 39 34 C34 37 31 41 28 45 Z" fill="${H}" ${st}/>`; break;
+    case 8: hair = `<path d="M29 40 C32 28 42 24 50 26 C58 24 68 28 71 40 C64 33 36 33 29 40 Z" fill="${H}"/>`; break;
+    case 10: hair = `<path d="M29 40 C28 24 40 20 50 20 C60 20 72 24 71 40 C64 31 36 31 29 40 Z" fill="${H}" opacity=".75"/>`; break;
+    case 11: hair = `<path d="M28 43 C26 22 40 16 50 16 C62 16 74 22 72 43 C70 32 50 28 50 26 C50 28 30 32 28 43 Z" fill="${H}" ${st}/>`; break;
+    case 12: hair = `<path d="M29 40 C26 24 36 8 56 8 C70 8 76 18 70 26 C74 30 72 38 71 41 C64 32 38 30 29 40 Z" fill="${H}" ${st}/>`; break;
   }
   const L = 41, R = 59, Y = 45;
   switch (ey) {
@@ -489,8 +569,34 @@ function avatarSVG(a, size) {
     case 3: eyes = [L, R].map(x => `<path d="M${x - 4} ${Y} Q${x} ${Y + 3} ${x + 4} ${Y}" fill="none" ${st}/>`).join(""); break;
     case 4: eyes = `<circle cx="${L}" cy="${Y}" r="3.2" fill="${K}"/><path d="M${R - 4} ${Y + 1} Q${R} ${Y - 4} ${R + 4} ${Y + 1}" fill="none" ${st}/>`; break;
     case 5: eyes = [L, R].map(x => `<circle cx="${x}" cy="${Y}" r="5" fill="#fff" ${st} stroke-width="2.5"/><circle cx="${x}" cy="${Y}" r="1.8" fill="${K}"/>`).join(""); break;
-    case 6: eyes = [L, R].map((x, i) => `<circle cx="${x}" cy="${Y + 1}" r="3" fill="${K}"/><path d="M${x - 5} ${i ? Y - 6 : Y - 8} L${x + 5} ${i ? Y - 8 : Y - 6}" ${st}/>`).join(""); break;
+    case 6: eyes = [L, R].map((x, i) => `<circle cx="${x}" cy="${Y + 1}" r="3" fill="${K}"/><path d="M${x - 5} ${i ? Y - 6 : Y - 8} L${x + 5} ${i ? Y - 8 : Y - 6}" ${st}/>`).join(""); br = 5; break;
+    case 7: eyes = [L, R].map(x => `<path d="${heart(x, Y, 4.2)}" fill="#ff4d6d" ${st} stroke-width="2"/>`).join(""); break;
+    case 8: eyes = [L, R].map(x => `<path d="${star(x, Y, 6)}" fill="#ffd23f" ${st} stroke-width="2"/>`).join(""); break;
+    case 9: eyes = [L, R].map((x, i) => `<circle cx="${x}" cy="${Y}" r="4.5" fill="#fff" ${st} stroke-width="2.5"/><circle cx="${x}" cy="${Y + .5}" r="2.4" fill="${K}"/><path d="M${x + (i ? 3 : -3)} ${Y - 4} l${i ? 3 : -3} -3 M${x} ${Y - 4.5} v-3.5" ${st} stroke-width="2"/>`).join(""); break;
     default: eyes = [L, R].map(x => `<circle cx="${x}" cy="${Y}" r="3.2" fill="${K}"/>`).join("");
+  }
+  switch (br) {
+    case 0: brows = `<path d="M36 37 Q41 34.5 46 37 M54 37 Q59 34.5 64 37" fill="none" ${st} stroke-width="2.5"/>`; break;
+    case 1: brows = `<path d="M35 37 L46 36 M54 36 L65 37" fill="none" stroke="${K}" stroke-width="5" stroke-linecap="round"/>`; break;
+    case 2: brows = `<path d="M36 34 Q41 30 46 34 M54 34 Q59 30 64 34" fill="none" ${st} stroke-width="2.5"/>`; break;
+    case 3: brows = `<path d="M36 35 L46 38 M54 38 L64 35" fill="none" ${st}/>`; break;
+    case 4: brows = `<path d="M36 38 L46 35 M54 35 L64 38" fill="none" ${st}/>`; break;
+  }
+  switch (bd) {
+    case 1: for (let i = 0; i < 16; i++) { const t = Math.PI * (.12 + .76 * i / 15); beard += `<circle cx="${(50 - 19 * Math.cos(t)).toFixed(1)}" cy="${(52 + 13 * Math.sin(t)).toFixed(1)}" r="1.1" fill="${K}" opacity=".55"/>`; } break;
+    case 2: beard = `<path d="M29 46 C29 70 42 74 50 74 C58 74 71 70 71 46 C68 58 61 62 50 62 C39 62 32 58 29 46 Z" fill="${H}" ${st}/>`; break;
+    case 3: beard = `<path d="M45 61 Q50 72 55 61 Q50 64 45 61 Z" fill="${H}" ${st} stroke-width="2.5"/>`; break;
+    case 4: beard = `<path d="M40 55 Q45 49 50 53 Q55 49 60 55 Q55 58 50 56 Q45 58 40 55 Z" fill="${H}" ${st} stroke-width="2.5"/>`; break;
+    case 5: beard = `<path d="M30 48 C31 64 40 70 50 70 C60 70 69 64 70 48" fill="none" stroke="${H}" stroke-width="6" stroke-linecap="round"/>`; break;
+    case 6: beard = `<path d="M29 46 C27 76 40 88 50 88 C60 88 73 76 71 46 C68 58 61 62 50 62 C39 62 32 58 29 46 Z" fill="${H}" ${st}/><path d="M50 74 V86 M44 72 L42 82 M56 72 L58 82" stroke="${K}" stroke-width="2" opacity=".5"/>`; break;
+  }
+  switch (fc) {
+    case 1: [[34, 51], [37, 54], [33, 55], [66, 51], [63, 54], [67, 55]].forEach(([x, y]) => face += `<circle cx="${x}" cy="${y}" r="1.1" fill="#9b5b34"/>`); break;
+    case 2: face = `<circle cx="61" cy="56" r="1.6" fill="${K}"/>`; break;
+    case 3: face = `<g transform="rotate(-30 64 50)"><rect x="58" y="47" width="13" height="6" rx="2" fill="#f6d9b5" ${st} stroke-width="2"/><path d="M63 50 h3" stroke="${K}" stroke-width="1.5"/></g>`; break;
+    case 4: face = `<path d="${star(65, 53, 4.5)}" fill="#ffd23f" ${st} stroke-width="1.8"/>`; break;
+    case 5: face = `<path d="M33 52 L44 52 M33 56 L44 56 M56 52 L67 52 M56 56 L67 56" stroke="${accent}" stroke-width="2.8" stroke-linecap="round"/>`; break;
+    case 6: face = [[33, 52, 2.6], [37, 57, 1.8], [66, 52, 2.6], [63, 57, 1.8]].map(([x, y, r]) => `<path d="${star(x, y, r)}" fill="#fff" stroke="${accent}" stroke-width="1"/>`).join(""); break;
   }
   switch (mo) {
     case 1: mouth = `<path d="M41 54 Q50 67 59 54 Z" fill="${K}" ${st}/><path d="M44 55 H56 L55 58 H45 Z" fill="#fff"/>`; break;
@@ -498,6 +604,9 @@ function avatarSVG(a, size) {
     case 3: mouth = `<path d="M44 57 H56" ${st}/>`; break;
     case 4: mouth = `<path d="M43 55 Q50 61 57 55" fill="none" ${st}/><path d="M47 58 Q47 64 50.5 64 Q54 64 54 58 Z" fill="#ff7aa8" ${st} stroke-width="2"/>`; break;
     case 5: mouth = `<path d="M44 57 Q52 60 58 52" fill="none" ${st}/>`; break;
+    case 6: mouth = `<path d="M43 60 Q50 54 57 60" fill="none" ${st}/>`; break;
+    case 7: mouth = `<path d="M41 54 Q50 66 59 54 Z" fill="#fff" ${st}/><path d="M42 56.5 H58 M45 55 V59 M50 55 V60 M55 55 V59" stroke="#9aa3b8" stroke-width="1.8"/>`; break;
+    case 8: mouth = `<path d="${heart(50, 57, 3.4)}" fill="#ff4d6d" ${st} stroke-width="2"/>`; break;
     default: mouth = `<path d="M43 55 Q50 61 57 55" fill="none" ${st}/>`;
   }
   switch (ac) {
@@ -508,13 +617,18 @@ function avatarSVG(a, size) {
     case 5: acc = `<path d="M27 47 C26 17 74 17 73 47" fill="none" stroke="${K}" stroke-width="6" stroke-linecap="round"/><rect x="21" y="40" width="10" height="16" rx="4" fill="${accent}" ${st}/><rect x="69" y="40" width="10" height="16" rx="4" fill="${accent}" ${st}/>`; break;
     case 6: acc = `<path d="M28 36 C28 13 72 13 72 36 Z" fill="${accent}" ${st}/><rect x="26" y="31" width="48" height="9" rx="4" fill="#fff" ${st}/><circle cx="50" cy="11" r="5.5" fill="#fff" ${st}/>`; break;
     case 7: acc = `<path d="M39 25 L50 -1 L61 25 Z" fill="${accent}" ${st}/><path d="M42 18 L58 12 M45 11 L55 7" stroke="#fff" stroke-width="2.5"/><circle cx="50" cy="0" r="4" fill="#ffd23f" ${st}/>`; break;
+    case 8: acc = `<path d="M28 33 C36 26 64 26 72 33 L72 39 C64 33 36 33 28 39 Z" fill="${accent}" ${st}/><path d="M72 34 L82 28 L80 38 Z M72 36 L83 42 L76 44 Z" fill="${accent}" ${st} stroke-width="2.5"/>`; break;
+    case 9: acc = [0, 72, 144, 216, 288].map(r => `<ellipse cx="68" cy="22" rx="4" ry="7" transform="rotate(${r} 68 28)" fill="#ff8fc2" ${st} stroke-width="2"/>`).join("") + `<circle cx="68" cy="28" r="3.5" fill="#ffd23f" ${st} stroke-width="2"/>`; break;
+    case 10: acc = `<ellipse cx="50" cy="8" rx="17" ry="5" fill="none" stroke="#ffd23f" stroke-width="4.5"/><ellipse cx="50" cy="8" rx="17" ry="5" fill="none" stroke="${K}" stroke-width="1.2" opacity=".6"/>`; break;
+    case 11: acc = `<path d="M33 30 C27 22 28 12 31 8 C34 16 38 22 41 25 Z M67 30 C73 22 72 12 69 8 C66 16 62 22 59 25 Z" fill="#ff4d6d" ${st}/>`; break;
+    case 12: acc = `<path d="M14 33 C24 38 76 38 86 33 C80 42 20 42 14 33 Z" fill="#a8642a" ${st}/><path d="M30 34 C30 18 36 12 42 14 Q50 18 58 14 C64 12 70 18 70 34 Z" fill="#a8642a" ${st}/><path d="M31 29 H69" stroke="${accent}" stroke-width="4"/>`; break;
   }
   return `<svg class="avs" width="${size}" height="${size}" viewBox="-2 -2 104 104" aria-hidden="true"><defs><clipPath id="${id}"><circle cx="50" cy="50" r="47"/></clipPath></defs>
     <circle cx="50" cy="50" r="48" fill="${AV.bg[bg]}" stroke="${K}" stroke-width="3"/>
-    <g clip-path="url(#${id})">${back}${body}<rect x="43" y="60" width="14" height="14" fill="${S}"/></g>
+    <g clip-path="url(#${id})">${pattern}${back}${body}<rect x="43" y="60" width="14" height="14" fill="${S}"/></g>
     <circle cx="29" cy="47" r="5" fill="${S}" ${st}/><circle cx="71" cy="47" r="5" fill="${S}" ${st}/>
     <ellipse cx="50" cy="45" rx="21" ry="23" fill="${S}" ${st}/>${hair}
-    <circle cx="35" cy="53" r="3.6" fill="#ff7aa8" opacity=".55"/><circle cx="65" cy="53" r="3.6" fill="#ff7aa8" opacity=".55"/>${eyes}${mouth}${acc}</svg>`;
+    <circle cx="35" cy="53" r="3.6" fill="#ff7aa8" opacity=".55"/><circle cx="65" cy="53" r="3.6" fill="#ff7aa8" opacity=".55"/>${face}${beard}${brows}${eyes}${mouth}${acc}</svg>`;
 }
 // Bots get a stable look from their name.
 function botAv(name) { let h = 7; for (const c of String(name)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return randomAv(rngFrom(h)); }
@@ -1078,6 +1192,7 @@ async function hostOnline(code, opts) {
 }
 function hostPeers(ch) {
   const r = S.room; if (!r || S.mode !== "host") return;
+  readEmotes(ch.peers);
   const now = nowS(), present = new Set();
   for (const p of ch.peers) {
     if (p.sameTab) continue;
@@ -1114,6 +1229,7 @@ async function joinOnline(code) {
 }
 function clientPeers(ch) {
   if (S.mode !== "client") return;
+  readEmotes(ch.peers);
   const host = ch.peers.find(p => p.presence && p.presence.role === "host" && p.presence.r && p.presence.r.c === Net.code);
   if (!host) return;
   Net.lastHost = Date.now();
@@ -1195,6 +1311,42 @@ function searchWithBots() {
   r.s.rounds = 5; r.startMatch(nowS()); publish(true);
 }
 
+// ── Emotes: quick reactions over a player's face, shared through presence ──
+const EMOTES = ["😂", "🔥", "😱", "👏", "🤔", "😎"];
+let emoSeq = 0, emoAt = 0;
+const emoSeen = {};
+function sendEmote(i) {
+  if (Date.now() - emoAt < 700) return; emoAt = Date.now();
+  showEmote(ME.pid, i); Sound.play("click");
+  if (Net.room) Net.room.presence({ emo: { e: i, n: ++emoSeq } }).catch(() => { });
+}
+function showEmote(pid, i) {
+  const e = EMOTES[i]; if (!e || Screens.cur !== "game") return;
+  const av = document.querySelector(`#scr-game [data-pid="${CSS.escape(pid)}"]`), st = $("#stage").getBoundingClientRect();
+  const r = av ? av.getBoundingClientRect() : { left: st.width / 2, top: st.height / 2, width: 0 };
+  const b = document.createElement("div"); b.className = "emo"; b.textContent = e;
+  b.style.left = (r.left + r.width / 2 - st.left) + "px"; b.style.top = (r.top - st.top) + "px";
+  $("#stage").appendChild(b); setTimeout(() => b.remove(), 1700);
+}
+function readEmotes(peers) {
+  for (const p of peers) {
+    const pr = p.presence || {}, em = pr.emo;
+    if (p.sameTab || !pr.pid || !em || typeof em.n !== "number") continue;
+    if ((emoSeen[pr.pid] ?? em.n) < em.n) showEmote(pr.pid, em.e | 0);
+    emoSeen[pr.pid] = em.n;
+  }
+}
+// Bots react to what just happened on the host's or practice screen.
+function botEmotes(M) {
+  if (!M || !M.res || !S.room) return;
+  for (const p of M.pl) {
+    if (!p[9] || rnd() > .28) continue;
+    const mine = p[1] === M.res.t, good = M.res.ok;
+    const e = good ? (mine ? [1, 5, 3][ri(3)] : [2, 4][ri(2)]) : (mine ? [2, 4][ri(2)] : [0, 5][ri(2)]);
+    setTimeout(() => showEmote(p[0], e), 300 + rnd() * 900);
+  }
+}
+
 // ═══════════════════════════ Flow: snapshots → screens ═══════════════════════════
 const Flow = {
   resultsAt: 0, recorded: false,
@@ -1229,7 +1381,8 @@ function toast(text, color) {
   const t = document.createElement("div"); t.className = "toast"; t.textContent = text; if (color) t.style.setProperty("--tc", color);
   $("#toasts").appendChild(t); setTimeout(() => t.remove(), 2800);
 }
-const avatar = (name, av, bot, extra = "", size = 48, mark = "") => `<span class="avwrap ${extra}" title="${esc(name)}">${avatarSVG(av, size)}${bot ? '<span class="bot">BOT</span>' : ""}${mark}</span>`;
+const avatar = (name, av, bot, extra = "", size = 48, mark = "", mood = null, pid = null) =>
+  `<span class="avwrap ${extra}" title="${esc(name)}"${pid ? ` data-pid="${esc(pid)}"` : ""}>${avatarSVG(av, size, mood)}${bot ? '<span class="bot">BOT</span>' : ""}${mark}</span>`;
 function confetti(n) {
   const cols = ["#ffd23f", "#ff4d6d", "#3d9bff", "#3ee08a", "#ffffff", "#ff5fa2", "#33d6f2"];
   for (let i = 0; i < n; i++) {
@@ -1295,7 +1448,7 @@ Screens.menu = {
   mount(el) {
     el.innerHTML = `<div class="wrap">
       <div class="topbar">${logoHTML()}
-        <button class="chip" id="m-prof">${avatar(ME.name, ME.av, false, "", 52)}<span>${esc(ME.name)}</span><span class="edit">EDIT LOOK</span></button></div>
+        <button class="chip" id="m-prof">${avatar(ME.name, ME.av, false, "", 52, "", "happy")}<span class="who"><span>${esc(ME.name)}</span><span class="lvl"><b>LV ${1 + Math.floor(STATS.xp / 500)}</b><i style="--p:${(STATS.xp % 500) / 5}%"></i></span></span><span class="edit">EDIT LOOK</span></button></div>
       <div class="menu">
         <div class="menu-left">
           <div class="tag">THINK FAST. GUESS TOGETHER.</div>
@@ -1502,6 +1655,7 @@ Screens.game = {
       <div class="answers" id="g-ans">${[0, 1, 2, 3].map(i => `<button class="ans hide" data-i="${i}"><span class="l">${"ABCD"[i]}</span><span class="t"></span></button>`).join("")}</div>
       <div class="jokers" id="g-jk">${JOKERS.map((j, i) => `<button class="jk" data-j="${i}">${icon(j[1])}<span><b>${j[0]}</b><small></small></span><span class="key">${j[2]}</span></button>`).join("")}</div>
       <div class="gfoot"><button class="btn sq" id="g-menu" aria-label="Menu">${icon("menu")}</button>
+        <div class="emotes" id="g-emo">${EMOTES.map((e, i) => `<button data-e="${i}" aria-label="React ${e}">${e}</button>`).join("")}</div>
         <button class="btn" id="g-skip" hidden>${icon("close")} SKIP STEAL</button>
         <button class="btn sq" id="g-snd" aria-label="Sound">${icon(SET.muted ? "volume_off" : "volume_up")}</button></div>
     </div><div class="banner" id="g-ban" hidden><b></b><span></span></div>`;
@@ -1509,6 +1663,7 @@ Screens.game = {
     this.cards.forEach(c => c.onclick = () => this.tap(+c.dataset.i));
     el.querySelectorAll(".jk").forEach(b => b.onclick = () => this.joker(+b.dataset.j));
     $("#g-menu").onclick = () => { Sound.play("click"); this.menu(); };
+    $("#g-emo").onclick = e => { const b = e.target.closest("button"); if (b) sendEmote(+b.dataset.e); };
     $("#g-skip").onclick = () => { Sound.play("click"); $("#g-skip").hidden = true; act("skip"); };
     $("#g-snd").onclick = () => { SET.muted = !SET.muted; store("settings", SET); Sound.apply(); $("#g-snd").innerHTML = icon(SET.muted ? "volume_off" : "volume_up"); };
     this.render();
@@ -1521,6 +1676,18 @@ Screens.game = {
       <button class="btn danger" id="gm-leave">${icon("logout")} LEAVE MATCH</button>`,
       (box, close) => { $("#gm-set", box).onclick = () => { close(); settingsModal(); };
         $("#gm-leave", box).onclick = () => { close(); confirmBox("LEAVE MATCH?", "Your team continues without you, or the match ends.", "LEAVE", () => Flow.leave()); }; });
+  },
+  // Faces react: the player who just answered cheers or sulks, everyone is amazed by a steal, and the final whistle splits the teams.
+  moodFor(M, id, team) {
+    const r = M.res;
+    if (M.ph === PH.Finished && M.end) return M.end.w < 0 ? null : team === M.end.w ? "happy" : "sad";
+    if ([PH.Reveal, PH.StealReveal, PH.TbReveal].includes(M.ph) && r && r.k) {
+      if (r.p === id) return r.ok ? "happy" : "sad";
+      if (r.k === RK.Timeout && M.ap === id) return "sad";
+      if (r.ok && r.k === RK.Steal) return team === r.t ? "happy" : "wow";
+    }
+    if (M.ph === PH.Steal) return team === M.st.t ? "wow" : null;
+    return null;
   },
   names() {
     const m = {};
@@ -1553,7 +1720,7 @@ Screens.game = {
       $(".ppl", p).innerHTML = M.pl.filter(x => x[1] === t).map(x => {
         const n = names[x[0]] || { name: "?", av: 0, bot: 0 }, act = x[0] === M.ap && M.ph !== PH.Finished;
         const mark = tie && x[4] >= 0 ? `<i class="mk" style="background:${x[5] ? "var(--bad)" : "var(--ok)"}"></i>` : "";
-        return avatar(n.name, n.av, n.bot, (act ? "act " : "") + (x[3] || !x[2] ? "off" : ""), 54, mark);
+        return avatar(n.name, n.av, n.bot, (act ? "act " : "") + (x[3] || !x[2] ? "off" : ""), 54, mark, this.moodFor(M, x[0], t), x[0]);
       }).join("");
     }
     const tie = M.tb > 0 && M.ph >= PH.TbIntro;
@@ -1563,7 +1730,7 @@ Screens.game = {
     const chip = $("#g-cat"); chip.innerHTML = cat ? `${icon(cat.icon)} ${cat.name}` : ""; chip.style.setProperty("--cc", cat ? cat.color : "var(--yellow)");
     // The face of whoever is answering right now.
     const face = $("#g-face"), who = M.ap && [PH.TurnIntro, PH.Question, PH.Locked].includes(M.ph) ? names[M.ap] : null, key = who ? M.ap : "";
-    if (face.dataset.k !== key) { face.dataset.k = key; face.innerHTML = who ? avatar(who.name, who.av, who.bot, "act", 46) : ""; }
+    if (face.dataset.k !== key) { face.dataset.k = key; face.innerHTML = who ? avatar(who.name, who.av, who.bot, "act", 46, "", M.ph === PH.Question && M.ap === ME.pid ? "wow" : null) : ""; }
   },
   qtext(M) { const q = M.q && QBY.get(M.q.id); return q; },
   enter(M) {
@@ -1573,7 +1740,10 @@ Screens.game = {
     switch (M.ph) {
       case PH.Intro:
         this.hideAnswers(); this.timer(false); $("#g-q").textContent = "GET READY"; $("#g-qs").textContent = "TEAM RED  VS  TEAM BLUE";
-        this.banner("MATCH START", `${M.tr} ROUNDS · ${(CAT[S.R.s.category] || CAT.classic).name}`, "var(--accent)", 2200); Sound.play("round"); break;
+        this.banner("MATCH START", `${M.tr} ROUNDS · ${(CAT[S.R.s.category] || CAT.classic).name}`, "var(--accent)", 2400); Sound.play("round");
+        { const n = this.names(), side = t => M.pl.filter(x => x[1] === t).map(x => { const p = n[x[0]] || {}; return `<div class="vsp">${avatar(p.name, p.av, p.bot, x[0] === ME.pid ? "me" : "", 92, "", "happy")}<b>${esc(p.name || "")}</b></div>`; }).join("");
+          $("span", $("#g-ban")).innerHTML = `<div class="vsrow"><div class="vsteam" style="--tc:var(--red)">${side(0)}</div><div class="vsbadge">VS</div><div class="vsteam" style="--tc:var(--blue)">${side(1)}</div></div>`; }
+        break;
       case PH.TurnIntro: {
         this.hideAnswers(); this.timer(false); $("#g-q").textContent = ""; $("#g-qs").textContent = "";
         const mine = M.ap === me, who = names[M.ap] ? names[M.ap].name : "";
@@ -1604,7 +1774,7 @@ Screens.game = {
     }
   },
   showQ(M, q) {
-    $("#g-q").textContent = q ? q[3] : ""; $("#g-qs").textContent = "";
+    setQuestion($("#g-q"), q); $("#g-qs").textContent = "";
     const order = M.q && M.q.o || [0, 1, 2, 3];
     this.cards.forEach((c, i) => {
       $(".t", c).textContent = q ? q[4][order[i]] : ""; c.className = "ans hide"; c.querySelector(".tagv")?.remove();
@@ -1629,6 +1799,7 @@ Screens.game = {
   },
   result(M) {
     const r = M.res, myTeam = Flow.myTeam(), names = this.names();
+    if (S.mode === "local" || S.mode === "host") botEmotes(M);
     if (r.k === RK.Timeout) { this.banner("TIME'S UP", M.st.pd ? "NO ANSWER" : "NO POINTS THIS ROUND", "var(--bad)", 1200); Sound.play("wrong"); if (r.t === myTeam) buzz(60); return; }
     if (r.k === RK.TbNone) { this.banner("NO WINNER YET", "NEXT QUESTION", "var(--text)", 1800); Sound.play("wrong"); return; }
     if (r.k === RK.StealSkip) return;
@@ -1728,29 +1899,32 @@ Screens.game = {
 
 
 // ── Character builder ──
-const LOOK_TABS = [["FACE", -1, 0], ["EYES", 1, -1], ["MOUTH", 2, -1], ["HAIR", 3, 4], ["OUTFIT", 5, 6], ["EXTRAS", 7, -1], ["BACKDROP", -1, 8]];
+// [tab label, part with shapes (-1 none), part with colours (-1 none)]
+const LOOK_TABS = [["SKIN", 11, 0], ["EYES", 1, -1], ["BROWS", 9, -1], ["MOUTH", 2, -1], ["HAIR", 3, 4], ["BEARD", 10, 4], ["OUTFIT", 5, 6], ["EXTRAS", 7, -1], ["BACKDROP", 12, 8]];
 const SWATCHES = { 0: AV.skin, 4: AV.hairc, 6: AV.cloth, 8: AV.bg };
-const PART_NAMES = { 1: AV.names.eyes, 2: AV.names.mouth, 3: AV.names.hair, 5: AV.names.top, 7: AV.names.acc };
+const PART_NAMES = { 1: AV.names.eyes, 2: AV.names.mouth, 3: AV.names.hair, 5: AV.names.top, 7: AV.names.acc, 9: AV.names.brows, 10: AV.names.beard, 11: AV.names.face, 12: AV.names.bgp };
+const LOOK_HISTORY = [];
 Screens.builder = {
   mount(el) { this.el = el; this.av = ME.av.slice(); this.tab = 1; this.name = ME.name; this.render(); },
   render() {
     const [label, part, color] = LOOK_TABS[this.tab];
     const opts = part >= 0 ? Array.from({ length: AV.count[part] }, (_, i) => { const v = this.av.slice(); v[part] = i;
-      return `<button data-p="${part}" data-i="${i}" class="${this.av[part] === i ? "sel" : ""}" title="${PART_NAMES[part][i]}">${avatarSVG(v, 84)}</button>`; }).join("") : "";
+      return `<button data-p="${part}" data-i="${i}" class="${this.av[part] === i ? "sel" : ""}" title="${PART_NAMES[part][i]}">${avatarSVG(v, 84)}<span class="on">${PART_NAMES[part][i]}</span></button>`; }).join("") : "";
     const sw = color >= 0 ? SWATCHES[color].map((c, i) => `<button data-c="${color}" data-i="${i}" class="${this.av[color] === i ? "sel" : ""}" style="background:${c}" aria-label="Colour ${i + 1}"></button>`).join("") : "";
     this.el.innerHTML = `<div class="wrap">
       <div class="head"><button class="btn sq" id="b-back" aria-label="Back">${icon("arrow_back")}</button><h1>YOUR LOOK</h1></div>
       <div class="builder">
         <div class="card preview">
-          ${avatarSVG(this.av, 260)}
+          ${avatarSVG(this.av, 260, this.mood)}
           <input id="b-name" type="text" maxlength="14" value="${esc(this.name)}" aria-label="Nickname">
-          <div class="actions" style="justify-content:center"><button class="btn cyan" id="b-rand">${icon("casino")} RANDOM</button><button class="btn" id="b-rname">${icon("refresh")} NEW NAME</button></div>
+          <div class="moods">${["", "happy", "wow", "sad"].map(m => `<button data-mood="${m}" class="${(this.mood || "") === m ? "sel" : ""}">${m ? m.toUpperCase() : "NORMAL"}</button>`).join("")}</div>
+          <div class="actions" style="justify-content:center"><button class="btn cyan" id="b-rand">${icon("casino")} RANDOM</button><button class="btn" id="b-undo" ${LOOK_HISTORY.length ? "" : "disabled"}>${icon("arrow_back")} UNDO</button><button class="btn" id="b-rname">${icon("refresh")} NEW NAME</button></div>
           <div class="hint" style="text-align:center">MATCHES ${STATS.played} · WINS ${STATS.wins} · ACCURACY ${STATS.answered ? Math.round(100 * STATS.correct / STATS.answered) + "%" : "–"} · LEVEL ${1 + Math.floor(STATS.xp / 500)}</div>
         </div>
         <div class="card parts">
           <div class="tabs">${LOOK_TABS.map((t, i) => `<button data-tab="${i}" class="${i === this.tab ? "sel" : ""}">${t[0]}</button>`).join("")}</div>
-          ${sw ? `<div class="eyebrow">${color === 0 ? "SKIN TONE" : color === 8 ? "BACKDROP COLOUR" : "COLOUR"}</div><div class="swatches">${sw}</div>` : ""}
-          ${opts ? `<div class="eyebrow">${label}</div><div class="opts">${opts}</div>` : ""}
+          ${sw ? `<div class="eyebrow">${color === 0 ? "SKIN TONE" : color === 8 ? "BACKDROP COLOUR" : color === 4 ? "HAIR COLOUR" : "COLOUR"}</div><div class="swatches">${sw}</div>` : ""}
+          ${opts ? `<div class="eyebrow">${part === 11 ? "FACE DETAILS" : part === 12 ? "PATTERN" : label}</div><div class="opts">${opts}</div>` : ""}
         </div>
       </div>
       <div class="actions" style="justify-content:center"><button class="btn primary" id="b-save">${icon("check")} SAVE LOOK</button></div>
@@ -1758,14 +1932,33 @@ Screens.builder = {
     const el = this.el, keepName = () => { const n = $("#b-name", el); if (n) this.name = n.value; };
     $("#b-back").onclick = () => { Sound.play("click"); Flow.menu(); };
     el.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { keepName(); this.tab = +b.dataset.tab; Sound.play("click"); this.render(); });
-    el.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { keepName(); this.av[+b.dataset.p] = +b.dataset.i; Sound.play("lock"); this.render(); });
-    el.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { keepName(); this.av[+b.dataset.c] = +b.dataset.i; Sound.play("click"); this.render(); });
-    $("#b-rand").onclick = () => { keepName(); this.av = randomAv(); Sound.play("joker"); this.render(); };
+    const change = (i, v) => { keepName(); if (this.av[i] === v) return; LOOK_HISTORY.push(this.av.slice()); if (LOOK_HISTORY.length > 40) LOOK_HISTORY.shift(); this.av[i] = v; this.render(); };
+    el.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { Sound.play("lock"); change(+b.dataset.p, +b.dataset.i); });
+    el.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { Sound.play("click"); change(+b.dataset.c, +b.dataset.i); });
+    el.querySelectorAll("[data-mood]").forEach(b => b.onclick = () => { keepName(); this.mood = b.dataset.mood || null; Sound.play("click"); this.render(); });
+    $("#b-undo").onclick = () => { keepName(); if (!LOOK_HISTORY.length) return; this.av = LOOK_HISTORY.pop(); Sound.play("click"); this.render(); };
+    $("#b-rand").onclick = () => { keepName(); LOOK_HISTORY.push(this.av.slice()); this.av = randomAv(); Sound.play("joker"); this.render(); };
     $("#b-rname").onclick = () => { this.name = randomName(); Sound.play("click"); this.render(); };
     $("#b-save").onclick = () => { keepName(); ME.name = cleanName(this.name); ME.av = normAv(this.av); saveProfile(); Sound.play("correct"); toast("LOOK SAVED", "var(--green)"); Flow.menu(); };
   },
   key(e) { if (e.key === "Escape") $("#b-back").click(); },
 };
+
+function clubColor(name) { let h = 0; for (const c of name) h = (h * 33 + c.charCodeAt(0)) >>> 0; return ["#ff4d6d", "#3d9bff", "#ffd23f", "#3ee08a", "#9b6bff", "#ff9a3c", "#33d6f2", "#ff5fa2", "#00c2a8"][h % 9]; }
+// Career-path questions ("Whose career path is this? A → B → C") become a row of club chips.
+function setQuestion(el, q) {
+  el.classList.remove("pathq");
+  if (!q) { el.textContent = ""; return; }
+  const text = q[3], cut = text.indexOf("? ");
+  if (q[1] === "footballers" && cut > 0 && text.includes(" → ")) {
+    const clubs = text.slice(cut + 2).split(" → ");
+    el.classList.add("pathq");
+    el.innerHTML = `<span class="fhead">${icon("swap_horiz")} ${esc(text.slice(0, cut + 1).toUpperCase())}</span><span class="path">${clubs.map((c, i) =>
+      `${i ? `<i class="arr" style="animation-delay:${i * .12 - .06}s">➜</i>` : ""}<span class="club" style="--cl:${clubColor(c)};animation-delay:${i * .12}s"><b>${i + 1}</b>${esc(c)}</span>`).join("")}</span>`;
+    return;
+  }
+  el.textContent = text;
+}
 
 // ── Results ──
 Screens.results = {
@@ -1784,7 +1977,7 @@ Screens.results = {
     const podiumSpot = (entry, place) => {
       if (!entry) return `<div class="pod p${place}" style="visibility:hidden"><div class="blk"></div></div>`;
       const m = pmeta(entry[0]);
-      return `<div class="pod p${place}"><div class="who">${place === 1 ? `<span style="color:var(--yellow);filter:drop-shadow(0 3px 0 var(--ink))">${icon("crown")}</span>` : ""}${avatar(m.name, m.av, m.bot, entry[0] === ME.pid ? "me" : "", 112)}
+      return `<div class="pod p${place}"><div class="who">${place === 1 ? `<span style="color:var(--yellow);filter:drop-shadow(0 3px 0 var(--ink))">${icon("crown")}</span>` : ""}${avatar(m.name, m.av, m.bot, entry[0] === ME.pid ? "me" : "", 112, "", place === 1 ? "happy" : place === 3 ? "wow" : null)}
         <div class="nm">${esc(m.name)}</div><div class="pts" style="border-color:${TCOL[m.team]}">${entry[1]} PTS</div></div><div class="blk">${place}</div></div>`;
     };
     el.innerHTML = `<div class="wrap" style="justify-content:center;gap:16px">
@@ -1792,7 +1985,7 @@ Screens.results = {
       <div class="hint onwall" style="text-align:center">${sub}</div>
       <div class="podium">${podiumSpot(pp[1], 2)}${podiumSpot(pp[0], 1)}${podiumSpot(pp[2], 3)}</div>
       <div class="floor"></div>
-      ${pp[3] ? (m => `<div class="fourth">4TH ${avatar(m.name, m.av, m.bot, "", 44)} ${esc(m.name)} · ${pp[3][1]} PTS</div>`)(pmeta(pp[3][0])) : ""}
+      ${pp[3] ? (m => `<div class="fourth">4TH ${avatar(m.name, m.av, m.bot, "", 44, "", "sad")} ${esc(m.name)} · ${pp[3][1]} PTS</div>`)(pmeta(pp[3][0])) : ""}
       <div class="scores">${[0, 1].map(t => `<div class="card ts" style="--tc:${TCOL[t]}">${w === t ? `<span style="color:var(--yellow)">${icon("crown")}</span>` : ""}<span>${TEAM[t]}</span><b id="r-s${t}">0</b></div>`).join("")}</div>
       <div class="stats card">${rows.map(([l, v, f, dir]) => { const b = best(f, dir); return `<div><b style="${b === 0 ? "color:var(--red)" : ""}">${v(0)}</b><span>${l}</span><b style="${b === 1 ? "color:var(--blue)" : ""}">${v(1)}</b></div>`; }).join("")}</div>
       <div class="actions" style="justify-content:center">
