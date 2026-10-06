@@ -1,3 +1,8 @@
+# Game Hub
+
+- **[One More Floor](OneMoreFloor/README.md)**: HTML5/WebGL roguelite tower climber (`OneMoreFloor/`).
+- **Barbershop Simulator**: Unity WebGL project (below).
+
 # Barbershop Simulator
 
 First-person barbershop simulator for Unity WebGL (CrazyGames, GamePix, Playgama), playable on desktop and mobile browsers.
