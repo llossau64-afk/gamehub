@@ -29,6 +29,13 @@ To deploy (itch.io, CrazyGames, GitHub Pages, any static host), upload the `OneM
 
 On the upgrade screen use 1/2/3 (or arrows + Enter) and R to reroll. On the results screen, Space/Enter starts the next run immediately.
 
+## What's new in v5 (release)
+
+- **40 monsters** built from a creature kit (bipeds, beasts, flyers, fish, slimes, spirits, serpents, spiders, crabs, mimics): cel-shaded, ink-outlined, glowing eyes, horns, jaws, wings and tails, each with its own animation. New behaviours: flyers that circle and dive, bombers that swell up and explode.
+- **8 worlds**, 5 floors each: Dungeon, Flooded Sewers (water slows, swimmers speed up), Haunted Crypt, Lava Forge (lava burns), The Abyss (water), Frozen Spire (slippery ice), Shadow Garden, Sky Sanctum. Animated water/lava/ice shaders.
+- **Sound:** every monster has a voice (growl, roar, screech, caw, bark, hiss, gurgle, bubble, chitter, moan, clank, sizzle, zap, chime, chomp, croak) for spawn, wind-up, attack, hurt and death. Footsteps per surface, heartbeat at low HP, wood/blade hit sounds, combo swing pitches, heal sparkle, coin magnet. New lobby theme (main menu) and shop groove (shop, mastery, register, settings); run music changes key per world.
+- The Register lists all 41 monsters plus the 3 bosses with animated 3D models. The power choice now always follows the training floor.
+
 ## What's new in v4
 
 - **Fixed:** on phones the joystick could stop working after a tap on the background (iOS sends fake mouse events that switched the game to mouse mode). Input now uses pointer events and a document-wide touch stick.

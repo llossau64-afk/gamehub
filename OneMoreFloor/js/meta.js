@@ -1,3 +1,4 @@
+import { MONSTERS, BIOMES } from './monsters.js';
 // Between-run progression: permanent upgrades, skins and achievements.
 
 export const PERMS = [
@@ -37,15 +38,13 @@ export const RARITY_TIERS = [
   { id: 'legendary', label: 'LEGENDARY', color: '#f2b24a' },
 ];
 
-// The Register: every monster in the tower.
+// The Register: every monster in the tower, world by world, then the bosses.
 export const BESTIARY = [
   { id: 'dummy', name: 'Training Dummy', where: 'Training floor', lore: 'Straw, rope and a painted target. The only thing in this tower that never hits back.' },
-  { id: 'runner', name: 'Runner', where: 'From floor 1', lore: 'Fast and stupid. It crouches for a split second before it bites. That crouch is your window.' },
-  { id: 'shooter', name: 'Shooter', where: 'From floor 2', lore: 'Keeps its distance and spits glowing orbs. Its core flares up right before it fires. Your swing can cut the shots apart.' },
-  { id: 'splitter', name: 'Splitter', where: 'From floor 3', lore: 'A lump of green slime that splits in two when it dies. Kill it near a wall and the halves have nowhere to go.' },
-  { id: 'splitling', name: 'Splitling', where: 'Born from Splitters', lore: 'Small, quick and weak. One hit is usually enough.' },
-  { id: 'dasher', name: 'Dasher', where: 'From floor 5', lore: 'Paints a red line on the floor, then charges along it. Step off the line and it slams into whatever is behind you.' },
-  { id: 'tank', name: 'Tank', where: 'From floor 6', lore: 'A walking wall. It raises its fists before every slam. Keep moving and it never lands a hit.' },
+  ...BIOMES.flatMap((b, bi) => b.monsters.flatMap(id => {
+    const d = MONSTERS[id], e = { id, name: d.name, where: `${b.name} · floors ${bi * 5 + 1}-${bi * 5 + 5}`, lore: d.lore, ai: d.ai };
+    return id === 'splitter' ? [e, { id: 'splitling', name: MONSTERS.splitling.name, where: 'Born from Slimes', lore: MONSTERS.splitling.lore }] : [e];
+  })),
   { id: 'warden', name: 'The Warden', where: 'Floor 10, 40, 70…', boss: true, lore: 'The jailer of the lower floors. Its lantern burns brighter before every ring of fire. The gaps are the way through.' },
   { id: 'crusher', name: 'The Crusher', where: 'Floor 20, 50, 80…', boss: true, lore: 'All weight and no patience. It charges blindly and stuns itself on the walls. Make it miss.' },
   { id: 'hunter', name: 'The Hunter', where: 'Floor 30, 60, 90…', boss: true, lore: 'It disappears, then lands where you stood. Every dash it makes is drawn on the floor first.' },

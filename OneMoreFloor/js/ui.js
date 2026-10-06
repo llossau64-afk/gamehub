@@ -57,6 +57,10 @@ export class UI {
     this.screen = id;
     this.focusIdx = 0;
     document.body.classList.toggle('playing', id === 'hud');
+    // menu music: lobby theme on the main menu, the shop groove in shop-type screens
+    const g = this.game, calm = !g || g.mode !== 'run' || g.phase === 'dead';
+    if (calm && ['shop', 'mastery', 'register', 'daily', 'settings', 'upgrades', 'skins'].includes(id)) audio.setMode('shop');
+    else if (calm && (id === 'menu' || id === 'results')) audio.setMode('lobby');
     if (id !== 'hud' && input.releaseStick) input.releaseStick();
     this.hud.classList.toggle('on', id === 'hud' || id === 'pause' || id === 'cards');
   }
@@ -288,6 +292,7 @@ export class UI {
   }
 
   onFloor(game, f) {
+    const ride = document.getElementById('ride'); if (ride) ride.classList.remove('on');
     this.el.floor.textContent = pad2(f);
     this.show('hud');
     this.fade(false, 0.45);

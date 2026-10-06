@@ -2,7 +2,8 @@
 import * as THREE from '../lib/three.module.min.js';
 import { RNG, clamp, damp, angleDiff, rand, TAU, dist2 } from './util.js';
 import { TILE, T, makeRoom, menuRoom, tutorialRoom, toWorld, toTile, tileAt, collideCircle, lineOfSight, FlowField, solidAt } from './rooms.js';
-import { buildPlayer, buildEnemy, ENEMY_COLORS } from './models.js';
+import { buildPlayer, buildEnemy } from './models.js';
+import { MONSTERS, BIOMES, buildMonster } from './monsters.js';
 import { animateOutfit } from './characters.js';
 import { baseStats, rollCards, UPGRADE_BY_ID } from './upgrades.js';
 import { SKINS, ACHIEVEMENTS, checkSkinProgress } from './meta.js';
@@ -15,15 +16,16 @@ import { WEAPON_BY_ID } from './weapons.js';
 import { crazy } from './crazy.js';
 import { ABILITY_BY_ID, abilityPower, masteryFromXp, TRACK } from './abilities.js';
 
-// Enemy archetypes. hp/speed are scaled per floor; dmg is what they deal to the player.
-const ETYPES = {
-  runner: { hp: 18, speed: 4.1, r: 0.36, dmg: 2, coins: 1, cost: 1, unlock: 1, weight: 3 },
-  shooter: { hp: 20, speed: 2.6, r: 0.42, dmg: 2, coins: 2, cost: 2, unlock: 2, weight: 2 },
-  splitter: { hp: 34, speed: 2.4, r: 0.46, dmg: 2, coins: 1, cost: 2, unlock: 3, weight: 2 },
-  dasher: { hp: 30, speed: 3.2, r: 0.4, dmg: 3, coins: 2, cost: 2.5, unlock: 5, weight: 1.6 },
-  tank: { hp: 85, speed: 1.75, r: 0.7, dmg: 4, coins: 4, cost: 4, unlock: 6, weight: 1 },
-  dummy: { hp: 30, speed: 0, r: 0.42, dmg: 0, coins: 0, cost: 99, unlock: 999, weight: 0 },
-};
+// Every monster: stats live in monsters.js; the training dummy is the only extra.
+const ETYPES = { ...MONSTERS, dummy: { id: 'dummy', name: 'Training Dummy', ai: 'dummy', hp: 30, speed: 0, r: 0.42, dmg: 0, coins: 0, cost: 99, weight: 0, voice: 'clank', pitch: 1.4, look: { body: 0xb48a5c } } };
+const _colCache = {};
+function enemyColor(type) {
+  if (_colCache[type] !== undefined) return _colCache[type];
+  const L = (ETYPES[type] || {}).look || {};
+  return (_colCache[type] = L.body ?? L.skin ?? L.core ?? 0xc8c0b0);
+}
+// Biomes change every 5 floors; after the 8th they start over (and keep getting harder).
+export const biomeIndex = f => Math.floor(Math.max(0, f - 1) / 5) % BIOMES.length;
 
 const _v3 = new THREE.Vector3();
 const _ray = new THREE.Raycaster();
@@ -131,10 +133,14 @@ export class Game {
     crazy.gameplayStart();
   }
 
+  tileKind(x, z) { const [i, j] = toTile(this.room, x, z); return tileAt(this.room, i, j); }
+
+  weaponHitSound() { const w = save.data.weapon; return w === 'stick' || w === 'club' ? 'hitWood' : 'hit'; }
+
   // ------------------------------------------------------------------ register
   registerSeen(id) {
     const b = save.data.bestiary;
-    if (!b[id]) { b[id] = { seen: true, kills: 0 }; if (this.mode === 'run') this.ui.toast('NEW REGISTER ENTRY', REG_NAMES[id] || id); }
+    if (!b[id]) { b[id] = { seen: true, kills: 0 }; if (this.mode === 'run') this.ui.toast('NEW REGISTER ENTRY', (MONSTERS[id] && MONSTERS[id].name) || REG_NAMES[id] || id); }
   }
   registerKill(id) {
     const b = save.data.bestiary;
@@ -485,7 +491,11 @@ export class Game {
     if (!p || p.dead) return;
     const before = p.hp;
     p.hp = Math.min(p.maxHp, p.hp + n);
-    if (p.hp > before) { this.fx.number(p.x, 1.4, p.z, '+' + (p.hp - before), 'heal'); }
+    if (p.hp > before) {
+      this.fx.number(p.x, 1.4, p.z, '+' + (p.hp - before), 'heal');
+      audio.play('heal');
+      this.fx.burst(p.x, 0.5, p.z, 8, 0x8fe388, { speed: 1.5, up: 2.5, life: 0.6, size: 0.1, grav: -1 });
+    }
   }
 
   recomputeStats() {
@@ -529,7 +539,7 @@ export class Game {
     run.hurtThisFloor = false;
     this.clearEntities();
     const f = run.floor;
-    const room = makeRoom(run.rng, f, this.recentRooms);
+    const room = makeRoom(run.rng, f, this.recentRooms, BIOMES[biomeIndex(f)].hazard);
     this.room = room;
     this.world.buildRoom(room, f);
     this.flow = new FlowField(room);
@@ -545,7 +555,10 @@ export class Game {
     this.waveIdx = 0; this.waveT = 0;
     this.isBossFloor = f % 10 === 0;
     this.world.updateCamera(1, ex, ez - 1.5, { snap: true });
+    audio.setBiome(biomeIndex(f));
     audio.setMode(this.isBossFloor ? 'off' : 'run');
+    this.hazTiles = [];
+    for (let j = 0; j < room.h; j++) for (let i = 0; i < room.w; i++) { const t = room.tiles[j * room.w + i]; if (t === T.WATER || t === T.LAVA) { const [x, z] = toWorld(room, i, j); this.hazTiles.push([x, z, t]); } }
     audio.setMuffled(false);
     audio.setIntensity(0.1);
     this.ui.onFloor(this, f);
@@ -563,12 +576,17 @@ export class Game {
   generateWaves(f) {
     if (f % 10 === 0) return [];
     const rng = this.run.rng;
-    const unlocked = Object.keys(ETYPES).filter(t => ETYPES[t].unlock <= f);
-    // Each room gets a "squad" of 2-3 types, so rooms feel different from each other.
+    // Monsters come from the current biome; a new one joins on each of its first floors.
+    const bi = biomeIndex(f), inBiome = (f - 1) % 5, cycle = Math.floor((f - 1) / 40);
+    const home = BIOMES[bi].monsters;
+    const unlocked = home.slice(0, Math.min(5, (bi === 0 && cycle === 0 ? 1 : 2) + inBiome));
+    // a few veterans from earlier biomes keep things mixed
+    const older = [];
+    for (let b2 = 0; b2 < (cycle > 0 ? BIOMES.length : bi); b2++) if (b2 !== bi) older.push(...BIOMES[b2].monsters);
     let squad = rng.shuffle([...unlocked]).slice(0, Math.min(unlocked.length, f < 4 ? 2 : rng.int(2, 3)));
-    const fresh = unlocked.find(t => ETYPES[t].unlock === f);
+    const fresh = unlocked[unlocked.length - 1];
     if (fresh && !squad.includes(fresh)) squad[0] = fresh;
-    if (!squad.includes('runner') && rng.chance(0.5)) squad.push('runner');
+    if (older.length && rng.chance(0.35)) squad.push(rng.pick(older));
     const budget = 3 + f * 1.3 + Math.max(0, f - 12) * 0.5;
     const nWaves = f < 3 ? 1 : f < 7 ? 2 : rng.chance(0.55) ? 3 : 2;
     const waves = [];
@@ -618,7 +636,7 @@ export class Game {
 
   acquireModel(type) {
     const pool = this.pools[type] || (this.pools[type] = []);
-    const m = pool.pop() || buildEnemy(type);
+    const m = pool.pop() || (type === 'dummy' ? buildEnemy('dummy') : buildMonster(type));
     m.root.visible = true; m.root.scale.setScalar(1);
     this.world.dynamic.add(m.root);
     return m;
@@ -655,7 +673,7 @@ export class Game {
       state: 'spawn', t: 0, cd: rand(0.6, 1.6), face: rand(0, TAU), flash: 0, slow: 0,
       elite: !!o.elite, mini, decor: !!o.decor, dead: false, deathT: 0,
       spawnT: o.instant ? 0 : 0.75 + (o.delay || 0), pop: o.instant ? 1 : 0, orbitCd: 0, dashHit: -1, touchCd: 0,
-      strafe: Math.random() < 0.5 ? 1 : -1, wob: rand(0, TAU), trapHit: -1, kbResist: type === 'tank' ? 0.75 : 0,
+      strafe: Math.random() < 0.5 ? 1 : -1, wob: rand(0, TAU), trapHit: -1, kbResist: def.ai === 'tank' ? 0.75 : 0, ph: rand(0, TAU),
       bossMinion: !!o.bossMinion, y: 0, dvx: 0, dvy: 0, dvz: 0, spin: 0, sq: 0, sqv: 0, hitT: 0, hx: 0, hz: 1, popped: false,
     };
     e.maxHp = e.hp;
@@ -671,7 +689,8 @@ export class Game {
   }
 
   fireBullet(x, z, angle, speed, dmg, o = {}) {
-    this.bullets.push({ x, z, vx: Math.sin(angle) * speed, vz: Math.cos(angle) * speed, r: o.r || 0.17, dmg, life: o.life || 6, y: o.y || 0.75, s: o.scale || 1 });
+    const c = o.color ?? 0xff3d8b;
+    this.bullets.push({ x, z, vx: Math.sin(angle) * speed, vz: Math.cos(angle) * speed, r: o.r || 0.17, dmg, life: o.life || 6, y: o.y || 0.75, s: o.scale || 1, cr: ((c >> 16) & 255) / 255, cg: ((c >> 8) & 255) / 255, cb: (c & 255) / 255 });
   }
 
   // ------------------------------------------------------------------ main update
@@ -779,7 +798,7 @@ export class Game {
           if (this.run.tutorial) {
             this.phase = 'cards'; this.phaseT = 0;
             audio.setMuffled(true);
-            if (!save.data.ability) {
+            if (true) {
               this.say(['Last thing. That stick will not get you far up there.', 'Choose a power. It starts out weak, but the more you climb with it, the stronger it gets. Choose well.'])
                 .then(() => this.ui.showElementChoice(this, () => this.nextFloor()));
             } else this.ui.ride(this, f, () => this.nextFloor());
@@ -808,6 +827,7 @@ export class Game {
   roomClear() {
     this.phase = 'clear'; this.phaseT = 0;
     this.magnetAll = true;
+    if (this.coins.length) audio.play('magnet');
     this.world.setTraps(0, 0);
     const lift = this.world.exitLift;
     if (lift) { lift.ringMat.color.set(0xf2b24a); }
@@ -856,6 +876,7 @@ export class Game {
     const p = this.player, s = this.stats;
     if (p.dead) { p.deathT += dt; return; }
     const canAct = this.phase === 'fight' || this.phase === 'clear' || (this.phase === 'arrive' && this.phaseT > 0.6);
+    if (p.hp <= p.maxHp * 0.3 && this.phase === 'fight') { p.hbT = (p.hbT || 0) - dt; if (p.hbT <= 0) { p.hbT = 0.85; audio.play('heartbeat'); } }
     p.iframes -= dt; p.flash -= dt; p.hurtT -= dt;
 
     // dash recharge: one charge at a time
@@ -894,9 +915,17 @@ export class Game {
         }
       }
     } else {
-      const sp = s.moveSpeed * (p.swingT < 0.12 ? 0.82 : 1);
-      p.vx = damp(p.vx, mx * sp, 32, dt);
-      p.vz = damp(p.vz, mz * sp, 32, dt);
+      // floor hazards: water slows, ice is slippery, lava burns
+      const tk = this.mode === 'run' ? this.tileKind(p.x, p.z) : 0;
+      const sp = s.moveSpeed * (p.swingT < 0.12 ? 0.82 : 1) * (tk === T.WATER ? 0.68 : 1);
+      const grip = tk === T.ICE ? 3.5 : 32;
+      p.vx = damp(p.vx, mx * sp, grip, dt);
+      p.vz = damp(p.vz, mz * sp, grip, dt);
+      if (tk === T.LAVA && canAct) {
+        p.lavaT = (p.lavaT || 0) - dt;
+        if (Math.random() < dt * 20) this.fx.emit(p.x + rand(-0.3, 0.3), 0.2, p.z + rand(-0.3, 0.3), 0, 2, 0, 0.4, 0.12, FIRE_COL, { grav: -1, drag: 1, col2: 0x8a1a0a });
+        if (p.lavaT <= 0) { p.lavaT = 0.6; audio.play('sizzle'); this.hurtPlayer(2 + this.floorScale().dmg, p.x, p.z + 0.01); }
+      }
     }
     if (p.lunge > 0) { p.lunge -= dt; }
 
@@ -970,7 +999,7 @@ export class Game {
     this.fx.slash(p.x, 0.55, p.z, angle, Math.min(arc, Math.PI * 1.98), range + 0.15, fifth || finisher ? 0xffffff : this.trailColor, isEcho ? 0.12 : finisher ? 0.22 : 0.15, p.swingFlip);
     if (finisher) { audio.play('heavy'); this.world.addShake(0.16); this.fx.ring(p.x, p.z, this.trailColor, 0.4, range + 0.4, 0.28); }
     if (isEcho) this.fx.slash(p.x, 0.5, p.z, angle, arc, range * 0.9, this.trailColor, 0.1, !p.swingFlip);
-    audio.play('swing');
+    audio.play(finisher ? 'spin' : 'swing', { pitch: 1 + (p.combo || 0) * 0.14 + (isEcho ? 0.2 : 0) });
     if (fifth) { audio.play('heavy'); this.world.addShake(0.18); }
     const dirx = Math.sin(angle), dirz = Math.cos(angle);
     p.vx += dirx * 2.2; p.vz += dirz * 2.2;
@@ -1169,12 +1198,13 @@ export class Game {
     const y = e.model ? e.model.height * (e.r / e.def.r) * 0.6 : 0.8;
     this.fx.number(e.x, y + 0.5, e.z, dmg, crit ? 'crit' : o.aoe ? 'aoe' : 'normal');
     if (o.quiet) { e.flash = 0.05; }
-    const col = ENEMY_COLORS[e.type];
+    const col = enemyColor(e.type);
     if (!o.aoe) {
       const dir = o.dirx !== undefined ? Math.atan2(o.dirx, o.dirz) : undefined;
       this.fx.burst(e.x, y, e.z, crit ? 9 : 5, crit ? 0xffd08a : 0xfff4e0, { speed: crit ? 9 : 6, up: 3, life: 0.28, size: 0.11, dir, spread: 0.9 });
       this.fx.burst(e.x, y, e.z, 3, col, { speed: 4, up: 4, life: 0.5, size: 0.12, debris: true, dir, spread: 1 });
-      audio.play('hit', { crit });
+      audio.play(this.weaponHitSound(), { crit });
+      if (e.hp > dmg) audio.voice(e.def.voice, 'hurt', e.def.pitch);
     }
     let kill = false;
     if (e.hp <= 0) { this.killEnemy(e, o); kill = true; }
@@ -1240,25 +1270,25 @@ export class Game {
     const run = this.run, s = this.stats;
     run.kills++;
     save.data.totalKills++;
-    this.registerKill(e.mini ? 'splitling' : e.type);
-    const col = ENEMY_COLORS[e.type];
-    const fling = e.type === 'tank' ? 3 : 7;
-    e.dvx = (e.hx || 0) * fling + rand(-1, 1); e.dvz = (e.hz || 0) * fling + rand(-1, 1); e.dvy = e.type === 'tank' ? 3 : 6;
+    this.registerKill(e.mini && e.type === 'splitter' ? 'splitling' : e.type);
+    const col = enemyColor(e.type);
+    const fling = e.def.ai === 'tank' ? 3 : 7;
+    e.dvx = (e.hx || 0) * fling + rand(-1, 1); e.dvz = (e.hz || 0) * fling + rand(-1, 1); e.dvy = e.def.ai === 'tank' ? 3 : 6;
     e.spin = rand(8, 16) * (Math.random() < 0.5 ? -1 : 1);
     this.fx.burst(e.x, 0.5, e.z, 5, col, { speed: 5, up: 4, life: 0.5, size: 0.12, debris: true });
-    if (!o.silent) audio.play('death');
+    if (!o.silent) { audio.play('death'); audio.voice(e.def.voice, 'death', e.def.pitch * (e.mini ? 1.4 : 1)); }
     // coins
     const sc = this.floorScale();
-    const base = e.mini ? (Math.random() < 0.4 ? 1 : 0) : e.def.coins * (e.elite ? 3 : 1);
+    const base = e.noCoins ? 0 : e.mini ? (Math.random() < 0.4 ? 1 : 0) : e.def.coins * (e.elite ? 3 : 1);
     const n = base * s.coinMul * (1 + sc.f * 0.025);
     this.dropCoins(e.x, e.z, Math.floor(n) + (Math.random() < n % 1 ? 1 : 0));
     if (s.lifesteal > 0) this.heal(s.lifesteal);
     if (s.corpse > 0) this.later(0.07, () => this.explosion(e.x, e.z, 1.8 + 0.25 * s.corpse, s.damage * s.damageMul * 0.6 * s.corpse, { color: col }));
-    if (e.type === 'splitter' && !e.mini) {
+    if (e.def.ai === 'splitter' && !e.mini) {
       for (let k = 0; k < 2; k++) {
         const a = rand(0, TAU);
-        const m = this.spawnEnemy('splitter', e.x + Math.sin(a) * 0.4, e.z + Math.cos(a) * 0.4, { mini: true, instant: true, elite: false });
-        this.registerSeen('splitling');
+        const m = this.spawnEnemy(e.type, e.x + Math.sin(a) * 0.4, e.z + Math.cos(a) * 0.4, { mini: true, instant: true, elite: false });
+        if (e.type === 'splitter') this.registerSeen('splitling');
         m.state = 'chase'; m.kbx = Math.sin(a) * 8; m.kbz = Math.cos(a) * 8; m.cd = 0.5;
       }
     }
@@ -1363,7 +1393,7 @@ export class Game {
         e.dvx *= Math.exp(-3 * dt); e.dvz *= Math.exp(-3 * dt);
         if (e.deathT > 0.26 && !e.popped) {
           e.popped = true;
-          const col = ENEMY_COLORS[e.type], big = e.type === 'tank';
+          const col = enemyColor(e.type), big = e.def.ai === 'tank';
           this.fx.burst(e.x, e.y + 0.5, e.z, big ? 18 : 11, col, { speed: 7, up: 6, life: 0.9, size: big ? 0.22 : 0.16, debris: true, grav: 20 });
           this.fx.burst(e.x, e.y + 0.5, e.z, 10, 0xfff2dc, { speed: 9, up: 3, life: 0.3, size: 0.1 });
           this.fx.impact(e.x, e.y + 0.6, e.z, col, big ? 3.2 : 2.2, 0.16);
@@ -1378,7 +1408,7 @@ export class Game {
         e.spawnT -= dt;
         if (e.spawnT <= 0) {
           e.state = 'chase'; e.pop = 0;
-          if (!e.decor) this.registerSeen(e.mini ? 'splitling' : e.type);
+          if (!e.decor) { this.registerSeen(e.mini && e.type === 'splitter' ? 'splitling' : e.type); if (e.type !== 'dummy') audio.voice(e.def.voice, 'spawn', e.def.pitch * (e.mini ? 1.4 : 1)); }
           if (e.marker) { this.fx.releaseMarker(e.marker); e.marker = null; }
           e.model.root.visible = true;
           this.fx.burst(e.x, 0.2, e.z, 8, 0xf2d6a0, { speed: 3.5, up: 4, life: 0.4, size: 0.1 });
@@ -1402,7 +1432,7 @@ export class Game {
         const dx = B.x - A.x, dz = B.z - A.z, rr = A.r + B.r, d2 = dx * dx + dz * dz;
         if (d2 < rr * rr && d2 > 1e-6) {
           const d = Math.sqrt(d2), push = (rr - d) * 0.5, nx = dx / d, nz = dz / d;
-          const wa = A.type === 'tank' ? 0.2 : 1, wb = B.type === 'tank' ? 0.2 : 1;
+          const wa = A.def.ai === 'tank' ? 0.2 : 1, wb = B.def.ai === 'tank' ? 0.2 : 1;
           A.x -= nx * push * wa; A.z -= nz * push * wa; B.x += nx * push * wb; B.z += nz * push * wb;
         }
       }
@@ -1449,15 +1479,19 @@ export class Game {
     const stop = () => { e.vx = damp(e.vx, 0, 12, dt); e.vz = damp(e.vz, 0, 12, dt); };
     const face = (a, k = 12) => { e.face += angleDiff(e.face, a) * Math.min(1, dt * k); };
     const playerTargetable = !p.dead && this.phase !== 'leave';
-    switch (e.type) {
+    const voice = ev => audio.voice(e.def.voice, ev, e.def.pitch * (e.mini ? 1.4 : 1));
+    const inWater = e.def.traits && e.def.traits.includes('swim') && this.tileKind(e.x, e.z) === T.WATER;
+    if (inWater) e.vx *= 1.0;
+    switch (e.def.ai) {
+      case 'dummy': stop(); break;
       case 'runner':
         if (e.state === 'chase') {
           if (!playerTargetable) { stop(); break; }
           this.moveToward(e, dt, p.x, p.z);
-          if (d < 1.5 && e.cd <= 0) { e.state = 'windup'; e.t = 0.3 * sc.cd + 0.05; e.aim = toP; }
+          if (d < 1.5 && e.cd <= 0) { e.state = 'windup'; e.t = 0.3 * sc.cd + 0.05; e.aim = toP; voice('windup'); }
         } else if (e.state === 'windup') {
           stop(); face(e.aim, 20);
-          if (e.t <= 0) { e.state = 'bite'; e.t = 0.16; e.hitDone = false; e.vx = Math.sin(e.aim) * 9; e.vz = Math.cos(e.aim) * 9; }
+          if (e.t <= 0) { e.state = 'bite'; e.t = 0.16; e.hitDone = false; e.vx = Math.sin(e.aim) * 9; e.vz = Math.cos(e.aim) * 9; voice('attack'); }
         } else if (e.state === 'bite') {
           if (!e.hitDone && d < e.r + p.r + 0.3) { e.hitDone = true; this.hurtPlayer(e.dmg, e.x, e.z); }
           if (e.t <= 0) { e.state = 'recover'; e.t = 0.38; }
@@ -1475,14 +1509,21 @@ export class Game {
             if (Math.random() < dt * 0.4) e.strafe *= -1;
           }
           face(toP);
-          if (e.cd <= 0 && los && d < 11) { e.state = 'windup'; e.t = 0.55; audio.play('telegraph'); }
+          if (e.cd <= 0 && los && d < 11) { e.state = 'windup'; e.t = 0.55; audio.play('telegraph'); voice('windup'); }
         } else if (e.state === 'windup') {
           stop(); face(toP);
           if (e.t <= 0) {
-            const n = sc.f >= 20 ? 5 : sc.f >= 8 ? 3 : 1, spread = 0.32;
+            const shot = e.def.shot || { n: 1 }, col = shot.color;
             const speed = 6.3 + Math.min(3, sc.f * 0.06);
-            for (let k = 0; k < n; k++) this.fireBullet(e.x + Math.sin(toP) * 0.4, e.z + Math.cos(toP) * 0.4, toP + (k - (n - 1) / 2) * spread, speed, e.dmg, { y: 0.95 });
-            audio.play('enemyShoot');
+            const ox = e.x + Math.sin(toP) * 0.4, oz = e.z + Math.cos(toP) * 0.4;
+            if (shot.pattern === 'ring') { const n = shot.n + Math.floor(sc.f / 15) * 2; for (let k = 0; k < n; k++) this.fireBullet(e.x, e.z, toP + k * TAU / n, speed * 0.8, e.dmg, { y: 0.95, color: col }); }
+            else if (shot.pattern === 'burst') { for (let k = 0; k < shot.n; k++) this.later(k * 0.13, () => { if (!e.dead) this.fireBullet(e.x, e.z, Math.atan2(p.x - e.x, p.z - e.z), speed * 1.1, e.dmg, { y: 0.95, color: col }); audio.play('enemyShoot'); }); }
+            else {
+              const n = Math.max(shot.n, sc.f >= 20 ? 5 : sc.f >= 8 ? 3 : 1), spread = shot.pattern === 'spread' ? 0.28 : 0.32;
+              for (let k = 0; k < n; k++) this.fireBullet(ox, oz, toP + (k - (n - 1) / 2) * spread, speed, e.dmg, { y: 0.95, color: col });
+            }
+            this.fx.impact(ox, 0.95, oz, col ?? 0xff3d8b, 1, 0.1);
+            audio.play('enemyShoot'); voice('attack');
             e.state = 'recover'; e.t = 0.3;
           }
         } else if (e.state === 'recover') { stop(); if (e.t <= 0) { e.state = 'chase'; e.cd = rand(2.0, 2.6) * sc.cd; } }
@@ -1491,7 +1532,7 @@ export class Game {
         if (e.state === 'chase') {
           if (!playerTargetable) { stop(); break; }
           this.moveToward(e, dt, p.x, p.z);
-          if (d < 2.4 && e.cd <= 0) { e.state = 'windup'; e.t = 0.8 * Math.max(0.75, sc.cd); e.tele = this.fx.circleMarker(e.x, e.z, 2.5, e.t); audio.play('telegraph'); }
+          if (d < 2.4 && e.cd <= 0) { e.state = 'windup'; e.t = 0.8 * Math.max(0.75, sc.cd); e.tele = this.fx.circleMarker(e.x, e.z, 2.5, e.t); audio.play('telegraph'); voice('windup'); }
         } else if (e.state === 'windup') {
           stop(); face(toP);
           if (e.tele) e.tele.g.position.set(e.x, 0.035, e.z);
@@ -1499,7 +1540,8 @@ export class Game {
             if (e.tele) { this.fx.releaseMarker(e.tele); e.tele = null; }
             this.fx.ring(e.x, e.z, 0xffb08a, 0.4, 2.6, 0.35);
             this.fx.burst(e.x, 0.1, e.z, 14, 0xb8a898, { speed: 7, up: 3, life: 0.5, size: 0.15, debris: true });
-            audio.play('slam'); this.world.addShake(0.25);
+            audio.play('slam'); this.world.addShake(0.25); voice('attack');
+            for (let k = 0; k < 10; k++) { const an = k / 10 * TAU; this.fx.emit(e.x + Math.sin(an) * 0.6, 0.1, e.z + Math.cos(an) * 0.6, Math.sin(an) * 5, 0.5, Math.cos(an) * 5, 0.8, 0.28, DUST_COL, { smoke: true, grav: -0.2, drag: 3 }); }
             if (d < 2.5 + p.r) this.hurtPlayer(e.dmg, e.x, e.z);
             e.state = 'recover'; e.t = 0.7;
           }
@@ -1519,25 +1561,73 @@ export class Game {
             e.state = 'aim'; e.t = 0.65 * Math.max(0.8, sc.cd); e.aim = toP;
             e.dashLen = Math.min(9, d + 2.5);
             e.tele = this.fx.lineMarker(e.x, e.z, e.aim, e.dashLen, e.r * 2 + 0.2, e.t);
-            audio.play('telegraph');
+            audio.play('telegraph'); voice('windup');
           }
         } else if (e.state === 'aim') {
           stop(); face(e.aim, 25);
           if (e.tele) e.tele.g.position.set(e.x, 0.035, e.z);
-          if (e.t <= 0) { e.state = 'dash'; e.t = e.dashLen / 17; e.hitDone = false; e.vx = Math.sin(e.aim) * 17; e.vz = Math.cos(e.aim) * 17; audio.play('dash'); }
+          if (e.t <= 0) { e.state = 'dash'; e.t = e.dashLen / 17; e.hitDone = false; e.vx = Math.sin(e.aim) * 17; e.vz = Math.cos(e.aim) * 17; audio.play('dash'); voice('attack'); }
         } else if (e.state === 'dash') {
-          if (this.time % 0.02 < dt) this.fx.emit(e.x, 0.5, e.z, 0, 0, 0, 0.25, 0.25, this._dashCol || (this._dashCol = new THREE.Color(ENEMY_COLORS.dasher)), { grav: 0 });
+          if (this.time % 0.02 < dt) this.fx.emit(e.x, 0.5, e.z, 0, 0, 0, 0.25, 0.25, (e._col || (e._col = new THREE.Color(enemyColor(e.type)))), { grav: 0 });
           if (!e.hitDone && d < e.r + p.r + 0.15) { e.hitDone = true; this.hurtPlayer(e.dmg, e.x, e.z); }
           if (e.t <= 0) { e.state = 'stun'; e.t = 0.5; if (e.tele) { this.fx.releaseMarker(e.tele); e.tele = null; } }
         } else if (e.state === 'stun') { stop(); if (e.t <= 0) { e.state = 'chase'; e.cd = rand(2.2, 3) * sc.cd; } }
+        break;
+      case 'flyer':
+        // circles above you, then dives along a marked line (same rules as the dash attack)
+        if (e.state === 'chase') {
+          if (!playerTargetable) { stop(); break; }
+          e.orbitA = (e.orbitA ?? Math.atan2(e.x - p.x, e.z - p.z)) + dt * 1.1 * e.strafe;
+          const tx = p.x + Math.sin(e.orbitA) * 4.2, tz = p.z + Math.cos(e.orbitA) * 4.2;
+          const ddx = tx - e.x, ddz = tz - e.z, dd = Math.hypot(ddx, ddz) || 1;
+          e.vx = damp(e.vx, ddx / dd * e.speed, 4, dt); e.vz = damp(e.vz, ddz / dd * e.speed, 4, dt);
+          face(toP, 6);
+          if (e.cd <= 0 && d < 8 && lineOfSight(this.room, e.x, e.z, p.x, p.z)) {
+            e.state = 'aim'; e.t = 0.6 * Math.max(0.8, sc.cd); e.aim = toP; e.dashLen = Math.min(10, d + 2.5);
+            e.tele = this.fx.lineMarker(e.x, e.z, e.aim, e.dashLen, e.r * 2 + 0.2, e.t);
+            audio.play('telegraph'); voice('windup');
+          }
+        } else if (e.state === 'aim') {
+          stop(); face(e.aim, 25); if (e.tele) e.tele.g.position.set(e.x, 0.035, e.z);
+          if (e.t <= 0) { e.state = 'dash'; e.t = e.dashLen / 15; e.hitDone = false; e.vx = Math.sin(e.aim) * 15; e.vz = Math.cos(e.aim) * 15; voice('attack'); }
+        } else if (e.state === 'dash') {
+          if (!e.hitDone && d < e.r + p.r + 0.15) { e.hitDone = true; this.hurtPlayer(e.dmg, e.x, e.z); }
+          if (e.t <= 0) { e.state = 'stun'; e.t = 0.35; if (e.tele) { this.fx.releaseMarker(e.tele); e.tele = null; } }
+        } else if (e.state === 'stun') { stop(); if (e.t <= 0) { e.state = 'chase'; e.cd = rand(2, 2.8) * sc.cd; } }
+        break;
+      case 'bomber':
+        // runs at you, swells up and explodes; you can see it coming
+        if (e.state === 'chase') {
+          if (!playerTargetable) { stop(); break; }
+          this.moveToward(e, dt, p.x, p.z);
+          if (d < 1.7) { e.state = 'windup'; e.t = 0.9 * Math.max(0.8, sc.cd); e.tele = this.fx.circleMarker(e.x, e.z, 2.2, e.t); voice('windup'); audio.play('telegraph'); }
+        } else if (e.state === 'windup') {
+          stop(); if (e.tele) e.tele.g.position.set(e.x, 0.035, e.z);
+          e.flash = Math.sin(this.time * 40) > 0 ? 0.05 : 0;
+          if (e.t <= 0) {
+            if (e.tele) { this.fx.releaseMarker(e.tele); e.tele = null; }
+            this.fx.impact(e.x, 0.6, e.z, 0xfff0c0, 4, 0.2);
+            this.fx.ring(e.x, e.z, 0xffa04a, 0.3, 2.3, 0.3);
+            for (let k = 0; k < 24; k++) { const an = rand(0, TAU), sp = rand(2, 7); this.fx.emit(e.x, 0.6, e.z, Math.sin(an) * sp, rand(1, 4), Math.cos(an) * sp, rand(0.35, 0.6), 0.4, FIRE_HOT, { grav: -2, drag: 4, col2: 0xb01e06 }); }
+            for (let k = 0; k < 8; k++) this.fx.emit(e.x, 0.5, e.z, rand(-1, 1), rand(1, 2), rand(-1, 1), 1.2, 0.35, SMOKE_COL, { smoke: true, grav: -0.4, drag: 1.5 });
+            audio.play('explode'); this.world.addShake(0.3); voice('attack');
+            if (d < 2.2 + p.r) this.hurtPlayer(e.dmg, e.x, e.z);
+            for (const o of this.enemies) if (o !== e && !o.dead && o.state !== 'spawn' && dist2(o.x, o.z, e.x, e.z) < 4.8) this.damageEnemy(o, e.dmg * 6, { aoe: true });
+            e.noCoins = true; this.killEnemy(e, { silent: true });
+          }
+        }
         break;
       case 'splitter':
         if (!playerTargetable) { stop(); break; }
         e.wob += dt * 6;
         this.moveToward(e, dt, p.x + Math.sin(e.wob) * 0.6, p.z + Math.cos(e.wob * 0.7) * 0.6);
-        if (d < e.r + p.r + 0.05 && e.touchCd <= 0) { e.touchCd = 0.9; this.hurtPlayer(e.dmg, e.x, e.z); }
+        if (d < e.r + p.r + 0.05 && e.touchCd <= 0) { e.touchCd = 0.9; this.hurtPlayer(e.dmg, e.x, e.z); voice('attack'); }
         break;
     }
+    // hazards: water slows land monsters (swimmers speed up), lava burns everything that is not fire-born
+    const tk = this.tileKind(e.x, e.z);
+    if (tk === T.WATER) { const k2 = e.def.traits && e.def.traits.includes('swim') ? 1.35 : 0.7; e.vx *= Math.pow(k2, dt * 10); e.vz *= Math.pow(k2, dt * 10); if (Math.random() < dt * 4) this.fx.emit(e.x, 0.1, e.z, rand(-1, 1), 1.5, rand(-1, 1), 0.35, 0.08, WATER_COL, { grav: 9, drag: 1 }); }
+    else if (tk === T.LAVA && !(e.def.traits && e.def.traits.includes('fire')) && !e.def.plan?.match(/flyer|floater|fish|serpent/)) { e.burn = Math.max(e.burn || 0, 1); e.burnDps = Math.max(e.burnDps || 0, 6 * sc.hp); }
     if (e.state === 'dash' || e.state === 'bite') face(Math.atan2(e.vx, e.vz), 30);
   }
 
@@ -1727,6 +1817,11 @@ export class Game {
   }
 
   updateTraps(dt) {
+    if (this.hazTiles && this.hazTiles.length && Math.random() < dt * Math.min(12, this.hazTiles.length * 0.4)) {
+      const [x, z, t] = this.hazTiles[Math.floor(Math.random() * this.hazTiles.length)];
+      if (t === T.LAVA) this.fx.emit(x + rand(-0.6, 0.6), 0.05, z + rand(-0.6, 0.6), rand(-0.3, 0.3), rand(1, 2.2), rand(-0.3, 0.3), rand(0.6, 1.1), 0.1, FIRE_COL, { grav: -0.5, drag: 1, col2: 0x8a1a0a });
+      else this.fx.ring(x + rand(-0.5, 0.5), z + rand(-0.5, 0.5), 0xbfe8ff, 0.05, 0.5, 0.8, 0.04);
+    }
     if (!this.room.traps.length || this.phase !== 'fight') return;
     const period = 3.2, warnAt = 1.9, upAt = 2.55;
     const prev = this.trapClock;
@@ -1761,6 +1856,8 @@ export class Game {
       const run = p.dashT > 0 ? 0 : Math.min(1, spd / maxS);
       if (run > 0.04) A.ph += adt * (6.5 + 6 * run); else A.ph = damp(A.ph, Math.round(A.ph / Math.PI) * Math.PI, 10, adt);
       const ph = A.ph, sn = Math.sin(ph), cs = Math.cos(ph);
+      const stepIdx = Math.floor(ph / Math.PI);
+      if (stepIdx !== A.stepIdx) { A.stepIdx = stepIdx; if (run > 0.35 && this.mode === 'run') { const tk = this.tileKind(p.x, p.z); audio.play('step', { kind: tk === T.WATER ? 'water' : tk === T.ICE ? 'ice' : tk === T.LAVA ? 'lava' : 'floor' }); if (tk === T.WATER) this.fx.ring(p.x, p.z, 0x9fd8ff, 0.1, 0.7, 0.4, 0.04); } }
       const accel = (spd - A.prevSpd) / Math.max(adt, 1e-3); A.prevSpd = spd;
       A.lean = damp(A.lean, 0.16 * run + Math.max(-0.1, Math.min(0.15, accel * 0.006)), 10, adt);
       // swing timeline (scaled down when attacking very fast)
@@ -1877,7 +1974,18 @@ export class Game {
       if (m.float) m.rig.position.y = Math.sin(t * 2.5) * 0.08;
       else m.rig.position.y = Math.abs(Math.sin(t * 12)) * 0.06 * Math.min(1, speed / 2);
       const hitK = Math.max(0, e.hitT) / 0.18;
-      m.rig.rotation.x = Math.min(0.3, speed * 0.04) - hitK * 0.45;
+      if (m.anim) {
+        const run = Math.min(1, speed / Math.max(1, e.speed));
+        e.ph = (e.ph || 0) + gdt * (5 + 7 * run) * (run > 0.05 ? 1 : 0.15);
+        const wk = (e.state === 'windup' || e.state === 'aim') ? Math.min(1, 1 - Math.max(0, e.t) / 0.8) : 0;
+        const st = this._as || (this._as = {});
+        st.t = time + m.t0; st.ph = e.ph; st.speed = run; st.state = e.state; st.windup = wk; st.attack = e.state === 'bite' || e.state === 'dash' || e.state === 'recover' && e.t > 0.5;
+        m.anim(m, st);
+        m.rig.rotation.x = -hitK * 0.4;
+        m.rig.rotation.z = e.stun > 0 ? Math.sin(time * 12) * 0.12 : 0;
+        if (m.float) m.root.position.y += 0;
+      }
+      else m.rig.rotation.x = Math.min(0.3, speed * 0.04) - hitK * 0.45;
       if (e.type === 'dummy') m.rig.rotation.z = Math.sin(time * 26) * hitK * 0.35;
       if (m.orbiters) m.orbiters.rotation.y = t * (e.state === 'windup' ? 9 : 2.2);
       if (m.thruster) { const k = e.state === 'dash' ? 1.8 : 0.7 + Math.sin(t * 30) * 0.15; m.thruster.scale.set(1, 1, k); }
@@ -1903,7 +2011,7 @@ export class Game {
 
     const bc = w.bulletCore, bg = w.bulletGlow; bc.begin(); bg.begin();
     const pulse = 1 + Math.sin(time * 30) * 0.12;
-    for (const b of this.bullets) { bc.push(b.x, b.y, b.z, b.s); bg.push(b.x, b.y, b.z, 2.1 * b.s * pulse); }
+    for (const b of this.bullets) { bc.push(b.x, b.y, b.z, b.s); const k = bg.push(b.x, b.y, b.z, 2.1 * b.s * pulse); bg.color(k, b.cr, b.cg, b.cb); }
     bc.end(); bg.end();
 
     const wv = w.waves, ds = w.droneShots, fc = w.fireCore, fg = w.fireGlow, rk = w.rocks, wn = w.winds;
@@ -2052,6 +2160,7 @@ export class Game {
 }
 
 const FIRE_COL = new THREE.Color(0xff7a2a), STUN_COL = new THREE.Color(0xfff0a0), DUST_COL = new THREE.Color(0x8a7a62);
+const WATER_COL = new THREE.Color(0x9fd8ff);
 const FIRE_HOT = new THREE.Color(0xffe08a), SMOKE_COL = new THREE.Color(0x2e2a28), FROST_COL = new THREE.Color(0xcfeeff), WIND_COL = new THREE.Color(0xc8ffd8);
 const REG_NAMES = { dummy: 'Training Dummy', runner: 'Runner', shooter: 'Shooter', splitter: 'Splitter', splitling: 'Splitling', dasher: 'Dasher', tank: 'Tank', warden: 'The Warden', crusher: 'The Crusher', hunter: 'The Hunter' };
 

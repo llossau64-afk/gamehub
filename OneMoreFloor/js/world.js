@@ -7,12 +7,16 @@ import { damp, clamp } from './util.js';
 
 // Biomes shift the palette every 10 floors while keeping the same materials and lighting.
 export const THEMES = [
-  { name: 'Basement', style: 'tiles', pipes: true, floor: '#3a3633', floor2: '#34302e', grout: '#24211f', wall: 0x5b524a, wallTop: 0x8a7d70, accent: '#f2b24a', bg: 0x0f0f12, hemiSky: 0xd8d2ff, hemiGround: 0x3b2c22 },
-  { name: 'Offices', style: 'carpet', floor: '#2f3a3d', floor2: '#2b3538', grout: '#1c2426', wall: 0x46585c, wallTop: 0x7a9396, accent: '#7fd6c8', bg: 0x0d1113, hemiSky: 0xcfe8ff, hemiGround: 0x22302e },
-  { name: 'Foundry', style: 'plates', pipes: true, floor: '#3d302a', floor2: '#382b25', grout: '#231a16', wall: 0x6b4a3a, wallTop: 0xa0705a, accent: '#ff8a4a', bg: 0x120d0b, hemiSky: 0xffe0c8, hemiGround: 0x40241a },
-  { name: 'Penthouse', style: 'marble', floor: '#332f3d', floor2: '#2e2a38', grout: '#1d1a25', wall: 0x544a68, wallTop: 0x8a7cab, accent: '#d4a8ff', bg: 0x0f0d14, hemiSky: 0xeadcff, hemiGround: 0x2a2038 },
+  { name: 'Dungeon', style: 'tiles', pipes: true, floor: '#3a3633', floor2: '#34302e', grout: '#24211f', wall: 0x5b524a, wallTop: 0x8a7d70, accent: '#f2b24a', bg: 0x0f0f12, hemiSky: 0xd8d2ff, hemiGround: 0x3b2c22 },
+  { name: 'Flooded Sewers', style: 'tiles', pipes: true, floor: '#2c3a36', floor2: '#283431', grout: '#18211f', wall: 0x3e554e, wallTop: 0x6a8a7e, accent: '#6ad8c8', bg: 0x0b1112, hemiSky: 0xc8f0ff, hemiGround: 0x1a3030 },
+  { name: 'Haunted Crypt', style: 'marble', floor: '#34313c', floor2: '#2f2c37', grout: '#1b1922', wall: 0x4e4a5c, wallTop: 0x7e7898, accent: '#8affd8', bg: 0x0d0c12, hemiSky: 0xd8e0ff, hemiGround: 0x241e30 },
+  { name: 'Lava Forge', style: 'plates', pipes: true, floor: '#3d302a', floor2: '#382b25', grout: '#231a16', wall: 0x6b4a3a, wallTop: 0xa0705a, accent: '#ff8a4a', bg: 0x120d0b, hemiSky: 0xffe0c8, hemiGround: 0x40241a },
+  { name: 'The Abyss', style: 'tiles', floor: '#22303a', floor2: '#1f2c35', grout: '#121b22', wall: 0x2e4658, wallTop: 0x4e7090, accent: '#8affd8', bg: 0x070c12, hemiSky: 0xa8d8ff, hemiGround: 0x0e2234 },
+  { name: 'Frozen Spire', style: 'marble', floor: '#3a4450', floor2: '#36404b', grout: '#222a33', wall: 0x6a7a8a, wallTop: 0xb8cad8, accent: '#a8eeff', bg: 0x0e1218, hemiSky: 0xeaf6ff, hemiGround: 0x2a3440 },
+  { name: 'Shadow Garden', style: 'carpet', floor: '#2a3328', floor2: '#262e24', grout: '#161b15', wall: 0x3a4436, wallTop: 0x5e7058, accent: '#c87aff', bg: 0x0b0d0b, hemiSky: 0xe0d8ff, hemiGround: 0x1e2a1a },
+  { name: 'Sky Sanctum', style: 'marble', floor: '#3e3a44', floor2: '#3a3640', grout: '#24212a', wall: 0x7a7488, wallTop: 0xc8bed8, accent: '#ffd36b', bg: 0x10101a, hemiSky: 0xfff4e0, hemiGround: 0x30284a },
 ];
-export const themeFor = floor => THEMES[Math.floor(Math.max(0, floor - 1) / 10) % THEMES.length];
+export const themeFor = floor => THEMES[Math.floor(Math.max(0, floor - 1) / 5) % THEMES.length];
 
 const _m = new THREE.Matrix4();
 
@@ -99,7 +103,7 @@ export class World {
 
     const bGeo = new THREE.IcosahedronGeometry(0.16, 0);
     this.bulletCore = add(new Batch(bGeo, new THREE.MeshBasicMaterial({ color: 0xfff0f6 }), 400));
-    this.bulletGlow = add(new Batch(bGeo, new THREE.MeshBasicMaterial({ color: 0xff3d8b, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }), 400));
+    this.bulletGlow = add(new Batch(bGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }), 400, true));
 
     // Blade wave: a flat crescent.
     const cres = new THREE.Shape();
@@ -200,7 +204,11 @@ export class World {
     if (opts.roll) this.camera.rotateZ(opts.roll);
   }
 
-  render() { this.renderer.render(this.scene, this.camera); }
+  render() {
+    const t = performance.now() / 1000;
+    if (this.hazardMeshes) for (const m of this.hazardMeshes) m.material.uniforms.time.value = t;
+    this.renderer.render(this.scene, this.camera);
+  }
 
   // ---------------- room construction ----------------
   clearRoom() {
@@ -325,6 +333,22 @@ export class World {
     const under = new THREE.Mesh(new THREE.PlaneGeometry(W + 80, H + 80), new THREE.MeshBasicMaterial({ color: th.bg }));
     under.rotation.x = -Math.PI / 2; under.position.y = -0.02; under.userData.own = true;
     this.roomGroup.add(under);
+
+    // Water, lava and ice pools: one merged mesh with an animated shader.
+    this.hazardMeshes = [];
+    for (const kind of [T.WATER, T.LAVA, T.ICE]) {
+      const pos = [];
+      for (let j = 0; j < room.h; j++) for (let i = 0; i < room.w; i++) {
+        if (tileAt(room, i, j) !== kind) continue;
+        const [x, z] = toWorld(room, i, j), h2 = TILE / 2;
+        pos.push(x - h2, 0, z - h2, x - h2, 0, z + h2, x + h2, 0, z + h2, x - h2, 0, z - h2, x + h2, 0, z + h2, x + h2, 0, z - h2);
+      }
+      if (!pos.length) continue;
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      const mesh = new THREE.Mesh(geo, hazardMaterial(kind));
+      mesh.position.y = kind === T.LAVA ? 0.025 : 0.02; mesh.userData.own = true; mesh.renderOrder = -1;
+      this.roomGroup.add(mesh); this.hazardMeshes.push(mesh);
+    }
 
     // Walls: instanced boxes with a lighter top face (vertex colours).
     const wallTiles = [];
@@ -574,4 +598,36 @@ export class World {
     this.trapPlates.instanceColor.needsUpdate = true;
     this.trapSpikes.instanceMatrix.needsUpdate = true;
   }
+}
+
+// Animated surfaces for pools. World-space coordinates drive the patterns so tiles join seamlessly.
+function hazardMaterial(kind) {
+  const water = kind === T.WATER, lava = kind === T.LAVA;
+  return new THREE.ShaderMaterial({
+    uniforms: { time: { value: 0 } },
+    transparent: true, depthWrite: false,
+    vertexShader: `varying vec2 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: `varying vec2 vW; uniform float time;
+      float n2(vec2 p) { return sin(p.x * 1.7 + sin(p.y * 1.3 + time * 0.7)) * sin(p.y * 1.9 + sin(p.x * 1.1 - time * 0.6)); }
+      void main() {
+        vec2 p = vW;
+        ${water ? `
+          float c = n2(p * 1.6 + vec2(time * 0.25, 0.0)) + 0.6 * n2(p * 3.1 - vec2(0.0, time * 0.35));
+          float lines = smoothstep(0.55, 1.25, abs(c));
+          vec3 deep = vec3(0.03, 0.13, 0.17), lite = vec3(0.35, 0.75, 0.82);
+          vec3 col = mix(deep, lite, lines * 0.75) + vec3(0.9) * pow(lines, 6.0) * 0.4;
+          gl_FragColor = vec4(col, 0.82);` : lava ? `
+          float c = n2(p * 1.2 + vec2(0.0, time * 0.15)) + 0.5 * n2(p * 2.6 + vec2(time * 0.2, 0.0));
+          float crust = smoothstep(0.15, 0.75, c);
+          vec3 hot = mix(vec3(1.0, 0.85, 0.35), vec3(1.0, 0.35, 0.05), smoothstep(-0.8, 0.2, c));
+          vec3 col = mix(hot * (1.15 + 0.15 * sin(time * 3.0 + p.x)), vec3(0.16, 0.07, 0.05), crust * 0.9);
+          gl_FragColor = vec4(col, 1.0);` : `
+          float c = n2(p * 2.2) + 0.5 * n2(p * 5.0);
+          float crack = 1.0 - smoothstep(0.0, 0.06, abs(c));
+          float shine = pow(max(0.0, sin((p.x + p.y) * 0.8 - time * 0.8)), 24.0);
+          vec3 col = mix(vec3(0.62, 0.8, 0.9), vec3(0.85, 0.95, 1.0), shine * 0.6) - crack * 0.18;
+          gl_FragColor = vec4(col, 0.55);`}
+        #include <colorspace_fragment>
+      }`,
+  });
 }

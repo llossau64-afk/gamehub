@@ -4,7 +4,7 @@
 // Templates are randomly mirrored, so 11 layouts give ~20 distinct rooms.
 
 export const TILE = 1.35;
-export const T = { VOID: 0, FLOOR: 1, WALL: 2, PILLAR: 3, CRATE: 4, TRAP: 5, PROP: 6 };
+export const T = { VOID: 0, FLOOR: 1, WALL: 2, PILLAR: 3, CRATE: 4, TRAP: 5, PROP: 6, WATER: 7, LAVA: 8, ICE: 9 };
 
 const TEMPLATES = [
   { name: 'Box', minFloor: 1, map: `
@@ -195,7 +195,13 @@ function parse(tpl, mirror) {
   return room;
 }
 
-export function makeRoom(rng, floor, recent) {
+export function makeRoom(rng, floor, recent, hazard) {
+  const room = makeRoomBase(rng, floor, recent);
+  if (hazard && floor % 10 !== 0) addPools(room, hazard, rng);
+  return room;
+}
+
+function makeRoomBase(rng, floor, recent) {
   if (floor % 10 === 0) return parse(BOSS_ROOM, false);
   if (floor === 1) { const r = parse(TEMPLATES[0], rng.chance(0.5)); decorateRoom(r, rng); return r; }
   const pool = TEMPLATES.filter(t => t.minFloor <= floor && !recent.includes(t.name));
@@ -346,5 +352,29 @@ export class FlowField {
     if (bi < 0) return null;
     const [tx, tz] = toWorld(room, bi, bj), dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1;
     return { x: dx / l, z: dz / l };
+  }
+}
+
+// Water, lava or ice pools: blobs of floor tiles turned into a hazard, kept clear of lifts and spawns.
+export function addPools(room, kind, rng) {
+  const t = kind === 'water' ? T.WATER : kind === 'lava' ? T.LAVA : T.ICE;
+  const { w, h } = room;
+  const far = (i, j, list, r) => list.every(p => !p || Math.abs(p[0] - i) > r || Math.abs(p[1] - j) > r);
+  const n = 2 + Math.floor(rng.next() * (kind === 'lava' ? 2 : 3));
+  for (let k = 0; k < n; k++) {
+    for (let tries = 0; tries < 20; tries++) {
+      const ci = 2 + Math.floor(rng.next() * (w - 4)), cj = 2 + Math.floor(rng.next() * (h - 4));
+      if (room.tiles[cj * w + ci] !== T.FLOOR || !far(ci, cj, [room.entry, room.exit], 2)) continue;
+      const rad = kind === 'lava' ? 1 + rng.next() * 0.9 : 1.2 + rng.next() * 1.4;
+      for (let j = cj - 3; j <= cj + 3; j++) for (let i = ci - 3; i <= ci + 3; i++) {
+        if (i < 1 || j < 1 || i >= w - 1 || j >= h - 1) continue;
+        const dd = Math.hypot(i - ci, (j - cj) * 1.1) + Math.sin(i * 3.1 + j * 1.7) * 0.35;
+        if (dd > rad || room.tiles[j * w + i] !== T.FLOOR) continue;
+        if (!far(i, j, [room.entry, room.exit], 1)) continue;
+        if (kind === 'lava' && !far(i, j, room.spawns, 0)) continue;
+        room.tiles[j * w + i] = t;
+      }
+      break;
+    }
   }
 }

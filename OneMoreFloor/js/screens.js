@@ -9,6 +9,7 @@ import { animateOutfit, buildPowerModel } from './characters.js';
 import { WEAPONS, WEAPON_BY_ID, buildWeapon } from './weapons.js';
 import { ABILITIES, ABILITY_BY_ID, masteryFromXp, TRACK, MAX_MASTERY, rewardLabel } from './abilities.js';
 import { buildPlayer, buildEnemy, buildBoss, buildOperator } from './models.js';
+import { buildMonster } from './monsters.js';
 import { Preview } from './preview.js';
 import { fmt, pad2 } from './util.js';
 import { crazy } from './crazy.js';
@@ -339,10 +340,13 @@ export function installScreens(UI) {
     pv.mount($('#register .stage-view')); pv.onFrame = null;
     let model, frame;
     if (b.boss) { model = buildBoss(id).root; frame = { y: 1.4, dist: 7.5, pitch: 0.15 }; }
+    else if (id === 'dummy') { model = buildEnemy('dummy').root; frame = { y: 0.6, dist: 4, pitch: 0.2 }; }
     else {
-      const m = buildEnemy(id === 'splitling' ? 'splitter' : id);
+      const m = buildMonster(id);
       if (id === 'splitling') m.root.scale.setScalar(0.62);
-      model = m.root; frame = { y: 0.5, dist: id === 'tank' ? 5 : 4.2, pitch: 0.25 };
+      model = m.root; frame = { y: Math.max(0.45, m.height * 0.5), dist: 2.6 + m.height * 1.7, pitch: 0.22 };
+      const st = { t: 0, ph: 0, speed: 0, state: 'chase', windup: 0, attack: false };
+      pv.onFrame = (dt, t) => { st.t = t; st.ph = t * 3; const cyc = t % 5; st.state = cyc > 3.6 && cyc < 4.4 ? 'windup' : 'chase'; st.windup = st.state === 'windup' ? Math.min(1, (cyc - 3.6) * 2) : 0; st.attack = cyc >= 4.4 && cyc < 4.8; m.anim(m, st); };
     }
     pv.setModel(model, frame);
     pv.silhouette(!e);
