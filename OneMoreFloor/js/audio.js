@@ -33,11 +33,20 @@ class AudioEngine {
     this.coinChainT = 0;
   }
 
+  // Called from every user gesture. iOS only unlocks audio on a completed tap (touchend/click)
+  // and mutes Web Audio when the ring/silent switch is off, unless the page asks for "playback".
   init() {
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) { }
+    this.unlockMediaSession();
+    if (this.ctx) {
+      if (this.ctx.state !== 'running') this.ctx.resume().catch(() => { });
+      this.kickSilence();
+      return;
+    }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const ctx = this.ctx = new AC({ latencyHint: 'interactive' });
+    this.kickSilence();
 
     this.comp = ctx.createDynamicsCompressor();
     this.comp.threshold.value = -14; this.comp.knee.value = 10; this.comp.ratio.value = 4;
@@ -69,6 +78,25 @@ class AudioEngine {
     this.ready = true;
     this.nextTime = ctx.currentTime + 0.1;
     setInterval(() => this.schedule(), 25);
+  }
+
+  // A one-sample silent buffer started inside the gesture: the classic iOS unlock.
+  kickSilence() {
+    try { const b = this.ctx.createBuffer(1, 1, 22050), src = this.ctx.createBufferSource(); src.buffer = b; src.connect(this.ctx.destination); src.start(0); } catch (e) { }
+  }
+
+  // A silent, looping <audio> element switches older iOS versions into the "playback" audio
+  // category, so the game is audible even with the silent switch on.
+  unlockMediaSession() {
+    if (this._media || !/iP(hone|ad|od)|Macintosh/.test(navigator.userAgent) || !('ontouchend' in document)) return;
+    try {
+      const a = document.createElement('audio');
+      a.setAttribute('playsinline', ''); a.setAttribute('x-webkit-airplay', 'deny'); a.loop = true; a.preload = 'auto';
+      a.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+      a.volume = 0.01;
+      const p = a.play(); if (p) p.catch(() => { });
+      this._media = a;
+    } catch (e) { }
   }
 
   setVolumes(v) { Object.assign(this.vol, v); this.applyVolumes(); }

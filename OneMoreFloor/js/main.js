@@ -34,7 +34,7 @@ async function boot() {
       save.write();
       if (game.mode === 'run' && !game.paused && ['fight', 'clear', 'arrive'].includes(game.phase)) ui.togglePause(game);
       if (audio.ctx) audio.ctx.suspend();
-    } else if (audio.ctx) audio.ctx.resume();
+    } else if (audio.ctx) audio.ctx.resume().catch(() => { });
   });
   window.addEventListener('pagehide', () => save.write());
 

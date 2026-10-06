@@ -38,7 +38,7 @@ export class UI {
     this.game = game; this.world = world; this.fx = fx;
     // Every button gets hover + press sounds.
     document.addEventListener('pointerover', e => { const b = e.target.closest('button, .card'); if (b && b !== this._hovered && !input.touchMode) { this._hovered = b; audio.play('hover'); } });
-    document.addEventListener('pointerdown', () => audio.init(), { capture: true });
+    for (const ev of ['pointerdown', 'touchend', 'click', 'mouseup']) document.addEventListener(ev, () => audio.init(), { capture: true, passive: true });
     document.addEventListener('keydown', () => audio.init(), { capture: true });
 
     $('#menu').addEventListener('click', e => {
