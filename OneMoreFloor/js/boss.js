@@ -1,7 +1,8 @@
 // Bosses: one every 10 floors, cycling Warden -> Crusher -> Hunter (each cycle tougher).
 // Every strong attack is announced with an animation, a ground marker and a sound.
 import * as THREE from '../lib/three.module.min.js';
-import { buildBoss } from './models.js';
+import { buildBoss, buildArgusBoss } from './models.js';
+import { BIOMES } from './monsters.js';
 import { collideCircle, solidAt } from './rooms.js';
 import { audio } from './audio.js';
 import { damp, angleDiff, rand, TAU, dist2 } from './util.js';
@@ -13,12 +14,14 @@ export const BOSS_INFO = {
   warden: { name: 'THE WARDEN', hp: 900 },
   crusher: { name: 'THE CRUSHER', hp: 1100 },
   hunter: { name: 'THE HUNTER', hp: 1000 },
+  argus: { name: 'ARGUS', hp: 1500, sub: 'OVERSEER OF THE TOWER' },
 };
+const ARGUS_COL = new THREE.Color(0xffa040), ARGUS_HOT = new THREE.Color(0xffe6a0);
 
 export function createBoss(game, kind, x, z, floor) {
-  const model = buildBoss(kind);
+  const model = kind === 'argus' ? buildArgusBoss() : buildBoss(kind);
   game.world.dynamic.add(model.root);
-  const cycle = Math.floor((floor / 10 - 1) / 3);
+  const cycle = kind === 'argus' ? 0 : Math.floor((floor / 10 - 1) / 3);
   const hp = BOSS_INFO[kind].hp * (1 + 0.075 * (floor - 1)) * (1 + 0.3 * cycle);
   const b = {
     kind, x, z, y: 0, vx: 0, vz: 0, r: model.radius, hp, maxHp: hp, model, active: false, dead: false, deathT: 0,
@@ -26,6 +29,7 @@ export function createBoss(game, kind, x, z, floor) {
     dmg: 3 + Math.floor(floor / 15), seq: 0, visible: true, scale: 1, spawned2: false,
   };
   model.root.position.set(x, 0, z);
+  if (kind === 'argus') { b.y = 14; b.landed = false; b.face = 0; }
   return b;
 }
 
@@ -47,6 +51,7 @@ export function updateBoss(game, b, dt) {
   b.flash -= dt; b.slow -= dt;
   syncBoss(game, b, dt);
   if (b.dead) { b.deathT += dt; return; }
+  if (b.kind === 'argus' && !b.landed) argusDescend(game, b, dt);
   if (!b.active) return;
 
   const slow = b.slow > 0 ? 0.7 : 1;
@@ -57,12 +62,14 @@ export function updateBoss(game, b, dt) {
     b.phase2 = true;
     game.world.addShake(0.5); audio.play('slam');
     fx.ring(b.x, b.z, 0xffffff, 0.5, 5, 0.5);
-    game.ui.toast(BOSS_INFO[b.kind].name, 'is enraged');
+    if (b.kind === 'argus') { argusEnrage(game, b); }
+    else game.ui.toast(BOSS_INFO[b.kind].name, 'is enraged');
   }
 
   const kind = b.kind;
   if (kind === 'warden') warden(game, b, dt, d, toP);
   else if (kind === 'crusher') crusher(game, b, dt, d, toP);
+  else if (kind === 'argus') argus(game, b, dt, d, toP);
   else hunter(game, b, dt, d, toP);
 
   b.x += b.vx * dt; b.z += b.vz * dt;
@@ -92,6 +99,7 @@ export function updateBoss(game, b, dt) {
   if (pd < min && pd > 0.001 && b.visible) {
     p.x = b.x + (p.x - b.x) / pd * min; p.z = b.z + (p.z - b.z) / pd * min;
     if ((b.state === 'charge' || b.state === 'dash') && !b.hitDone) { b.hitDone = true; game.hurtPlayer(b.dmg + 1, b.x, b.z); }
+    if (b.kind === 'argus' && b.touchCd <= 0) { b.touchCd = 0.8; game.hurtPlayer(b.dmg - 1, b.x, b.z); }
   }
 }
 
@@ -377,7 +385,205 @@ function syncBoss(game, b, dt) {
     const spread = b.state === 'dash' ? 1.2 : b.state === 'tele' ? 0.9 : 0.35;
     m.armL.rotation.y = damp(m.armL.rotation.y, -spread, 10, dt); m.armR.rotation.y = -m.armL.rotation.y;
   }
+  if (b.kind === 'argus') syncArgus(game, b, dt);
   if (b.kind === 'warden' && m.armL) { m.armL.position.y = 1.9 + Math.sin(t * 2.2) * 0.1; m.armR.position.y = 1.9 + Math.cos(t * 2.2) * 0.1; }
   const fl = b.flash > 0 ? 0.7 : b.phase2 ? 0.08 + Math.sin(t * 6) * 0.05 : 0;
   for (const mat of m.mats) { mat.emissiveIntensity = fl; mat.emissive.setHex(b.flash > 0 ? 0xffffff : 0xff3a3a); }
+}
+
+// ---------------- ARGUS: the final boss on floor 40.
+// Falls from the sky, then cycles rune spirals, sweeping eye beams, a meteor rain, a blink strike
+// and summons from the eight worlds. Below half health the crown ignites and everything speeds up.
+function argusDescend(game, b, dt) {
+  const fx = game.fx;
+  b.y = Math.max(0, b.y - dt * (4 + (14 - b.y) * 1.6));
+  if (Math.random() < 0.7) fx.emit(b.x + rand(-0.6, 0.6), b.y + 1, b.z + rand(-0.6, 0.6), rand(-1, 1), 3, rand(-1, 1), 0.6, 0.4, Math.random() < 0.5 ? ARGUS_COL : ARGUS_HOT, { grav: -1 });
+  if (b.y <= 0) {
+    b.landed = true;
+    game.world.addShake(1); game.world.punch(0.12); game.hitstop = 0.12;
+    audio.play('slam'); audio.play('explode'); audio.play('thunder');
+    for (let k = 0; k < 3; k++) fx.ring(b.x, b.z, k ? 0xffa040 : 0xffffff, 0.5, 4 + k * 3, 0.5 + k * 0.2);
+    fx.burst(b.x, 0.4, b.z, 40, 0xffb060, { speed: 12, up: 6, life: 0.9, size: 0.22 });
+    fx.burst(b.x, 0.3, b.z, 24, 0x6a5a50, { speed: 8, up: 3, life: 1.1, size: 0.3, debris: true });
+    fx.beam(b.x, b.z, 0xffc070, 1.6, 0.9);
+  }
+}
+
+function argusEnrage(game, b) {
+  const fx = game.fx;
+  b.state = 'recover'; b.t = 1.2;
+  for (const e of game.bullets) e.life = 0;
+  game.ui.toast('ARGUS', 'The crown ignites');
+  
+  for (let k = 0; k < 4; k++) game.later(k * 0.15, () => { fx.ring(b.x, b.z, 0xff5a2a, 0.5, 3 + k * 2.5, 0.45); audio.play('explode'); });
+  fx.burst(b.x, 3, b.z, 50, 0xff6a2a, { speed: 10, up: 8, life: 1, size: 0.25 });
+  game.world.addShake(0.9);
+}
+
+function argus(game, b, dt, d, toP) {
+  const fx = game.fx, p = game.player, P2 = b.phase2;
+  b.touchCd = (b.touchCd || 0) - dt;
+  switch (b.state) {
+    case 'idle': {
+      idleDrift(game, b, dt, d, toP, 6, P2 ? 2.4 : 1.8);
+      if (b.cd <= 0) {
+        const minions = game.enemies.filter(e => !e.dead).length;
+        const opts = ['spiral', 'beams', 'meteors', 'blink', 'beams', 'meteors'];
+        if (minions < 2) opts.push('summon');
+        if (P2) opts.push('nova', 'nova', 'blink');
+        const fresh = opts.filter(o => o !== b.lastAttack);
+        const a = fresh[Math.floor(Math.random() * fresh.length)];
+        b.attack = b.lastAttack = a;
+        b.state = 'tele'; b.step = 0;
+        b.t = { spiral: 0.8, beams: 0.9, meteors: 0.6, blink: 0.4, summon: 0.9, nova: 0.85 }[a] * (P2 ? 0.85 : 1);
+        if (a === 'beams') {
+          const n = P2 ? 5 : 3; b.beams = [];
+          for (let k = 0; k < n; k++) {
+            const ang = toP + (k - (n - 1) / 2) * (P2 ? 0.42 : 0.55);
+            b.beams.push({ ang, m: fx.lineMarker(b.x, b.z, ang, 16, 1.3, b.t, 0xffa040) });
+          }
+        } else if (a !== 'blink') b.tele = fx.circleMarker(b.x, b.z, b.r + (a === 'nova' ? 2.2 : 1.1), b.t, 0xffa040);
+        audio.play('telegraph'); audio.play('fireCast');
+      }
+      break;
+    }
+    case 'tele':
+      stop(b, dt);
+      if (b.tele) b.tele.g.position.set(b.x, 0.035, b.z);
+      if (b.attack !== 'beams') b.face += angleDiff(b.face, toP) * Math.min(1, dt * 6);
+      if (Math.random() < 0.5) fx.emit(b.x + Math.sin(b.face) * 1.4 + rand(-0.3, 0.3), 4.6, b.z + Math.cos(b.face) * 1.4, rand(-1, 1), rand(0, 2), rand(-1, 1), 0.4, 0.3, ARGUS_HOT, { grav: 0 });
+      if (b.t <= 0) {
+        if (b.tele) { fx.releaseMarker(b.tele); b.tele = null; }
+        b.state = b.attack; b.t = 0; b.step = 0;
+        if (b.attack === 'beams') {
+          // the beams fire at once: a pillar of light along each line
+          for (const bm of b.beams) {
+            fx.releaseMarker(bm.m);
+            for (let s2 = 1; s2 < 16; s2 += 0.9) {
+              const x = b.x + Math.sin(bm.ang) * s2, z = b.z + Math.cos(bm.ang) * s2;
+              if (solidAt(game.room, x, z)) break;
+              fx.emit(x, 0.6, z, 0, rand(2, 5), 0, 0.45, 0.6, s2 % 2 < 1 ? ARGUS_HOT : ARGUS_COL, { grav: 0 });
+            }
+            // distance from player to the beam line
+            const px = p.x - b.x, pz = p.z - b.z, along = px * Math.sin(bm.ang) + pz * Math.cos(bm.ang);
+            const across = Math.abs(px * Math.cos(bm.ang) - pz * Math.sin(bm.ang));
+            if (along > 0 && along < 16 && across < 0.65 + p.r) game.hurtPlayer(b.dmg, b.x, b.z);
+          }
+          audio.play('zap'); audio.play('thunder'); game.world.addShake(0.5);
+          b.state = 'recover'; b.t = P2 ? 0.55 : 0.8;
+        } else if (b.attack === 'summon') {
+          const pool = BIOMES[Math.floor(Math.random() * BIOMES.length)].monsters;
+          const n = P2 ? 3 : 2;
+          for (let k = 0; k < n; k++) {
+            const a = k * TAU / n + rand(-0.3, 0.3), x = b.x + Math.sin(a) * 2.8, z = b.z + Math.cos(a) * 2.8;
+            if (!solidAt(game.room, x, z)) { game.spawnEnemy(pool[Math.floor(Math.random() * pool.length)], x, z, { bossMinion: true }); fx.beam(x, z, 0xffa040, 0.6, 0.6); }
+          }
+          audio.play('spawn');
+          b.state = 'recover'; b.t = 0.6;
+        } else if (b.attack === 'blink') {
+          b.state = 'vanish'; b.t = 0.35; audio.play('dash');
+        }
+      }
+      break;
+    case 'spiral': {
+      stop(b, dt);
+      b.face += dt * 3;
+      if (b.t <= 0) {
+        const arms = P2 ? 4 : 3;
+        for (let k = 0; k < arms; k++) {
+          const a = b.step * 0.27 + k * TAU / arms;
+          game.fireBullet(b.x + Math.sin(a) * b.r, b.z + Math.cos(a) * b.r, a, P2 ? 7 : 6, b.dmg - 1, { y: 1.6, scale: 1.2, r: 0.2, color: 0xffa040 });
+        }
+        if (b.step % 3 === 0) audio.play('enemyShoot');
+        b.step++; b.t = P2 ? 0.07 : 0.09;
+        if (b.step > (P2 ? 34 : 26)) { b.state = 'recover'; b.t = 0.7; }
+      }
+      break;
+    }
+    case 'nova': {
+      stop(b, dt);
+      if (b.t <= 0) {
+        const n = 26, gap = Math.atan2(p.x - b.x, p.z - b.z) + (b.step - 1) * 0.6;
+        for (let k = 0; k < n; k++) {
+          const a = k * TAU / n;
+          if (Math.abs(angleDiff(a, gap + Math.PI)) < 0.38) continue; // a gap to slip through
+          game.fireBullet(b.x + Math.sin(a) * b.r, b.z + Math.cos(a) * b.r, a, 6.5, b.dmg - 1, { y: 1.2, scale: 1.3, r: 0.22, color: 0xff5a2a });
+        }
+        fx.ring(b.x, b.z, 0xff7a2a, 0.5, 3, 0.35); audio.play('explode'); game.world.addShake(0.25);
+        b.step++; b.t = 0.55;
+        if (b.step >= 3) { b.state = 'recover'; b.t = 0.8; }
+      }
+      break;
+    }
+    case 'meteors': {
+      stop(b, dt);
+      const n = P2 ? 9 : 6;
+      for (let k = 0; k < n; k++) {
+        const rx = k === 0 ? p.x : p.x + rand(-4.5, 4.5), rz = k === 0 ? p.z : p.z + rand(-3.5, 3.5);
+        if (solidAt(game.room, rx, rz)) continue;
+        const delay = 0.85 + k * 0.12, m = fx.circleMarker(rx, rz, 1.2, delay, 0xff7a2a);
+        for (let q = 0; q < 6; q++) game.later(delay * q / 6, () => fx.emit(rx + rand(-0.3, 0.3), 9 - q * 1.4, rz + rand(-0.3, 0.3), 0, -12, 0, 0.25, 0.6, q % 2 ? ARGUS_COL : ARGUS_HOT, { grav: 0 }));
+        game.later(delay, () => {
+          fx.releaseMarker(m);
+          fx.burst(rx, 0.3, rz, 16, 0xff8a3a, { speed: 6, up: 6, life: 0.7, size: 0.2 });
+          fx.burst(rx, 0.3, rz, 6, 0x4a3a30, { speed: 4, up: 4, life: 0.8, size: 0.25, debris: true });
+          fx.ring(rx, rz, 0xffb08a, 0.2, 1.4, 0.3);
+          audio.play('explode'); game.world.addShake(0.2);
+          if (!b.dead && dist2(game.player.x, game.player.z, rx, rz) < (1.2 + game.player.r) ** 2) game.hurtPlayer(b.dmg, rx, rz);
+        });
+      }
+      audio.play('fireCast');
+      b.state = 'recover'; b.t = 1.1;
+      break;
+    }
+    case 'vanish':
+      stop(b, dt);
+      b.scale = Math.max(0.01, b.t / 0.35);
+      if (b.t <= 0) {
+        b.visible = false; b.state = 'hidden'; b.t = P2 ? 0.8 : 1.0; b.tx = p.x; b.tz = p.z;
+        b.tele = fx.circleMarker(b.tx, b.tz, 2.6, b.t, 0xffa040);
+        audio.play('telegraph');
+      }
+      break;
+    case 'hidden':
+      if (b.t > 0.5) { b.tx = damp(b.tx, p.x, 5, dt); b.tz = damp(b.tz, p.z, 5, dt); if (b.tele) b.tele.g.position.set(b.tx, 0.035, b.tz); }
+      if (b.t <= 0) {
+        if (b.tele) { fx.releaseMarker(b.tele); b.tele = null; }
+        b.x = b.tx; b.z = b.tz; b.visible = true; b.scale = 1;
+        collideCircle(game.room, b, b.r);
+        fx.ring(b.x, b.z, 0xffa040, 0.4, 2.8, 0.35); fx.ring(b.x, b.z, 0xffffff, 0.2, 1.6, 0.2);
+        fx.beam(b.x, b.z, 0xffc070, 1.2, 0.6);
+        fx.burst(b.x, 0.5, b.z, 24, 0xffb060, { speed: 9, up: 5, life: 0.6, size: 0.18 });
+        audio.play('heavy'); audio.play('thunder'); game.world.addShake(0.6);
+        if (Math.hypot(p.x - b.x, p.z - b.z) < 2.6 + p.r) game.hurtPlayer(b.dmg, b.x, b.z);
+        b.state = 'recover'; b.t = 0.75;
+      }
+      break;
+    case 'recover':
+      stop(b, dt);
+      b.scale = Math.min(1, b.scale + dt * 4);
+      if (b.t <= 0) { b.state = 'idle'; b.cd = P2 ? 0.45 : 0.8; b.seq++; }
+      break;
+  }
+}
+
+function syncArgus(game, b, dt) {
+  const m = b.model, op = m.op, t = game.time;
+  const casting = b.state === 'tele' || b.state === 'spiral' || b.state === 'nova';
+  m.rig.position.y = Math.sin(t * 1.6) * 0.18;
+  m.rings.forEach((r, k) => { r.rotation.z = t * (k % 2 ? -1.6 : 2.2) * (b.phase2 ? 1.8 : 1); r.scale.setScalar(1 + Math.sin(t * 3 + k) * 0.06 + (casting ? 0.25 : 0)); r.material.color.setHex(b.phase2 ? (k === 1 ? 0xffe0a0 : 0xff3a1a) : (k === 1 ? 0xffd08a : 0xff6a2a)); });
+  m.halo.material.opacity = 0.35 + (casting ? 0.35 : 0) + Math.sin(t * 4) * 0.08;
+  // staff raise while casting, slow sway otherwise
+  op.staff.rotation.z = damp(op.staff.rotation.z, casting ? -0.55 : -0.08 + Math.sin(t * 1.3) * 0.05, 8, dt);
+  op.staff.position.y = damp(op.staff.position.y, casting ? 0.25 : -0.2, 8, dt);
+  op.crystal.rotation.y += dt * (casting ? 9 : 2);
+  op.cGlow.scale.setScalar(casting ? 1.6 + Math.sin(t * 30) * 0.2 : 0.9);
+  op.eyeGlow.material.opacity = b.phase2 ? 0.95 : 0.6 + (casting ? 0.3 : 0);
+  op.eyeGlow.material.color.setHex(b.phase2 ? 0xff3a1a : 0xff9a2a);
+  op.glowMat.color.setHex(b.phase2 ? 0xff5a2a : 0xffb347);
+  op.cape.rotation.x = -0.15 - Math.sin(t * 2.4) * 0.08 - Math.hypot(b.vx, b.vz) * 0.06;
+  op.head.rotation.y = Math.sin(t * 0.7) * 0.15;
+  op.body.rotation.x = damp(op.body.rotation.x, b.state === 'tele' ? -0.12 : 0.04, 6, dt);
+  if (b.phase2 && Math.random() < 0.6) game.fx.emit(b.x + rand(-0.4, 0.4), 4.4 + b.y, b.z + rand(-0.4, 0.4), rand(-0.5, 0.5), 2.5, rand(-0.5, 0.5), 0.5, 0.3, ARGUS_COL, { grav: -1 });
+  if (Math.random() < 0.35) game.fx.emit(b.x + rand(-0.8, 0.8), 0.3 + b.y, b.z + rand(-0.8, 0.8), 0, 1.5, 0, 0.6, 0.25, ARGUS_COL, { grav: 0 });
 }

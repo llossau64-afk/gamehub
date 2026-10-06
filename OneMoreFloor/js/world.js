@@ -144,7 +144,9 @@ export class World {
   resize() {
     const w = window.innerWidth, h = window.innerHeight;
     const dpr = window.devicePixelRatio || 1;
-    const cap = this.quality === 'low' ? 1 : this.quality === 'high' ? 2 : Math.min(this.autoCap || 2, 2);
+    // Big touch screens (iPad: 2048x2732 physical pixels) would render 5M+ pixels at full DPR; 1.5 looks the same and keeps 60 fps.
+    const touchCap = navigator.maxTouchPoints > 1 && Math.max(w, h) >= 900 ? 1.5 : 2;
+    const cap = this.quality === 'low' ? 1 : this.quality === 'high' ? 2 : Math.min(this.autoCap || touchCap, touchCap);
     this.pixelRatio = Math.min(dpr, cap);
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setSize(w, h, false);

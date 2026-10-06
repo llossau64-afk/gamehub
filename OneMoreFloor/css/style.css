@@ -741,3 +741,111 @@ body.touch.playing #btn-attack { grid-column: 2; grid-row: 2; }
 .rev-ring b { position: absolute; inset: 0; display: grid; place-items: center; font: 900 40px var(--display); }
 .rev .btn.primary { min-height: 56px; padding: 0 28px; font-size: 22px; }
 @media (max-width: 760px) { .days { grid-template-columns: repeat(4, 1fr); } .menu-foot .daily-chip { order: -1; width: 100%; } }
+
+/* ================= v6: chests, keys, Argus ending ================= */
+.key-ico { width: 15px; height: 15px; vertical-align: -3px; color: #f2c94a; filter: drop-shadow(0 0 4px rgba(242,201,74,.5)); }
+.wallet .w-keys { display: inline-flex; align-items: center; gap: 4px; margin-right: 12px; font-weight: 800; }
+
+.chest-shop { display: flex; flex-direction: column; gap: 18px; padding-bottom: 10px; }
+.cs-top { display: flex; align-items: center; gap: 16px; }
+.cs-top p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; max-width: 560px; }
+.cs-keys { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 14px; background: linear-gradient(135deg, rgba(242,201,74,.16), rgba(242,201,74,.04)); border: 1px solid rgba(242,201,74,.35); white-space: nowrap; }
+.cs-keys .key-ico { width: 22px; height: 22px; }
+.cs-keys b { font: 800 26px/1 'Big Shoulders Display', sans-serif; color: #ffe08a; }
+.cs-keys span { font-size: 11px; letter-spacing: .14em; color: var(--muted); font-weight: 700; }
+.cs-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.ccard { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 14px 14px 16px; border-radius: 18px;
+  background: radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--cc) 26%, transparent), rgba(20,20,24,.92) 70%); border: 1.5px solid color-mix(in srgb, var(--cc) 55%, transparent);
+  animation: ccIn .5s var(--ease) both; animation-delay: var(--d); }
+@keyframes ccIn { from { opacity: 0; transform: translateY(18px) scale(.96); } }
+.ccard .cc-img { width: 100%; aspect-ratio: 11/9; display: grid; place-items: center; }
+.ccard .cc-img img { width: 92%; animation: ccBob 3s ease-in-out infinite; animation-delay: var(--d); filter: drop-shadow(0 12px 18px rgba(0,0,0,.55)) drop-shadow(0 0 22px color-mix(in srgb, var(--cc) 40%, transparent)); }
+@keyframes ccBob { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-7px) rotate(1deg); } }
+.ccard:hover .cc-img img { animation: ccShake .45s linear infinite; }
+@keyframes ccShake { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-3deg) translateY(-3px); } 75% { transform: rotate(3deg) translateY(-3px); } }
+.ccard b { font: 800 22px/1 'Big Shoulders Display', sans-serif; letter-spacing: .04em; color: var(--cc); }
+.ccard small { color: var(--muted); font-size: 12px; line-height: 1.35; min-height: 32px; }
+.cc-odds { display: flex; width: 100%; height: 6px; border-radius: 4px; overflow: hidden; gap: 2px; margin-top: 4px; }
+.cc-odds span { background: var(--rc); }
+.cc-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 8px; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+.cc-legend i { font-style: normal; }
+.ccard .btn { width: 100%; margin-top: 6px; justify-content: center; }
+.ccard .btn .key-ico { margin-right: 3px; }
+.cc-shine { position: absolute; inset: -40% auto -40% -60%; width: 40%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent); transform: rotate(18deg); animation: ccShine 4.5s ease-in-out infinite; animation-delay: var(--d); pointer-events: none; }
+@keyframes ccShine { 0%, 60% { left: -60%; } 100% { left: 140%; } }
+.ccard.gold { box-shadow: 0 0 34px rgba(242,201,74,.18); }
+.cs-store h4 { margin: 0 0 10px; font: 800 18px/1 'Big Shoulders Display', sans-serif; letter-spacing: .08em; display: flex; align-items: center; gap: 6px; }
+.kp-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.kpack { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 14px 10px 12px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid var(--line); color: var(--text); cursor: pointer; transition: transform .12s, border-color .12s; }
+.kpack:hover { transform: translateY(-2px); border-color: rgba(242,201,74,.6); }
+.kpack .kp-n { font: 800 28px/1 'Big Shoulders Display', sans-serif; color: #ffe08a; display: flex; align-items: center; gap: 4px; }
+.kpack .kp-n .key-ico { width: 22px; height: 22px; }
+.kpack b { font-size: 12px; letter-spacing: .1em; }
+.kpack small { color: var(--accent); font-weight: 800; font-size: 14px; }
+.kpack em { position: absolute; top: -8px; right: 8px; font-style: normal; font-size: 9px; font-weight: 800; letter-spacing: .08em; padding: 3px 7px; border-radius: 6px; background: var(--accent); color: #1a1408; }
+.kpack.ad small { color: #8fe388; }
+
+/* opening screen */
+#chestopen { z-index: 30; background: #08080b; overflow: hidden; }
+#chestopen .co-bg { position: absolute; inset: 0; background: radial-gradient(60% 55% at 50% 58%, rgba(255,210,140,.10), transparent 70%), radial-gradient(120% 90% at 50% 100%, #1a1612, #08080b 70%); transition: background .6s; }
+#chestopen.burst .co-bg { background: radial-gradient(55% 55% at 50% 52%, color-mix(in srgb, var(--rc) 38%, transparent), transparent 72%), radial-gradient(120% 90% at 50% 100%, #15121a, #050507 70%); }
+#chestopen .co-rays { position: absolute; left: 50%; top: 46%; width: 180vmax; height: 180vmax; transform: translate(-50%, -50%) scale(.2); opacity: 0; pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--rc) 16%, transparent) 0deg 7deg, transparent 7deg 22deg);
+  -webkit-mask: radial-gradient(circle, #000 0%, transparent 42%); mask: radial-gradient(circle, #000 0%, transparent 42%); transition: opacity .5s, transform .9s var(--ease); }
+#chestopen .co-rays.on { opacity: 1; transform: translate(-50%, -50%) scale(1); animation: coSpin 24s linear infinite; }
+@keyframes coSpin { to { transform: translate(-50%, -50%) scale(1) rotate(360deg); } }
+#chestopen .co-view { position: absolute; inset: 0; }
+#chestopen .co-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+#chestopen .co-flash.on { animation: coFlash .7s ease-out; }
+@keyframes coFlash { 0% { opacity: .95; } 100% { opacity: 0; } }
+#chestopen.burst.r3 .co-flash.on, #chestopen.burst.r4 .co-flash.on { background: var(--rc); }
+#chestopen .co-hint { z-index: 3; position: absolute; left: 0; right: 0; bottom: calc(14% + var(--safe-b)); text-align: center; font: 800 26px/1 'Big Shoulders Display', sans-serif; letter-spacing: .24em; color: var(--text); opacity: 0; transition: opacity .3s; pointer-events: none; }
+#chestopen .co-hint.on { opacity: 1; animation: coPulse 1.1s ease-in-out infinite; pointer-events: auto; cursor: pointer; }
+@keyframes coPulse { 50% { transform: scale(1.06); opacity: .7; } }
+#chestopen .co-reveal { z-index: 3; position: absolute; left: 0; right: 0; bottom: calc(5% + var(--safe-b)); display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; pointer-events: none; opacity: 0; }
+#chestopen .co-reveal.on { opacity: 1; pointer-events: auto; }
+.co-rar { font: 800 15px/1 Manrope, sans-serif; letter-spacing: .32em; color: var(--rc); padding: 6px 14px; border: 1.5px solid var(--rc); border-radius: 999px; background: color-mix(in srgb, var(--rc) 14%, transparent); }
+.co-reveal.on .co-rar { animation: coStamp .5s var(--ease) both; }
+.co-name { margin: 0; font: 900 clamp(34px, 6vw, 64px)/1 'Big Shoulders Display', sans-serif; letter-spacing: .02em; color: #fff; text-shadow: 0 0 28px color-mix(in srgb, var(--rc) 70%, transparent), 0 4px 0 rgba(0,0,0,.5); }
+.co-reveal.on .co-name { animation: coStamp .55s var(--ease) .12s both; }
+.co-sub { font-size: 12px; font-weight: 800; letter-spacing: .2em; color: var(--muted); }
+.co-reveal.on .co-sub { animation: coUp .4s ease .3s both; }
+.co-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+.co-reveal.on .co-btns { animation: coUp .4s ease .45s both; }
+@keyframes coStamp { 0% { opacity: 0; transform: scale(2.2); filter: blur(6px); } 60% { opacity: 1; transform: scale(.94); filter: none; } 100% { transform: none; } }
+@keyframes coUp { from { opacity: 0; transform: translateY(14px); } }
+
+/* results: victory */
+.res-top.victory .res-floor em { color: var(--accent); }
+.res-top.victory { animation: vicGlow 2.4s ease-in-out infinite; }
+@keyframes vicGlow { 50% { filter: drop-shadow(0 0 18px rgba(242,178,74,.45)); } }
+.res-of { font-size: .45em; color: var(--muted); margin-left: 4px; }
+
+@media (max-width: 760px) {
+  .cs-row { grid-template-columns: 1fr; }
+  .ccard { flex-direction: row; flex-wrap: wrap; text-align: left; align-items: center; }
+  .ccard .cc-img { width: 34%; }
+  .ccard b { flex: 1; }
+  .cs-top { flex-direction: column; align-items: flex-start; }
+}
+@media (max-height: 520px) and (min-width: 600px) {
+  .cs-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ccard small, .cc-legend { display: none; }
+  .ccard .cc-img { aspect-ratio: 16/9; }
+}
+
+/* ---------------- tablets (iPad) in touch mode ---------------- */
+html, body { height: 100dvh; -webkit-touch-callout: none; -webkit-text-size-adjust: 100%; }
+body { position: fixed; inset: 0; }
+@media (min-width: 900px) and (min-height: 600px) {
+  body.touch #btn-attack { width: 108px; height: 108px; border-radius: 24px; }
+  body.touch #btn-attack svg { width: 42px; height: 42px; }
+  body.touch #btn-dash, body.touch #btn-skill { width: 80px; height: 80px; border-radius: 22px; }
+  body.touch #touch-btns { right: calc(36px + var(--safe-r)); bottom: calc(40px + var(--safe-b)); gap: 16px; }
+  body.touch #joy::before { width: 150px; height: 150px; left: -75px; top: -75px; }
+  body.touch #joy-knob { width: 58px; height: 58px; }
+  body.touch .btn { min-height: 48px; }
+  body.touch .tab { min-height: 44px; }
+}
+/* phones and tablets turned to portrait still work, but landscape is the intended view */
+body.touch.portrait.playing #toasts { top: calc(110px + var(--safe-t)); }

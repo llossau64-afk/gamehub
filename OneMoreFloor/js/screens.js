@@ -8,9 +8,10 @@ import { PERMS, SKINS, ACHIEVEMENTS, BESTIARY, SKIN_RARITY, RARITY_TIERS } from 
 import { animateOutfit, buildPowerModel } from './characters.js';
 import { WEAPONS, WEAPON_BY_ID, buildWeapon } from './weapons.js';
 import { ABILITIES, ABILITY_BY_ID, masteryFromXp, TRACK, MAX_MASTERY, rewardLabel } from './abilities.js';
-import { buildPlayer, buildEnemy, buildBoss, buildOperator } from './models.js';
+import { buildPlayer, buildEnemy, buildBoss, buildOperator, buildArgusBoss } from './models.js';
 import { buildMonster } from './monsters.js';
 import { Preview } from './preview.js';
+import { KEY_ICO } from './chestui.js';
 import { fmt, pad2 } from './util.js';
 import { crazy } from './crazy.js';
 
@@ -76,6 +77,7 @@ export function installScreens(UI) {
   P.renderPreviews = function (dt) {
     if (this._pv) this._pv.render(dt);
     if (this._op) this._op.render(dt);
+    if (this._chestPv) this._chestPv.render(dt);
   };
   P.mountOperator = function (el) { this.previews(); this._op.mount(el); };
 
@@ -83,7 +85,7 @@ export function installScreens(UI) {
   P.menuAction = function (act) {
     audio.play('click');
     if (act === 'play') return this.playPressed();
-    if (act === 'shop') this.showShop('upgrades');
+    if (act === 'shop') this.showShop('chests');
     else if (act === 'mastery') this.showMastery();
     else if (act === 'register') this.showRegister('monsters');
     else if (act === 'settings') { this.prevScreen = 'menu'; this.showSettings(); }
@@ -150,10 +152,13 @@ export function installScreens(UI) {
   P.showShop = function (tab = this.shopTab || 'upgrades', sel) {
     this.shopTab = tab;
     const d = save.data, lvl = playerLevel();
-    const tabs = [['upgrades', 'UPGRADES'], ['weapons', 'WEAPONS'], ['powers', 'POWERS'], ['skins', 'SKINS']];
+    const tabs = [['chests', 'CHESTS'], ['upgrades', 'UPGRADES'], ['weapons', 'WEAPONS'], ['powers', 'POWERS'], ['skins', 'SKINS']];
     const el = $('#shop');
     let list = '', stage = true;
-    if (tab === 'upgrades') {
+    if (tab === 'chests') {
+      stage = false;
+      list = this.chestTabHtml();
+    } else if (tab === 'upgrades') {
       stage = false;
       list = PERMS.map(p => {
         const lv = d.perm[p.id], maxed = lv >= p.max, cost = p.costs[lv];
@@ -164,8 +169,8 @@ export function installScreens(UI) {
     } else if (tab === 'weapons') {
       sel = sel || this.shopSel?.weapons || d.weapon;
       list = WEAPONS.map(w => {
-        const owned = d.weapons.includes(w.id), locked = lvl < w.level;
-        const state = d.weapon === w.id ? '<span class="tag-eq">EQUIPPED</span>' : owned ? '<span class="tag-own">OWNED</span>' : locked ? `<span class="tag-lock">${LOCK} LV ${w.level}</span>` : `<span class="tag-cost"><i class="coin-ico"></i>${fmt(w.cost)}</span>`;
+        const owned = d.weapons.includes(w.id), locked = w.chest ? !owned : lvl < w.level;
+        const state = d.weapon === w.id ? '<span class="tag-eq">EQUIPPED</span>' : owned ? '<span class="tag-own">OWNED</span>' : w.chest ? `<span class="tag-lock" style="color:${RCOL[w.rarity]}">CHEST</span>` : locked ? `<span class="tag-lock">${LOCK} LV ${w.level}</span>` : `<span class="tag-cost"><i class="coin-ico"></i>${fmt(w.cost)}</span>`;
         return `<button class="srow ${sel === w.id ? 'sel' : ''} ${locked && !owned ? 'locked' : ''}" data-sel="${w.id}"><span class="si">${xicon('sword')}</span><span class="st"><b>${w.name}</b><small>${w.dmg} DMG · ${w.rate.toFixed(1)} SPD · ${w.range.toFixed(1)} RANGE</small></span>${state}</button>`;
       }).join('');
     } else if (tab === 'powers') {
@@ -193,7 +198,7 @@ export function installScreens(UI) {
     this.shopSel = this.shopSel || {};
     if (tab !== 'upgrades') this.shopSel[tab] = sel;
     el.innerHTML = `<div class="shop ${stage ? 'with-stage' : ''}">
-      <div class="panel-head"><button class="back" aria-label="Back">${BACK}</button><h2>SHOP</h2><div class="plevel">LV ${lvl}</div><div class="wallet"><i class="coin-ico"></i><span>${fmt(d.coins)}</span></div></div>
+      <div class="panel-head"><button class="back" aria-label="Back">${BACK}</button><h2>SHOP</h2><div class="plevel">LV ${lvl}</div><div class="wallet"><span class="w-keys">${KEY_ICO}${fmt(d.keys)}</span><i class="coin-ico"></i><span>${fmt(d.coins)}</span></div></div>
       <div class="tabs">${tabs.map(([k, l]) => `<button class="tab ${tab === k ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
       <div class="shop-body">
         ${stage ? `<div class="stage"><div class="stage-view"></div><div class="stage-info"></div></div>` : ''}
@@ -202,6 +207,7 @@ export function installScreens(UI) {
     $('.back', el).addEventListener('click', () => this.back());
     el.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { audio.play('click'); this.showShop(b.dataset.tab); }));
     el.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => this.buyPerm(b.dataset.buy)));
+    if (tab === 'chests') this.bindChestTab(el);
     el.querySelectorAll('[data-sel]').forEach(b => b.addEventListener('click', () => { audio.play('hover'); this.showShop(tab, b.dataset.sel); }));
     if (this.screen !== 'shop') { this.prevScreen = this.screen === 'results' ? 'results' : 'menu'; }
     this.show('shop');
@@ -223,16 +229,19 @@ export function installScreens(UI) {
       if (d.skin === id) action = `<button class="btn equipped off">EQUIPPED</button>`;
       else if (owned) action = `<button class="btn primary" data-act="equip-skin">EQUIP</button>`;
       else if (u.type === 'coins') action = `<button class="btn ${d.coins >= u.cost ? 'primary' : ''}" data-act="buy-skin"><i class="coin-ico"></i>BUY · ${fmt(u.cost)}</button>`;
+      else if (u.type === 'chest') action = `<button class="btn primary" data-act="go-chests">FIND IT IN CHESTS</button>`;
       else action = `<button class="btn off">${LOCK} LOCKED</button>`;
     } else if (tab === 'weapons') {
       const w = WEAPON_BY_ID[id], cur = WEAPON_BY_ID[d.weapon], owned = d.weapons.includes(id);
-      const g = new THREE.Group(); const wm = buildWeapon(id); wm.rotation.x = -Math.PI / 2; wm.position.y = 0.05; g.add(wm); g.scale.setScalar(1.25);
+      const g = new THREE.Group(); const wm = buildWeapon(id); wm.rotation.x = -Math.PI / 2; wm.position.y = 0.05; g.add(wm);
+      const len = new THREE.Box3().setFromObject(wm).getSize(new THREE.Vector3()).y; g.scale.setScalar(1.25 * Math.min(1, 1.25 / Math.max(0.5, len)));
       pv.setModel(g, { y: 0.75, dist: 2.6, pitch: 0.12 });
       const cmp = (a, b, label, max) => `<div class="stat"><span>${label}</span><div class="bar"><i style="width:${Math.min(100, a / max * 100)}%"></i></div><b class="${a > b ? 'up' : a < b ? 'down' : ''}">${typeof a === 'number' ? (Number.isInteger(a) ? a : a.toFixed(1)) : a}</b></div>`;
-      html = `<div class="si-rar">WEAPON · LEVEL ${w.level}+</div><h3>${w.name}</h3><p>${w.desc}</p>
+      html = `<div class="si-rar" ${w.chest ? `style="color:${RCOL[w.rarity]}"` : ''}>${w.chest ? RLABEL[w.rarity] + ' · CHEST EXCLUSIVE' : `WEAPON · LEVEL ${w.level}+`}</div><h3>${w.name}</h3><p>${w.desc}</p>
         ${cmp(w.dmg, cur.dmg, 'DAMAGE', 30)}${cmp(w.rate, cur.rate, 'SPEED', 3.2)}${cmp(w.range, cur.range, 'RANGE', 2.9)}`;
       if (d.weapon === id) action = `<button class="btn equipped off">EQUIPPED</button>`;
       else if (owned) action = `<button class="btn primary" data-act="equip-weapon">EQUIP</button>`;
+      else if (w.chest) action = `<button class="btn primary" data-act="go-chests">FIND IT IN CHESTS</button>`;
       else if (lvl < w.level) action = `<button class="btn off">${LOCK} REACH LEVEL ${w.level}</button>`;
       else action = `<button class="btn ${d.coins >= w.cost ? 'primary' : ''}" data-act="buy-weapon"><i class="coin-ico"></i>BUY · ${fmt(w.cost)}</button>`;
     } else if (tab === 'powers') {
@@ -258,6 +267,7 @@ export function installScreens(UI) {
   P.shopAct = function (act, tab, id) {
     const d = save.data, g = this.game;
     const pay = cost => { if (d.coins < cost) { audio.play('deny'); const v = $('#shop .stage-act'); v && v.animate([{ transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'none' }], { duration: 180 }); return false; } d.coins -= cost; audio.play('buy'); return true; };
+    if (act === 'go-chests') { audio.play('click'); this.showShop('chests'); return; }
     if (act === 'equip-skin') { d.skin = id; audio.play('select'); }
     else if (act === 'buy-skin') { if (!pay(SKINS.find(s => s.id === id).unlock.cost)) return; d.skins.push(id); d.skin = id; this.celebrate(); }
     else if (act === 'equip-weapon') { d.weapon = id; audio.play('select'); }
@@ -339,7 +349,8 @@ export function installScreens(UI) {
     const b = BESTIARY.find(x => x.id === id), e = d.bestiary[id], pv = this.previews();
     pv.mount($('#register .stage-view')); pv.onFrame = null;
     let model, frame;
-    if (b.boss) { model = buildBoss(id).root; frame = { y: 1.4, dist: 7.5, pitch: 0.15 }; }
+    if (id === 'argus') { const am = buildArgusBoss(); model = am.root; frame = { y: 2.3, dist: 10, pitch: 0.12 }; pv.onFrame = (dt, t) => { am.rig.position.y = Math.sin(t * 1.6) * 0.18; am.rings.forEach((r, k) => { r.rotation.z = t * (k % 2 ? -1.6 : 2.2); }); am.op.crystal.rotation.y = t * 2; }; }
+    else if (b.boss) { model = buildBoss(id).root; frame = { y: 1.4, dist: 7.5, pitch: 0.15 }; }
     else if (id === 'dummy') { model = buildEnemy('dummy').root; frame = { y: 0.6, dist: 4, pitch: 0.2 }; }
     else {
       const m = buildMonster(id);

@@ -141,7 +141,10 @@ export function initInput(canvas, ui) {
   document.addEventListener('dblclick', e => e.preventDefault());
 
   const coarse = matchMedia('(pointer: coarse)').matches || matchMedia('(any-pointer: coarse)').matches;
-  if ((navigator.maxTouchPoints > 0 && coarse) || ('ontouchstart' in window && !matchMedia('(any-pointer: fine)').matches)) setTouchMode(true);
+  // iPadOS pretends to be a Mac ("MacIntel") but has touch points; treat it as a touch device from the start.
+  const iPad = /iPad/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (iPad) document.body.classList.add('tablet');
+  if (iPad || (navigator.maxTouchPoints > 0 && coarse) || ('ontouchstart' in window && !matchMedia('(any-pointer: fine)').matches)) setTouchMode(true);
 }
 
 function isTyping(e) { return e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'); }

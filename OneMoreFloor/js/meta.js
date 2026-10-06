@@ -28,8 +28,14 @@ export const SKINS = [
   { id: 'stone', name: 'Stoneborn', unlock: { type: 'mastery', ability: 'earth', label: 'Earth Throw mastery 20' }, c: { body: 0x5a4a3a, trim: 0xc9a06a, head: 0x7a6a58, eyes: 0xffd36b, blade: 0xe0c8a0, trail: 0xc9a06a }, acc: 'rocks' },
   { id: 'frostguard', name: 'Frostguard', unlock: { type: 'mastery', ability: 'frost', label: 'Frost Nova mastery 20' }, c: { body: 0xd8e6ee, trim: 0x5fb4e8, head: 0xa8c8dc, eyes: 0x1b3a5a, blade: 0xd8f6ff, trail: 0x9feaff }, acc: 'icehorns' },
   { id: 'zephyr', name: 'Zephyr', unlock: { type: 'mastery', ability: 'wind', label: 'Wind Blades mastery 20' }, c: { body: 0x2a3a34, trim: 0xc8ffd8, head: 0xd8e8dc, eyes: 0x1b2a22, blade: 0xe8fff0, trail: 0xc8ffd8 }, acc: 'longscarf' },
+  { id: 'pumpkin', name: 'Pumpkin King', unlock: { type: 'chest', label: 'Chest exclusive' }, c: { body: 0x2a1e3a, trim: 0xf08a2a, head: 0xf08a2a, eyes: 0xffd04a, blade: 0xffd04a, trail: 0xffa040 } },
+  { id: 'crystal', name: 'Crystal Knight', unlock: { type: 'chest', label: 'Chest exclusive' }, c: { body: 0x5a3a8a, trim: 0xd8b8ff, head: 0xb07cf0, eyes: 0xf4e8ff, blade: 0xe0c8ff, trail: 0xd8b8ff } },
+  { id: 'oni', name: 'Oni Samurai', unlock: { type: 'chest', label: 'Chest exclusive' }, c: { body: 0x1a1418, trim: 0xc8281e, head: 0xc8281e, eyes: 0xffe24a, blade: 0xfff0e0, trail: 0xff4a2a } },
+  { id: 'dragon', name: 'Dragon Lord', unlock: { type: 'chest', label: 'Chest exclusive' }, c: { body: 0x3a2a5a, trim: 0xc05aff, head: 0x3a2a5a, eyes: 0xc05aff, blade: 0xe0b0ff, trail: 0xc05aff } },
+  { id: 'celestial', name: 'Celestial', unlock: { type: 'chest', label: 'Chest exclusive' }, c: { body: 0xf4f0e8, trim: 0xe0b04a, head: 0xe9d9c2, eyes: 0x3a2a0a, blade: 0xfff4d0, trail: 0xfff0c0 } },
+  { id: 'overseer', name: 'Overseer', unlock: { type: 'final', label: 'Defeat Argus on floor 40' }, c: { body: 0x2c2f36, trim: 0xc08f34, head: 0x2c2f36, eyes: 0xffb347, blade: 0xffe0a0, trail: 0xffa040 } },
 ];
-export const SKIN_RARITY = { default: 'common', street: 'common', scout: 'common', cyber: 'rare', knight: 'rare', ronin: 'rare', pirate: 'superrare', astro: 'superrare', shadow: 'epic', warlord: 'epic', golden: 'legendary', ember: 'legendary', storm: 'legendary', stone: 'legendary', frostguard: 'legendary', zephyr: 'legendary' };
+export const SKIN_RARITY = { default: 'common', street: 'common', scout: 'common', cyber: 'rare', knight: 'rare', ronin: 'rare', pirate: 'superrare', astro: 'superrare', shadow: 'epic', warlord: 'epic', golden: 'legendary', ember: 'legendary', storm: 'legendary', stone: 'legendary', frostguard: 'legendary', zephyr: 'legendary', pumpkin: 'rare', crystal: 'superrare', oni: 'epic', dragon: 'legendary', celestial: 'legendary', overseer: 'legendary' };
 export const RARITY_TIERS = [
   { id: 'common', label: 'COMMON', color: '#b9b4a8' },
   { id: 'rare', label: 'RARE', color: '#5fb4e8' },
@@ -45,9 +51,10 @@ export const BESTIARY = [
     const d = MONSTERS[id], e = { id, name: d.name, where: `${b.name} · floors ${bi * 5 + 1}-${bi * 5 + 5}`, lore: d.lore, ai: d.ai };
     return id === 'splitter' ? [e, { id: 'splitling', name: MONSTERS.splitling.name, where: 'Born from Slimes', lore: MONSTERS.splitling.lore }] : [e];
   })),
-  { id: 'warden', name: 'The Warden', where: 'Floor 10, 40, 70…', boss: true, lore: 'The jailer of the lower floors. Its lantern burns brighter before every ring of fire. The gaps are the way through.' },
-  { id: 'crusher', name: 'The Crusher', where: 'Floor 20, 50, 80…', boss: true, lore: 'All weight and no patience. It charges blindly and stuns itself on the walls. Make it miss.' },
-  { id: 'hunter', name: 'The Hunter', where: 'Floor 30, 60, 90…', boss: true, lore: 'It disappears, then lands where you stood. Every dash it makes is drawn on the floor first.' },
+  { id: 'warden', name: 'The Warden', where: 'Floor 10', boss: true, lore: 'The jailer of the lower floors. Its lantern burns brighter before every ring of fire. The gaps are the way through.' },
+  { id: 'crusher', name: 'The Crusher', where: 'Floor 20', boss: true, lore: 'All weight and no patience. It charges blindly and stuns itself on the walls. Make it miss.' },
+  { id: 'hunter', name: 'The Hunter', where: 'Floor 30', boss: true, lore: 'It disappears, then lands where you stood. Every dash it makes is drawn on the floor first.' },
+  { id: 'argus', name: 'Argus', where: 'Floor 40 · the top', boss: true, lore: 'The overseer. He built the tower, he watched every climber fall, and he waits on the last floor himself. Meteors, eye beams, rune spirals, and below half health the crown ignites.' },
 ];
 
 export const ACHIEVEMENTS = [
@@ -56,6 +63,8 @@ export const ACHIEVEMENTS = [
   { id: 'crusher', name: 'Unbroken', desc: 'Defeat The Crusher' },
   { id: 'hunter', name: 'Outfoxed', desc: 'Defeat The Hunter' },
   { id: 'f40', name: 'Thin Air', desc: 'Reach floor 40' },
+  { id: 'argus', name: 'Tower of God', desc: 'Defeat Argus and clear the tower' },
+  { id: 'chest', name: 'Treasure Hunter', desc: 'Open your first chest' },
   { id: 'coins1k', name: 'Pocket Change', desc: 'Collect 1,000 coins in total' },
   { id: 'coins10k', name: 'Tower Tycoon', desc: 'Collect 10,000 coins in total' },
   { id: 'kills500', name: 'Exterminator', desc: 'Defeat 500 enemies in total' },

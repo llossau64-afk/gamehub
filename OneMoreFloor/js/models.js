@@ -234,5 +234,31 @@ export function buildOperator() {
   const crystal = add(new THREE.OctahedronGeometry(0.16, 0), glow, staff, 0, 2.38, 0); crystal.scale.y = 1.7;
   const cGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), color: 0xff9a2a, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
   cGlow.scale.set(0.9, 0.9, 1); cGlow.position.set(0, 2.38, 0); staff.add(cGlow);
-  return { root, body, head, visor, eyeGlow, crystal, cape };
+  return { root, body, head, visor, eyeGlow, crystal, cape, staff, cGlow, glowMat: glow };
+}
+
+// Argus as the final boss: the same overseer, three times the size, floating on a vortex of embers.
+export function buildArgusBoss() {
+  const root = new THREE.Group();
+  const rig = new THREE.Group(); root.add(rig);
+  const op = buildOperator();
+  op.root.scale.setScalar(1.45); op.root.position.y = 0.95; rig.add(op.root);
+  const map = new Map();
+  op.root.traverse(o => {
+    const m = o.isMesh && o.material;
+    if (!m || !m.isMeshToonMaterial || m.emissive.getHex() === 0x3a2400) return;
+    if (!map.has(m)) { const c = m.clone(); c.emissive = new THREE.Color(0xffffff); c.emissiveIntensity = 0; map.set(m, c); }
+    o.material = map.get(m);
+  });
+  const mats = [...map.values()];
+  // vortex skirt: three counter-rotating ember rings
+  const rings = [];
+  for (let k = 0; k < 3; k++) {
+    const g = new THREE.TorusGeometry(0.9 - k * 0.22, 0.05, 4, 24);
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: k === 1 ? 0xffd08a : 0xff6a2a, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false }));
+    m.rotation.x = Math.PI / 2; m.position.y = 0.35 + k * 0.32; rig.add(m); rings.push(m);
+  }
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), color: 0xff7a2a, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
+  halo.scale.set(3.2, 2.2, 1); halo.position.y = 0.5; rig.add(halo);
+  return { root, rig, kind: 'argus', op, mats, rings, halo, radius: 1.0, height: 3.9, float: true };
 }

@@ -16,6 +16,17 @@ export const WEAPONS = [
     desc: 'Forged in the Foundry. Every hit sets enemies alight.' },
   { id: 'crown', name: 'Crown Edge', level: 50, cost: 8500, dmg: 28, rate: 3.1, range: 2.8, kb: 1.2, crit: 0.1, trail: 0xffd36b,
     desc: 'Taken from a Warden. +10% critical chance.' },
+  // Chest exclusives: never sold, only found in chests.
+  { id: 'cleaver', name: 'Bone Cleaver', chest: true, rarity: 'rare', level: 1, cost: 0, dmg: 13, rate: 2.5, range: 2.4, kb: 1.8, trail: 0xe8dcc4,
+    desc: 'Chest exclusive. A butcher blade carved from a giant\'s jaw. Sends enemies flying.' },
+  { id: 'frostfang', name: 'Frostfang', chest: true, rarity: 'superrare', level: 1, cost: 0, dmg: 17, rate: 2.9, range: 2.55, kb: 1, frost: 1, trail: 0x9feaff,
+    desc: 'Chest exclusive. Ice that never melts. Every hit slows the target.' },
+  { id: 'reaper', name: 'Soul Reaper', chest: true, rarity: 'epic', level: 1, cost: 0, dmg: 20, rate: 2.6, range: 3.0, kb: 1.1, ls: 1, trail: 0x7affc8,
+    desc: 'Chest exclusive. A scythe with enormous reach. Every kill heals 1 HP.' },
+  { id: 'dragonfang', name: 'Dragonfang', chest: true, rarity: 'legendary', level: 1, cost: 0, dmg: 26, rate: 3.1, range: 2.8, kb: 1.2, burn: true, crit: 0.08, trail: 0xc05aff,
+    desc: 'Chest exclusive. A dragon tooth in black gold. Burns everything it touches. +8% crit.' },
+  { id: 'starfall', name: 'Starfall', chest: true, rarity: 'legendary', level: 1, cost: 0, dmg: 30, rate: 3.2, range: 2.9, kb: 1.1, crit: 0.12, chain: 0.25, trail: 0x9fd4ff,
+    desc: 'Chest exclusive. Forged from a fallen star. Hits arc lightning. +12% crit.' },
 ];
 export const WEAPON_BY_ID = Object.fromEntries(WEAPONS.map(w => [w.id, w]));
 
@@ -86,6 +97,60 @@ export function buildWeapon(id) {
       add(new THREE.OctahedronGeometry(0.045, 0), B(0x7fe0ff), 0, 0.03, 0.22);
       add(new THREE.ConeGeometry(0.06, 0.2, 4).rotateX(Math.PI / 2), gold, 0, 0, 1.27);
       gd.userData.k = 1;
+      break;
+    }
+    case 'cleaver': {
+      const bone = L(0xe8dcc4), boneD = L(0xb8a888);
+      add(box(0.07, 0.07, 0.26), L(0x4a2a1e), 0, 0, 0.02);
+      add(new THREE.SphereGeometry(0.06, 6, 4), boneD, 0, 0, -0.14);
+      add(box(0.2, 0.08, 0.08), boneD, 0, 0, 0.17);
+      add(box(0.3, 0.035, 0.66), bone, 0.06, 0, 0.55);
+      for (let k = 0; k < 4; k++) add(new THREE.ConeGeometry(0.03, 0.08, 4), boneD, -0.1, 0, 0.32 + k * 0.14, 0, 0, Math.PI / 2);
+      add(box(0.06, 0.04, 0.2), L(0x8a2a22), 0.14, 0, 0.7);
+      break;
+    }
+    case 'frostfang': {
+      const ice = L(0xcff4ff, { emissive: 0x3a8aaa, emissiveIntensity: 0.6 });
+      add(box(0.06, 0.06, 0.24), L(0x2a3a4a), 0, 0, 0.02);
+      add(new THREE.OctahedronGeometry(0.07, 0), ice, -0.17, 0, 0.16, 0, 0, 0.5);
+      add(new THREE.OctahedronGeometry(0.07, 0), ice, 0.17, 0, 0.16, 0, 0, -0.5);
+      add(box(0.16, 0.08, 0.08), L(0x5fb4e8), 0, 0, 0.16);
+      const bl = new THREE.OctahedronGeometry(0.1, 0); bl.scale(0.9, 0.35, 5.2);
+      add(bl, ice, 0, 0, 0.7);
+      add(box(0.02, 0.02, 0.8), B(0xe8fbff), 0, 0.02, 0.66);
+      break;
+    }
+    case 'reaper': {
+      add(new THREE.CylinderGeometry(0.03, 0.035, 1.25, 6).rotateX(Math.PI / 2), L(0x2a2230), 0, 0, 0.5);
+      add(box(0.08, 0.08, 0.08), L(0x7affc8, { emissive: 0x1a8a5a, emissiveIntensity: 0.8 }), 0, 0, 1.12);
+      const blade = new THREE.TorusGeometry(0.42, 0.04, 4, 16, Math.PI * 0.7);
+      const bm = add(blade, L(0xb8c8c0, { emissive: 0x1a4a3a, emissiveIntensity: 0.5 }), 0.42, 0, 1.12, Math.PI / 2, 0, Math.PI * 0.95);
+      bm.scale.set(1, 1, 2.2);
+      add(new THREE.TorusGeometry(0.42, 0.012, 3, 16, Math.PI * 0.7), B(0x7affc8), 0.42, 0.02, 1.12, Math.PI / 2, 0, Math.PI * 0.95);
+      break;
+    }
+    case 'dragonfang': {
+      const blackgold = L(0x2a1e2a), gold = L(0xd9a83a, { emissive: 0x4a3000, emissiveIntensity: 0.6 });
+      add(box(0.06, 0.06, 0.26), L(0x1a1218), 0, 0, 0.02);
+      add(new THREE.OctahedronGeometry(0.06, 0), B(0xc05aff), 0, 0, -0.14);
+      for (const sx of [-1, 1]) add(new THREE.ConeGeometry(0.05, 0.3, 4), gold, sx * 0.17, 0, 0.12, 0.5, 0, -sx * 1.9);
+      add(box(0.2, 0.09, 0.09), gold, 0, 0, 0.16);
+      const fang = new THREE.ConeGeometry(0.1, 1.05, 5); fang.rotateX(Math.PI / 2); fang.scale(1, 0.35, 1);
+      add(fang, blackgold, 0, 0, 0.72);
+      const edge = new THREE.ConeGeometry(0.11, 1.0, 5); edge.rotateX(Math.PI / 2); edge.scale(1, 0.12, 1);
+      add(edge, B(0xc05aff), 0, 0, 0.72);
+      break;
+    }
+    case 'starfall': {
+      const star = L(0xe8f4ff, { emissive: 0x4a7aaa, emissiveIntensity: 0.7 });
+      add(box(0.06, 0.06, 0.24), L(0x1e2534), 0, 0, 0.02);
+      add(new THREE.OctahedronGeometry(0.08, 0), B(0xfff4c0), 0, 0, -0.14);
+      add(box(0.42, 0.06, 0.06), L(0x3a4a68), 0, 0, 0.16);
+      for (const sx of [-1, 1]) add(new THREE.OctahedronGeometry(0.06, 0), B(0x9fd4ff), sx * 0.24, 0, 0.16);
+      add(box(0.12, 0.035, 1.0), star, 0, 0, 0.7);
+      add(box(0.03, 0.045, 0.94), B(0x9fd4ff), 0, 0, 0.68);
+      add(new THREE.ConeGeometry(0.065, 0.22, 4).rotateX(Math.PI / 2), star, 0, 0, 1.31);
+      const st = add(new THREE.OctahedronGeometry(0.07, 0), B(0xfff4c0), 0, 0, 0.26); st.scale.set(1, 1, 0.4);
       break;
     }
   }

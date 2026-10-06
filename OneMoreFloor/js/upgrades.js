@@ -107,8 +107,8 @@ export function baseStats(perm, w = { dmg: 6, rate: 2.5, range: 2.05, kb: 0.8 })
     knockback: w.kb || 1,
     pickup: 2.3,
     coinMul: 1 + 0.12 * perm.greed,
-    waves: 0, bounce: 0, pierce: 0, explode: 0, corpse: 0, drones: 0, orbit: 0, lifesteal: 0,
-    fifth: 0, dashDamage: 0, dashShock: 0, chain: 0, thorns: 0, frost: 0, echo: 0, storm: 0,
+    waves: 0, bounce: 0, pierce: 0, explode: 0, corpse: 0, drones: 0, orbit: 0, lifesteal: w.ls || 0,
+    fifth: 0, dashDamage: 0, dashShock: 0, chain: w.chain || 0, thorns: 0, frost: w.frost || 0, echo: 0, storm: 0,
     phoenix: 0, berserk: 0, hydra: 0,
   };
 }

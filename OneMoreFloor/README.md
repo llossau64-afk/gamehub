@@ -1,6 +1,6 @@
-# ONE MORE FLOOR
+# TOWER OF GOD
 
-A fast roguelite tower climber for the browser. You fight through a small room, pick one of three upgrade cards and ride the lift up. Then you do it again, as high as you can get.
+A fast roguelite tower climber for the browser. Forty floors, eight worlds and a guardian every ten floors. At the top, Argus, the overseer who has been talking to you the whole way, waits for you himself.
 
 Built with HTML5 + three.js (WebGL), no build step and no external requests. The whole game is about 1 MB: all audio is synthesized at runtime, and three.js and the fonts are vendored.
 
@@ -29,7 +29,18 @@ To deploy (itch.io, CrazyGames, GitHub Pages, any static host), upload the `OneM
 
 On the upgrade screen use 1/2/3 (or arrows + Enter) and R to reroll. On the results screen, Space/Enter starts the next run immediately.
 
-## What's new in v5 (release)
+## What's new in v6
+
+- **Renamed to Tower of God.** Saves from earlier versions are kept.
+- **The tower has an end:** floor 40 is the top. Argus falls from the sky in a cutscene, talks, then fights: rune spirals, sweeping eye beams, a meteor rain, blink strikes and summons from all eight worlds. Below half health his crown ignites (phase II). Beating him plays an ending dialog, pays 3,000 coins and 5 keys, and unlocks the Overseer skin (later clears pay 1,000 coins and 2 keys).
+- **Chests (shop → CHESTS):** Wooden (1,200 coins), Silver (1 key) and Gold (5 keys, always Super Rare or better). They drop in, shake, leak light in the colour of what is inside, burst open with light rays, and the prize rises out with a rarity fanfare.
+- **Chest exclusives:** 5 skins (Pumpkin King, Crystal Knight, Oni Samurai, Dragon Lord with beating wings, Celestial) and 5 weapons (Bone Cleaver, Frostfang that slows, Soul Reaper that heals on kills, Dragonfang that burns, Starfall that arcs lightning). Duplicates turn into coins.
+- **Keys:** from floor 20 up, about 1 monster in 20 drops a key. On CrazyGames a rewarded ad gives 1 key every 4 hours. The shop shows key packs for real money; they stay switched off until a payment provider is connected (`js/payments.js`).
+- After the training floor and the power choice you go back to the main menu, and the first real climb starts from PLAY.
+- **iPad:** iPadOS is detected as a touch device (it reports itself as a Mac), bigger touch buttons and joystick on tablets, re-layout after rotation, and a render-resolution cap so it stays at 60 fps.
+- A monster can never appear before its own world (hard guard in the wave generator), and monsters from earlier worlds only mix in from floor 11.
+
+## What's new in v5
 
 - **40 monsters** built from a creature kit (bipeds, beasts, flyers, fish, slimes, spirits, serpents, spiders, crabs, mimics): cel-shaded, ink-outlined, glowing eyes, horns, jaws, wings and tails, each with its own animation. New behaviours: flyers that circle and dive, bombers that swell up and explode.
 - **8 worlds**, 5 floors each: Dungeon, Flooded Sewers (water slows, swimmers speed up), Haunted Crypt, Lava Forge (lava burns), The Abyss (water), Frozen Spire (slippery ice), Shadow Garden, Sky Sanctum. Animated water/lava/ice shaders.
@@ -79,7 +90,9 @@ Instanced meshes for coins, bullets, projectiles, shadows and particles (all poo
 |---|---|
 | `js/main.js` | boot and main loop |
 | `js/game.js` | player, combat, enemies, waves, coins, traps, room flow, run results |
-| `js/boss.js` | the three bosses |
+| `js/boss.js` | the three guardians and Argus |
+| `js/chests.js`, `js/chestui.js` | chest models, loot tables, the opening screen |
+| `js/payments.js` | hook for real-money key packs |
 | `js/upgrades.js` | upgrade pool, rarity, stats, icons |
 | `js/meta.js` | permanent upgrades, skins, achievements |
 | `js/rooms.js` | room templates, collision, line of sight, flow-field pathing |
@@ -95,6 +108,7 @@ A console hook `window.__omf` exposes `game`, `ui`, `save` and the rest for debu
 ## Next steps
 
 - Daily challenge: runs are already seeded (`game.startRun({ seed })`). A date-based seed plus a menu entry would complete it.
+- Real-money key packs: connect CrazyGames' payment integration in `js/payments.js` (`payments.provider`).
 - More bosses, enemy variants and upgrades.
 
 Credits: three.js (MIT), Big Shoulders Display and Manrope (SIL OFL 1.1, licenses in `lib/` and `fonts/`).

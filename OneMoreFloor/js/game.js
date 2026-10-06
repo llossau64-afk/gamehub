@@ -4,6 +4,7 @@ import { RNG, clamp, damp, angleDiff, rand, TAU, dist2 } from './util.js';
 import { TILE, T, makeRoom, menuRoom, tutorialRoom, toWorld, toTile, tileAt, collideCircle, lineOfSight, FlowField, solidAt } from './rooms.js';
 import { buildPlayer, buildEnemy } from './models.js';
 import { MONSTERS, BIOMES, buildMonster } from './monsters.js';
+import { buildKey } from './chests.js';
 import { animateOutfit } from './characters.js';
 import { baseStats, rollCards, UPGRADE_BY_ID } from './upgrades.js';
 import { SKINS, ACHIEVEMENTS, checkSkinProgress } from './meta.js';
@@ -25,6 +26,9 @@ function enemyColor(type) {
   return (_colCache[type] = L.body ?? L.skin ?? L.core ?? 0xc8c0b0);
 }
 // Biomes change every 5 floors; after the 8th they start over (and keep getting harder).
+// World each monster belongs to (0 = Dungeon … 7 = Sky Sanctum).
+const MON_WORLD = {};
+BIOMES.forEach((b, k) => b.monsters.forEach(id => { MON_WORLD[id] = k; }));
 export const biomeIndex = f => Math.floor(Math.max(0, f - 1) / 5) % BIOMES.length;
 
 const _v3 = new THREE.Vector3();
@@ -48,6 +52,7 @@ export class Game {
     this.hazards = [];
     this.timers = [];
     this.pools = {};
+    this.keyDrops = [];
     this.boss = null;
     this.player = null;
     this.menuActors = [];
@@ -478,6 +483,17 @@ export class Game {
     this.ui.objective(null);
   }
 
+  tutorialToMenu() {
+    this.finishTutorial();
+    this.ui.fade(true, 0.3);
+    setTimeout(() => {
+      this.enterMenu(); this.ui.showMenu();
+      this.ui.fade(false, 0.6);
+      this.ui.toast('TRAINING COMPLETE', 'Press PLAY to start your climb');
+      audio.play('best');
+    }, 320);
+  }
+
   makePlayerState(x, z) {
     return {
       x, z, y: 0, vx: 0, vz: 0, r: 0.36, face: 0, aim: 0, hp: 20, maxHp: 20, iframes: 0, dashT: 0, dashDX: 0, dashDZ: 1,
@@ -586,7 +602,10 @@ export class Game {
     let squad = rng.shuffle([...unlocked]).slice(0, Math.min(unlocked.length, f < 4 ? 2 : rng.int(2, 3)));
     const fresh = unlocked[unlocked.length - 1];
     if (fresh && !squad.includes(fresh)) squad[0] = fresh;
-    if (older.length && rng.chance(0.35)) squad.push(rng.pick(older));
+    if (older.length && f > 10 && rng.chance(0.35)) squad.push(rng.pick(older));
+    // Hard guard: a monster never shows up before its own world (no floor-40 monsters on floor 5).
+    squad = squad.filter(t => (MON_WORLD[t] ?? 0) <= bi);
+    if (!squad.length) squad = [home[0]];
     const budget = 3 + f * 1.3 + Math.max(0, f - 12) * 0.5;
     const nWaves = f < 3 ? 1 : f < 7 ? 2 : rng.chance(0.55) ? 3 : 2;
     const waves = [];
@@ -623,6 +642,8 @@ export class Game {
 
   // ------------------------------------------------------------------ entities
   clearEntities() {
+    // keys still lying around are never lost
+    if (this.keyDrops) { for (const k of this.keyDrops.splice(0)) { this.world.dynamic.remove(k.m); if (this.mode === 'run') { save.data.keys = (save.data.keys || 0) + 1; this.run.keys = (this.run.keys || 0) + 1; } } save.write(); }
     for (const e of this.enemies) this.releaseModel(e);
     this.enemies.length = 0; this.bullets.length = 0; this.projs.length = 0; this.coins.length = 0; this.hazards.length = 0;
     this.timers.length = 0;
@@ -720,6 +741,7 @@ export class Game {
       this.updateHazards(gdt);
       this.updatePowerFx(gdt);
       this.updateCoins(gdt);
+      this.updateKeys(gdt);
       this.updateTraps(gdt);
     }
     this.updateVisuals(gdt, dt);
@@ -738,12 +760,12 @@ export class Game {
           this.fx.burst(p.x, 0.1, p.z, 10, 0xb8b0a4, { speed: 4, up: 1.5, life: 0.45, size: 0.12, debris: false });
           audio.play('doorOpen');
           if (this.tut) { this.phase = 'fight'; this.phaseT = 0; this.tutAdvance(); }
-          else if (this.run.floor === 1 && this.run.fromTutorial) {
-            this.run.fromTutorial = false;
+          else if (this.run.floor === 1 && !save.data.introDone) {
+            save.data.introDone = true; save.write();
             this.phase = 'fight'; this.phaseT = 0; this.holdWaves = true;
             this.say([
-              "That's the training done. From here on it's real, and every floor is harder than the last.",
-              'Clear the room, take an upgrade, ride up. How high can you get?',
+              "From here on it's real, and every floor is harder than the last.",
+              'Forty floors, eight worlds, a guardian every ten. Reach the top and you will finally meet me in person.',
             ]).then(() => { this.holdWaves = false; this.spawnWave(this.waves[0]); this.waveIdx = 1; this.waveT = 0; });
           }
           else if (this.isBossFloor) { this.phase = 'bossIntro'; this.phaseT = 0; this.startBossIntro(); }
@@ -752,11 +774,15 @@ export class Game {
         break;
       }
       case 'bossIntro':
-        if (this.phaseT > 2.1 && !this._bossTalk) {
+        if (this.phaseT > (this.boss.kind === 'argus' ? 3.4 : 2.1) && !this._bossTalk) {
           const kind = this.boss.kind, seen = save.data.seenBoss || (save.data.seenBoss = {});
           const go = () => { this._bossTalk = false; this.phase = 'fight'; this.phaseT = 0; this.boss.active = true; audio.setMode('boss'); };
           this.ui.letterbox(false);
-          if (!seen[kind]) {
+          if (kind === 'argus') {
+            // The final cutscene plays every time; the long version only the first time.
+            const first = !seen.argus; seen.argus = true; save.write(); this._bossTalk = true;
+            this.say(first ? ARGUS_INTRO : ARGUS_AGAIN).then(go);
+          } else if (!seen[kind]) {
             seen[kind] = true; save.write(); this._bossTalk = true;
             this.say(BOSS_LINES[kind]).then(go);
           } else go();
@@ -767,7 +793,10 @@ export class Game {
         if (this.holdWaves) break;
         this.waveT += dt;
         const alive = this.enemies.filter(e => !e.dead && !e.decor).length;
-        if (this.boss) { if (this.boss.dead && this.boss.deathT > 1.4 && alive === 0) this.roomClear(); break; }
+        if (this.boss) {
+          if (this.boss.dead && this.boss.deathT > 1.4 && alive === 0) { if (this.boss.kind === 'argus') this.finalVictory(); else this.roomClear(); }
+          break;
+        }
         if (this.waveIdx < this.waves.length) {
           const prev = this.waves[this.waveIdx - 1].length;
           if (alive === 0 || (alive <= Math.max(1, Math.floor(prev * 0.25)) && this.waveT > 4)) {
@@ -798,10 +827,12 @@ export class Game {
           if (this.run.tutorial) {
             this.phase = 'cards'; this.phaseT = 0;
             audio.setMuffled(true);
-            if (true) {
-              this.say(['Last thing. That stick will not get you far up there.', 'Choose a power. It starts out weak, but the more you climb with it, the stronger it gets. Choose well.'])
-                .then(() => this.ui.showElementChoice(this, () => this.nextFloor()));
-            } else this.ui.ride(this, f, () => this.nextFloor());
+            // Training ends with the power choice, then back to the lobby: the first real climb starts from PLAY.
+            const home = () => this.say(['Training is over. Rest, spend your coins, then press PLAY when you are ready.', 'Forty floors stand between you and me. I will be waiting at the top.'])
+              .then(() => this.tutorialToMenu());
+            if (save.data.ability) home();
+            else this.say(['Last thing. That stick will not get you far up there.', 'Choose a power. It starts out weak, but the more you climb with it, the stronger it gets. Choose well.'])
+              .then(() => this.ui.showElementChoice(this, home));
           } else if (f % 5 === 0) {
             // Upgrade cards only every 5th floor: they should feel like a reward, not a routine.
             this.phase = 'cards'; this.phaseT = 0;
@@ -840,12 +871,13 @@ export class Game {
 
   startBossIntro() {
     const f = this.run.floor;
-    const kind = BOSS_INFO.order[Math.floor(f / 10 - 1) % 3];
-    const [bx, bz] = toWorld(this.room, Math.floor(this.room.w / 2), 4);
+    const kind = f >= FINAL_FLOOR ? 'argus' : BOSS_INFO.order[Math.floor(f / 10 - 1) % 3];
+    const [bx, bz] = toWorld(this.room, Math.floor(this.room.w / 2), kind === 'argus' ? 5 : 4);
     this.boss = createBoss(this, kind, bx, bz, f);
     this.registerSeen(kind);
-    this.ui.letterbox(true, BOSS_INFO[kind].name, `FLOOR ${f}`);
+    this.ui.letterbox(true, BOSS_INFO[kind].name, kind === 'argus' ? 'OVERSEER OF THE TOWER · FLOOR 40' : `FLOOR ${f}`);
     audio.play('bossIntro');
+    if (kind === 'argus') { audio.play('thunder'); this.world.addShake(0.4); }
   }
 
   // ------------------------------------------------------------------ player
@@ -1251,7 +1283,7 @@ export class Game {
     for (const m of this.fx.markers) this.fx.releaseMarker(m);
     audio.play('bossDown');
     crazy.happytime();
-    this.ui.banner('BOSS DEFEATED', BOSS_INFO[b.kind].name);
+    this.ui.banner(b.kind === 'argus' ? 'ARGUS FALLS' : 'BOSS DEFEATED', b.kind === 'argus' ? 'THE TOWER IS YOURS' : BOSS_INFO[b.kind].name);
     for (let k = 0; k < 5; k++) this.later(k * 0.12, () => {
       this.fx.burst(b.x + rand(-1, 1), 1.5, b.z + rand(-1, 1), 26, k % 2 ? 0xffd08a : 0xff6a4a, { speed: 10, up: 8, life: 0.9, size: 0.2 });
       this.fx.ring(b.x, b.z, 0xffd08a, 0.5, 4 + k, 0.5);
@@ -1259,6 +1291,30 @@ export class Game {
     });
     this.dropCoins(b.x, b.z, Math.round((30 + run.floor * 1.5) * this.stats.coinMul));
     this.later(0.6, () => { if (b.model) b.model.root.visible = false; });
+  }
+
+  // Floor 40: Argus is down. Ending dialog, rewards, then the results screen as a victory.
+  finalVictory() {
+    if (this.phase === 'victory') return;
+    this.phase = 'victory'; this.phaseT = 0;
+    crazy.gameplayStop();
+    const run = this.run, d = save.data;
+    const first = !d.towerCleared;
+    d.towerCleared = (d.towerCleared || 0) + 1;
+    this.unlock('argus');
+    const reward = { coins: first ? 3000 : 1000, keys: first ? 5 : 2, skin: first && !d.skins.includes('overseer') ? 'overseer' : null };
+    d.coins += reward.coins; d.totalCoins += reward.coins; run.coins += reward.coins;
+    d.keys = (d.keys || 0) + reward.keys;
+    if (reward.skin) d.skins.push(reward.skin);
+    run.victory = reward;
+    save.write();
+    audio.setMode('off');
+    crazy.happytime();
+    this.say(first ? ARGUS_END : ARGUS_END_AGAIN).then(() => {
+      audio.play('best');
+      this.ui.letterbox(true, 'TOWER OF GOD', 'CLEARED');
+      setTimeout(() => { this.ui.letterbox(false); this.phase = 'dead'; this.ui.showResults(this, this.finishRun()); }, 2600);
+    });
   }
 
   killEnemy(e, o = {}) {
@@ -1282,6 +1338,8 @@ export class Game {
     const base = e.noCoins ? 0 : e.mini ? (Math.random() < 0.4 ? 1 : 0) : e.def.coins * (e.elite ? 3 : 1);
     const n = base * s.coinMul * (1 + sc.f * 0.025);
     this.dropCoins(e.x, e.z, Math.floor(n) + (Math.random() < n % 1 ? 1 : 0));
+    // Keys for the chests: from floor 20 up, roughly one monster in twenty drops one.
+    if (run.floor >= 20 && !e.mini && !e.bossMinion && Math.random() < 0.05) this.dropKey(e.x, e.z);
     if (s.lifesteal > 0) this.heal(s.lifesteal);
     if (s.corpse > 0) this.later(0.07, () => this.explosion(e.x, e.z, 1.8 + 0.25 * s.corpse, s.damage * s.damageMul * 0.6 * s.corpse, { color: col }));
     if (e.def.ai === 'splitter' && !e.mini) {
@@ -1786,6 +1844,44 @@ export class Game {
     }
   }
 
+  dropKey(x, z) {
+    const m = buildKey(1.1);
+    m.position.set(x, 0.6, z);
+    this.world.dynamic.add(m);
+    this.keyDrops.push({ x, z, y: 0.6, vy: 6, t: 0, m });
+    audio.play('key');
+    this.fx.burst(x, 0.8, z, 14, 0xffd36b, { speed: 4, up: 5, life: 0.6, size: 0.12 });
+    this.fx.beam(x, z, 0xffd36b, 0.4, 0.8);
+  }
+
+  collectKey(k) {
+    this.world.dynamic.remove(k.m);
+    this.run.keys = (this.run.keys || 0) + 1;
+    save.data.keys = (save.data.keys || 0) + 1; save.write();
+    audio.play('key');
+    this.fx.burst(this.player.x, 1, this.player.z, 16, 0xffd36b, { speed: 3, up: 4, life: 0.5, size: 0.12 });
+    this.fx.ring(this.player.x, this.player.z, 0xffd36b, 0.2, 1.4, 0.35);
+    this.ui.toast('KEY FOUND', `You have ${save.data.keys} key${save.data.keys > 1 ? 's' : ''} · open chests in the shop`);
+    this.ui.updateKeys && this.ui.updateKeys(this);
+  }
+
+  updateKeys(dt) {
+    const p = this.player;
+    for (let i = this.keyDrops.length - 1; i >= 0; i--) {
+      const k = this.keyDrops[i];
+      k.t += dt;
+      if (k.vy !== 0) { k.vy -= 16 * dt; k.y += k.vy * dt; if (k.y < 0.6) { k.y = 0.6; k.vy = 0; } }
+      const d2 = dist2(k.x, k.z, p.x, p.z);
+      if (k.t > 0.6 && !p.dead && (this.magnetAll || d2 < 9)) {
+        const d = Math.sqrt(d2) || 1, sp = Math.min(20, 6 + k.t * 6);
+        k.x += (p.x - k.x) / d * sp * dt; k.z += (p.z - k.z) / d * sp * dt;
+        if (d2 < 0.5) { this.keyDrops.splice(i, 1); this.collectKey(k); continue; }
+      }
+      k.m.position.set(k.x, k.y + Math.sin(k.t * 3) * 0.12, k.z);
+      k.m.rotation.y = k.t * 3;
+    }
+  }
+
   updateCoins(dt) {
     const p = this.player, s = this.stats;
     for (let i = this.coins.length - 1; i >= 0; i--) {
@@ -2073,7 +2169,8 @@ export class Game {
     // camera
     if (this.mode === 'run') {
       if (this.phase === 'bossIntro' && this.boss) {
-        w.updateCamera(dt, this.boss.x, this.boss.z + 1, { lambda: 3, zoom: 0.62 });
+        if (this.boss.kind === 'argus') w.updateCamera(dt, this.boss.x, this.boss.z + 1.6, { lambda: 2, zoom: 0.85, pitch: 0.82, y: 1.4 + this.boss.y * 0.6 });
+        else w.updateCamera(dt, this.boss.x, this.boss.z + 1, { lambda: 3, zoom: 0.62 });
       } else if (this.phase === 'dying' || this.phase === 'dead') {
         w.updateCamera(dt, p.x, p.z, { lambda: 3, zoom: 0.7 });
       } else if (this.phase === 'leave') {
@@ -2145,7 +2242,7 @@ export class Game {
     if (d.totalKills >= 500) this.unlock('kills500', true);
     const skins = checkSkinProgress(d);
     save.write();
-    return { mastery, discoveries: run.newDiscoveries, floor, kills: run.kills, coins: run.coins, best: d.bestFloor, newBest, prevBest: run.prevBest, xp, lvBefore, lvAfter, skins, picks: run.picks.slice() };
+    return { victory: run.victory || null, keys: run.keys || 0, mastery, discoveries: run.newDiscoveries, floor, kills: run.kills, coins: run.coins, best: d.bestFloor, newBest, prevBest: run.prevBest, xp, lvBefore, lvAfter, skins, picks: run.picks.slice() };
   }
 
   unlock(id, quiet) {
@@ -2162,7 +2259,23 @@ export class Game {
 const FIRE_COL = new THREE.Color(0xff7a2a), STUN_COL = new THREE.Color(0xfff0a0), DUST_COL = new THREE.Color(0x8a7a62);
 const WATER_COL = new THREE.Color(0x9fd8ff);
 const FIRE_HOT = new THREE.Color(0xffe08a), SMOKE_COL = new THREE.Color(0x2e2a28), FROST_COL = new THREE.Color(0xcfeeff), WIND_COL = new THREE.Color(0xc8ffd8);
-const REG_NAMES = { dummy: 'Training Dummy', runner: 'Runner', shooter: 'Shooter', splitter: 'Splitter', splitling: 'Splitling', dasher: 'Dasher', tank: 'Tank', warden: 'The Warden', crusher: 'The Crusher', hunter: 'The Hunter' };
+const REG_NAMES = { dummy: 'Training Dummy', runner: 'Runner', shooter: 'Shooter', splitter: 'Splitter', splitling: 'Splitling', dasher: 'Dasher', tank: 'Tank', warden: 'The Warden', crusher: 'The Crusher', hunter: 'The Hunter', argus: 'Argus' };
+
+export const FINAL_FLOOR = 40;
+const ARGUS_INTRO = [
+  'So. You actually made it.',
+  'Forty floors. Eight worlds. Three of my guardians broken. Do you know how many climbers have stood where you stand now?',
+  'None. I built this tower to find the one who could reach the top...',
+  '...and to make sure that one never leaves. Show me what the climb has made of you.',
+];
+const ARGUS_AGAIN = ['You again. The tower remembers you, climber.', 'Then let us finish this again.'];
+const ARGUS_END = [
+  'Impossible... the crown... it was never meant to fall.',
+  'Listen, climber. The tower does not end with me. It never did.',
+  'Take what I guarded: keys, gold, and my own armour. Wear it well.',
+  'From now on, this is your tower. Your Tower of God.',
+];
+const ARGUS_END_AGAIN = ['Again you stand over me. Fine. Take your reward.', 'The tower will rise again. It always does.'];
 
 const BOSS_LINES = {
   warden: ['That is the Warden. It keeps this part of the tower locked down.', 'It glows before every volley. The gaps in its bullet rings are your way through.'],

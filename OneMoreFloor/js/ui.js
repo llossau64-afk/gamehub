@@ -9,6 +9,7 @@ import { fmt, pad2, TAU } from './util.js';
 import { toWorld } from './rooms.js';
 import * as THREE from '../lib/three.module.min.js';
 import { installScreens, xicon } from './screens.js';
+import { installChests } from './chestui.js';
 import { WEAPONS } from './weapons.js';
 import { crazy } from './crazy.js';
 import { ABILITY_BY_ID } from './abilities.js';
@@ -59,7 +60,7 @@ export class UI {
     document.body.classList.toggle('playing', id === 'hud');
     // menu music: lobby theme on the main menu, the shop groove in shop-type screens
     const g = this.game, calm = !g || g.mode !== 'run' || g.phase === 'dead';
-    if (calm && ['shop', 'mastery', 'register', 'daily', 'settings', 'upgrades', 'skins'].includes(id)) audio.setMode('shop');
+    if (calm && ['shop', 'mastery', 'register', 'daily', 'settings', 'upgrades', 'skins', 'chestopen'].includes(id)) audio.setMode('shop');
     else if (calm && (id === 'menu' || id === 'results')) audio.setMode('lobby');
     if (id !== 'hud' && input.releaseStick) input.releaseStick();
     this.hud.classList.toggle('on', id === 'hud' || id === 'pause' || id === 'cards');
@@ -73,7 +74,7 @@ export class UI {
     $('.m-level').textContent = 'LV ' + lv.level;
     $('.xpbar i', $('#menu')).style.width = (lv.into / lv.need * 100) + '%';
     $('.m-hint').innerHTML = input.touchMode ? '' : 'WASD move &nbsp;·&nbsp; mouse aim &nbsp;·&nbsp; click attack &nbsp;·&nbsp; space dash';
-    $('[data-act=shop]').classList.toggle('has-dot', this.canAffordPerm() || this.canAffordSkin());
+    $('[data-act=shop]').classList.toggle('has-dot', this.canAffordPerm() || this.canAffordSkin() || d.coins >= 1200 || d.keys >= 1);
     this.show('menu');
     this.setMenuFocus(0);
     this.updateDailyChip();
@@ -498,6 +499,10 @@ export class UI {
       for (const w of WEAPONS) if (w.level > r.lvBefore.level && w.level <= r.lvAfter.level) notes.push(`<span class="hl">New weapon in the shop: ${w.name}</span>`);
     }
     for (const s of r.skins) notes.push(`<span class="hl">New skin unlocked: ${s.name}</span>`);
+    if (r.victory) {
+      notes.unshift(`<span class="hl">Argus is defeated. Reward: ${fmt(r.victory.coins)} coins and ${r.victory.keys} keys${r.victory.skin ? ' + the Overseer skin' : ''}</span>`);
+    }
+    if (r.keys) notes.push(`<span class="hl">${r.keys} key${r.keys > 1 ? 's' : ''} found · open chests in the shop</span>`);
     for (const n of this.notes) notes.push(`<span class="hl">${n}</span>`);
     if (r.discoveries) notes.push(`${r.discoveries} new upgrade${r.discoveries > 1 ? 's' : ''} discovered`);
     this.notes = [];
@@ -507,7 +512,7 @@ export class UI {
 
     const el = $('#results');
     el.innerHTML = `<div class="res">
-      <div class="res-top"><div><small>YOU REACHED</small><div class="res-floor">FLOOR <em>${r.floor}</em></div></div>${r.newBest ? '<span class="chip">NEW BEST!</span>' : ''}</div>
+      <div class="res-top ${r.victory ? 'victory' : ''}"><div><small>${r.victory ? 'THE TOWER IS YOURS' : 'YOU REACHED'}</small><div class="res-floor">${r.victory ? 'TOWER <em>CLEARED</em>' : `FLOOR <em>${r.floor}</em><span class="res-of">/40</span>`}</div></div>${r.victory ? '<span class="chip">VICTORY</span>' : r.newBest ? '<span class="chip">NEW BEST!</span>' : ''}</div>
       <div class="res-stats">
         <div><small>Enemies</small><b data-count="${r.kills}">0</b></div>
         <div><small>Coins</small><b data-count="${r.coins}">0</b></div>
@@ -708,3 +713,4 @@ export class UI {
 }
 
 installScreens(UI);
+installChests(UI);

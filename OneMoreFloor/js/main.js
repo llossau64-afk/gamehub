@@ -24,9 +24,15 @@ async function boot() {
   game.enterMenu();
   ui.showMenu();
 
-  const onResize = () => { world.resize(); fx.resize(); };
-  window.addEventListener('resize', onResize);
-  window.addEventListener('orientationchange', () => setTimeout(onResize, 200));
+  // iPad/iPhone report the new size late after a rotation (and inside the CrazyGames iframe even
+  // later), so re-measure a few times; the visual viewport also catches toolbar show/hide.
+  const onResize = () => { world.resize(); fx.resize(); document.body.classList.toggle('portrait', innerHeight > innerWidth); };
+  const settle = () => { onResize(); for (const ms of [120, 350, 800]) setTimeout(onResize, ms); };
+  window.addEventListener('resize', settle);
+  window.addEventListener('orientationchange', settle);
+  if (window.visualViewport) visualViewport.addEventListener('resize', onResize);
+  if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', settle);
+  onResize();
 
   // Never lose progress: save when the tab is hidden, and pause running games.
   document.addEventListener('visibilitychange', () => {
@@ -45,10 +51,10 @@ async function boot() {
     const dt = Math.min(raw, 1 / 30); // clamp: a hitch never teleports anything through walls
     pollInput();
     game.update(dt);
-    world.render();
+    if (ui.screen !== 'chestopen') world.render(); // the chest reveal covers the whole screen
     fx.drawNumbers(game.paused ? 0 : dt, world.camera);
     ui.drawIndicators(game);
-    ui.renderPreviews(raw > 0.1 ? 0.016 : raw);
+    ui.renderPreviews(Math.min(raw, 0.05));
     ui.updateHUD(game);
     world.perfSample(raw);
     endFrame();

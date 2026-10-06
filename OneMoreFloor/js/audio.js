@@ -480,6 +480,42 @@ class AudioEngine {
       case 'revive':
         [0, 7, 12, 19, 24].forEach((n, i) => this.osc('sine', NOTE(60 + n), t + i * 0.08, 1, 0.12, null, { send: 0.8 }));
         break;
+      // ----- chests + keys
+      case 'chestDrop': // heavy wooden thud with a metal rattle
+        this.osc('sine', 120, t, 0.35, 0.35, null, { to: 45 });
+        this.noiseHit(t, 0.25, 0.3, 'lowpass', 600);
+        this.noiseHit(t + 0.04, 0.18, 0.1, 'bandpass', 3200, null, { q: 4 });
+        break;
+      case 'chestShake': { // a rattle that climbs with p.k (0..1)
+        const k = p.k || 0;
+        this.noiseHit(t, 0.07, 0.12 + k * 0.1, 'bandpass', 900 + k * 1800, null, { q: 3 });
+        this.osc('square', 180 + k * 260, t, 0.05, 0.035, null, { filter: 'lowpass', cutoff: 1800 });
+        break;
+      }
+      case 'chestCharge': // rising shimmer before the lid bursts
+        this.osc('sawtooth', 110, t, 1.3, 0.05, null, { to: 880, filter: 'lowpass', cutoff: 2400, attack: 0.9 });
+        this.noiseHit(t, 1.3, 0.06, 'highpass', 4000, null, { attack: 1.1 });
+        break;
+      case 'chestOpen': // lid bursts: boom + sparkle
+        this.osc('sine', 90, t, 0.6, 0.4, null, { to: 40 });
+        this.noiseHit(t, 0.5, 0.35, 'lowpass', 1600);
+        [0, 4, 7, 12, 16, 19].forEach((n, i) => this.osc('triangle', NOTE(79 + n), t + 0.05 + i * 0.035, 0.6, 0.06, null, { send: 0.8 }));
+        break;
+      case 'reveal': { // rarity fanfare: richer the rarer (p.r = 0..4)
+        const r = p.r || 0, base = 64 + r * 2;
+        const chord = r >= 4 ? [0, 4, 7, 12, 16, 19, 24, 28] : r >= 3 ? [0, 3, 7, 12, 15, 19] : r >= 2 ? [0, 4, 7, 12, 16] : [0, 7, 12];
+        chord.forEach((n, i) => this.osc(r >= 3 ? 'sawtooth' : 'triangle', NOTE(base + n), t + i * 0.07, 1.2 + r * 0.2, 0.05, null, { filter: 'lowpass', cutoff: 3500, send: 0.8 }));
+        if (r >= 3) this.osc('sine', NOTE(base - 12), t, 1.6, 0.18, null, { send: 0.6 });
+        if (r >= 4) this.noiseHit(t, 1.4, 0.08, 'highpass', 6000, null, { attack: 0.05 });
+        break;
+      }
+      case 'key': // bright jingle
+        [0, 7, 12, 19].forEach((n, i) => this.osc('square', NOTE(88 + n), t + i * 0.05, 0.18, 0.05, null, { filter: 'lowpass', cutoff: 7000, send: 0.4 }));
+        this.noiseHit(t, 0.1, 0.08, 'bandpass', 6000, null, { q: 5 });
+        break;
+      case 'argusLaugh': // low, slow, filtered
+        for (let i = 0; i < 4; i++) this.osc('sawtooth', 70 - i * 4, t + i * 0.22, 0.2, 0.12, null, { filter: 'lowpass', cutoff: 500, to: 55 - i * 4 });
+        break;
     }
   }
 

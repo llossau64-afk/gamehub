@@ -284,6 +284,134 @@ const OUTFITS = {
     root.userData.chain = chain(acc, 0.08, 0.7, -0.18, 0.15, 8, 0.13, mTrim);
     root.userData.aura = { color: 0xc8ffd8, kind: 'wind' };
   },
+  // ----- chest exclusives + the Argus reward
+  pumpkin(P) { // carved pumpkin head with a candle glow, vine scarf, little witch hat
+    const { head, acc, eyes, skull, root } = P;
+    eyes.visible = false; skull.visible = false;
+    const pum = toon(0xf08a2a), pumD = toon(0xc0601a);
+    const pg = G('pump', () => { const g = new THREE.SphereGeometry(0.36, 22, 14); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), a = Math.atan2(x, z); const k = 1 + Math.cos(a * 8) * 0.05; p.setXYZ(i, x * k, p.getY(i) * 0.82, z * k); } g.computeVertexNormals(); return g; });
+    mesh(pg, pum, head, 0, -0.02, 0, 0.04);
+    mesh(cyl(0.04, 0.06, 0.16, 6), toon(0x4a6a2a), head, 0.02, 0.33, 0).rotation.z = 0.3;
+    const fire = glow(0xffd04a);
+    const tri = G('ptri', () => { const g = new THREE.ConeGeometry(0.07, 0.08, 3); g.rotateX(Math.PI / 2); return g; });
+    mesh(tri, fire, head, -0.12, 0.05, 0.33).rotation.z = Math.PI; mesh(tri, fire, head, 0.12, 0.05, 0.33).rotation.z = Math.PI;
+    const mouth = mesh(G('pm', () => new THREE.CylinderGeometry(0.3, 0.3, 0.06, 18, 1, true, -0.6, 1.2)), glow(0xffb02a), head, 0, -0.1, 0); mouth.material.side = THREE.DoubleSide; mouth.scale.set(1.08, 1, 1.08);
+    const hat = new THREE.Group(); hat.position.set(0, 0.3, -0.02); hat.rotation.set(-0.2, 0, 0.25); head.add(hat);
+    mesh(cyl(0.3, 0.3, 0.03, 18), toon(0x2a1e3a), hat, 0, 0, 0, 0.05);
+    mesh(cone(0.17, 0.42, 14), toon(0x2a1e3a), hat, 0, 0.2, 0, 0.05).rotation.x = -0.25;
+    mesh(cyl(0.175, 0.175, 0.05, 14), toon(0x8a3ad8), hat, 0, 0.04, 0);
+    mesh(torus(0.2, 0.05, 18), toon(0x4a6a2a), acc, 0, 0.72, 0).rotation.x = Math.PI / 2;
+    root.userData.chain = chain(acc, 0.1, 0.7, -0.17, 0.1, 4, 0.12, toon(0x4a6a2a));
+    root.userData.aura = { color: 0xffa040, kind: 'spark' };
+  },
+  crystal(P) { // armour grown from amethyst, crystal spikes on the back
+    const { head, acc, eyes, root } = P;
+    eyes.visible = false;
+    const am = toon(0xb07cf0, { emissive: 0x4a1a8a, ei: 0.45 }), amL = toon(0xe0c8ff, { emissive: 0x6a3aaa, ei: 0.5 });
+    mesh(G('ch1', () => new THREE.SphereGeometry(0.33, 8, 6)), am, head, 0, 0.02, 0, 0.04);
+    mesh(rbox(0.38, 0.06, 0.05), glow(0xf4e8ff), head, 0, 0.0, 0.3);
+    const cg = G('cg', () => new THREE.OctahedronGeometry(0.07, 0));
+    for (let k = 0; k < 5; k++) { const a = (k - 2) * 0.45; const m = mesh(cg, k % 2 ? am : amL, head, Math.sin(a) * 0.24, 0.3 + (k === 2 ? 0.05 : 0), Math.cos(a) * 0.15 - 0.06, 0.08); m.scale.set(0.8, 2.6 - Math.abs(k - 2) * 0.5, 0.8); m.rotation.z = -Math.sin(a) * 0.5; }
+    for (const sx of [-1, 1]) { const p2 = mesh(G('cpa', () => new THREE.DodecahedronGeometry(0.15, 0)), am, acc, sx * 0.28, 0.7, 0, 0.06); p2.scale.set(1.1, 0.8, 1); }
+    const back = new THREE.Group(); back.position.set(0, 0.6, -0.25); acc.add(back);
+    for (let k = 0; k < 5; k++) { const m = mesh(cg, k % 2 ? amL : am, back, (k - 2) * 0.09, Math.abs(k - 2) * -0.06, 0, 0.08); m.scale.set(0.9, 3.4 - Math.abs(k - 2) * 0.7, 0.9); m.rotation.set(-0.5, 0, (k - 2) * 0.35); }
+    root.userData.chain = null;
+    root.userData.aura = { color: 0xd8b8ff, kind: 'sparkle' };
+  },
+  oni(P) { // red oni mask with horns and fangs, samurai kabuto and shoulder plates
+    const { head, acc, eyes, mTrim, root } = P;
+    eyes.visible = false;
+    const red = toon(0xc8281e), lac = toon(0x1a1418), gold = toon(0xd9a83a, { emissive: 0x4a3000, ei: 0.4 }), ivory = toon(0xf0e8d0);
+    mesh(G('kab', () => new THREE.SphereGeometry(0.335, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.5)), lac, head, 0, 0.04, -0.01, 0.04);
+    const fl = mesh(G('kfl', () => new THREE.CylinderGeometry(0.46, 0.5, 0.05, 20, 1, true, Math.PI * 0.6, Math.PI * 0.8)), lac, head, 0, 0.02, 0); fl.material = toon(0x1a1418, { side: THREE.DoubleSide }); fl.rotation.y = Math.PI; fl.rotation.x = 0.15;
+    const mk = mesh(G('omask', () => new THREE.SphereGeometry(0.3, 18, 12, -Math.PI * 0.42, Math.PI * 0.84, 0.25 * Math.PI, 0.55 * Math.PI)), red, head, 0, 0, 0.02, 0.04);
+    mesh(G('obrow', () => { const g = new THREE.BoxGeometry(0.34, 0.05, 0.06); return g; }), lac, head, 0, 0.08, 0.28).rotation.z = 0;
+    const ey = G('oey', () => { const g = new THREE.SphereGeometry(0.04, 8, 6); g.scale(1.6, 0.8, 0.5); return g; });
+    mesh(ey, glow(0xffe24a), head, -0.1, 0.03, 0.3).rotation.z = 0.3; mesh(ey, glow(0xffe24a), head, 0.1, 0.03, 0.3).rotation.z = -0.3;
+    for (const sx of [-1, 1]) {
+      mesh(cone(0.025, 0.08, 5), ivory, head, sx * 0.08, -0.15, 0.27).rotation.x = Math.PI;
+      const h = new THREE.Group(); h.position.set(sx * 0.15, 0.24, 0.12); h.rotation.set(-0.2, 0, sx * -0.35); head.add(h);
+      mesh(cone(0.045, 0.3, 8), gold, h, 0, 0.15, 0, 0.08);
+      const pa = mesh(rbox(0.22, 0.06, 0.22), red, acc, sx * 0.3, 0.66, 0, 0.06); pa.rotation.z = sx * -0.5;
+      mesh(rbox(0.22, 0.05, 0.22), lac, pa, sx * 0.02, -0.07, 0).rotation.z = sx * 0.1;
+    }
+    mesh(G('kmon', () => new THREE.CircleGeometry(0.08, 6)), gold, head, 0, 0.27, 0.22).rotation.x = -0.5;
+    root.userData.chain = chain(acc, 0.18, 0.42, -0.15, 0.09, 4, 0.12, red);
+    root.userData.aura = { color: 0xff4a2a, kind: 'fire' };
+  },
+  dragon(P) { // dragon-skull helm, leathery wings that beat, a spiked tail
+    const { head, acc, eyes, root } = P;
+    eyes.visible = false;
+    const sc = toon(0x3a2a5a), scL = toon(0x6a4a9a), bone = toon(0xe8dcc4), fire = glow(0xc05aff);
+    mesh(G('dh', () => new THREE.SphereGeometry(0.33, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.55)), sc, head, 0, 0.04, 0, 0.04);
+    const snout = mesh(G('dsn', () => { const g = new THREE.ConeGeometry(0.16, 0.36, 6); g.rotateX(Math.PI / 2); g.scale(1.3, 0.6, 1); return g; }), scL, head, 0, 0.18, 0.28, 0.05);
+    snout.rotation.x = -0.3;
+    const dey = G('dey', () => { const g = new THREE.SphereGeometry(0.035, 8, 6); g.scale(1.8, 0.7, 0.5); return g; });
+    mesh(dey, fire, head, -0.12, 0.12, 0.27).rotation.z = 0.35; mesh(dey, fire, head, 0.12, 0.12, 0.27).rotation.z = -0.35;
+    for (const sx of [-1, 1]) {
+      const h = new THREE.Group(); h.position.set(sx * 0.2, 0.25, -0.1); h.rotation.set(-0.9, 0, sx * -0.3); head.add(h);
+      mesh(cone(0.05, 0.36, 8), bone, h, 0, 0.18, 0, 0.08);
+    }
+    for (let k = 0; k < 4; k++) mesh(cone(0.035, 0.12, 4), bone, head, 0, 0.3 - k * 0.06, -0.2 - k * 0.06).rotation.x = -0.6 - k * 0.3;
+    // wings: a bone arm and a membrane fan, pivoted at the back
+    const wings = [];
+    const memb = G('wmemb', () => { const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.lineTo(0.75, 0.32); sh.lineTo(0.68, 0.0); sh.lineTo(0.55, -0.12); sh.lineTo(0.38, -0.08); sh.lineTo(0.22, -0.2); sh.lineTo(0, 0); return new THREE.ShapeGeometry(sh); });
+    for (const sx of [-1, 1]) {
+      const w = new THREE.Group(); w.position.set(sx * 0.1, 0.66, -0.2); acc.add(w);
+      const inner = new THREE.Group(); inner.scale.x = sx; w.add(inner);
+      const m = new THREE.Mesh(memb, toon(0x5a2a7a, { side: THREE.DoubleSide })); inner.add(m);
+      const arm = mesh(cyl(0.02, 0.025, 0.82, 6), bone, inner, 0.37, 0.16, 0); arm.rotation.z = -Math.PI / 2 + 0.4;
+      w.userData.sx = sx; wings.push(w);
+    }
+    root.userData.wings = wings;
+    root.userData.chain = chain(acc, 0, 0.3, -0.2, 0.08, 6, 0.11, sc, 0.07);
+    root.userData.aura = { color: 0xc05aff, kind: 'fire' };
+  },
+  celestial(P) { // white-gold armour, a floating star crown and wings of light
+    const { head, acc, root } = P;
+    const white = toon(0xf4f0e8), gold = toon(0xe0b04a, { emissive: 0x5a3a00, ei: 0.5 });
+    mesh(G('ceh', () => new THREE.SphereGeometry(0.325, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.45)), white, head, 0, 0.04, 0, 0.04);
+    mesh(torus(0.31, 0.02, 24), gold, head, 0, 0.12, 0).rotation.x = Math.PI / 2;
+    const ring = new THREE.Group(); ring.position.y = 0.45; head.add(ring);
+    const st = G('star', () => { const sh = new THREE.Shape(); for (let k = 0; k < 10; k++) { const r = k % 2 ? 0.03 : 0.07, a = k / 10 * Math.PI * 2; k ? sh.lineTo(Math.sin(a) * r, Math.cos(a) * r) : sh.moveTo(Math.sin(a) * r, Math.cos(a) * r); } return new THREE.ExtrudeGeometry(sh, { depth: 0.02, bevelEnabled: false }); });
+    for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2; mesh(st, glow(0xfff4c0), ring, Math.sin(a) * 0.26, 0, Math.cos(a) * 0.26); }
+    root.userData.halo = ring; ring.rotation.x = 0;
+    for (const sx of [-1, 1]) { const p2 = mesh(G('paul', () => new THREE.SphereGeometry(0.16, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55)), gold, acc, sx * 0.27, 0.68, 0, 0.06); p2.rotation.z = sx * -0.45; }
+    const wings = [];
+    const feather = G('lfea', () => { const g = new THREE.SphereGeometry(0.07, 8, 6); g.scale(0.6, 4.2, 1); g.translate(0, 0.25, 0); return g; });
+    const light = new THREE.MeshBasicMaterial({ color: 0xfff0c0, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false });
+    for (const sx of [-1, 1]) {
+      const w = new THREE.Group(); w.position.set(sx * 0.12, 0.62, -0.24); acc.add(w);
+      for (let k = 0; k < 5; k++) { const f = new THREE.Mesh(feather, light); f.rotation.z = sx * -(0.5 + k * 0.28); f.scale.setScalar(1 - k * 0.1); w.add(f); }
+      w.userData.sx = sx; wings.push(w);
+    }
+    root.userData.wings = wings;
+    root.userData.chain = chain(acc, 0, 0.72, -0.24, 0.44, 4, 0.14, toon(0xf4f0e8), 0.035);
+    root.userData.aura = { color: 0xfff0c0, kind: 'sparkle' };
+  },
+  overseer(P) { // a small Argus: horned helm with a burning visor, spiked crown, fur mantle, red cape
+    const { head, acc, eyes, root } = P;
+    eyes.visible = false;
+    const steel = toon(0x2c2f36), steelL = toon(0x4b505a), gold = toon(0xc08f34, { emissive: 0x3a2400, ei: 0.45 }), horn = toon(0x2a2420);
+    mesh(sphere(0.33, 20, 16), steel, head, 0, 0.02, 0, 0.04);
+    mesh(rbox(0.4, 0.3, 0.08), toon(0x1a1c21), head, 0, -0.04, 0.27);
+    const vis = G('ovis', () => new THREE.BoxGeometry(0.12, 0.03, 0.02));
+    mesh(vis, glow(0xffb347), head, -0.09, 0.04, 0.32).rotation.z = -0.2; mesh(vis, glow(0xffb347), head, 0.09, 0.04, 0.32).rotation.z = 0.2;
+    for (let k = 0; k < 7; k++) { const a = (k - 3) * 0.32; const sp = mesh(cone(0.03, 0.16, 4), gold, head, Math.sin(a) * 0.28, 0.32 + (k === 3 ? 0.05 : 0), Math.cos(a) * 0.28 - 0.05); sp.rotation.set(Math.cos(a) * 0.25, 0, -Math.sin(a) * 0.35); }
+    mesh(torus(0.29, 0.025, 18), gold, head, 0, 0.26, 0).rotation.x = Math.PI / 2;
+    for (const sx of [-1, 1]) {
+      let p = new THREE.Group(); p.position.set(sx * 0.28, 0.12, -0.02); p.rotation.z = sx * -1.3; head.add(p);
+      let r = 1;
+      for (let k = 0; k < 3; k++) { mesh(cyl(0.05 * r * 0.7, 0.05 * r, 0.2, 8), horn, p, 0, 0.1, 0, 0.08); const nx = new THREE.Group(); nx.position.y = 0.19; nx.rotation.z = sx * 0.55; p.add(nx); p = nx; r *= 0.72; }
+      const pa = mesh(G('opa', () => new THREE.SphereGeometry(0.18, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55)), steelL, acc, sx * 0.28, 0.68, 0, 0.06); pa.rotation.z = sx * -0.45;
+      mesh(torus(0.18, 0.015, 16), gold, pa, 0, 0.01, 0).rotation.x = Math.PI / 2;
+      for (let k = 0; k < 2; k++) mesh(cone(0.03, 0.15, 6), toon(0x1a1c21), pa, sx * 0.04 * k, 0.16, -0.05 + k * 0.1).rotation.z = sx * -0.3;
+    }
+    for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; mesh(G('ofur', () => new THREE.TetrahedronGeometry(0.07, 0)), toon(0x4a3f38), acc, Math.sin(a) * 0.22, 0.74, Math.cos(a) * 0.2).rotation.set(a, a * 2, 0.4); }
+    mesh(G('oemb', () => new THREE.OctahedronGeometry(0.05, 0)), glow(0xffb347), acc, 0, 0.5, 0.26).scale.set(0.8, 1.3, 0.5);
+    root.userData.chain = chain(acc, 0, 0.72, -0.24, 0.48, 5, 0.14, toon(0x6a1c1c), 0.035);
+    root.userData.aura = { color: 0xffa040, kind: 'fire' };
+  },
 };
 
 // Per-frame idle motion for the decorative parts; used in game and in the shop preview.
@@ -293,6 +421,7 @@ export function animateOutfit(root, t) {
   if (u.halo) u.halo.rotation.z = t * 1.6;
   if (u.orbit) u.orbit.rotation.y = t * 1.8;
   if (u.spin) u.spin.rotation.z = t * 0.6;
+  if (u.wings) for (const w of u.wings) { const f = Math.sin(t * 5.2); w.rotation.y = w.userData.sx * (0.35 + f * 0.35); w.rotation.z = w.userData.sx * f * 0.08; }
   if (u.parrot) { u.parrot.rotation.y = Math.sin(t * 1.3) * 0.5; u.parrot.position.y = 0.8 + Math.abs(Math.sin(t * 4)) * 0.015; }
 }
 
