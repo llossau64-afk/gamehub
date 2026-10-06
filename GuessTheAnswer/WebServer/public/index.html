@@ -1467,7 +1467,7 @@ const CG = {
 };
 // Link that opens this game straight in a room (CrazyGames invite link when available).
 function inviteLink(code) {
-  const cg = CG.link(code); if (cg) return cg;
+  const cg = CG.linkFor === code && CG.linkUrl ? CG.linkUrl : CG.link(code); if (cg) return cg;
   try { const u = new URL(location.href); u.search = ""; u.hash = ""; u.searchParams.set("room", code); return u.toString(); } catch (e) { return null; }
 }
 
@@ -1779,6 +1779,8 @@ Screens.lobby = {
       try { navigator.clipboard.writeText(R.c).then(done, () => { toast("CODE: " + R.c); }); } catch (e) { toast("CODE: " + R.c); }
     };
     const link = $("#l-link");
+    // Ask CrazyGames for the room's invite link as soon as a private lobby opens, so it is ready to copy.
+    if (link && CG.sdk && CG.linkFor !== R.c) { CG.linkFor = R.c; CG.linkUrl = CG.link(R.c); }
     if (link) link.onclick = () => {
       Sound.play("click"); const url = inviteLink(R.c); if (!url) return;
       const done = () => { link.innerHTML = icon("check") + " LINK COPIED!"; link.classList.add("ok"); setTimeout(() => { if (link.isConnected) { link.innerHTML = icon("groups") + " INVITE"; link.classList.remove("ok"); } }, 1600); };
