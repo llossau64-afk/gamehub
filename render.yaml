@@ -4,6 +4,7 @@ services:
   - type: web
     name: gta-quiz-llossau
     runtime: node
+    branch: claude/beautiful-einstein-76uwj5
     rootDir: GuessTheAnswer/WebServer
     buildCommand: npm ci --omit=dev
     startCommand: node server.js
