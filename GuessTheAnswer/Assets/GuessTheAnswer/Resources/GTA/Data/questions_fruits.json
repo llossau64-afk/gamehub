@@ -1,0 +1,500 @@
+{
+ "category": "fruits",
+ "version": 1,
+ "questions": [
+  {
+   "id": "fru-001",
+   "questionText": "According to the saying, which fruit a day keeps the doctor away?",
+   "difficulty": "easy",
+   "answers": [
+    "Banana",
+    "Apple",
+    "Orange",
+    "Pear"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "fru-002",
+   "questionText": "Which fruit is long, curved and yellow when ripe?",
+   "difficulty": "easy",
+   "answers": [
+    "Papaya",
+    "Mango",
+    "Banana",
+    "Lemon"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "fru-003",
+   "questionText": "What colour is the flesh of a typical watermelon?",
+   "difficulty": "easy",
+   "answers": [
+    "Purple",
+    "Brown",
+    "Red",
+    "Blue"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "fru-004",
+   "questionText": "Which fruit is the main ingredient of guacamole?",
+   "difficulty": "easy",
+   "answers": [
+    "Green apple",
+    "Avocado",
+    "Kiwi",
+    "Lime"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "fru-005",
+   "questionText": "Raisins are dried what?",
+   "difficulty": "easy",
+   "answers": [
+    "Cherries",
+    "Plums",
+    "Grapes",
+    "Figs"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "fru-006",
+   "questionText": "Which sour yellow citrus fruit is used to make lemonade?",
+   "difficulty": "easy",
+   "answers": [
+    "Mandarin",
+    "Orange",
+    "Grapefruit",
+    "Lemon"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "fru-007",
+   "questionText": "Which fruit is the famous topping on a Hawaiian pizza?",
+   "difficulty": "easy",
+   "answers": [
+    "Peach",
+    "Mango",
+    "Papaya",
+    "Pineapple"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "fru-008",
+   "questionText": "What kind of fruit is a Granny Smith?",
+   "difficulty": "easy",
+   "answers": [
+    "Grape",
+    "Plum",
+    "Apple",
+    "Pear"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "fru-009",
+   "questionText": "Which fruit is pressed and fermented to make cider?",
+   "difficulty": "easy",
+   "answers": [
+    "Pear",
+    "Apple",
+    "Peach",
+    "Grape"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "fru-010",
+   "questionText": "Which fruit has a hard, hairy brown shell with water inside?",
+   "difficulty": "easy",
+   "answers": [
+    "Kiwi",
+    "Durian",
+    "Coconut",
+    "Lychee"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "fru-011",
+   "questionText": "Botanically, which of these is a fruit?",
+   "difficulty": "easy",
+   "answers": [
+    "Potato",
+    "Lettuce",
+    "Carrot",
+    "Tomato"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "fru-012",
+   "questionText": "Which fruit is used in banoffee pie?",
+   "difficulty": "easy",
+   "answers": [
+    "Strawberry",
+    "Apple",
+    "Banana",
+    "Cherry"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "fru-013",
+   "questionText": "Which tropical fruit looks like a star when you slice it?",
+   "difficulty": "easy",
+   "answers": [
+    "Dragon fruit",
+    "Starfruit",
+    "Kiwano",
+    "Lychee"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "fru-014",
+   "questionText": "Prunes are dried what?",
+   "difficulty": "normal",
+   "answers": [
+    "Figs",
+    "Plums",
+    "Grapes",
+    "Dates"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "fru-015",
+   "questionText": "Which fruit carries its seeds on the outside?",
+   "difficulty": "normal",
+   "answers": [
+    "Raspberry",
+    "Blueberry",
+    "Kiwi",
+    "Strawberry"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "fru-016",
+   "questionText": "Which spiky fruit is called the king of fruits in Southeast Asia and is famous for its smell?",
+   "difficulty": "normal",
+   "answers": [
+    "Rambutan",
+    "Durian",
+    "Mangosteen",
+    "Jackfruit"
+   ],
+   "correctAnswerIndex": 1,
+   "optionalExplanation": "The mangosteen is often called the queen of fruits."
+  },
+  {
+   "id": "fru-017",
+   "questionText": "Cavendish is the most common variety of which fruit?",
+   "difficulty": "normal",
+   "answers": [
+    "Banana",
+    "Grape",
+    "Mango",
+    "Apple"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "fru-018",
+   "questionText": "Which country grows the most mangoes?",
+   "difficulty": "normal",
+   "answers": [
+    "Thailand",
+    "Mexico",
+    "Brazil",
+    "India"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "fru-019",
+   "questionText": "What is the national fruit of India?",
+   "difficulty": "normal",
+   "answers": [
+    "Guava",
+    "Banana",
+    "Jackfruit",
+    "Mango"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "fru-020",
+   "questionText": "Which fruit grows on palm trees and is often eaten to break the Ramadan fast?",
+   "difficulty": "normal",
+   "answers": [
+    "Fig",
+    "Olive",
+    "Coconut",
+    "Date"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "fru-021",
+   "questionText": "Hass is a popular variety of which fruit?",
+   "difficulty": "normal",
+   "answers": [
+    "Avocado",
+    "Mango",
+    "Plum",
+    "Pear"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "fru-022",
+   "questionText": "Which fruit is used in a classic French tarte Tatin?",
+   "difficulty": "normal",
+   "answers": [
+    "Peach",
+    "Apple",
+    "Apricot",
+    "Pear"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "fru-023",
+   "questionText": "Sultanas are made by drying which fruit?",
+   "difficulty": "normal",
+   "answers": [
+    "Plums",
+    "Cranberries",
+    "Grapes",
+    "Apricots"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "fru-024",
+   "questionText": "Which fruit is traditionally used to make marmalade?",
+   "difficulty": "normal",
+   "answers": [
+    "Lime",
+    "Seville orange",
+    "Grapefruit",
+    "Lemon"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "fru-025",
+   "questionText": "Which fruit grows from a leafy plant on the ground, not on a tree?",
+   "difficulty": "normal",
+   "answers": [
+    "Durian",
+    "Jackfruit",
+    "Mango",
+    "Pineapple"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "fru-026",
+   "questionText": "Medjool is a famous variety of which fruit?",
+   "difficulty": "normal",
+   "answers": [
+    "Olive",
+    "Fig",
+    "Date",
+    "Plum"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "fru-027",
+   "questionText": "Which fruit is pink or red outside and white with tiny black seeds inside?",
+   "difficulty": "normal",
+   "answers": [
+    "Rambutan",
+    "Guava",
+    "Lychee",
+    "Dragon fruit"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "fru-028",
+   "questionText": "Which fruit is used to make limoncello?",
+   "difficulty": "normal",
+   "answers": [
+    "Grapefruit",
+    "Lemon",
+    "Lime",
+    "Orange"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "fru-029",
+   "questionText": "A clementine is a type of what?",
+   "difficulty": "normal",
+   "answers": [
+    "Mandarin orange",
+    "Lemon",
+    "Lime",
+    "Grapefruit"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "fru-030",
+   "questionText": "Cranberry sauce is a classic side dish at which American holiday?",
+   "difficulty": "normal",
+   "answers": [
+    "Thanksgiving",
+    "Valentine's Day",
+    "Halloween",
+    "Easter"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "fru-031",
+   "questionText": "What is the iPhone maker's logo?",
+   "difficulty": "normal",
+   "answers": [
+    "A pear",
+    "An apple",
+    "An orange",
+    "A cherry"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "fru-032",
+   "questionText": "Which of these is botanically a berry?",
+   "difficulty": "hard",
+   "answers": [
+    "Cherry",
+    "Banana",
+    "Raspberry",
+    "Strawberry"
+   ],
+   "correctAnswerIndex": 1,
+   "optionalExplanation": "Strawberries and raspberries are aggregate fruits; cherries are drupes."
+  },
+  {
+   "id": "fru-033",
+   "questionText": "What is another name for the kiwi fruit?",
+   "difficulty": "hard",
+   "answers": [
+    "Fuzzy grape",
+    "Monkey peach",
+    "Hairy plum",
+    "Chinese gooseberry"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "fru-034",
+   "questionText": "The grapefruit is a cross between the sweet orange and which fruit?",
+   "difficulty": "hard",
+   "answers": [
+    "Pomelo",
+    "Lime",
+    "Kumquat",
+    "Lemon"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "fru-035",
+   "questionText": "In Australia, the papaya is often called what?",
+   "difficulty": "hard",
+   "answers": [
+    "Custard apple",
+    "Passion fruit",
+    "Pawpaw",
+    "Guava"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "fru-036",
+   "questionText": "What are the juicy seed pods of a pomegranate called?",
+   "difficulty": "hard",
+   "answers": [
+    "Kernels",
+    "Arils",
+    "Nibs",
+    "Pips"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "fru-037",
+   "questionText": "Bing and Rainier are varieties of which fruit?",
+   "difficulty": "hard",
+   "answers": [
+    "Cherry",
+    "Peach",
+    "Grape",
+    "Plum"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "fru-038",
+   "questionText": "Which fruit is nicknamed the alligator pear?",
+   "difficulty": "hard",
+   "answers": [
+    "Avocado",
+    "Mango",
+    "Guava",
+    "Papaya"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "fru-039",
+   "questionText": "Which fruit has the scientific name Malus domestica?",
+   "difficulty": "hard",
+   "answers": [
+    "Peach",
+    "Plum",
+    "Apple",
+    "Pear"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "fru-040",
+   "questionText": "Bartlett and Conference are varieties of which fruit?",
+   "difficulty": "hard",
+   "answers": [
+    "Plum",
+    "Peach",
+    "Pear",
+    "Apple"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "fru-041",
+   "questionText": "Which fruit is a close relative of the lychee?",
+   "difficulty": "hard",
+   "answers": [
+    "Plum",
+    "Grape",
+    "Kiwi",
+    "Rambutan"
+   ],
+   "correctAnswerIndex": 3
+  }
+ ]
+}

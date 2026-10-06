@@ -1,0 +1,501 @@
+{
+ "category": "superheroes",
+ "version": 1,
+ "questions": [
+  {
+   "id": "sup-001",
+   "questionText": "What is Superman's home planet?",
+   "difficulty": "easy",
+   "answers": [
+    "Krypton",
+    "Asgard",
+    "Mars",
+    "Titan"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "sup-002",
+   "questionText": "Which superhero is known as the Dark Knight?",
+   "difficulty": "easy",
+   "answers": [
+    "Moon Knight",
+    "Daredevil",
+    "Batman",
+    "Black Panther"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "sup-003",
+   "questionText": "What is Spider-Man's real name?",
+   "difficulty": "easy",
+   "answers": [
+    "Clark Kent",
+    "Peter Parker",
+    "Tony Stark",
+    "Bruce Wayne"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "sup-004",
+   "questionText": "Which hero wields the hammer Mjolnir?",
+   "difficulty": "easy",
+   "answers": [
+    "Loki",
+    "Hulk",
+    "Thor",
+    "Captain America"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "sup-005",
+   "questionText": "What colour is the Hulk usually?",
+   "difficulty": "easy",
+   "answers": [
+    "Blue",
+    "Purple",
+    "Red",
+    "Green"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "sup-006",
+   "questionText": "Which hero carries a round shield with a star on it?",
+   "difficulty": "easy",
+   "answers": [
+    "Iron Man",
+    "Hawkeye",
+    "Ant-Man",
+    "Captain America"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "sup-007",
+   "questionText": "In which city does Batman fight crime?",
+   "difficulty": "easy",
+   "answers": [
+    "Central City",
+    "Gotham City",
+    "Star City",
+    "Metropolis"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "sup-008",
+   "questionText": "Which superhero can shrink to the size of an insect?",
+   "difficulty": "easy",
+   "answers": [
+    "Thor",
+    "Black Widow",
+    "Hulk",
+    "Ant-Man"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "sup-009",
+   "questionText": "What is the name of Thor's adopted brother?",
+   "difficulty": "easy",
+   "answers": [
+    "Heimdall",
+    "Loki",
+    "Odin",
+    "Balder"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "sup-010",
+   "questionText": "What is Iron Man's real name?",
+   "difficulty": "easy",
+   "answers": [
+    "Tony Stark",
+    "Bruce Banner",
+    "Steve Rogers",
+    "Peter Quill"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "sup-011",
+   "questionText": "What is the Flash's main power?",
+   "difficulty": "easy",
+   "answers": [
+    "Super strength",
+    "Invisibility",
+    "Flight",
+    "Super speed"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "sup-012",
+   "questionText": "What is the name of Batman's butler?",
+   "difficulty": "easy",
+   "answers": [
+    "Gordon",
+    "Alfred",
+    "Jarvis",
+    "Lucius"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "sup-013",
+   "questionText": "Which team includes Cyclops, Storm and Jean Grey?",
+   "difficulty": "easy",
+   "answers": [
+    "Fantastic Four",
+    "Avengers",
+    "X-Men",
+    "Justice League"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "sup-014",
+   "questionText": "Which substance weakens Superman?",
+   "difficulty": "easy",
+   "answers": [
+    "Kryptonite",
+    "Vibranium",
+    "Adamantium",
+    "Silver"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "sup-015",
+   "questionText": "Which Avenger is a master archer?",
+   "difficulty": "easy",
+   "answers": [
+    "Black Widow",
+    "Hawkeye",
+    "Falcon",
+    "War Machine"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "sup-016",
+   "questionText": "Which villain is known as the Clown Prince of Crime?",
+   "difficulty": "easy",
+   "answers": [
+    "The Joker",
+    "The Penguin",
+    "Two-Face",
+    "The Riddler"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "sup-017",
+   "questionText": "Which company publishes Batman comics?",
+   "difficulty": "easy",
+   "answers": [
+    "Dark Horse",
+    "Image Comics",
+    "DC Comics",
+    "Marvel Comics"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "sup-018",
+   "questionText": "Which actor plays Iron Man in the Marvel Cinematic Universe?",
+   "difficulty": "normal",
+   "answers": [
+    "Chris Evans",
+    "Chris Hemsworth",
+    "Mark Ruffalo",
+    "Robert Downey Jr."
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "sup-019",
+   "questionText": "What metal coats Wolverine's skeleton?",
+   "difficulty": "normal",
+   "answers": [
+    "Uru",
+    "Vibranium",
+    "Adamantium",
+    "Titanium"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "sup-020",
+   "questionText": "Captain America's shield is made mainly of which metal?",
+   "difficulty": "normal",
+   "answers": [
+    "Vibranium",
+    "Uru",
+    "Steel",
+    "Adamantium"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "sup-021",
+   "questionText": "Which villain snaps his fingers in 'Avengers: Infinity War'?",
+   "difficulty": "normal",
+   "answers": [
+    "Red Skull",
+    "Ultron",
+    "Thanos",
+    "Loki"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "sup-022",
+   "questionText": "How many Infinity Stones are there?",
+   "difficulty": "normal",
+   "answers": [
+    "4",
+    "5",
+    "6",
+    "7"
+   ],
+   "correctAnswerIndex": 2,
+   "keepOrder": true
+  },
+  {
+   "id": "sup-023",
+   "questionText": "Which hero is known as the Merc with a Mouth?",
+   "difficulty": "normal",
+   "answers": [
+    "Deadpool",
+    "Rocket",
+    "Spider-Man",
+    "Star-Lord"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "sup-024",
+   "questionText": "What is Black Panther's home country?",
+   "difficulty": "normal",
+   "answers": [
+    "Genosha",
+    "Sokovia",
+    "Wakanda",
+    "Latveria"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "sup-025",
+   "questionText": "What is Wonder Woman's civilian name?",
+   "difficulty": "normal",
+   "answers": [
+    "Barbara Gordon",
+    "Selina Kyle",
+    "Diana Prince",
+    "Lois Lane"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "sup-026",
+   "questionText": "On which island did Wonder Woman grow up?",
+   "difficulty": "normal",
+   "answers": [
+    "Genosha",
+    "Themyscira",
+    "Atlantis",
+    "Krakoa"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "sup-027",
+   "questionText": "What is the name of Spider-Man's aunt?",
+   "difficulty": "normal",
+   "answers": [
+    "Martha",
+    "Mary",
+    "May",
+    "Jane"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "sup-028",
+   "questionText": "What is Black Widow's real name?",
+   "difficulty": "normal",
+   "answers": [
+    "Carol Danvers",
+    "Wanda Maximoff",
+    "Peggy Carter",
+    "Natasha Romanoff"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "sup-029",
+   "questionText": "What was Doctor Strange's job before he became a sorcerer?",
+   "difficulty": "normal",
+   "answers": [
+    "Physicist",
+    "Lawyer",
+    "Pilot",
+    "Neurosurgeon"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "sup-030",
+   "questionText": "Which villain was once the Joker's psychiatrist?",
+   "difficulty": "normal",
+   "answers": [
+    "Poison Ivy",
+    "Harley Quinn",
+    "Talia al Ghul",
+    "Catwoman"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "sup-031",
+   "questionText": "Who is Captain Marvel in the Marvel Cinematic Universe?",
+   "difficulty": "normal",
+   "answers": [
+    "Kamala Khan",
+    "Jessica Jones",
+    "Carol Danvers",
+    "Monica Rambeau"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "sup-032",
+   "questionText": "Which hero's secret identity is Barry Allen?",
+   "difficulty": "normal",
+   "answers": [
+    "The Flash",
+    "Green Arrow",
+    "Aquaman",
+    "Cyborg"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "sup-033",
+   "questionText": "Which member of the Fantastic Four has rocky orange skin?",
+   "difficulty": "normal",
+   "answers": [
+    "Mister Fantastic",
+    "Invisible Woman",
+    "Human Torch",
+    "The Thing"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "sup-034",
+   "questionText": "Which hero's secret identity is Arthur Curry?",
+   "difficulty": "normal",
+   "answers": [
+    "Green Lantern",
+    "Aquaman",
+    "The Flash",
+    "Namor"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "sup-035",
+   "questionText": "What is Professor X's full name?",
+   "difficulty": "normal",
+   "answers": [
+    "Scott Summers",
+    "Charles Xavier",
+    "Erik Lehnsherr",
+    "Logan Howlett"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "sup-036",
+   "questionText": "In which year did Superman first appear in Action Comics #1?",
+   "difficulty": "hard",
+   "answers": [
+    "1938",
+    "1939",
+    "1941",
+    "1945"
+   ],
+   "correctAnswerIndex": 0,
+   "keepOrder": true,
+   "optionalExplanation": "Batman followed a year later, in 1939."
+  },
+  {
+   "id": "sup-037",
+   "questionText": "What is the name of the axe Thor gets in 'Avengers: Infinity War'?",
+   "difficulty": "hard",
+   "answers": [
+    "Gungnir",
+    "Jarnbjorn",
+    "Stormbreaker",
+    "Hofund"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "sup-038",
+   "questionText": "Who co-created Spider-Man with artist Steve Ditko?",
+   "difficulty": "hard",
+   "answers": [
+    "Stan Lee",
+    "Bob Kane",
+    "Joe Shuster",
+    "Jack Kirby"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "sup-039",
+   "questionText": "On which planet is the Soul Stone hidden in the Marvel films?",
+   "difficulty": "hard",
+   "answers": [
+    "Morag",
+    "Titan",
+    "Xandar",
+    "Vormir"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "sup-040",
+   "questionText": "What is the home planet of the Green Lantern Corps?",
+   "difficulty": "hard",
+   "answers": [
+    "Krypton",
+    "Apokolips",
+    "Oa",
+    "Thanagar"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "sup-041",
+   "questionText": "What is Magneto's real name?",
+   "difficulty": "hard",
+   "answers": [
+    "Victor Creed",
+    "Erik Lehnsherr",
+    "Charles Xavier",
+    "Wade Wilson"
+   ],
+   "correctAnswerIndex": 1
+  }
+ ]
+}

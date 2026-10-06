@@ -1,0 +1,499 @@
+{
+ "category": "cities",
+ "version": 1,
+ "questions": [
+  {
+   "id": "cit-001",
+   "questionText": "In which city is the Eiffel Tower?",
+   "difficulty": "easy",
+   "answers": [
+    "Rome",
+    "London",
+    "Paris",
+    "Berlin"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cit-002",
+   "questionText": "In which city is Big Ben?",
+   "difficulty": "easy",
+   "answers": [
+    "Edinburgh",
+    "London",
+    "Manchester",
+    "Dublin"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cit-003",
+   "questionText": "In which city is the Colosseum?",
+   "difficulty": "easy",
+   "answers": [
+    "Milan",
+    "Athens",
+    "Rome",
+    "Naples"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cit-004",
+   "questionText": "Which city is nicknamed the Big Apple?",
+   "difficulty": "easy",
+   "answers": [
+    "New York City",
+    "Boston",
+    "Chicago",
+    "Los Angeles"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "cit-005",
+   "questionText": "What is the capital of Germany?",
+   "difficulty": "easy",
+   "answers": [
+    "Hamburg",
+    "Berlin",
+    "Munich",
+    "Frankfurt"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cit-006",
+   "questionText": "Hollywood is a neighbourhood of which city?",
+   "difficulty": "easy",
+   "answers": [
+    "Las Vegas",
+    "Los Angeles",
+    "San Diego",
+    "San Francisco"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cit-007",
+   "questionText": "Which city is famous for its canals and gondolas?",
+   "difficulty": "easy",
+   "answers": [
+    "Florence",
+    "Amsterdam",
+    "Venice",
+    "Bruges"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cit-008",
+   "questionText": "Red Square and the Kremlin are in which city?",
+   "difficulty": "easy",
+   "answers": [
+    "Warsaw",
+    "Kyiv",
+    "Saint Petersburg",
+    "Moscow"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "cit-009",
+   "questionText": "Which city is home to the Golden Gate Bridge?",
+   "difficulty": "easy",
+   "answers": [
+    "Seattle",
+    "San Francisco",
+    "Los Angeles",
+    "Chicago"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cit-010",
+   "questionText": "In which city is the Leaning Tower?",
+   "difficulty": "easy",
+   "answers": [
+    "Florence",
+    "Siena",
+    "Bologna",
+    "Pisa"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "cit-011",
+   "questionText": "The Louvre museum is in which city?",
+   "difficulty": "easy",
+   "answers": [
+    "Madrid",
+    "Paris",
+    "Vienna",
+    "Florence"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cit-012",
+   "questionText": "Which US city is famous for its casinos and the Strip?",
+   "difficulty": "easy",
+   "answers": [
+    "Las Vegas",
+    "Miami",
+    "Atlantic City",
+    "Reno"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "cit-013",
+   "questionText": "What is the capital of India?",
+   "difficulty": "easy",
+   "answers": [
+    "Bengaluru",
+    "Mumbai",
+    "New Delhi",
+    "Kolkata"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cit-014",
+   "questionText": "Which city is known as the City of Light?",
+   "difficulty": "normal",
+   "answers": [
+    "Vienna",
+    "Rome",
+    "Paris",
+    "Prague"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cit-015",
+   "questionText": "In which city is the Burj Khalifa, the world's tallest building?",
+   "difficulty": "normal",
+   "answers": [
+    "Riyadh",
+    "Abu Dhabi",
+    "Doha",
+    "Dubai"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "cit-016",
+   "questionText": "Which city was once called Constantinople?",
+   "difficulty": "normal",
+   "answers": [
+    "Cairo",
+    "Istanbul",
+    "Beirut",
+    "Athens"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cit-017",
+   "questionText": "Which city hosted the 2012 Summer Olympics?",
+   "difficulty": "normal",
+   "answers": [
+    "London",
+    "Beijing",
+    "Paris",
+    "Rio de Janeiro"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "cit-018",
+   "questionText": "The Christ the Redeemer statue overlooks which city?",
+   "difficulty": "normal",
+   "answers": [
+    "Lisbon",
+    "Buenos Aires",
+    "Rio de Janeiro",
+    "São Paulo"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cit-019",
+   "questionText": "Which city is nicknamed the Windy City?",
+   "difficulty": "normal",
+   "answers": [
+    "Denver",
+    "Boston",
+    "Chicago",
+    "Seattle"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cit-020",
+   "questionText": "In which city is the Sagrada Família basilica?",
+   "difficulty": "normal",
+   "answers": [
+    "Seville",
+    "Barcelona",
+    "Madrid",
+    "Lisbon"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cit-021",
+   "questionText": "Which city is home to the Acropolis?",
+   "difficulty": "normal",
+   "answers": [
+    "Athens",
+    "Istanbul",
+    "Rome",
+    "Sparta"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "cit-022",
+   "questionText": "In which city is the Taj Mahal?",
+   "difficulty": "normal",
+   "answers": [
+    "New Delhi",
+    "Jaipur",
+    "Mumbai",
+    "Agra"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "cit-023",
+   "questionText": "Which city opened the world's first underground railway in 1863?",
+   "difficulty": "normal",
+   "answers": [
+    "Paris",
+    "London",
+    "Budapest",
+    "New York City"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cit-024",
+   "questionText": "What is the capital of Scotland?",
+   "difficulty": "normal",
+   "answers": [
+    "Dundee",
+    "Aberdeen",
+    "Edinburgh",
+    "Glasgow"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cit-025",
+   "questionText": "The Little Mermaid statue is a landmark of which city?",
+   "difficulty": "normal",
+   "answers": [
+    "Stockholm",
+    "Copenhagen",
+    "Oslo",
+    "Helsinki"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cit-026",
+   "questionText": "Which city is known as the Eternal City?",
+   "difficulty": "normal",
+   "answers": [
+    "Jerusalem",
+    "Athens",
+    "Rome",
+    "Paris"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cit-027",
+   "questionText": "Which city hosted the first modern Olympic Games in 1896?",
+   "difficulty": "normal",
+   "answers": [
+    "London",
+    "Athens",
+    "Paris",
+    "Rome"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cit-028",
+   "questionText": "Which city is home to the headquarters of the United Nations?",
+   "difficulty": "normal",
+   "answers": [
+    "Vienna",
+    "Brussels",
+    "Geneva",
+    "New York City"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "cit-029",
+   "questionText": "Which city is famous for the Brandenburg Gate?",
+   "difficulty": "normal",
+   "answers": [
+    "Vienna",
+    "Munich",
+    "Berlin",
+    "Prague"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cit-030",
+   "questionText": "Which city is nicknamed the Big Easy?",
+   "difficulty": "normal",
+   "answers": [
+    "New Orleans",
+    "Nashville",
+    "Atlanta",
+    "Memphis"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "cit-031",
+   "questionText": "Which city hosted the 2016 Summer Olympics?",
+   "difficulty": "normal",
+   "answers": [
+    "Tokyo",
+    "London",
+    "Sydney",
+    "Rio de Janeiro"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "cit-032",
+   "questionText": "Which US city is known as the Motor City?",
+   "difficulty": "normal",
+   "answers": [
+    "Pittsburgh",
+    "Detroit",
+    "Cleveland",
+    "Chicago"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cit-033",
+   "questionText": "Which ancient city, carved into pink rock, is in Jordan?",
+   "difficulty": "hard",
+   "answers": [
+    "Ephesus",
+    "Petra",
+    "Carthage",
+    "Palmyra"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cit-034",
+   "questionText": "Which city lies on both sides of the Bosphorus strait?",
+   "difficulty": "hard",
+   "answers": [
+    "Baku",
+    "Istanbul",
+    "Cairo",
+    "Athens"
+   ],
+   "correctAnswerIndex": 1,
+   "optionalExplanation": "Istanbul sits on two continents: Europe and Asia."
+  },
+  {
+   "id": "cit-035",
+   "questionText": "What was New York City called before 1664?",
+   "difficulty": "hard",
+   "answers": [
+    "Fort Orange",
+    "New Amsterdam",
+    "New Haven",
+    "New Holland"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cit-036",
+   "questionText": "What is the capital of the Canadian province of Quebec?",
+   "difficulty": "hard",
+   "answers": [
+    "Montreal",
+    "Laval",
+    "Ottawa",
+    "Quebec City"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "cit-037",
+   "questionText": "From which city did the Titanic start its maiden voyage?",
+   "difficulty": "hard",
+   "answers": [
+    "Plymouth",
+    "Belfast",
+    "Southampton",
+    "Liverpool"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cit-038",
+   "questionText": "Which city is the gateway to Machu Picchu?",
+   "difficulty": "hard",
+   "answers": [
+    "Arequipa",
+    "Lima",
+    "Cusco",
+    "Trujillo"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cit-039",
+   "questionText": "Which Japanese city hosted the 1972 Winter Olympics?",
+   "difficulty": "hard",
+   "answers": [
+    "Kyoto",
+    "Osaka",
+    "Sapporo",
+    "Nagano"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cit-040",
+   "questionText": "Which city was Japan's capital for over 1,000 years before Tokyo?",
+   "difficulty": "hard",
+   "answers": [
+    "Nara",
+    "Osaka",
+    "Kyoto",
+    "Kobe"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cit-041",
+   "questionText": "What is the capital of the Australian state of Victoria?",
+   "difficulty": "hard",
+   "answers": [
+    "Melbourne",
+    "Adelaide",
+    "Sydney",
+    "Perth"
+   ],
+   "correctAnswerIndex": 0
+  }
+ ]
+}

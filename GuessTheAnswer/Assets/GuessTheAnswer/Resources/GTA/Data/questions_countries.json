@@ -1,0 +1,526 @@
+{
+ "category": "countries",
+ "version": 1,
+ "questions": [
+  {
+   "id": "cty-001",
+   "questionText": "Which country has the largest population?",
+   "difficulty": "easy",
+   "answers": [
+    "USA",
+    "China",
+    "India",
+    "Indonesia"
+   ],
+   "correctAnswerIndex": 2,
+   "optionalExplanation": "India overtook China in 2023 according to UN estimates."
+  },
+  {
+   "id": "cty-002",
+   "questionText": "What is the capital of France?",
+   "difficulty": "easy",
+   "answers": [
+    "Lyon",
+    "Paris",
+    "Nice",
+    "Marseille"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cty-003",
+   "questionText": "Which country is shaped like a boot?",
+   "difficulty": "easy",
+   "answers": [
+    "Portugal",
+    "Italy",
+    "Spain",
+    "Greece"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cty-004",
+   "questionText": "What is the capital of Japan?",
+   "difficulty": "easy",
+   "answers": [
+    "Osaka",
+    "Kyoto",
+    "Hiroshima",
+    "Tokyo"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "cty-005",
+   "questionText": "In which country do kangaroos live in the wild?",
+   "difficulty": "easy",
+   "answers": [
+    "South Africa",
+    "New Zealand",
+    "Brazil",
+    "Australia"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "cty-006",
+   "questionText": "Which is the largest country in the world by area?",
+   "difficulty": "easy",
+   "answers": [
+    "Russia",
+    "Canada",
+    "China",
+    "USA"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "cty-007",
+   "questionText": "Which country has a red maple leaf on its flag?",
+   "difficulty": "easy",
+   "answers": [
+    "Japan",
+    "Austria",
+    "Canada",
+    "Switzerland"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cty-008",
+   "questionText": "In which country are the Pyramids of Giza?",
+   "difficulty": "easy",
+   "answers": [
+    "Peru",
+    "Mexico",
+    "Sudan",
+    "Egypt"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "cty-009",
+   "questionText": "What is the capital of Spain?",
+   "difficulty": "easy",
+   "answers": [
+    "Valencia",
+    "Seville",
+    "Madrid",
+    "Barcelona"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cty-010",
+   "questionText": "Which country is famous for tulips and windmills?",
+   "difficulty": "easy",
+   "answers": [
+    "Netherlands",
+    "Germany",
+    "Denmark",
+    "Belgium"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "cty-011",
+   "questionText": "Which country's flag is a red circle on a white background?",
+   "difficulty": "easy",
+   "answers": [
+    "South Korea",
+    "China",
+    "Bangladesh",
+    "Japan"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "cty-012",
+   "questionText": "What is the largest country in South America?",
+   "difficulty": "easy",
+   "answers": [
+    "Argentina",
+    "Peru",
+    "Brazil",
+    "Colombia"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cty-013",
+   "questionText": "What is the capital of Australia?",
+   "difficulty": "normal",
+   "answers": [
+    "Perth",
+    "Sydney",
+    "Canberra",
+    "Melbourne"
+   ],
+   "correctAnswerIndex": 2,
+   "optionalExplanation": "Canberra was purpose-built as a compromise between Sydney and Melbourne."
+  },
+  {
+   "id": "cty-014",
+   "questionText": "What is the capital of Canada?",
+   "difficulty": "normal",
+   "answers": [
+    "Toronto",
+    "Vancouver",
+    "Ottawa",
+    "Montreal"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cty-015",
+   "questionText": "What is the capital of Brazil?",
+   "difficulty": "normal",
+   "answers": [
+    "Rio de Janeiro",
+    "Salvador",
+    "Brasília",
+    "São Paulo"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cty-016",
+   "questionText": "Which country's capital is Ankara?",
+   "difficulty": "normal",
+   "answers": [
+    "Greece",
+    "Iran",
+    "Turkey",
+    "Azerbaijan"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cty-017",
+   "questionText": "What is the currency of Japan?",
+   "difficulty": "normal",
+   "answers": [
+    "Ringgit",
+    "Yuan",
+    "Yen",
+    "Won"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cty-018",
+   "questionText": "Which country has the longest coastline in the world?",
+   "difficulty": "normal",
+   "answers": [
+    "Indonesia",
+    "Australia",
+    "Russia",
+    "Canada"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "cty-019",
+   "questionText": "Which African country has the largest population?",
+   "difficulty": "normal",
+   "answers": [
+    "Egypt",
+    "South Africa",
+    "Nigeria",
+    "Ethiopia"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cty-020",
+   "questionText": "What is the capital of South Korea?",
+   "difficulty": "normal",
+   "answers": [
+    "Busan",
+    "Seoul",
+    "Pyongyang",
+    "Incheon"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cty-021",
+   "questionText": "Which country gave the Statue of Liberty to the United States?",
+   "difficulty": "normal",
+   "answers": [
+    "United Kingdom",
+    "France",
+    "Italy",
+    "Spain"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cty-022",
+   "questionText": "Which language is mainly spoken in Brazil?",
+   "difficulty": "normal",
+   "answers": [
+    "Portuguese",
+    "French",
+    "Spanish",
+    "English"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "cty-023",
+   "questionText": "Mount Everest lies on the border of Nepal and which other country?",
+   "difficulty": "normal",
+   "answers": [
+    "China",
+    "Pakistan",
+    "Bhutan",
+    "India"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "cty-024",
+   "questionText": "What is the capital of Egypt?",
+   "difficulty": "normal",
+   "answers": [
+    "Luxor",
+    "Cairo",
+    "Giza",
+    "Alexandria"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cty-025",
+   "questionText": "Which is the smallest country in the world?",
+   "difficulty": "normal",
+   "answers": [
+    "San Marino",
+    "Liechtenstein",
+    "Vatican City",
+    "Monaco"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cty-026",
+   "questionText": "Which country is known as the Land of the Rising Sun?",
+   "difficulty": "normal",
+   "answers": [
+    "China",
+    "South Korea",
+    "Thailand",
+    "Japan"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "cty-027",
+   "questionText": "What is the capital of Argentina?",
+   "difficulty": "normal",
+   "answers": [
+    "Santiago",
+    "Buenos Aires",
+    "Lima",
+    "Montevideo"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cty-028",
+   "questionText": "In which country is the city of Marrakesh?",
+   "difficulty": "normal",
+   "answers": [
+    "Algeria",
+    "Morocco",
+    "Tunisia",
+    "Egypt"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cty-029",
+   "questionText": "Which country was formerly known as Persia?",
+   "difficulty": "normal",
+   "answers": [
+    "Iraq",
+    "Turkey",
+    "Syria",
+    "Iran"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "cty-030",
+   "questionText": "In which country is Machu Picchu?",
+   "difficulty": "normal",
+   "answers": [
+    "Bolivia",
+    "Peru",
+    "Chile",
+    "Ecuador"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cty-031",
+   "questionText": "Which EU country has the largest population?",
+   "difficulty": "normal",
+   "answers": [
+    "France",
+    "Italy",
+    "Germany",
+    "Spain"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cty-032",
+   "questionText": "Which country has the most native Spanish speakers?",
+   "difficulty": "normal",
+   "answers": [
+    "Spain",
+    "Argentina",
+    "Mexico",
+    "Colombia"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cty-033",
+   "questionText": "What is the capital of New Zealand?",
+   "difficulty": "normal",
+   "answers": [
+    "Auckland",
+    "Wellington",
+    "Christchurch",
+    "Queenstown"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "cty-034",
+   "questionText": "Which country has the most time zones, counting its overseas territories?",
+   "difficulty": "hard",
+   "answers": [
+    "USA",
+    "United Kingdom",
+    "Russia",
+    "France"
+   ],
+   "correctAnswerIndex": 3,
+   "optionalExplanation": "Thanks to its overseas territories France spans 12 time zones."
+  },
+  {
+   "id": "cty-035",
+   "questionText": "What is the capital of Kazakhstan?",
+   "difficulty": "hard",
+   "answers": [
+    "Bishkek",
+    "Almaty",
+    "Astana",
+    "Tashkent"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cty-036",
+   "questionText": "Which country is completely surrounded by South Africa?",
+   "difficulty": "hard",
+   "answers": [
+    "Botswana",
+    "Namibia",
+    "Eswatini",
+    "Lesotho"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "cty-037",
+   "questionText": "What is the capital of Nigeria?",
+   "difficulty": "hard",
+   "answers": [
+    "Kano",
+    "Lagos",
+    "Abuja",
+    "Ibadan"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cty-038",
+   "questionText": "Which country's flag shows a green cedar tree?",
+   "difficulty": "hard",
+   "answers": [
+    "Cyprus",
+    "Israel",
+    "Lebanon",
+    "Jordan"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cty-039",
+   "questionText": "What is the capital of Switzerland?",
+   "difficulty": "hard",
+   "answers": [
+    "Bern",
+    "Geneva",
+    "Zurich",
+    "Basel"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "cty-040",
+   "questionText": "What is the capital of Morocco?",
+   "difficulty": "hard",
+   "answers": [
+    "Fez",
+    "Casablanca",
+    "Rabat",
+    "Marrakesh"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cty-041",
+   "questionText": "Which country was formerly known as Siam?",
+   "difficulty": "hard",
+   "answers": [
+    "Cambodia",
+    "Myanmar",
+    "Thailand",
+    "Laos"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "cty-042",
+   "questionText": "In which country is the Atacama Desert?",
+   "difficulty": "hard",
+   "answers": [
+    "Peru",
+    "Argentina",
+    "Chile",
+    "Mexico"
+   ],
+   "correctAnswerIndex": 2,
+   "optionalExplanation": "The Atacama is one of the driest places on Earth."
+  },
+  {
+   "id": "cty-043",
+   "questionText": "Which country has a dragon on its national flag?",
+   "difficulty": "hard",
+   "answers": [
+    "Bhutan",
+    "China",
+    "Nepal",
+    "Mongolia"
+   ],
+   "correctAnswerIndex": 0
+  }
+ ]
+}

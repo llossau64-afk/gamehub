@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>GuessTheAnswer.Server</AssemblyName>
+    <RootNamespace>GuessTheAnswer.Server</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Shared/GuessTheAnswer.Shared.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The same question packs the Unity client ships with. -->
+    <Content Include="../../Assets/GuessTheAnswer/Resources/GTA/Data/*.json" Link="Data/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

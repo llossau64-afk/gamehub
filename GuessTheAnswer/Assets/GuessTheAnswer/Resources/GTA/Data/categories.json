@@ -1,0 +1,12 @@
+{
+ "categories": [
+  { "id": "classic",     "name": "CLASSIC",     "icon": "star",                     "color": "#FFC83D", "enabled": true, "includeInClassic": false, "pack": "" },
+  { "id": "memes",       "name": "MEMES",       "icon": "sentiment_very_satisfied", "color": "#B57BFF", "enabled": true, "includeInClassic": true,  "pack": "questions_memes" },
+  { "id": "superheroes", "name": "SUPERHEROES", "icon": "bolt",                     "color": "#FF6B4A", "enabled": true, "includeInClassic": true,  "pack": "questions_superheroes" },
+  { "id": "fruits",      "name": "FRUITS",      "icon": "nutrition",                "color": "#7BD15A", "enabled": true, "includeInClassic": true,  "pack": "questions_fruits" },
+  { "id": "countries",   "name": "COUNTRIES",   "icon": "public",                   "color": "#3DC2FF", "enabled": true, "includeInClassic": true,  "pack": "questions_countries" },
+  { "id": "cities",      "name": "CITIES",      "icon": "location_city",            "color": "#FF9F43", "enabled": true, "includeInClassic": true,  "pack": "questions_cities" },
+  { "id": "sports",      "name": "SPORTS",      "icon": "sports_soccer",            "color": "#2FD27A", "enabled": true, "includeInClassic": true,  "pack": "questions_sports" },
+  { "id": "movies",      "name": "MOVIES",      "icon": "movie",                    "color": "#FF5C8A", "enabled": true, "includeInClassic": true,  "pack": "questions_movies" }
+ ]
+}

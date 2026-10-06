@@ -1,0 +1,491 @@
+{
+ "category": "movies",
+ "version": 1,
+ "questions": [
+  {
+   "id": "mov-001",
+   "questionText": "Which movie is about a giant shark terrorising a beach town?",
+   "difficulty": "easy",
+   "answers": [
+    "Deep Blue Sea",
+    "Orca",
+    "The Meg",
+    "Jaws"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mov-002",
+   "questionText": "In 'The Lion King', what is the name of Simba's father?",
+   "difficulty": "easy",
+   "answers": [
+    "Scar",
+    "Zazu",
+    "Mufasa",
+    "Rafiki"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mov-003",
+   "questionText": "What is the name of the toy cowboy in 'Toy Story'?",
+   "difficulty": "easy",
+   "answers": [
+    "Buzz Lightyear",
+    "Rex",
+    "Jessie",
+    "Woody"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mov-004",
+   "questionText": "In 'Finding Nemo', what kind of fish is Nemo?",
+   "difficulty": "easy",
+   "answers": [
+    "Blue tang",
+    "Pufferfish",
+    "Goldfish",
+    "Clownfish"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mov-005",
+   "questionText": "Which film series made the line 'May the Force be with you' famous?",
+   "difficulty": "easy",
+   "answers": [
+    "Avatar",
+    "Star Trek",
+    "Star Wars",
+    "Dune"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mov-006",
+   "questionText": "What colour is Shrek?",
+   "difficulty": "easy",
+   "answers": [
+    "Blue",
+    "Grey",
+    "Green",
+    "Orange"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mov-007",
+   "questionText": "In 'Frozen', what is the name of the snowman?",
+   "difficulty": "easy",
+   "answers": [
+    "Olaf",
+    "Kristoff",
+    "Sven",
+    "Hans"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mov-008",
+   "questionText": "What kind of animal is Dumbo?",
+   "difficulty": "easy",
+   "answers": [
+    "Elephant",
+    "Lion",
+    "Bear",
+    "Mouse"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mov-009",
+   "questionText": "Which animated film features the song 'Let It Go'?",
+   "difficulty": "easy",
+   "answers": [
+    "Moana",
+    "Encanto",
+    "Frozen",
+    "Tangled"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mov-010",
+   "questionText": "In 'Star Wars', who is Luke Skywalker's father?",
+   "difficulty": "easy",
+   "answers": [
+    "Darth Vader",
+    "Obi-Wan Kenobi",
+    "Han Solo",
+    "Emperor Palpatine"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mov-011",
+   "questionText": "Which Pixar film takes place inside a girl's head, among her emotions?",
+   "difficulty": "easy",
+   "answers": [
+    "Brave",
+    "Inside Out",
+    "Coco",
+    "Soul"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "mov-012",
+   "questionText": "In which 1982 film does an alien want to 'phone home'?",
+   "difficulty": "easy",
+   "answers": [
+    "Mars Attacks!",
+    "Men in Black",
+    "Alien",
+    "E.T. the Extra-Terrestrial"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mov-013",
+   "questionText": "Who directed 'Jurassic Park' (1993)?",
+   "difficulty": "normal",
+   "answers": [
+    "George Lucas",
+    "James Cameron",
+    "Steven Spielberg",
+    "Ridley Scott"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mov-014",
+   "questionText": "In 'The Matrix', which pill does Neo take?",
+   "difficulty": "normal",
+   "answers": [
+    "The green pill",
+    "The yellow pill",
+    "The red pill",
+    "The blue pill"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mov-015",
+   "questionText": "In 'Back to the Future', which car becomes a time machine?",
+   "difficulty": "normal",
+   "answers": [
+    "Corvette",
+    "DeLorean",
+    "Mustang",
+    "Cadillac"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "mov-016",
+   "questionText": "Which actor played Captain Jack Sparrow?",
+   "difficulty": "normal",
+   "answers": [
+    "Johnny Depp",
+    "Orlando Bloom",
+    "Brad Pitt",
+    "Tom Cruise"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mov-017",
+   "questionText": "In 'The Lord of the Rings', which hobbit carries the One Ring to Mordor?",
+   "difficulty": "normal",
+   "answers": [
+    "Samwise Gamgee",
+    "Bilbo Baggins",
+    "Pippin Took",
+    "Frodo Baggins"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mov-018",
+   "questionText": "Which film features the line 'I'll be back'?",
+   "difficulty": "normal",
+   "answers": [
+    "Predator",
+    "The Terminator",
+    "RoboCop",
+    "Rambo"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "mov-019",
+   "questionText": "In 'Up', what lifts Carl's house into the sky?",
+   "difficulty": "normal",
+   "answers": [
+    "A giant bird",
+    "A tornado",
+    "Balloons",
+    "Rockets"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mov-020",
+   "questionText": "Which animated film is about a rat who dreams of being a chef?",
+   "difficulty": "normal",
+   "answers": [
+    "An American Tail",
+    "Flushed Away",
+    "Ratatouille",
+    "The Secret of NIMH"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mov-021",
+   "questionText": "In 'Forrest Gump', life is like a box of what?",
+   "difficulty": "normal",
+   "answers": [
+    "Surprises",
+    "Crayons",
+    "Chocolates",
+    "Cookies"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mov-022",
+   "questionText": "Who directed 'Titanic' (1997)?",
+   "difficulty": "normal",
+   "answers": [
+    "Steven Spielberg",
+    "Martin Scorsese",
+    "Christopher Nolan",
+    "James Cameron"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mov-023",
+   "questionText": "In the 1939 film 'The Wizard of Oz', what colour are Dorothy's slippers?",
+   "difficulty": "normal",
+   "answers": [
+    "Silver",
+    "Gold",
+    "Emerald green",
+    "Ruby red"
+   ],
+   "correctAnswerIndex": 3,
+   "optionalExplanation": "In the original book the shoes are silver."
+  },
+  {
+   "id": "mov-024",
+   "questionText": "What is the name of the lion in 'The Chronicles of Narnia'?",
+   "difficulty": "normal",
+   "answers": [
+    "Mufasa",
+    "Leo",
+    "Aslan",
+    "Simba"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mov-025",
+   "questionText": "Which film series follows the agent Ethan Hunt?",
+   "difficulty": "normal",
+   "answers": [
+    "James Bond",
+    "Fast & Furious",
+    "The Bourne films",
+    "Mission: Impossible"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mov-026",
+   "questionText": "What is James Bond's code number?",
+   "difficulty": "normal",
+   "answers": [
+    "001",
+    "007",
+    "008",
+    "009"
+   ],
+   "correctAnswerIndex": 1,
+   "keepOrder": true
+  },
+  {
+   "id": "mov-027",
+   "questionText": "In 'Coco', what does Miguel dream of becoming?",
+   "difficulty": "normal",
+   "answers": [
+    "A footballer",
+    "A chef",
+    "A musician",
+    "A painter"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mov-028",
+   "questionText": "Which film features a volleyball named Wilson?",
+   "difficulty": "normal",
+   "answers": [
+    "Life of Pi",
+    "The Martian",
+    "The Terminal",
+    "Cast Away"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mov-029",
+   "questionText": "In 'The Godfather', what is the family's surname?",
+   "difficulty": "normal",
+   "answers": [
+    "Gambino",
+    "Montana",
+    "Soprano",
+    "Corleone"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mov-030",
+   "questionText": "Who directed 'Pulp Fiction'?",
+   "difficulty": "normal",
+   "answers": [
+    "David Fincher",
+    "Guy Ritchie",
+    "Martin Scorsese",
+    "Quentin Tarantino"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mov-031",
+   "questionText": "In the 'Harry Potter' films, which Quidditch position does Harry play?",
+   "difficulty": "normal",
+   "answers": [
+    "Chaser",
+    "Seeker",
+    "Beater",
+    "Keeper"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "mov-032",
+   "questionText": "Which film won the very first Oscar for Best Animated Feature?",
+   "difficulty": "hard",
+   "answers": [
+    "Ice Age",
+    "Spirited Away",
+    "Shrek",
+    "Monsters, Inc."
+   ],
+   "correctAnswerIndex": 2,
+   "optionalExplanation": "Shrek won at the 2002 ceremony."
+  },
+  {
+   "id": "mov-033",
+   "questionText": "Which film is set on the fictional Amity Island?",
+   "difficulty": "hard",
+   "answers": [
+    "Gremlins",
+    "Scream",
+    "Halloween",
+    "Jaws"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mov-034",
+   "questionText": "In 'Inception', what object does Cobb use as his totem?",
+   "difficulty": "hard",
+   "answers": [
+    "A chess piece",
+    "A coin",
+    "A die",
+    "A spinning top"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mov-035",
+   "questionText": "Which was the first non-English-language film to win Best Picture at the Oscars?",
+   "difficulty": "hard",
+   "answers": [
+    "Parasite",
+    "Joker",
+    "Roma",
+    "1917"
+   ],
+   "correctAnswerIndex": 0,
+   "optionalExplanation": "Parasite won at the 2020 ceremony."
+  },
+  {
+   "id": "mov-036",
+   "questionText": "On which island is the park in the first 'Jurassic Park' film?",
+   "difficulty": "hard",
+   "answers": [
+    "Isla Nublar",
+    "Isla Sorna",
+    "Amity Island",
+    "Skull Island"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mov-037",
+   "questionText": "What is the name of the kingdom in 'Frozen'?",
+   "difficulty": "hard",
+   "answers": [
+    "Corona",
+    "Agrabah",
+    "Arendelle",
+    "DunBroch"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mov-038",
+   "questionText": "What was the first feature film made entirely with computer animation?",
+   "difficulty": "hard",
+   "answers": [
+    "A Bug's Life",
+    "Toy Story",
+    "Antz",
+    "Shrek"
+   ],
+   "correctAnswerIndex": 1,
+   "optionalExplanation": "Toy Story was released in 1995."
+  },
+  {
+   "id": "mov-039",
+   "questionText": "Which film features the line 'Here's looking at you, kid'?",
+   "difficulty": "hard",
+   "answers": [
+    "The Maltese Falcon",
+    "Casablanca",
+    "Gone with the Wind",
+    "Citizen Kane"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "mov-040",
+   "questionText": "In 'Home Alone', to which city is the family flying when they forget Kevin?",
+   "difficulty": "hard",
+   "answers": [
+    "New York",
+    "London",
+    "Rome",
+    "Paris"
+   ],
+   "correctAnswerIndex": 3
+  }
+ ]
+}

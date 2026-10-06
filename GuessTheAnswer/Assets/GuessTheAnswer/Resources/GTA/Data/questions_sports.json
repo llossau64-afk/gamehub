@@ -1,0 +1,505 @@
+{
+ "category": "sports",
+ "version": 1,
+ "questions": [
+  {
+   "id": "spo-001",
+   "questionText": "How many players does a football (soccer) team have on the pitch?",
+   "difficulty": "easy",
+   "answers": [
+    "9",
+    "10",
+    "11",
+    "12"
+   ],
+   "correctAnswerIndex": 2,
+   "keepOrder": true
+  },
+  {
+   "id": "spo-002",
+   "questionText": "In which sport would you perform a slam dunk?",
+   "difficulty": "easy",
+   "answers": [
+    "Basketball",
+    "Handball",
+    "Tennis",
+    "Volleyball"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "spo-003",
+   "questionText": "How many rings are on the Olympic flag?",
+   "difficulty": "easy",
+   "answers": [
+    "4",
+    "5",
+    "6",
+    "7"
+   ],
+   "correctAnswerIndex": 1,
+   "keepOrder": true
+  },
+  {
+   "id": "spo-004",
+   "questionText": "Which sport is played at Wimbledon?",
+   "difficulty": "easy",
+   "answers": [
+    "Badminton",
+    "Tennis",
+    "Cricket",
+    "Golf"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "spo-005",
+   "questionText": "In which sport do you score a touchdown?",
+   "difficulty": "easy",
+   "answers": [
+    "Ice hockey",
+    "American football",
+    "Rugby",
+    "Baseball"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "spo-006",
+   "questionText": "Which sport is played with a puck?",
+   "difficulty": "easy",
+   "answers": [
+    "Field hockey",
+    "Lacrosse",
+    "Ice hockey",
+    "Curling"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "spo-007",
+   "questionText": "How many points is a basket from beyond the arc worth in basketball?",
+   "difficulty": "easy",
+   "answers": [
+    "1",
+    "2",
+    "3",
+    "4"
+   ],
+   "correctAnswerIndex": 2,
+   "keepOrder": true
+  },
+  {
+   "id": "spo-008",
+   "questionText": "In golf, what is a score of one under par on a hole called?",
+   "difficulty": "easy",
+   "answers": [
+    "Eagle",
+    "Bogey",
+    "Albatross",
+    "Birdie"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "spo-009",
+   "questionText": "Which country has won the most FIFA World Cups?",
+   "difficulty": "easy",
+   "answers": [
+    "Italy",
+    "Argentina",
+    "Brazil",
+    "Germany"
+   ],
+   "correctAnswerIndex": 2,
+   "optionalExplanation": "Brazil has won five World Cups."
+  },
+  {
+   "id": "spo-010",
+   "questionText": "In bowling, what is it called when all ten pins fall with the first ball?",
+   "difficulty": "easy",
+   "answers": [
+    "Split",
+    "Strike",
+    "Turkey",
+    "Spare"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "spo-011",
+   "questionText": "Usain Bolt became famous in which sport?",
+   "difficulty": "easy",
+   "answers": [
+    "Swimming",
+    "Long jump",
+    "Cycling",
+    "Sprinting"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "spo-012",
+   "questionText": "How long is a marathon?",
+   "difficulty": "normal",
+   "answers": [
+    "40 km",
+    "41.5 km",
+    "42.195 km",
+    "45 km"
+   ],
+   "correctAnswerIndex": 2,
+   "keepOrder": true
+  },
+  {
+   "id": "spo-013",
+   "questionText": "In which sport would a bowler deliver a googly?",
+   "difficulty": "normal",
+   "answers": [
+    "Bowling",
+    "Softball",
+    "Baseball",
+    "Cricket"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "spo-014",
+   "questionText": "How many players does a basketball team have on the court?",
+   "difficulty": "normal",
+   "answers": [
+    "4",
+    "5",
+    "6",
+    "7"
+   ],
+   "correctAnswerIndex": 1,
+   "keepOrder": true
+  },
+  {
+   "id": "spo-015",
+   "questionText": "What is the maximum break in snooker without free balls?",
+   "difficulty": "normal",
+   "answers": [
+    "140",
+    "147",
+    "155",
+    "180"
+   ],
+   "correctAnswerIndex": 1,
+   "keepOrder": true
+  },
+  {
+   "id": "spo-016",
+   "questionText": "Which country hosted the 2022 FIFA World Cup?",
+   "difficulty": "normal",
+   "answers": [
+    "Qatar",
+    "Russia",
+    "United Arab Emirates",
+    "Saudi Arabia"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "spo-017",
+   "questionText": "How many holes are played in a standard round of golf?",
+   "difficulty": "normal",
+   "answers": [
+    "9",
+    "12",
+    "18",
+    "21"
+   ],
+   "correctAnswerIndex": 2,
+   "keepOrder": true
+  },
+  {
+   "id": "spo-018",
+   "questionText": "Which martial art's name means 'the gentle way'?",
+   "difficulty": "normal",
+   "answers": [
+    "Taekwondo",
+    "Karate",
+    "Judo",
+    "Kung fu"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "spo-019",
+   "questionText": "In tennis, what is a score of zero called?",
+   "difficulty": "normal",
+   "answers": [
+    "Blank",
+    "Duck",
+    "Nil",
+    "Love"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "spo-020",
+   "questionText": "How many minutes does a regular football (soccer) match last, without stoppage time?",
+   "difficulty": "normal",
+   "answers": [
+    "60",
+    "80",
+    "90",
+    "100"
+   ],
+   "correctAnswerIndex": 2,
+   "keepOrder": true
+  },
+  {
+   "id": "spo-021",
+   "questionText": "What colour jersey does the leader of the Tour de France wear?",
+   "difficulty": "normal",
+   "answers": [
+    "Yellow",
+    "Red",
+    "Pink",
+    "Green"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "spo-022",
+   "questionText": "Which sport takes place in a velodrome?",
+   "difficulty": "normal",
+   "answers": [
+    "Horse racing",
+    "Rowing",
+    "Speed skating",
+    "Track cycling"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "spo-023",
+   "questionText": "How many players does a volleyball team have on the court?",
+   "difficulty": "normal",
+   "answers": [
+    "5",
+    "6",
+    "7",
+    "8"
+   ],
+   "correctAnswerIndex": 1,
+   "keepOrder": true
+  },
+  {
+   "id": "spo-024",
+   "questionText": "Michael Phelps won his record number of Olympic golds in which sport?",
+   "difficulty": "normal",
+   "answers": [
+    "Rowing",
+    "Athletics",
+    "Swimming",
+    "Diving"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "spo-025",
+   "questionText": "How many balls are bowled in a standard over in cricket?",
+   "difficulty": "normal",
+   "answers": [
+    "5",
+    "6",
+    "8",
+    "10"
+   ],
+   "correctAnswerIndex": 1,
+   "keepOrder": true
+  },
+  {
+   "id": "spo-026",
+   "questionText": "In which sport is the Stanley Cup awarded?",
+   "difficulty": "normal",
+   "answers": [
+    "American football",
+    "Baseball",
+    "Basketball",
+    "Ice hockey"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "spo-027",
+   "questionText": "In which city were the 2020 Summer Olympics held?",
+   "difficulty": "normal",
+   "answers": [
+    "Beijing",
+    "Los Angeles",
+    "Paris",
+    "Tokyo"
+   ],
+   "correctAnswerIndex": 3,
+   "optionalExplanation": "They took place in 2021 because of the pandemic."
+  },
+  {
+   "id": "spo-028",
+   "questionText": "In which country did judo originate?",
+   "difficulty": "normal",
+   "answers": [
+    "Korea",
+    "Brazil",
+    "China",
+    "Japan"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "spo-029",
+   "questionText": "What is the highest score possible with three darts?",
+   "difficulty": "normal",
+   "answers": [
+    "150",
+    "171",
+    "180",
+    "200"
+   ],
+   "correctAnswerIndex": 2,
+   "keepOrder": true
+  },
+  {
+   "id": "spo-030",
+   "questionText": "Which flag signals the end of a Formula 1 race?",
+   "difficulty": "normal",
+   "answers": [
+    "Red flag",
+    "Chequered flag",
+    "Yellow flag",
+    "Black flag"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "spo-031",
+   "questionText": "How long is an Olympic swimming pool?",
+   "difficulty": "normal",
+   "answers": [
+    "25 metres",
+    "50 metres",
+    "75 metres",
+    "100 metres"
+   ],
+   "correctAnswerIndex": 1,
+   "keepOrder": true
+  },
+  {
+   "id": "spo-032",
+   "questionText": "In which year were the first modern Olympic Games held?",
+   "difficulty": "hard",
+   "answers": [
+    "1888",
+    "1896",
+    "1900",
+    "1912"
+   ],
+   "correctAnswerIndex": 1,
+   "keepOrder": true
+  },
+  {
+   "id": "spo-033",
+   "questionText": "Which country won the first FIFA World Cup in 1930?",
+   "difficulty": "hard",
+   "answers": [
+    "Brazil",
+    "Uruguay",
+    "Argentina",
+    "Italy"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "spo-034",
+   "questionText": "What is the diameter of a basketball rim in inches?",
+   "difficulty": "hard",
+   "answers": [
+    "16",
+    "18",
+    "20",
+    "24"
+   ],
+   "correctAnswerIndex": 1,
+   "keepOrder": true
+  },
+  {
+   "id": "spo-035",
+   "questionText": "Which golfer has won the most men's major championships?",
+   "difficulty": "hard",
+   "answers": [
+    "Tiger Woods",
+    "Jack Nicklaus",
+    "Gary Player",
+    "Arnold Palmer"
+   ],
+   "correctAnswerIndex": 1,
+   "optionalExplanation": "Jack Nicklaus won 18 majors."
+  },
+  {
+   "id": "spo-036",
+   "questionText": "How many players does a rugby union team have on the field?",
+   "difficulty": "hard",
+   "answers": [
+    "11",
+    "13",
+    "15",
+    "18"
+   ],
+   "correctAnswerIndex": 2,
+   "keepOrder": true
+  },
+  {
+   "id": "spo-037",
+   "questionText": "Which is the only country to have played at every FIFA World Cup?",
+   "difficulty": "hard",
+   "answers": [
+    "Brazil",
+    "Argentina",
+    "Italy",
+    "Germany"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "spo-038",
+   "questionText": "How high is a regulation basketball rim above the floor?",
+   "difficulty": "hard",
+   "answers": [
+    "9 feet",
+    "10 feet",
+    "11 feet",
+    "12 feet"
+   ],
+   "correctAnswerIndex": 1,
+   "keepOrder": true
+  },
+  {
+   "id": "spo-039",
+   "questionText": "Which man has won the most Grand Slam singles titles in tennis?",
+   "difficulty": "hard",
+   "answers": [
+    "Novak Djokovic",
+    "Rafael Nadal",
+    "Roger Federer",
+    "Pete Sampras"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "spo-040",
+   "questionText": "What is Canada's official national summer sport?",
+   "difficulty": "hard",
+   "answers": [
+    "Soccer",
+    "Lacrosse",
+    "Baseball",
+    "Canoeing"
+   ],
+   "correctAnswerIndex": 1
+  }
+ ]
+}

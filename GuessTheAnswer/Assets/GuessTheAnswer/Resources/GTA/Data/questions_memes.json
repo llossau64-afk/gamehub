@@ -1,0 +1,513 @@
+{
+ "category": "memes",
+ "version": 1,
+ "questions": [
+  {
+   "id": "mem-001",
+   "questionText": "Which dog breed is the face of the Doge meme?",
+   "difficulty": "easy",
+   "answers": [
+    "Shiba Inu",
+    "Pug",
+    "Husky",
+    "Corgi"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mem-002",
+   "questionText": "Which song do you get tricked into hearing when you are Rickrolled?",
+   "difficulty": "easy",
+   "answers": [
+    "Take On Me",
+    "Africa",
+    "Never Gonna Give You Up",
+    "Don't You Want Me"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mem-003",
+   "questionText": "Who sings the song used for Rickrolling?",
+   "difficulty": "easy",
+   "answers": [
+    "Rick James",
+    "Richard Marx",
+    "Rick Astley",
+    "Jon Bon Jovi"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mem-004",
+   "questionText": "What does LOL stand for?",
+   "difficulty": "easy",
+   "answers": [
+    "Lots of love",
+    "Laugh or leave",
+    "Laughing out loud",
+    "Look out loud"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mem-005",
+   "questionText": "Which internet cat was famous for its permanently annoyed face?",
+   "difficulty": "easy",
+   "answers": [
+    "Nyan Cat",
+    "Keyboard Cat",
+    "Grumpy Cat",
+    "Longcat"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mem-006",
+   "questionText": "Which meme shows a dog sitting calmly in a burning room?",
+   "difficulty": "easy",
+   "answers": [
+    "Walter",
+    "Cheems",
+    "This Is Fine",
+    "Doge"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mem-007",
+   "questionText": "What does GOAT mean in internet slang?",
+   "difficulty": "easy",
+   "answers": [
+    "Greatest of all time",
+    "Get out and travel",
+    "Game over, try again",
+    "Good on all teams"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mem-008",
+   "questionText": "What does AFK stand for?",
+   "difficulty": "easy",
+   "answers": [
+    "All fun, kid",
+    "Away from keyboard",
+    "Always for kids",
+    "Ask for knowledge"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "mem-009",
+   "questionText": "What does sus mean in internet slang?",
+   "difficulty": "easy",
+   "answers": [
+    "Sustainable",
+    "Sad",
+    "Suspicious",
+    "Super"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mem-010",
+   "questionText": "Which game made the word sus hugely popular in 2020?",
+   "difficulty": "easy",
+   "answers": [
+    "Among Us",
+    "Fall Guys",
+    "Fortnite",
+    "Minecraft"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mem-011",
+   "questionText": "Who performed 'Gangnam Style'?",
+   "difficulty": "easy",
+   "answers": [
+    "PSY",
+    "Big Bang",
+    "Rain",
+    "BTS"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mem-012",
+   "questionText": "What does TL;DR stand for?",
+   "difficulty": "easy",
+   "answers": [
+    "To learn; do review",
+    "Too long; didn't read",
+    "Too late; don't reply",
+    "Talk later; don't run"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "mem-013",
+   "questionText": "The Stonks meme deliberately misspells which word?",
+   "difficulty": "easy",
+   "answers": [
+    "Stunts",
+    "Stones",
+    "Stocks",
+    "Stinks"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mem-014",
+   "questionText": "What does FOMO stand for?",
+   "difficulty": "easy",
+   "answers": [
+    "Fear of missing out",
+    "Friends of my office",
+    "Full of my own",
+    "Feeling okay, moving on"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mem-015",
+   "questionText": "What does IRL stand for?",
+   "difficulty": "easy",
+   "answers": [
+    "In real life",
+    "Internet relay link",
+    "I really laughed",
+    "In reply later"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mem-016",
+   "questionText": "What instrument does Bongo Cat play?",
+   "difficulty": "easy",
+   "answers": [
+    "Violin",
+    "Piano",
+    "Trumpet",
+    "Bongos"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mem-017",
+   "questionText": "In the Two Buttons meme, what is the man doing?",
+   "difficulty": "easy",
+   "answers": [
+    "Dancing",
+    "Laughing",
+    "Sweating over a choice",
+    "Sleeping"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mem-018",
+   "questionText": "Nyan Cat's body is made of what?",
+   "difficulty": "normal",
+   "answers": [
+    "A Pop-Tart",
+    "A waffle",
+    "A cookie",
+    "A slice of pizza"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mem-019",
+   "questionText": "How many people appear in the Distracted Boyfriend meme?",
+   "difficulty": "normal",
+   "answers": [
+    "2",
+    "3",
+    "4",
+    "5"
+   ],
+   "correctAnswerIndex": 1,
+   "keepOrder": true
+  },
+  {
+   "id": "mem-020",
+   "questionText": "Which rapper stars in the meme of a man rejecting one thing and approving another?",
+   "difficulty": "normal",
+   "answers": [
+    "The Weeknd",
+    "Drake",
+    "Justin Bieber",
+    "Kanye West"
+   ],
+   "correctAnswerIndex": 1,
+   "optionalExplanation": "The pictures come from the 'Hotline Bling' music video."
+  },
+  {
+   "id": "mem-021",
+   "questionText": "What breed of dog is Cheems?",
+   "difficulty": "normal",
+   "answers": [
+    "Pomeranian",
+    "Shiba Inu",
+    "Corgi",
+    "Chihuahua"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "mem-022",
+   "questionText": "The Leeroy Jenkins meme came from which game?",
+   "difficulty": "normal",
+   "answers": [
+    "Halo",
+    "World of Warcraft",
+    "EverQuest",
+    "Counter-Strike"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "mem-023",
+   "questionText": "The Ice Bucket Challenge raised money for research into which disease?",
+   "difficulty": "normal",
+   "answers": [
+    "Diabetes",
+    "ALS",
+    "Asthma",
+    "Malaria"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "mem-024",
+   "questionText": "Which was the first YouTube video to reach one billion views?",
+   "difficulty": "normal",
+   "answers": [
+    "Despacito",
+    "Baby",
+    "Gangnam Style",
+    "Charlie Bit My Finger"
+   ],
+   "correctAnswerIndex": 2
+  },
+  {
+   "id": "mem-025",
+   "questionText": "Which video overtook 'Despacito' in 2020 to become YouTube's most-viewed?",
+   "difficulty": "normal",
+   "answers": [
+    "Gangnam Style",
+    "Shape of You",
+    "See You Again",
+    "Baby Shark Dance"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mem-026",
+   "questionText": "Which internet challenge had people freezing in place like statues?",
+   "difficulty": "normal",
+   "answers": [
+    "Mannequin Challenge",
+    "Planking",
+    "Ice Bucket Challenge",
+    "Harlem Shake"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mem-027",
+   "questionText": "What is the name of the stock-photo man in the Hide the Pain meme?",
+   "difficulty": "normal",
+   "answers": [
+    "Gerald",
+    "Howard",
+    "Henry",
+    "Harold"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mem-028",
+   "questionText": "Which film does 'One does not simply walk into Mordor' come from?",
+   "difficulty": "normal",
+   "answers": [
+    "The Fellowship of the Ring",
+    "The Hobbit",
+    "The Two Towers",
+    "The Return of the King"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mem-029",
+   "questionText": "The meme 'It's over 9000!' comes from which anime?",
+   "difficulty": "normal",
+   "answers": [
+    "Dragon Ball Z",
+    "One Piece",
+    "Naruto",
+    "Pokémon"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mem-030",
+   "questionText": "Which dance move involves dropping your head into your bent elbow?",
+   "difficulty": "normal",
+   "answers": [
+    "The Floss",
+    "The Nae Nae",
+    "The Whip",
+    "The Dab"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mem-031",
+   "questionText": "Which dance, popular in Fortnite, swings your arms back and forth around your hips?",
+   "difficulty": "normal",
+   "answers": [
+    "The Floss",
+    "The Dab",
+    "The Worm",
+    "The Robot"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mem-032",
+   "questionText": "Ermahgerd is a funny way of saying what?",
+   "difficulty": "normal",
+   "answers": [
+    "Hamburger",
+    "Oh my god",
+    "Good morning",
+    "Excuse me"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "mem-033",
+   "questionText": "The pallbearers of the Coffin Dance meme come from which country?",
+   "difficulty": "normal",
+   "answers": [
+    "Nigeria",
+    "Ghana",
+    "Kenya",
+    "South Africa"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "mem-034",
+   "questionText": "The phrase 'All your base are belong to us' comes from which video game?",
+   "difficulty": "hard",
+   "answers": [
+    "Street Fighter II",
+    "Zero Wing",
+    "Contra",
+    "Final Fantasy"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "mem-035",
+   "questionText": "In which year did the Harlem Shake meme go viral?",
+   "difficulty": "hard",
+   "answers": [
+    "2011",
+    "2013",
+    "2015",
+    "2017"
+   ],
+   "correctAnswerIndex": 1,
+   "keepOrder": true
+  },
+  {
+   "id": "mem-036",
+   "questionText": "What is the name of the cat in the Woman Yelling at a Cat meme?",
+   "difficulty": "hard",
+   "answers": [
+    "Smudge",
+    "Mittens",
+    "Garfield",
+    "Tom"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mem-037",
+   "questionText": "In which program was the Trollface originally drawn?",
+   "difficulty": "hard",
+   "answers": [
+    "Photoshop",
+    "Illustrator",
+    "GIMP",
+    "MS Paint"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mem-038",
+   "questionText": "What is Success Kid clenching in his fist?",
+   "difficulty": "hard",
+   "answers": [
+    "A toy car",
+    "Sand",
+    "Grass",
+    "Candy"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "mem-039",
+   "questionText": "What was Grumpy Cat's real name?",
+   "difficulty": "hard",
+   "answers": [
+    "Garfield",
+    "Mr. Grumps",
+    "Whiskers",
+    "Tardar Sauce"
+   ],
+   "correctAnswerIndex": 3
+  },
+  {
+   "id": "mem-040",
+   "questionText": "What kind of photo is the Bad Luck Brian meme?",
+   "difficulty": "hard",
+   "answers": [
+    "A selfie",
+    "A school photo",
+    "A passport photo",
+    "A wedding photo"
+   ],
+   "correctAnswerIndex": 1
+  },
+  {
+   "id": "mem-041",
+   "questionText": "The Loss meme comes from which webcomic?",
+   "difficulty": "hard",
+   "answers": [
+    "Ctrl+Alt+Del",
+    "xkcd",
+    "The Oatmeal",
+    "Penny Arcade"
+   ],
+   "correctAnswerIndex": 0
+  },
+  {
+   "id": "mem-042",
+   "questionText": "Which animal is the Dramatic Chipmunk really?",
+   "difficulty": "hard",
+   "answers": [
+    "A squirrel",
+    "A chipmunk",
+    "A hamster",
+    "A prairie dog"
+   ],
+   "correctAnswerIndex": 3
+  }
+ ]
+}
