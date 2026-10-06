@@ -8,8 +8,12 @@ import { themeFor } from './world.js';
 import { fmt, pad2, TAU } from './util.js';
 import { toWorld } from './rooms.js';
 import * as THREE from '../lib/three.module.min.js';
+import { installScreens, xicon } from './screens.js';
+import { WEAPONS } from './weapons.js';
+import { ABILITY_BY_ID } from './abilities.js';
 
 const $ = (s, el = document) => el.querySelector(s);
+import { rewardLabel as rewardLabelFor } from './abilities.js';
 const BACK = '<svg viewBox="0 0 24 24"><path d="M15 5 L8 12 L15 19"/></svg>';
 const hex = n => '#' + n.toString(16).padStart(6, '0');
 
@@ -63,8 +67,7 @@ export class UI {
     $('.m-level').textContent = 'LV ' + lv.level;
     $('.xpbar i', $('#menu')).style.width = (lv.into / lv.need * 100) + '%';
     $('.m-hint').innerHTML = input.touchMode ? '' : 'WASD move &nbsp;·&nbsp; mouse aim &nbsp;·&nbsp; click attack &nbsp;·&nbsp; space dash';
-    $('[data-act=upgrades]').classList.toggle('has-dot', this.canAffordPerm());
-    $('[data-act=skins]').classList.toggle('has-dot', this.canAffordSkin());
+    $('[data-act=shop]').classList.toggle('has-dot', this.canAffordPerm() || this.canAffordSkin());
     this.show('menu');
     this.setMenuFocus(0);
     this.game.player && (this.game.player.face = 0.5);
@@ -110,7 +113,7 @@ export class UI {
       if (k === 'ArrowDown' || k === 'KeyS') { this.setMenuFocus(this.focusIdx + 1); audio.play('hover'); }
       else if (k === 'ArrowUp' || k === 'KeyW') { this.setMenuFocus(this.focusIdx - 1); audio.play('hover'); }
       else if (k === 'Enter' || k === 'Space') { const items = document.querySelectorAll('#menu .mi'); this.menuAction(items[this.focusIdx].dataset.act); }
-    } else if (['upgrades', 'skins', 'settings'].includes(this.screen)) {
+    } else if (['upgrades', 'skins', 'settings', 'shop', 'mastery', 'register'].includes(this.screen)) {
       if (k === 'Escape' || k === 'Backspace') this.back();
     } else if (this.screen === 'cards') {
       if (k === 'Digit1' || k === 'Numpad1') this.pickCard(0);
@@ -131,7 +134,7 @@ export class UI {
   back() {
     audio.play('back');
     if (this.screen === 'settings' && this.prevScreen === 'pause') { this.show('pause'); return; }
-    if (this.screen === 'upgrades' && this.prevScreen === 'results') { this.show('results'); this.refreshResultsDots(); return; }
+    if ((this.screen === 'shop' || this.screen === 'upgrades') && this.prevScreen === 'results') { this.show('results'); this.refreshResultsDots(); return; }
     this.showMenu();
   }
 
@@ -172,8 +175,7 @@ export class UI {
     d.coins -= cost; d.perm[id]++;
     save.write();
     audio.play('buy');
-    const prev = this.prevScreen;
-    this.showUpgrades(); this.prevScreen = prev;
+    this.showShop('upgrades');
     const row = $(`[data-row=${id}]`);
     row.animate([{ background: 'rgba(242,178,74,.16)' }, { background: 'transparent' }], { duration: 500 });
   }
@@ -295,6 +297,7 @@ export class UI {
   }
 
   updateHUD(game) {
+    this.updatePowerHud(game);
     if (game.mode !== 'run' || !game.player) return;
     const p = game.player, el = this.el, L = this._last;
     const hpK = Math.max(0, p.hp) / p.maxHp;
@@ -482,7 +485,10 @@ export class UI {
     const d = save.data;
     const notes = [];
     if (r.newBest && r.prevBest > 0) notes.push(`<span class="hl">New best: floor ${r.floor} (was ${r.prevBest})</span>`);
-    if (r.lvAfter.level > r.lvBefore.level) notes.push(`<span class="hl">Level up: you are now level ${r.lvAfter.level}</span>`);
+    if (r.lvAfter.level > r.lvBefore.level) {
+      notes.push(`<span class="hl">Level up: you are now level ${r.lvAfter.level}</span>`);
+      for (const w of WEAPONS) if (w.level > r.lvBefore.level && w.level <= r.lvAfter.level) notes.push(`<span class="hl">New weapon in the shop: ${w.name}</span>`);
+    }
     for (const s of r.skins) notes.push(`<span class="hl">New skin unlocked: ${s.name}</span>`);
     for (const n of this.notes) notes.push(`<span class="hl">${n}</span>`);
     if (r.discoveries) notes.push(`${r.discoveries} new upgrade${r.discoveries > 1 ? 's' : ''} discovered`);
@@ -501,16 +507,17 @@ export class UI {
         <div><small>XP</small><b data-count="${r.xp}" data-prefix="+">0</b></div>
       </div>
       <div class="res-xp"><span>LV ${r.lvAfter.level}</span><div class="xpbar"><i style="width:${r.lvAfter.level > r.lvBefore.level ? 0 : r.lvBefore.into / r.lvBefore.need * 100}%"></i></div><span style="color:var(--muted)">${fmt(d.coins)} <i class="coin-ico" style="width:11px;height:11px;vertical-align:-1px"></i></span></div>
+      ${r.mastery ? (() => { const a = ABILITY_BY_ID[r.mastery.id], m = r.mastery; return `<div class="res-mastery" style="--pc:${a.css}"><span class="rm-ico">${xicon(a.icon)}</span><div class="rm-main"><b>${a.name} <em>LV ${m.after.level}</em>${m.rewards.length ? '<span class="rm-up">LEVEL UP</span>' : ''}</b><div class="xpbar"><i data-w="${m.after.need ? m.after.into / m.after.need * 100 : 100}" style="width:${m.rewards.length ? 0 : (m.before.need ? m.before.into / m.before.need * 100 : 100)}%"></i></div></div><span class="rm-xp">+${fmt(r.xp)} XP</span></div>${m.rewards.length ? `<div class="rm-rewards">${m.rewards.map((l, i) => `<span style="animation-delay:${0.9 + i * 0.15}s">LV ${l} · ${rewardLabelFor(a, l)}</span>`).join('')}</div>` : ''}`; })() : ''}
       <div class="res-notes">${notes.map(n => `<div>${n}</div>`).join('')}</div>
       <div class="res-btns">
         <button class="btn primary" data-again>PLAY AGAIN</button>
-        <button class="btn ${this.canAffordPerm() ? 'has-dot' : ''}" data-up>UPGRADES</button>
+        <button class="btn ${this.canAffordPerm() ? 'has-dot' : ''}" data-up>SHOP</button>
         <button class="btn ghost" data-menu>MENU</button>
       </div>
       <div class="res-hint">Space / Enter to play again</div>
     </div>`;
     $('[data-again]', el).addEventListener('click', () => this.playAgain());
-    $('[data-up]', el).addEventListener('click', () => { audio.play('click'); this.showUpgrades(true); });
+    $('[data-up]', el).addEventListener('click', () => { audio.play('click'); this.prevScreen = 'results'; this.screen = 'results'; this.showShop('upgrades'); });
     $('[data-menu]', el).addEventListener('click', () => { audio.play('back'); game.enterMenu(); this.showMenu(); });
     this.show('results');
     this.hud.classList.remove('on');
@@ -525,7 +532,11 @@ export class UI {
       if (k < 1) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
-    setTimeout(() => { const bar = $('.res-xp .xpbar i', el); if (bar) bar.style.width = (r.lvAfter.into / r.lvAfter.need * 100) + '%'; }, 50);
+    setTimeout(() => {
+      const bar = $('.res-xp .xpbar i', el); if (bar) bar.style.width = (r.lvAfter.into / r.lvAfter.need * 100) + '%';
+      const mb = $('.res-mastery .xpbar i', el); if (mb) mb.style.width = mb.dataset.w + '%';
+    }, 50);
+    if (r.mastery && r.mastery.rewards.length) setTimeout(() => audio.play('levelUp'), 900);
   }
 
   refreshResultsDots() { const b = $('#results [data-up]'); if (b) b.classList.toggle('has-dot', this.canAffordPerm()); }
@@ -587,6 +598,7 @@ export class UI {
       document.body.classList.add('dialog-open');
       $('.dlg-choices', el).innerHTML = '';
       audio.play('dialogOpen');
+      this.mountOperator($('.dlg-portrait .op-view', el));
       this.dialogNext();
     });
   }
@@ -685,3 +697,5 @@ export class UI {
     ctx.restore();
   }
 }
+
+installScreens(UI);

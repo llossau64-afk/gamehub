@@ -269,6 +269,37 @@ class AudioEngine {
         this.noiseHit(t, 0.08, 0.15, 'highpass', 2500);
         this.osc('square', 900, t, 0.05, 0.03, null, { to: 300 });
         break;
+      case 'fireCast':
+        this.noiseHit(t, 0.35, 0.35, 'bandpass', 900, null, { cutoffTo: 2600, q: 0.8 });
+        this.osc('sawtooth', 120, t, 0.3, 0.12, null, { to: 260, filter: 'lowpass', cutoff: 900 });
+        break;
+      case 'thunder':
+        this.noiseHit(t, 0.08, 0.5, 'highpass', 3000);
+        this.noiseHit(t + 0.02, 0.9, 0.45, 'lowpass', 1400, null, { cutoffTo: 90, send: 0.6 });
+        this.osc('sine', 70, t, 0.6, 0.6, null, { to: 30 });
+        for (let i = 0; i < 4; i++) this.osc('square', 1400 + Math.random() * 2000, t + i * 0.02, 0.04, 0.05, null, { filter: 'highpass', cutoff: 1200 });
+        break;
+      case 'earthCast':
+        this.noiseHit(t, 0.4, 0.4, 'lowpass', 700, null, { cutoffTo: 200 });
+        this.osc('sine', 90, t, 0.35, 0.5, null, { to: 50 });
+        break;
+      case 'frostCast':
+        this.noiseHit(t, 0.6, 0.25, 'highpass', 5000, null, { send: 0.6 });
+        [0, 5, 12].forEach((n, i) => this.osc('sine', NOTE(86 + n), t + i * 0.04, 0.6, 0.05, null, { send: 0.8 }));
+        break;
+      case 'windCast':
+        this.noiseHit(t, 0.35, 0.3, 'bandpass', 1500, null, { cutoffTo: 5000, q: 3 });
+        this.noiseHit(t + 0.06, 0.3, 0.2, 'bandpass', 2500, null, { cutoffTo: 7000, q: 3 });
+        break;
+      case 'levelUp':
+        [0, 4, 7, 12, 16].forEach((n, i) => this.osc('square', NOTE(72 + n), t + i * 0.06, 0.25, 0.05, null, { filter: 'lowpass', cutoff: 5000 }));
+        [0, 7, 12].forEach((n, i) => this.osc('triangle', NOTE(60 + n), t + 0.3, 0.9, 0.08, null, { send: 0.7 }));
+        break;
+      case 'ride':
+        this.osc('sawtooth', 45, t, 1.1, 0.06, null, { filter: 'lowpass', cutoff: 220, attack: 0.2 });
+        this.noiseHit(t, 1.0, 0.07, 'lowpass', 500, null, { attack: 0.25 });
+        this.osc('sine', NOTE(88), t + 0.85, 0.8, 0.1, null, { send: 0.6 });
+        break;
       case 'talk': // intercom voice blip
         this.osc('square', 300 + Math.random() * 140, t, 0.045, 0.035, null, { filter: 'bandpass', cutoff: 1400, q: 2 });
         break;

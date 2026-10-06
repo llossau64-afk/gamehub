@@ -18,6 +18,11 @@ const DEFAULTS = () => ({
   discovered: [],
   tutorialDone: false,
   seenBoss: {},
+  weapons: ['stick'],
+  weapon: 'stick',
+  abilities: {},
+  ability: null,
+  bestiary: {},
   settings: { master: 0.8, music: 0.6, sfx: 0.9, shake: 1, numbers: true, quality: 'auto' },
 });
 
@@ -50,9 +55,10 @@ export const save = {
   },
 };
 
-// XP curve: level n needs 120 * n^1.35 xp to reach n+1.
+// Player level: level n needs 100 + 60*(n-1) xp to reach n+1. Weapons in the shop are gated by it.
+export const levelNeed = n => 100 + 60 * (n - 1);
 export function levelFromXp(xp) {
-  let level = 1, need = 120;
-  while (xp >= need) { xp -= need; level++; need = Math.round(120 * Math.pow(level, 1.35)); }
-  return { level, into: xp, need };
+  let level = 1;
+  while (xp >= levelNeed(level)) { xp -= levelNeed(level); level++; }
+  return { level, into: xp, need: levelNeed(level) };
 }

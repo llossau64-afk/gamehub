@@ -8,6 +8,7 @@ export const input = {
   attackHeld: false,
   attackPressed: false,     // edge, consumed per frame
   dashPressed: false,
+  abilityPressed: false,
   pausePressed: false,
   confirmPressed: false,
   anyPressed: false,
@@ -33,6 +34,7 @@ export function initInput(canvas, ui) {
       input.lastDevice = 'keyboard';
       if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight' || code === 'KeyK') input.dashPressed = true;
       if (code === 'KeyJ') input.attackPressed = true;
+      if (code === 'KeyQ' || code === 'KeyE' || code === 'KeyL') input.abilityPressed = true;
       if (code === 'Escape' || code === 'KeyP') input.pausePressed = true;
       if (code === 'Enter' || code === 'NumpadEnter') input.confirmPressed = true;
     } else k.delete(code);
@@ -52,7 +54,7 @@ export function initInput(canvas, ui) {
     input.aimScreen = { x: e.clientX, y: e.clientY };
     input.mouseActive = true;
     if (e.button === 0) { input.attackHeld = true; input.attackPressed = true; }
-    if (e.button === 2) input.dashPressed = true;
+    if (e.button === 2) input.abilityPressed = true;
   });
   window.addEventListener('mouseup', e => { if (e.button === 0) input.attackHeld = false; });
   canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -62,6 +64,7 @@ export function initInput(canvas, ui) {
   joy.knob = document.getElementById('joy-knob');
   btn.attack = document.getElementById('btn-attack');
   btn.dash = document.getElementById('btn-dash');
+  btn.skill = document.getElementById('btn-skill');
 
   const touchZone = document.getElementById('touch-zone');
   touchZone.addEventListener('touchstart', e => {
@@ -116,6 +119,7 @@ export function initInput(canvas, ui) {
   };
   press(btn.attack, () => { input.attackHeld = true; input.attackPressed = true; }, () => { input.attackHeld = false; });
   press(btn.dash, () => { input.dashPressed = true; });
+  press(btn.skill, () => { input.abilityPressed = true; });
 
   // Block page gestures (pinch, double-tap zoom, pull to refresh) during play.
   document.addEventListener('gesturestart', e => e.preventDefault());
@@ -162,6 +166,7 @@ export function pollInput() {
     if (attack && !input._gpAttack) input.attackPressed = true;
     input._gpAttack = attack;
     if (edge(1) || edge(5) || edge(6)) input.dashPressed = true;
+    if (edge(3) || edge(4)) input.abilityPressed = true;
     if (edge(9)) input.pausePressed = true;
     if (edge(0)) input.confirmPressed = true;
     if (attack || Math.hypot(ax, az) > 0.22) input.anyPressed = input.anyPressed || attack;
@@ -178,6 +183,7 @@ export function wantsAttack() { return input.attackHeld || input.attackHeldKey |
 export function endFrame() {
   input.attackPressed = false;
   input.dashPressed = false;
+  input.abilityPressed = false;
   input.pausePressed = false;
   input.confirmPressed = false;
   input.anyPressed = false;

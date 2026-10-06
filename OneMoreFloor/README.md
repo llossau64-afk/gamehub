@@ -23,10 +23,20 @@ To deploy (itch.io, CrazyGames, GitHub Pages, any static host), upload the `OneM
 | Move | WASD / arrows | Floating joystick (left half) | Left stick |
 | Aim | Mouse | Auto-aim | Right stick (or auto-aim) |
 | Attack | Left mouse (hold) / J | ATTACK button (hold) | X / RT / A |
-| Dash | Space / Shift / right mouse / K | DASH button | B / RB |
+| Dash | Space / Shift / K | DASH button | B / RB |
+| Power | Q / E / right mouse | Power button | Y / LB |
 | Pause | Esc / P | Pause button | Start |
 
 On the upgrade screen use 1/2/3 (or arrows + Enter) and R to reroll. On the results screen, Space/Enter starts the next run immediately.
+
+## What's new in v3
+
+- **Powers + mastery pass:** after the tutorial you pick Fireball, Lightning Strike or Earth Throw (Frost Nova and Wind Blades are in the shop). Each power has a 20-level mastery pass that every run fills up: damage, cooldown, coins, five big perks and an exclusive skin at level 20. Cast with Q / E / right mouse / the power button on touch.
+- **Weapons:** you start with a weak Training Stick. Spiked Club (level 4), Rusty Sword (9), Broken Steel Sword (20), Steel Longsword (30), Ember Blade (40) and Crown Edge (50) are bought in the shop once your player level is high enough.
+- **Shop:** upgrades, weapons, powers and 13 skins, all with a rotatable 3D preview before you buy.
+- **Register:** every monster and boss with a 3D model, lore and how many you have defeated. Unseen ones stay silhouettes.
+- **Argus:** the tower's armoured overseer speaks to you through the intercom, shown live in 3D next to his lines.
+- **Pacing:** upgrade cards now come every 5 floors; the floors in between end with a short lift ride. Enemy strength is unchanged.
 
 ## What's in it
 

@@ -46,6 +46,7 @@ async function boot() {
     world.render();
     fx.drawNumbers(game.paused ? 0 : dt, world.camera);
     ui.drawIndicators(game);
+    ui.renderPreviews(raw > 0.1 ? 0.016 : raw);
     ui.updateHUD(game);
     world.perfSample(raw);
     endFrame();

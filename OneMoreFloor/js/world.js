@@ -112,6 +112,17 @@ export class World {
     const orbitGeo = new THREE.OctahedronGeometry(0.22, 0); orbitGeo.scale(0.5, 0.4, 1.6);
     this.orbitMat = new THREE.MeshBasicMaterial({ color: 0xffe2a8 });
     this.orbits = add(new Batch(orbitGeo, this.orbitMat, 12));
+    // Powers: fireballs, boulders, wind blades and scorch marks.
+    const fbGeo = new THREE.IcosahedronGeometry(0.26, 1);
+    this.fireCore = add(new Batch(fbGeo, new THREE.MeshBasicMaterial({ color: 0xffe0a0 }), 60));
+    this.fireGlow = add(new Batch(fbGeo, new THREE.MeshBasicMaterial({ color: 0xff6a1a, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }), 60));
+    this.rocks = add(new Batch(new THREE.DodecahedronGeometry(0.42, 0), lambert(0x8a7258), 60));
+    this.winds = add(new Batch(cresGeo, new THREE.MeshBasicMaterial({ color: 0xc8ffd8, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), 80));
+    const scGeo = new THREE.CircleGeometry(0.5, 14); scGeo.rotateX(-Math.PI / 2);
+    this.scorch = add(new Batch(scGeo, new THREE.MeshBasicMaterial({ map: radialTexture('rgba(0,0,0,0.75)'), transparent: true, depthWrite: false }), 40, true));
+    this.scorch.mesh.renderOrder = -1;
+    const fzGeo = new THREE.CircleGeometry(0.5, 20); fzGeo.rotateX(-Math.PI / 2);
+    this.zones = add(new Batch(fzGeo, new THREE.MeshBasicMaterial({ map: radialTexture('rgba(255,255,255,1)'), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }), 30, true));
     const droneGeo = new THREE.OctahedronGeometry(0.2, 0);
     this.drones = add(new Batch(droneGeo, lambert(0xe9e2d4, { emissive: 0xf2b24a, emissiveIntensity: 0.35 }), 8));
 

@@ -44,6 +44,7 @@
     <button id="pause-btn" class="icon-btn" aria-label="Pause"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
   </div>
   <div class="hud-bl build"></div>
+  <div id="power-slot"><div class="ps-ico"></div><div class="ps-cd"></div><span class="ps-key">Q</span><span class="ps-lv"></span></div>
 </div>
 
 <!-- Touch controls -->
@@ -51,6 +52,7 @@
 <div id="joy"><div id="joy-knob"></div></div>
 <div id="touch-btns">
   <button id="btn-dash" aria-label="Dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8 H13 L10 5 M13 8 L10 11"/><path d="M9 16 H20 L17 13 M20 16 L17 19"/></svg><span>DASH</span></button>
+  <button id="btn-skill" aria-label="Power"><span class="ps-ico"></span><span class="ps-cd"></span></button>
   <button id="btn-attack" aria-label="Attack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19 L16 8 M14 5 L19 10 M8 13 L11 16 M4 20 L6 18"/></svg></button>
 </div>
 
@@ -63,8 +65,9 @@
     </div>
     <nav class="menu-list">
       <button data-act="play" class="mi mi-play">PLAY</button>
-      <button data-act="upgrades" class="mi">UPGRADES<i class="dot"></i></button>
-      <button data-act="skins" class="mi">SKINS<i class="dot"></i></button>
+      <button data-act="shop" class="mi">SHOP<i class="dot"></i></button>
+      <button data-act="mastery" class="mi">MASTERY</button>
+      <button data-act="register" class="mi">REGISTER</button>
       <button data-act="settings" class="mi">SETTINGS</button>
     </nav>
   </div>
@@ -76,6 +79,10 @@
 </section>
 
 <section id="upgrades" class="screen panel-screen"></section>
+<section id="shop" class="screen panel-screen"></section>
+<section id="mastery" class="screen panel-screen"></section>
+<section id="register" class="screen panel-screen"></section>
+<section id="choice" class="screen"></section>
 <section id="skins" class="screen panel-screen"></section>
 <section id="settings" class="screen panel-screen"></section>
 <section id="cards" class="screen"></section>
@@ -85,15 +92,17 @@
 <!-- Intercom dialog -->
 <div id="dialog" role="dialog" aria-live="polite">
   <div class="dlg">
-    <div class="dlg-portrait" aria-hidden="true"><div class="grille"></div><div class="wave"><i></i><i></i><i></i><i></i><i></i></div><div class="led"></div></div>
+    <div class="dlg-portrait" aria-hidden="true"><div class="op-view"></div><div class="scan"></div><div class="wave"><i></i><i></i><i></i><i></i><i></i></div><div class="led"></div></div>
     <div class="dlg-main">
-      <div class="dlg-name">OPERATOR <span>· INTERCOM</span></div>
+      <div class="dlg-name">ARGUS <span>· OVERSEER OF THE TOWER</span></div>
       <p class="dlg-text"></p>
       <div class="dlg-foot"><div class="dlg-choices"></div><span class="dlg-next">CONTINUE <b>▸</b></span></div>
     </div>
   </div>
 </div>
 
+<div id="ride"></div>
+<div id="flash"></div>
 <div id="banner"><div class="b-main"></div><div class="b-sub"></div></div>
 <div id="toasts"></div>
 <div id="boot"><div class="boot-title">ONE MORE FLOOR</div><div class="boot-bar"><i></i></div></div>

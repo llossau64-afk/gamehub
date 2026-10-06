@@ -89,21 +89,22 @@ export const UPGRADES = [
 ];
 export const UPGRADE_BY_ID = Object.fromEntries(UPGRADES.map(u => [u.id, u]));
 
-export function baseStats(perm) {
+export function baseStats(perm, w = { dmg: 6, rate: 2.5, range: 2.05, kb: 0.8 }) {
   return {
-    damage: 10 * (1 + 0.08 * perm.power),
+    damage: w.dmg * (1 + 0.08 * perm.power),
     damageMul: 1,
-    attackRate: 2.7,
-    range: 2.35,
+    attackRate: w.rate,
+    range: w.range,
+    burnHits: !!w.burn,
     arc: Math.PI * 0.72,
     moveSpeed: 6.4,
     maxHp: 20 + 4 * perm.vitality,
     maxHpMul: 1,
     dashCharges: 1,
     dashCooldown: 1.0 * (1 - 0.08 * perm.reflex),
-    critChance: 0.05,
+    critChance: 0.05 + (w.crit || 0),
     critMult: 2,
-    knockback: 1,
+    knockback: w.kb || 1,
     pickup: 2.3,
     coinMul: 1 + 0.12 * perm.greed,
     waves: 0, bounce: 0, pierce: 0, explode: 0, corpse: 0, drones: 0, orbit: 0, lifesteal: 0,

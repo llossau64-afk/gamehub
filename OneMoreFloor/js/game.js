@@ -10,6 +10,8 @@ import { audio } from './audio.js';
 import { save, levelFromXp } from './save.js';
 import { themeFor } from './world.js';
 import { createBoss, updateBoss, BOSS_INFO } from './boss.js';
+import { WEAPON_BY_ID } from './weapons.js';
+import { ABILITY_BY_ID, abilityPower, masteryFromXp, TRACK } from './abilities.js';
 
 // Enemy archetypes. hp/speed are scaled per floor; dmg is what they deal to the player.
 const ETYPES = {
@@ -55,13 +57,23 @@ export class Game {
   buildPlayerModel() {
     const skin = SKINS.find(s => s.id === save.data.skin) || SKINS[0];
     if (this.pm) this.world.dynamic.remove(this.pm.root);
-    this.pm = buildPlayer(skin);
+    this.pm = buildPlayer(skin, save.data.weapon);
     this.skin = skin;
-    this.trailColor = new THREE.Color(skin.c.trail);
+    const wpn = WEAPON_BY_ID[save.data.weapon];
+    this.trailColor = new THREE.Color(wpn && wpn.trail ? wpn.trail : skin.c.trail);
     this.world.waveMat.color.set(skin.c.blade).lerp(new THREE.Color(skin.c.trail), 0.4);
     this.world.orbitMat.color.set(skin.c.blade);
     this.world.dynamic.add(this.pm.root);
     this.world.playerLight.material.color.copy(this.trailColor).multiplyScalar(0.2);
+  }
+
+  weapon() { return WEAPON_BY_ID[save.data.weapon] || WEAPON_BY_ID.stick; }
+
+  // The equipped power at its current mastery level (null until one is chosen).
+  power() {
+    const d = save.data;
+    if (!d.ability || !d.abilities[d.ability]) return null;
+    return abilityPower(d.ability, masteryFromXp(d.abilities[d.ability].xp).level);
   }
 
   later(delay, fn) { this.timers.push({ t: this.time + delay, fn }); }
@@ -102,14 +114,210 @@ export class Game {
       startTime: performance.now(), swings: 0, hurtThisFloor: false, newDiscoveries: 0, tutorial: !!opts.tutorial,
     };
     this.tut = null; this.holdWaves = false;
-    this.stats = baseStats(d.perm);
+    this.stats = baseStats(d.perm, this.weapon());
     this.player = this.makePlayerState(0, 0);
     this.player.maxHp = this.stats.maxHp; this.player.hp = this.player.maxHp;
+    this.run.power = opts.tutorial ? null : this.power();
+    this.player.abilityCd = 0.5;
+    this.zones = []; this.scorches = [];
     this.player.dashCharges = this.stats.dashCharges;
     if (!opts.tutorial) d.runs++;
     save.write();
     this.ui.onRunStart(this);
     if (opts.tutorial) this.enterTutorial(); else this.nextFloor();
+  }
+
+  // ------------------------------------------------------------------ register
+  registerSeen(id) {
+    const b = save.data.bestiary;
+    if (!b[id]) { b[id] = { seen: true, kills: 0 }; if (this.mode === 'run') this.ui.toast('NEW REGISTER ENTRY', REG_NAMES[id] || id); }
+  }
+  registerKill(id) {
+    const b = save.data.bestiary;
+    if (!b[id]) b[id] = { seen: true, kills: 0 };
+    b[id].kills++;
+  }
+
+  chooseAbility(id) {
+    const d = save.data;
+    d.ability = id;
+    if (!d.abilities[id]) d.abilities[id] = { xp: 0, claimed: 1 };
+    save.write();
+    if (this.run) this.run.power = this.power();
+  }
+
+  // ------------------------------------------------------------------ powers
+  powerTarget(range) {
+    const p = this.player;
+    let best = null, bd = range * range;
+    const aimA = this.aimAngle();
+    for (const e of this.enemies) {
+      if (e.dead || e.state === 'spawn' || e.decor) continue;
+      const d2 = dist2(e.x, e.z, p.x, p.z);
+      const off = Math.abs(angleDiff(aimA, Math.atan2(e.x - p.x, e.z - p.z)));
+      const score = d2 * (1 + off * 0.6);
+      if (score < bd) { bd = score; best = e; }
+    }
+    const b = this.boss;
+    if (b && b.active && !b.dead && dist2(b.x, b.z, p.x, p.z) < range * range && (!best || dist2(b.x, b.z, p.x, p.z) < dist2(best.x, best.z, p.x, p.z))) best = b;
+    return { target: best, aim: aimA };
+  }
+
+  powerDmg(pw) { return pw.dmg * (1 + 0.08 * save.data.perm.power) * this.stats.damageMul; }
+
+  castPower() {
+    const pw = this.run.power, p = this.player, a = pw.a, has = pw.has;
+    p.abilityCd = pw.cd;
+    p.castT = 0.25;
+    const dmg = this.powerDmg(pw);
+    const { target, aim } = this.powerTarget(10);
+    const ang = target ? Math.atan2(target.x - p.x, target.z - p.z) : aim;
+    p.face = ang; p.aim = ang;
+    const col = new THREE.Color(a.color);
+    this.fx.ring(p.x, p.z, a.color, 0.3, 1.6, 0.3);
+    this.fx.burst(p.x, 0.8, p.z, 10, a.color, { speed: 4, up: 3, life: 0.35, size: 0.12 });
+    if (a.id === 'fire') {
+      const n = has(20) ? 3 : has(10) ? 2 : 1;
+      for (let k = 0; k < n; k++) {
+        const an = ang + (k - (n - 1) / 2) * 0.22;
+        this.projs.push({ kind: 'fireball', x: p.x + Math.sin(an) * 0.6, z: p.z + Math.cos(an) * 0.6, angle: an, vx: Math.sin(an) * 13, vz: Math.cos(an) * 13, speed: 13, dmg,
+          life: 1.1, r: has(20) ? 0.42 : 0.3, pierce: 0, bounce: 0, hit: new Set(), split: false, age: 0, power: pw, big: has(20) });
+      }
+      audio.play('fireCast');
+    } else if (a.id === 'lightning') {
+      const strikes = has(20) ? 5 : has(10) ? 2 : 1;
+      const used = new Set();
+      for (let k = 0; k < strikes; k++) {
+        this.later(k * 0.12, () => {
+          let t = k === 0 ? target : null;
+          if (!t) { let bd = 81; for (const e of this.enemies) { if (e.dead || e.state === 'spawn' || e.decor || used.has(e)) continue; const d2 = dist2(e.x, e.z, p.x, p.z); if (d2 < bd) { bd = d2; t = e; } } }
+          if (t) used.add(t);
+          const tx = t ? t.x : p.x + Math.sin(ang) * 4, tz = t ? t.z : p.z + Math.cos(ang) * 4;
+          this.lightningStrike(tx, tz, t, dmg, pw);
+        });
+      }
+    } else if (a.id === 'earth') {
+      const tx = target ? target.x : p.x + Math.sin(ang) * 6, tz = target ? target.z : p.z + Math.cos(ang) * 6;
+      const flight = has(14) ? 0.42 : 0.58;
+      this.projs.push({ kind: 'boulder', x: p.x, z: p.z, sx: p.x, sz: p.z, tx, tz, t: 0, flight, angle: ang, vx: 0, vz: 0, dmg: dmg * (has(14) ? 1.3 : 1) * (has(20) ? 2 : 1),
+        life: 99, r: 0.4, hit: new Set(), age: 0, power: pw, big: has(20), pierce: 0, bounce: 0 });
+      this.fx.burst(p.x, 0.1, p.z, 12, 0x9a8a72, { speed: 4, up: 5, life: 0.6, size: 0.16, debris: true });
+      audio.play('earthCast');
+    } else if (a.id === 'frost') {
+      const nova = (delay) => this.later(delay, () => {
+        const R = 3 * (has(7) ? 1.4 : 1) * (has(20) ? 1.5 : 1);
+        this.fx.ring(p.x, p.z, 0x9feaff, 0.4, R, 0.45);
+        this.fx.ring(p.x, p.z, 0xffffff, 0.2, R * 0.8, 0.3);
+        this.fx.burst(p.x, 0.4, p.z, 30, 0xbff3ff, { speed: R * 3, up: 2, life: 0.5, size: 0.12 });
+        this.addZone(p.x, p.z, R, 0x5fc8e8, 0.7, 0);
+        audio.play('frostCast');
+        for (const e of this.enemies) {
+          if (e.dead || e.state === 'spawn' || e.decor || dist2(e.x, e.z, p.x, p.z) > (R + e.r) ** 2) continue;
+          e.slow = has(3) ? 4 : 2; if (has(10)) e.stun = Math.max(e.stun || 0, 1);
+          this.damageEnemy(e, dmg, { aoe: true, dirx: (e.x - p.x) / 3, dirz: (e.z - p.z) / 3, kb: 0.4 });
+        }
+        const b = this.boss; if (b && b.active && !b.dead && dist2(b.x, b.z, p.x, p.z) < (R + b.r) ** 2) { b.slow = 2; this.damageBoss(dmg, { aoe: true }); }
+      });
+      nova(0); if (has(14)) nova(0.5);
+    } else if (a.id === 'wind') {
+      const n = has(20) ? 12 : 3 + (has(3) ? 1 : 0) + (has(14) ? 2 : 0);
+      const spread = has(20) ? Math.PI * 2 / n : 0.24;
+      for (let k = 0; k < n; k++) {
+        const an = has(20) ? ang + k * spread : ang + (k - (n - 1) / 2) * spread;
+        this.projs.push({ kind: 'wind', x: p.x, z: p.z, angle: an, vx: Math.sin(an) * 15, vz: Math.cos(an) * 15, speed: 15, dmg, life: 0.7, r: 0.45,
+          pierce: has(7) ? 99 : 2, bounce: 0, hit: new Set(), split: false, age: 0, power: pw, returns: has(10) });
+      }
+      audio.play('windCast');
+    }
+    this.world.addShake(0.12);
+  }
+
+  lightningStrike(x, z, t, dmg, pw) {
+    const has = pw.has;
+    this.fx.bolt(x + rand(-0.6, 0.6), 10, z - 3, x, 0.2, z, 0xe8f4ff, 0.22);
+    this.fx.bolt(x + rand(-0.6, 0.6), 10, z - 3, x, 0.2, z, 0x9fd4ff, 0.18);
+    this.fx.impact(x, 0.6, z, 0xcfe8ff, 3, 0.18);
+    this.fx.ring(x, z, 0x9fd4ff, 0.2, 1.6, 0.3);
+    this.fx.burst(x, 0.3, z, 16, 0xcfe8ff, { speed: 7, up: 5, life: 0.35, size: 0.1 });
+    this.addScorch(x, z, 0.9);
+    this.ui.flash();
+    audio.play('thunder');
+    this.world.addShake(0.2);
+    if (t && t !== this.boss) {
+      if (has(7)) t.stun = Math.max(t.stun || 0, 0.7);
+      this.damageEnemy(t, dmg, { aoe: true });
+      const chains = has(14) ? 4 : has(3) ? 2 : 0;
+      if (chains) this.chainLightning(t.x, t.z, chains, dmg * 0.6, t);
+    } else if (t === this.boss && t) this.damageBoss(dmg, { aoe: true });
+  }
+
+  addScorch(x, z, r) { this.scorches.push({ x, z, r, t: 0, life: 5 }); if (this.scorches.length > 30) this.scorches.shift(); }
+  addZone(x, z, r, color, life, dps) { this.zones.push({ x, z, r, color: new THREE.Color(color), t: 0, life, dps, tick: 0 }); }
+
+  fireExplode(pr) {
+    const pw = pr.power, has = pw.has;
+    const R = 1.3 * (has(7) ? 1.5 : 1) * (pr.big ? 1.4 : 1);
+    this.fx.ring(pr.x, pr.z, 0xff8a3a, 0.2, R, 0.32);
+    this.fx.impact(pr.x, 0.6, pr.z, 0xffb05a, R * 2, 0.18);
+    this.fx.burst(pr.x, 0.5, pr.z, 22, 0xff7a2a, { speed: R * 5, up: 5, life: 0.5, size: 0.16 });
+    this.fx.burst(pr.x, 0.5, pr.z, 10, 0xffe0a0, { speed: R * 3, up: 3, life: 0.3, size: 0.1 });
+    this.fx.burst(pr.x, 0.5, pr.z, 6, 0x3a3030, { speed: 2, up: 3, life: 1.2, size: 0.25, grav: -1.5, drag: 1.5 });
+    this.addScorch(pr.x, pr.z, R);
+    audio.play('explode');
+    this.world.addShake(0.16);
+    for (const e of this.enemies) {
+      if (e.dead || e.state === 'spawn' || e.decor || dist2(e.x, e.z, pr.x, pr.z) > (R + e.r) ** 2) continue;
+      const d = Math.sqrt(dist2(e.x, e.z, pr.x, pr.z)) || 1;
+      if (has(3)) { e.burn = 3; e.burnDps = Math.max(e.burnDps || 0, pr.dmg * 0.35); }
+      this.damageEnemy(e, pr.dmg, { aoe: true, dirx: (e.x - pr.x) / d, dirz: (e.z - pr.z) / d, kb: 0.8 });
+    }
+    const b = this.boss; if (b && b.active && !b.dead && dist2(b.x, b.z, pr.x, pr.z) < (R + b.r) ** 2) this.damageBoss(pr.dmg, { aoe: true });
+    if (has(14)) this.addZone(pr.x, pr.z, R * 0.9, 0xff5a1a, 2.5, pr.dmg * 0.4);
+    this.breakCratesNear(pr.x, pr.z, R);
+  }
+
+  boulderLand(pr) {
+    const pw = pr.power, has = pw.has;
+    const R = (has(7) ? 2.2 : 1.4) * (pr.big ? 1.6 : 1);
+    this.fx.ring(pr.x, pr.z, 0xc9a06a, 0.3, R + 0.4, 0.4);
+    this.fx.burst(pr.x, 0.2, pr.z, pr.big ? 34 : 20, 0x8a7258, { speed: R * 5, up: 7, life: 1, size: pr.big ? 0.3 : 0.2, debris: true, grav: 22 });
+    this.fx.burst(pr.x, 0.2, pr.z, 12, 0xb8a888, { speed: 4, up: 1.5, life: 0.7, size: 0.22, grav: -0.5, drag: 2 });
+    this.addScorch(pr.x, pr.z, R * 0.8);
+    audio.play('slam');
+    this.world.addShake(pr.big ? 0.5 : 0.28); this.world.punch(0.03);
+    for (const e of this.enemies) {
+      if (e.dead || e.state === 'spawn' || e.decor || dist2(e.x, e.z, pr.x, pr.z) > (R + e.r) ** 2) continue;
+      const d = Math.sqrt(dist2(e.x, e.z, pr.x, pr.z)) || 1;
+      if (has(3)) e.stun = Math.max(e.stun || 0, 0.6);
+      this.damageEnemy(e, pr.dmg, { aoe: true, dirx: (e.x - pr.x) / d, dirz: (e.z - pr.z) / d, kb: 1.4 });
+    }
+    const b = this.boss; if (b && b.active && !b.dead && dist2(b.x, b.z, pr.x, pr.z) < (R + b.r) ** 2) this.damageBoss(pr.dmg, { aoe: true });
+    this.breakCratesNear(pr.x, pr.z, R);
+    if (has(10)) for (let k = 0; k < 3; k++) {
+      const an = pr.angle + (k - 1) * 0.8;
+      this.projs.push({ kind: 'shard', x: pr.x, z: pr.z, angle: an, vx: Math.sin(an) * 12, vz: Math.cos(an) * 12, speed: 12, dmg: pr.dmg * 0.4, life: 0.5, r: 0.25, pierce: 1, bounce: 0, hit: new Set(), split: false, age: 0 });
+    }
+  }
+
+  breakCratesNear(x, z, R) {
+    if (!this.room.crates.length) return;
+    this.room.crates.forEach(([i, j], k) => { if (!this.crates[k]) return; const [cx, cz] = toWorld(this.room, i, j); if (dist2(cx, cz, x, z) < R * R + 0.3) this.breakCrate(k); });
+  }
+
+  updatePowerFx(dt) {
+    for (let i = this.zones.length - 1; i >= 0; i--) {
+      const zn = this.zones[i]; zn.t += dt;
+      if (zn.t > zn.life) { this.zones.splice(i, 1); continue; }
+      if (zn.dps > 0) {
+        zn.tick -= dt;
+        if (Math.random() < dt * 20) this.fx.emit(zn.x + rand(-zn.r, zn.r) * 0.7, 0.1, zn.z + rand(-zn.r, zn.r) * 0.7, 0, 2, 0, 0.5, 0.14, FIRE_COL, { grav: -1, drag: 1 });
+        if (zn.tick <= 0) {
+          zn.tick = 0.4;
+          for (const e of this.enemies) if (!e.dead && e.state !== 'spawn' && !e.decor && dist2(e.x, e.z, zn.x, zn.z) < (zn.r + e.r) ** 2) this.damageEnemy(e, zn.dps * 0.4, { aoe: true, canCrit: false });
+        }
+      }
+    }
+    for (let i = this.scorches.length - 1; i >= 0; i--) { const sc = this.scorches[i]; sc.t += dt; if (sc.t > sc.life) this.scorches.splice(i, 1); }
   }
 
   // ------------------------------------------------------------------ dialog + tutorial
@@ -231,7 +439,7 @@ export class Game {
   }
 
   recomputeStats() {
-    const s = baseStats(save.data.perm);
+    const s = baseStats(save.data.perm, this.weapon());
     for (const id of this.run.picks) UPGRADE_BY_ID[id].apply(s, null);
     this.stats = s;
     const p = this.player;
@@ -247,7 +455,7 @@ export class Game {
     const before = this.player.maxHp;
     this.recomputeStats();
     if (u.id === 'dash2') this.player.dashCharges++;
-    u.apply(baseStats(save.data.perm), this); // heal side effects only
+    u.apply(baseStats(save.data.perm, this.weapon()), this); // heal side effects only
     if (this.player.maxHp > before && u.id !== 'skin') this.player.hp += this.player.maxHp - before;
     this.player.hp = Math.min(this.player.hp, this.player.maxHp);
     const d = save.data;
@@ -350,6 +558,8 @@ export class Game {
     for (const e of this.enemies) this.releaseModel(e);
     this.enemies.length = 0; this.bullets.length = 0; this.projs.length = 0; this.coins.length = 0; this.hazards.length = 0;
     this.timers.length = 0;
+    if (this.zones) this.zones.length = 0;
+    if (this.scorches) this.scorches.length = 0;
     if (this.boss) { this.world.dynamic.remove(this.boss.model.root); this.boss = null; }
     this.fx.clear();
     this.killTimes.length = 0;
@@ -438,6 +648,7 @@ export class Game {
       this.updateProjectiles(gdt);
       this.updateBullets(gdt);
       this.updateHazards(gdt);
+      this.updatePowerFx(gdt);
       this.updateCoins(gdt);
       this.updateTraps(gdt);
     }
@@ -513,13 +724,22 @@ export class Game {
         lift.group.position.y = t * t * 5;
         p.y = lift.group.position.y;
         if (this.phaseT > 0.9) {
-          this.phase = 'cards'; this.phaseT = 0;
-          audio.setMuffled(true);
-          this.ui.showCards(this, this.rollCards());
+          const f = this.run.floor;
           if (this.run.tutorial) {
-            this.ui.cardLock = Infinity;
-            this.say(['After every floor you choose one upgrade. They stack, and many of them combine into something much stronger.', 'This first one is on the house. Pick whatever looks fun.'])
-              .then(() => { this.ui.cardLock = performance.now() + 200; });
+            this.phase = 'cards'; this.phaseT = 0;
+            audio.setMuffled(true);
+            if (!save.data.ability) {
+              this.say(['Last thing. That stick will not get you far up there.', 'Choose a power. It starts out weak, but the more you climb with it, the stronger it gets. Choose well.'])
+                .then(() => this.ui.showElementChoice(this, () => this.nextFloor()));
+            } else this.ui.ride(this, f, () => this.nextFloor());
+          } else if (f % 5 === 0) {
+            // Upgrade cards only every 5th floor: they should feel like a reward, not a routine.
+            this.phase = 'cards'; this.phaseT = 0;
+            audio.setMuffled(true);
+            this.ui.showCards(this, this.rollCards());
+          } else {
+            this.phase = 'cards'; this.phaseT = 0;
+            this.ui.ride(this, f, () => this.nextFloor());
           }
         }
         break;
@@ -548,6 +768,7 @@ export class Game {
     const kind = BOSS_INFO.order[Math.floor(f / 10 - 1) % 3];
     const [bx, bz] = toWorld(this.room, Math.floor(this.room.w / 2), 4);
     this.boss = createBoss(this, kind, bx, bz, f);
+    this.registerSeen(kind);
     this.ui.letterbox(true, BOSS_INFO[kind].name, `FLOOR ${f}`);
     audio.play('bossIntro');
   }
@@ -588,7 +809,7 @@ export class Game {
       if (p.dashRecharge >= s.dashCooldown) { p.dashRecharge = 0; p.dashCharges++; }
     } else p.dashRecharge = 0;
 
-    if (performance.now() < (this.graceUntil || 0)) { input.dashPressed = false; input.attackPressed = false; }
+    if (performance.now() < (this.graceUntil || 0)) { input.dashPressed = false; input.attackPressed = false; input.abilityPressed = false; }
     const mx = canAct ? input.move.x : 0, mz = canAct ? input.move.z : 0;
     const moving = Math.hypot(mx, mz) > 0.1;
 
@@ -633,6 +854,11 @@ export class Game {
     if (attacking || p.swingT < 0.25) p.aim = this.aimAngle();
     const want = p.swingT < 0.25 || attacking ? p.aim : moving ? Math.atan2(mx, mz) : p.face;
     p.face += angleDiff(p.face, want) * Math.min(1, dt * 26);
+
+    // power
+    p.abilityCd = Math.max(0, (p.abilityCd || 0) - dt);
+    if (canAct && input.abilityPressed && this.run.power && p.abilityCd <= 0 && p.dashT <= 0) this.castPower();
+    else if (canAct && input.abilityPressed && this.run.power) audio.play('deny');
 
     // attacking
     p.attackCd -= dt; p.swingT += dt;
@@ -855,8 +1081,10 @@ export class Game {
       if (crit) this.world.punch(0.03);
     }
     if (s.frost > 0 && o.proc) e.slow = 1.5;
+    if (s.burnHits && o.proc && !o.aoe) { e.burn = 2; e.burnDps = Math.max(e.burnDps || 0, s.damage * 0.3); }
     const y = e.model ? e.model.height * (e.r / e.def.r) * 0.6 : 0.8;
     this.fx.number(e.x, y + 0.5, e.z, dmg, crit ? 'crit' : o.aoe ? 'aoe' : 'normal');
+    if (o.quiet) { e.flash = 0.05; }
     const col = ENEMY_COLORS[e.type];
     if (!o.aoe) {
       const dir = o.dirx !== undefined ? Math.atan2(o.dirx, o.dirz) : undefined;
@@ -899,6 +1127,7 @@ export class Game {
     run.bossKills++;
     const d = save.data;
     d.bossesKilled[b.kind] = (d.bossesKilled[b.kind] || 0) + 1;
+    this.registerKill(b.kind);
     this.unlock(b.kind);
     this.timeScale = 0.2;
     this.hitstop = 0.15;
@@ -926,6 +1155,7 @@ export class Game {
     const run = this.run, s = this.stats;
     run.kills++;
     save.data.totalKills++;
+    this.registerKill(e.mini ? 'splitling' : e.type);
     const col = ENEMY_COLORS[e.type];
     const fling = e.type === 'tank' ? 3 : 7;
     e.dvx = (e.hx || 0) * fling + rand(-1, 1); e.dvz = (e.hz || 0) * fling + rand(-1, 1); e.dvy = e.type === 'tank' ? 3 : 6;
@@ -943,6 +1173,7 @@ export class Game {
       for (let k = 0; k < 2; k++) {
         const a = rand(0, TAU);
         const m = this.spawnEnemy('splitter', e.x + Math.sin(a) * 0.4, e.z + Math.cos(a) * 0.4, { mini: true, instant: true, elite: false });
+        this.registerSeen('splitling');
         m.state = 'chase'; m.kbx = Math.sin(a) * 8; m.kbz = Math.cos(a) * 8; m.cd = 0.5;
       }
     }
@@ -1062,6 +1293,7 @@ export class Game {
         e.spawnT -= dt;
         if (e.spawnT <= 0) {
           e.state = 'chase'; e.pop = 0;
+          if (!e.decor) this.registerSeen(e.mini ? 'splitling' : e.type);
           if (e.marker) { this.fx.releaseMarker(e.marker); e.marker = null; }
           e.model.root.visible = true;
           this.fx.burst(e.x, 0.2, e.z, 8, 0xf2d6a0, { speed: 3.5, up: 4, life: 0.4, size: 0.1 });
@@ -1113,6 +1345,18 @@ export class Game {
   enemyAI(e, dt) {
     const p = this.player, sc = this.floorScale();
     if (e.decor) { this.decorAI(e, dt); return; }
+    if (e.burn > 0) {
+      e.burn -= dt; e.burnTick = (e.burnTick || 0) - dt;
+      if (Math.random() < dt * 14) this.fx.emit(e.x + rand(-0.2, 0.2), 0.5 + rand(0, 0.5), e.z + rand(-0.2, 0.2), 0, 1.8, 0, 0.45, 0.13, FIRE_COL, { grav: -1, drag: 1 });
+      if (e.burnTick <= 0) { e.burnTick = 0.5; this.damageEnemy(e, e.burnDps * 0.5, { aoe: true, canCrit: false, quiet: true }); if (e.dead) return; }
+    }
+    if (e.stun > 0) {
+      e.stun -= dt; e.vx = damp(e.vx, 0, 14, dt); e.vz = damp(e.vz, 0, 14, dt);
+      if (e.tele) { this.fx.releaseMarker(e.tele); e.tele = null; }
+      if (e.state !== 'chase' && e.state !== 'spawn') { e.state = 'chase'; e.cd = Math.max(e.cd, 0.6); }
+      if (Math.random() < dt * 8) this.fx.emit(e.x + rand(-0.3, 0.3), 1.1, e.z + rand(-0.3, 0.3), rand(-1, 1), 0.3, rand(-1, 1), 0.3, 0.09, STUN_COL, { grav: 0, drag: 2 });
+      return;
+    }
     const dx = p.x - e.x, dz = p.z - e.z, d = Math.hypot(dx, dz);
     const toP = Math.atan2(dx, dz);
     const slow = e.slow > 0 ? 0.6 : 1;
@@ -1236,8 +1480,22 @@ export class Game {
     for (let i = this.projs.length - 1; i >= 0; i--) {
       const pr = this.projs[i];
       pr.age += dt; pr.life -= dt;
+      if (pr.kind === 'boulder') {
+        pr.t += dt;
+        const k = Math.min(1, pr.t / pr.flight);
+        pr.x = pr.sx + (pr.tx - pr.sx) * k; pr.z = pr.sz + (pr.tz - pr.sz) * k;
+        pr.y = Math.sin(k * Math.PI) * (2.4 + (pr.big ? 1.5 : 0)) + 0.4;
+        pr.spin = (pr.spin || 0) + dt * 9;
+        if (Math.random() < dt * 30) this.fx.emit(pr.x, pr.y, pr.z, 0, 0, 0, 0.4, 0.12, DUST_COL, { grav: 2, drag: 2, debris: true });
+        if (k >= 1) { this.boulderLand(pr); this.projs.splice(i, 1); }
+        continue;
+      }
+      if (pr.kind === 'fireball' && Math.random() < dt * 60) this.fx.emit(pr.x + rand(-0.12, 0.12), 0.75, pr.z + rand(-0.12, 0.12), rand(-0.5, 0.5), 1, rand(-0.5, 0.5), 0.35, pr.big ? 0.3 : 0.2, FIRE_COL, { grav: -1, drag: 2 });
+      if (pr.kind === 'wind' && pr.returns && pr.age > 0.35 && !pr.back) { pr.back = true; pr.hit.clear(); pr.life = 0.8; }
+      if (pr.back) { const p = this.player, dx = p.x - pr.x, dz = p.z - pr.z, dd = Math.hypot(dx, dz) || 1; pr.vx = damp(pr.vx, dx / dd * 16, 8, dt); pr.vz = damp(pr.vz, dz / dd * 16, 8, dt); pr.angle = Math.atan2(pr.vx, pr.vz); if (dd < 0.6) pr.life = 0; }
       pr.x += pr.vx * dt; pr.z += pr.vz * dt;
       let dead = pr.life <= 0;
+      if (dead && pr.kind === 'fireball') { this.fireExplode(pr); this.projs.splice(i, 1); continue; }
       // walls
       if (!dead && solidAt(room, pr.x, pr.z)) {
         // breakable crates
@@ -1254,7 +1512,9 @@ export class Game {
           if (bz || !bx) pr.vz = -pr.vz;
           pr.angle = Math.atan2(pr.vx, pr.vz); pr.life = Math.max(pr.life, 0.35);
           this.fx.burst(pr.x, 0.5, pr.z, 4, 0xffe2a8, { speed: 3, up: 2, life: 0.2, size: 0.08 });
-        } else {
+        } else if (pr.kind === 'fireball') { dead = true; pr.x -= pr.vx * dt; pr.z -= pr.vz * dt; this.fireExplode(pr); }
+        else if (pr.kind === 'wind') { dead = true; }
+        else {
           dead = true;
           if (this.stats.explode > 0) this.explosion(pr.x, pr.z, 1.1, this.stats.damage * this.stats.damageMul * 0.3 * this.stats.explode, { small: true, color: 0xffa04a });
           this.fx.burst(pr.x, 0.5, pr.z, 5, 0xffe2a8, { speed: 3, up: 2, life: 0.2, size: 0.09 });
@@ -1278,13 +1538,14 @@ export class Game {
         const b = this.boss;
         let hitBoss = false;
         if (!hitSomething && b && b.active && !b.dead && !pr.hit.has(b) && dist2(b.x, b.z, pr.x, pr.z) < (b.r + pr.r) ** 2) hitBoss = true;
+        if ((hitSomething || hitBoss) && pr.kind === 'fireball') { this.fireExplode(pr); this.projs.splice(i, 1); continue; }
         if (hitSomething || hitBoss) {
           const t = hitSomething || b;
           pr.hit.add(t);
           const l = Math.hypot(pr.vx, pr.vz) || 1;
           if (hitSomething) this.damageEnemy(t, pr.dmg, { dirx: pr.vx / l, dirz: pr.vz / l, kb: 0.6, proc: true });
           else this.damageBoss(pr.dmg, { proc: true });
-          if (this.stats.hydra > 0 && pr.split) {
+          if (this.stats.hydra > 0 && pr.split && (pr.kind === 'wave' || pr.kind === 'drone')) {
             pr.split = false;
             for (const s of [-0.6, 0.6]) this.spawnProj('mini', pr.x, pr.z, pr.angle + s, pr.speed * 0.9, pr.dmg * 0.5);
             const last = this.projs[this.projs.length - 1], prev = this.projs[this.projs.length - 2];
@@ -1355,6 +1616,7 @@ export class Game {
           this.run.coins++; save.data.coins++; save.data.totalCoins++;
           audio.play('coin');
           this.fx.burst(p.x, 0.9, p.z, 2, 0xf2b24a, { speed: 2, up: 2, life: 0.25, size: 0.08 });
+          this.ui.coinFly(c.x, c.y, c.z);
           this.ui.coinBump(this);
           continue;
         }
@@ -1404,7 +1666,9 @@ export class Game {
       const hurtK = Math.max(0, p.hurtT) / 0.3, atkK = Math.max(0, 1 - p.swingT / 0.12);
       pm.rig.rotation.x = 0.16 * run + (p.dashT > 0 ? 0.35 : 0) + atkK * 0.22 - hurtK * 0.45;
       pm.rig.rotation.z = Math.sin(t * 6.5) * 0.04 * run;
-      if (pm.armL) pm.armL.rotation.x = p.swingT < 0.3 ? -0.7 : Math.sin(t * 13) * 0.9 * run + Math.sin(t * 2.4) * 0.05;
+      p.castT = (p.castT || 0) - dt;
+      if (pm.armL) pm.armL.rotation.x = p.castT > 0 ? -1.6 : p.swingT < 0.3 ? -0.7 : Math.sin(t * 13) * 0.9 * run + Math.sin(t * 2.4) * 0.05;
+      if (pm.root.userData.halo) pm.root.userData.halo.rotation.z = t * 2;
       pm.footL.position.z = Math.sin(t * 13) * 0.16 * run; pm.footR.position.z = -Math.sin(t * 13) * 0.16 * run;
       pm.footL.position.y = 0.05 + Math.max(0, Math.cos(t * 13)) * 0.08 * run; pm.footR.position.y = 0.05 + Math.max(0, -Math.cos(t * 13)) * 0.08 * run;
       // swing: pivot rotates through the arc quickly then eases back to rest
@@ -1493,12 +1757,24 @@ export class Game {
     for (const b of this.bullets) { bc.push(b.x, b.y, b.z, b.s); bg.push(b.x, b.y, b.z, 2.1 * b.s * pulse); }
     bc.end(); bg.end();
 
-    const wv = w.waves, ds = w.droneShots; wv.begin(); ds.begin();
+    const wv = w.waves, ds = w.droneShots, fc = w.fireCore, fg = w.fireGlow, rk = w.rocks, wn = w.winds;
+    wv.begin(); ds.begin(); fc.begin(); fg.begin(); rk.begin(); wn.begin();
     for (const pr of this.projs) {
       if (pr.kind === 'wave') { const f = Math.min(1, pr.life / 0.15); wv.push(pr.x, 0.55, pr.z, 1.1 * f + 0.2, 1, 1.1 * f + 0.2, pr.angle); }
+      else if (pr.kind === 'fireball') { const s = pr.big ? 1.5 : 1; fc.push(pr.x, 0.75, pr.z, s * 0.8); fg.push(pr.x, 0.75, pr.z, s * (1.6 + Math.sin(time * 40) * 0.15)); }
+      else if (pr.kind === 'boulder') { const s = pr.big ? 2 : 1; rk.push(pr.x, pr.y, pr.z, s, s, s, pr.spin); sh.push(pr.x, 0.02, pr.z, s * (1.4 - (pr.y || 0) * 0.12)); }
+      else if (pr.kind === 'shard') rk.push(pr.x, 0.4, pr.z, 0.4, 0.4, 0.4, pr.age * 12);
+      else if (pr.kind === 'wind') { const f = Math.min(1, pr.life / 0.12); wn.push(pr.x, 0.6, pr.z, 1.2 * f + 0.2, 1, 1.2 * f + 0.2, pr.angle + Math.sin(pr.age * 30) * 0.05); }
       else ds.push(pr.x, 0.9, pr.z, pr.kind === 'mini' ? 0.7 : 1, 1, 1, pr.angle);
     }
-    wv.end(); ds.end();
+    wv.end(); ds.end(); fc.end(); fg.end(); rk.end(); wn.end();
+    const sc = w.scorch, zb = w.zones; sc.begin(); zb.begin();
+    for (const s2 of this.scorches || []) { const k = sc.push(s2.x, 0.013, s2.z, s2.r * 2.2); const a = Math.min(1, (s2.life - s2.t) / 1.5); sc.color(k, a, a, a); }
+    for (const zn of this.zones || []) {
+      const f = zn.t / zn.life, a = (1 - f) * (zn.dps ? 0.6 + Math.sin(time * 18) * 0.1 : 0.4);
+      const k = zb.push(zn.x, 0.02, zn.z, zn.r * 2 * (zn.dps ? 1 : 0.6 + f * 0.5)); zb.color(k, zn.color.r * a, zn.color.g * a, zn.color.b * a);
+    }
+    sc.end(); zb.end();
 
     const ob = w.orbits, dr = w.drones; ob.begin(); dr.begin();
     if (p && !p.dead && this.mode === 'run' && this.stats) {
@@ -1579,7 +1855,22 @@ export class Game {
     const floor = run.floor;
     const newBest = floor > d.bestFloor;
     if (newBest) d.bestFloor = floor;
-    const xp = floor * 12 + run.kills * 2 + run.bossKills * 120;
+    const xp = floor * 25 + run.kills * 3 + run.bossKills * 200;
+    // mastery pass for the equipped power
+    let mastery = null;
+    if (d.ability && d.abilities[d.ability]) {
+      const ab = d.abilities[d.ability], before = masteryFromXp(ab.xp);
+      ab.xp += xp;
+      const after = masteryFromXp(ab.xp);
+      const rewards = [];
+      for (let l = (ab.claimed || 1) + 1; l <= after.level; l++) {
+        const r = TRACK[l];
+        if (r.t === 'coins') d.coins += r.v;
+        rewards.push(l);
+      }
+      ab.claimed = Math.max(ab.claimed || 1, after.level);
+      mastery = { id: d.ability, before, after, rewards };
+    }
     const lvBefore = levelFromXp(d.xp);
     d.xp += xp;
     const lvAfter = levelFromXp(d.xp);
@@ -1588,7 +1879,7 @@ export class Game {
     if (d.totalKills >= 500) this.unlock('kills500', true);
     const skins = checkSkinProgress(d);
     save.write();
-    return { discoveries: run.newDiscoveries, floor, kills: run.kills, coins: run.coins, best: d.bestFloor, newBest, prevBest: run.prevBest, xp, lvBefore, lvAfter, skins, picks: run.picks.slice() };
+    return { mastery, discoveries: run.newDiscoveries, floor, kills: run.kills, coins: run.coins, best: d.bestFloor, newBest, prevBest: run.prevBest, xp, lvBefore, lvAfter, skins, picks: run.picks.slice() };
   }
 
   unlock(id, quiet) {
@@ -1601,6 +1892,9 @@ export class Game {
     if (a && quiet) this.ui.queueResultNote(`Achievement: ${a.name}`);
   }
 }
+
+const FIRE_COL = new THREE.Color(0xff7a2a), STUN_COL = new THREE.Color(0xfff0a0), DUST_COL = new THREE.Color(0x8a7a62);
+const REG_NAMES = { dummy: 'Training Dummy', runner: 'Runner', shooter: 'Shooter', splitter: 'Splitter', splitling: 'Splitling', dasher: 'Dasher', tank: 'Tank', warden: 'The Warden', crusher: 'The Crusher', hunter: 'The Hunter' };
 
 const BOSS_LINES = {
   warden: ['That is the Warden. It keeps this part of the tower locked down.', 'It glows before every volley. The gaps in its bullet rings are your way through.'],
