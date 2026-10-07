@@ -120,6 +120,7 @@ export function makeMaterial(sys) {
       uHlRegion: { value: -1 },
       uCurl: { value: sys.curl || 0 },
       uHeadC: { value: HEAD_C },
+      uBaseCut: { value: sys.kind === 'beard' ? 0.16 : 0 },
       uPart: { value: 9 },
       uDirA: { value: new THREE.Vector3(0, -0.6, -1).normalize() },
       uDirB: { value: new THREE.Vector3(0, -0.6, -1).normalize() },
@@ -157,7 +158,7 @@ export function makeMaterial(sys) {
     fragmentShader: /* glsl */`
       uniform sampler2D uLen; uniform sampler2D uNoise; uniform float uMaxLen;
       uniform vec3 uColor; uniform vec3 uTip; uniform vec3 uSkin;
-      uniform float uHl; uniform float uHlRegion; uniform float uTime; uniform float uCurl;
+      uniform float uHl; uniform float uHlRegion; uniform float uTime; uniform float uCurl; uniform float uBaseCut;
       uniform vec3 uKeyDir; uniform vec3 uKeyColor; uniform vec3 uAmbTop; uniform vec3 uAmbBot;
       varying vec2 vUv; varying float vH; varying vec3 vN; varying vec3 vT; varying vec3 vWPos; varying float vLen; varying float vPart; varying float vStyled;
       void main(){
@@ -170,7 +171,8 @@ export function makeMaterial(sys) {
         float ao;
         float strandShade = 1.0;
         if (vH < 0.001) {
-          if (L < 0.005) discard;
+          // beards: let the face's own skin show where the beard is thin, so it grows out of the skin
+          if (L < max(0.005, uBaseCut)) discard;
           float cov = smoothstep(0.0, 0.06, L);
           float n = texture2D(uNoise, vUv * vec2(512.0, 256.0)).r;
           col = mix(uSkin * 0.86, uColor * 0.8, cov * (0.55 + 0.45 * n));

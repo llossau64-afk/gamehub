@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { makeMaterial, MAX_LEN } from './hair.js';
 import { clamp, lerp } from '../core/util.js';
+import { getTemplate } from '../chars/template.js';
 
 export const BW = 64, BH = 32;
 const A = 105 * Math.PI / 180;      // angular half-width covered
@@ -27,7 +28,56 @@ function ringAt(y) {
   return RINGS[0].slice(1);
 }
 
-export function beardPoint(a, y, out = new THREE.Vector3(), inflate = 0.0035) {
+// The beard sits on the real skin: rays from the head's vertical axis outward hit the
+// sculpted head mesh (bind pose, head-joint space); the distances are cached in a table.
+const TA = 56, TY = 40;
+let SKIN = null;
+function skinTable() {
+  if (SKIN !== null) return SKIN;
+  SKIN = false;
+  const T = getTemplate();
+  if (!T) return SKIN;
+  const hw = T.joints[T.jointIndex.get('Head')].world;
+  const parts = T.pieces.filter((p) => /^M_(Head|Neck)(\b|_|$)/.test(p.name));
+  if (!parts.length) return SKIN;
+  const mat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+  const meshes = parts.map((p) => { const g = p.geometry.clone(); g.translate(-hw.x, -hw.y, -hw.z); return new THREE.Mesh(g, mat); });
+  meshes.forEach((m) => m.updateMatrixWorld(true));
+  const rc = new THREE.Raycaster();
+  const tab = new Float32Array(TA * TY);
+  const o = new THREE.Vector3(), d = new THREE.Vector3();
+  for (let j = 0; j < TY; j++) {
+    const y = Y0 - 0.01 + (Y1 - Y0 + 0.02) * j / (TY - 1);
+    for (let i = 0; i < TA; i++) {
+      const a = -A - 0.1 + (2 * A + 0.2) * i / (TA - 1);
+      d.set(Math.sin(a), 0, Math.cos(a));
+      o.set(0, y, 0);
+      rc.set(o, d); rc.far = 0.3;
+      let far = 0;
+      for (const m of meshes) for (const h of rc.intersectObject(m)) far = Math.max(far, h.distance);
+      if (!far) { const [rx, rz, cz] = ringAt(y); far = Math.hypot(Math.sin(a) * rx, cz + Math.cos(a) * rz); }
+      tab[j * TA + i] = far;
+    }
+  }
+  meshes.forEach((m) => m.geometry.dispose());
+  SKIN = tab;
+  return SKIN;
+}
+
+function skinRadius(a, y) {
+  const t = SKIN;
+  const fi = clamp((a + A + 0.1) / (2 * A + 0.2) * (TA - 1), 0, TA - 1.001);
+  const fj = clamp((y - (Y0 - 0.01)) / (Y1 - Y0 + 0.02) * (TY - 1), 0, TY - 1.001);
+  const i = Math.floor(fi), j = Math.floor(fj), u = fi - i, v = fj - j;
+  const r00 = t[j * TA + i], r10 = t[j * TA + i + 1], r01 = t[(j + 1) * TA + i], r11 = t[(j + 1) * TA + i + 1];
+  return lerp(lerp(r00, r10, u), lerp(r01, r11, u), v);
+}
+
+export function beardPoint(a, y, out = new THREE.Vector3(), inflate = 0.0012) {
+  if (skinTable()) {
+    const r = skinRadius(a, y) + inflate;
+    return out.set(Math.sin(a) * r, y, Math.cos(a) * r);
+  }
   const [rx, rz, cz] = ringAt(y);
   return out.set(Math.sin(a) * (rx + inflate), y, cz + Math.cos(a) * (rz + inflate));
 }
@@ -194,7 +244,7 @@ export class BeardSystem {
   }
 
   surfacePoint(a, y, extra = 0, out = new THREE.Vector3()) {
-    return beardPoint(a, y, out, 0.0035 + extra).applyMatrix4(this.mesh.matrixWorld);
+    return beardPoint(a, y, out, 0.0012 + extra).applyMatrix4(this.mesh.matrixWorld);
   }
 
   lengthAt(a, y) {

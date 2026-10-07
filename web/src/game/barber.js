@@ -29,6 +29,8 @@ const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _m = new THREE.Matrix
 const VIEW_YAW = { back: 0, right: Math.PI / 2, front: Math.PI, left: -Math.PI / 2 };
 const PITCH_MIN = -0.3, PITCH_MAX = 1.2;
 
+const _inv = new THREE.Matrix4(), _R1 = new THREE.Vector3(), _R2 = new THREE.Vector3(), _C2 = new THREE.Vector3(), _sc = new THREE.Vector3();
+
 export class BarberMode {
   constructor(game) {
     this.game = game;
@@ -139,7 +141,7 @@ export class BarberMode {
     const tips = [];
     if (!seen.includes('combSpray')) tips.push(['combSpray', g.input.touch ? 'New tools: comb for a groomed finish, spray for cleaner scissor cuts' : 'New tools: comb (4) for a groomed finish, spray (5) for cleaner scissor cuts']);
     if (c.cut.fade && !seen.includes('fade')) tips.push(['fade', 'Fade: short guard at the bottom, then longer guards higher up']);
-    if (c.cut.beard && !seen.includes('beard')) tips.push(['beard', 'Beard: turn the chair to face you, trimmer for the neckline']);
+    if (c.cut.beard && !seen.includes('beard')) tips.push(['beard', 'Beard: rotate the view to the front, trimmer for the neckline']);
     if (c.cut.style && !seen.includes('style')) tips.push(['style', c.cut.style === 'part' ? 'Side part: cut first, then comb the top until it lies flat. Spray helps.' : c.cut.style === 'center' ? 'Curtains: cut first, then comb the top away from the middle. Spray helps.' : 'Slick back: cut first, then comb the top back until it lies flat. Spray helps.']);
     if (c.cut.curly && !seen.includes('curly')) tips.push(['curly', 'Curly hair: scissors on top, clippers for the fade']);
     if (c.vip && !seen.includes('vip')) tips.push(['vip', 'VIP: four stars or more, or your reputation takes a hit']);
@@ -355,6 +357,9 @@ export class BarberMode {
       this.toolQuat.slerp(q, 1 - Math.exp(-16 * dt));
       toolObj.position.copy(this.toolPos);
       toolObj.quaternion.copy(this.toolQuat);
+      // never through the head: push the whole tool out of the skull (and jaw) if any part pokes in
+      const push = this.depenetrate(toolObj);
+      if (push) this.toolPos.add(push);
       const pop = 1 - this.swapT / 0.35;
       toolObj.scale.setScalar(0.6 + 0.4 * Math.min(1, pop * 1.2));
       if (this.power) {
@@ -467,6 +472,47 @@ export class BarberMode {
     ch.extra.Neck = [0.34 * b, 0, 0];
     ch.extra.Head = [0.3 * b, 0, 0];
     ch.extra.Chest = [0.08 * b, 0, 0];
+  }
+
+  // sample points over the tool's bounds; returns the world offset that gets them all outside
+  depenetrate(obj) {
+    const c = this.c;
+    if (!c) return null;
+    if (!obj.userData.samples) {
+      const saved = [obj.position.clone(), obj.quaternion.clone(), obj.scale.clone()];
+      obj.position.set(0, 0, 0); obj.quaternion.identity(); obj.scale.setScalar(1);
+      obj.updateMatrixWorld(true);
+      const b = new THREE.Box3().setFromObject(obj);
+      [obj.position, obj.quaternion, obj.scale].forEach((v, i) => v.copy(saved[i]));
+      const pts = [];
+      const sh = 0.88;
+      const ctr = b.getCenter(new THREE.Vector3()), hs = b.getSize(new THREE.Vector3()).multiplyScalar(0.5 * sh);
+      for (const ix of [-1, 0, 1]) for (const iy of [-1, 0, 1]) for (const iz of [-1, -0.5, 0, 0.5, 1]) pts.push(new THREE.Vector3(ctr.x + ix * hs.x, ctr.y + iy * hs.y, ctr.z + iz * hs.z));
+      obj.userData.samples = pts;
+    }
+    obj.updateMatrixWorld(true);
+    const hairMesh = c.hair.mesh;
+    hairMesh.updateMatrixWorld(true);
+    const inv = _inv.copy(hairMesh.matrixWorld).invert();
+    // skull ellipsoid (lets the blades sink ~3 mm into the hair) and a jaw/chin ellipsoid below it
+    const vols = [[HEAD_C, _R1.set(0.089, 0.104, 0.102).multiplyScalar(0.97)], [_C2.set(0, 0.035, 0.03), _R2.set(0.06, 0.06, 0.075)]];
+    const best = new THREE.Vector3();
+    let bestLen = 0;
+    const lp = new THREE.Vector3(), d = new THREE.Vector3();
+    for (const s of obj.userData.samples) {
+      lp.copy(s).applyMatrix4(obj.matrixWorld).applyMatrix4(inv);
+      for (const [C, R] of vols) {
+        d.subVectors(lp, C);
+        const k = Math.sqrt((d.x / R.x) ** 2 + (d.y / R.y) ** 2 + (d.z / R.z) ** 2);
+        if (k >= 1 || k < 1e-4) continue;
+        const out = d.clone().multiplyScalar(1 / k - 1);    // to the surface along the centre ray
+        if (out.length() > bestLen) { bestLen = out.length(); best.copy(out); }
+      }
+    }
+    if (bestLen < 1e-4) return null;
+    best.transformDirection(hairMesh.matrixWorld).multiplyScalar(bestLen * hairMesh.getWorldScale(_sc).x);
+    obj.position.add(best);
+    return best;
   }
 
   // ---------------------------------------------------------------- views
