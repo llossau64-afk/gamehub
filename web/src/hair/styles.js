@@ -102,6 +102,61 @@ export const HAIRCUTS = {
     tol: 0.045,
     start: HAIR_START,
   },
+  taperFade: {
+    name: 'Taper Fade', price: 38, level: 3, par: 100,
+    lines: ['Keep the length on top', 'Taper only at the hairline', 'Clean edges'],
+    target: { top: 0.4, front: 0.38, left: 0, right: 0, back: 0, edges: 0 },
+    fade: { bottom: 0.05, top: 0.2, height: 0.28 },
+    tol: 0.055,
+    start: HAIR_START,
+  },
+  sidePart: {
+    name: 'Side Part', price: 45, level: 4, par: 115, style: 'part',
+    lines: ['Classic top, keep it long', 'Sides guard 2', 'Comb it into a side part'],
+    target: { top: 0.46, front: 0.5, left: 0.1, right: 0.1, back: 0.1, edges: 0 },
+    tol: 0.06,
+    start: { top: 0.66, front: 0.7, left: 0.36, right: 0.36, back: 0.38, fuzz: 0.07 },
+  },
+  lowFade: {
+    name: 'Low Fade', price: 46, level: 4, par: 115,
+    lines: ['Medium top', 'Fade starts just above the ear', 'Sharp edges'],
+    target: { top: 0.4, front: 0.38, left: 0, right: 0, back: 0, edges: 0 },
+    fade: { bottom: 0.008, top: 0.167, height: 0.36 },
+    tol: 0.05,
+    start: HAIR_START,
+  },
+  frenchCrop: {
+    name: 'French Crop', price: 48, level: 5, par: 115,
+    lines: ['Short top, longer fringe', 'Blunt fringe with scissors', 'Sides faded to 6 mm'],
+    target: { top: 0.22, front: 0.32, left: 0, right: 0, back: 0, edges: 0 },
+    fade: { bottom: 0.008, top: 0.1, height: 0.45 },
+    tol: 0.045,
+    start: HAIR_START,
+  },
+  slickBack: {
+    name: 'Slick Back', price: 58, level: 5, par: 125, style: 'back',
+    lines: ['Keep the top long', 'Sides faded to 13 mm', 'Comb everything back'],
+    target: { top: 0.58, front: 0.56, left: 0, right: 0, back: 0, edges: 0 },
+    fade: { bottom: 0.05, top: 0.217, height: 0.6 },
+    tol: 0.06,
+    start: { top: 0.76, front: 0.74, left: 0.42, right: 0.42, back: 0.44, fuzz: 0.07 },
+  },
+  highFade: {
+    name: 'High Fade', price: 58, level: 6, par: 125,
+    lines: ['Short medium top', 'Fade goes high, almost to the top', 'Skin at the bottom'],
+    target: { top: 0.32, front: 0.3, left: 0, right: 0, back: 0, edges: 0 },
+    fade: { bottom: 0.0, top: 0.1, height: 0.95 },
+    tol: 0.045,
+    start: HAIR_START,
+  },
+  curlyFade: {
+    name: 'Curly Fade', price: 62, level: 7, par: 130, curly: true,
+    lines: ['Keep the curls on top', 'Mid fade on the sides', 'Shape it with scissors'],
+    target: { top: 0.5, front: 0.44, left: 0, right: 0, back: 0, edges: 0 },
+    fade: { bottom: 0.008, top: 0.167, height: 0.62 },
+    tol: 0.06,
+    start: { top: 0.72, front: 0.66, left: 0.42, right: 0.42, back: 0.44, fuzz: 0.08 },
+  },
   mullet: {
     name: 'Mullet', price: 55, level: 6, par: 115,
     lines: ['Business in front', 'Party in the back', 'Short sides'],
@@ -178,8 +233,10 @@ export function evaluate(c, cutId, seconds) {
   const speed = clamp(1 - Math.max(0, seconds - cut.par) / (cut.par * 1.6), 0.4, 1);
   let overall = accuracy * 0.58 + symmetry * 0.14 + edges * 0.16 + speed * 0.12;
   if (fade !== null) overall = overall * 0.75 + fade * 0.25;
+  const style = cut.style ? c.hair.styledShare() : null;
+  if (style !== null) overall = overall * 0.8 + style * 0.2;
   const stars = starsFor(overall);
-  return { accuracy, symmetry, edges, speed, fade, overall, stars, perRegion: per };
+  return { accuracy, symmetry, edges, speed, fade, style, overall, stars, perRegion: per };
 }
 
 export const starsFor = (o) => (o >= 0.88 ? 5 : o >= 0.76 ? 4 : o >= 0.6 ? 3 : o >= 0.42 ? 2 : 1);

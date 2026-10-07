@@ -352,6 +352,11 @@ export class UI {
       regions.append(row);
       this.regionEls[r] = row;
     }
+    this.styleEl = null;
+    if (cfg.style) {
+      this.styleEl = h('<div class="rg style"><div class="h"><span>Combed into shape</span><b></b></div><div class="track"><div class="zone" style="left:85%;width:15%"></div><div class="cur"></div></div></div>');
+      regions.append(this.styleEl);
+    }
     el.querySelector('.barber-help').innerHTML = this.touch ? '' :
       '<div><span class="key">LMB</span>cut on the hair</div><div><span class="key">RMB</span>/<span class="key">A</span><span class="key">D</span>turn the chair</div><div><span class="key">Wheel</span>zoom</div><div><span class="key">Space</span>power</div><div><span class="key">Q</span><span class="key">E</span>guard</div>';
   }
@@ -385,6 +390,11 @@ export class UI {
       row.classList.toggle('focus', st.focus === r);
       row.querySelector('b').textContent = edge ? (ok ? 'clean' : 'messy') : `${mm(stat.mean)} / ${mm(tgt)} mm`;
     }
+    if (this.styleEl && st.styled !== null && st.styled !== undefined) {
+      this.styleEl.querySelector('.cur').style.width = st.styled * 100 + '%';
+      this.styleEl.querySelector('b').textContent = Math.round(st.styled * 100) + '%';
+      this.styleEl.classList.toggle('ok', st.styled >= 0.85);
+    }
     this.barberEl.querySelector('.cut-timer').textContent = `Time ${Math.floor(st.time / 60)}:${String(Math.floor(st.time % 60)).padStart(2, '0')}`;
   }
 
@@ -405,6 +415,7 @@ export class UI {
       const cls = (v) => (v >= 0.85 ? 'good' : v >= 0.6 ? 'mid' : 'bad');
       const rows = [['Accuracy', r.accuracy], ['Symmetry', r.symmetry], ['Edges', r.edges]];
       if (r.fade !== null && r.fade !== undefined) rows.push(['Fade', r.fade]);
+      if (r.style !== null && r.style !== undefined) rows.push(['Styling', r.style]);
       rows.push(['Speed', r.speed]);
       if (r.groom > 0.05) rows.push(['Grooming', r.groom]);
       const wrap = h(`<div class="panel-wrap"><div class="card result">

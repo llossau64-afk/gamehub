@@ -24,15 +24,17 @@ export class Customer {
       look = { ...look, colors: { ...look.colors, ...v.colors, Skin: v.skin, Sleeve: v.colors.Sleeve || v.colors.Top }, accessories: v.accessories, scale: 1.0, hunch: 0 };
       this.vip = v;
     }
-    this.look = look;
     this.name = opts.name || (opts.vip ? opts.vip.name : pick(FIRST));
     this.personality = opts.personality || (opts.vip ? VIP_PERSONALITY : randomPersonality(game.level));
     this.cutId = opts.cutId || game.pickCut(!!opts.vip);
     this.cut = HAIRCUTS[this.cutId];
+    if (this.cut.curly && !(look.curl > 0.5)) look = { ...look, curl: rand(0.6, 0.9) };
+    this.look = look;
     this.ch = new Character(game.scene, { ...look, name: this.name, voice: { ...look.voice, rate: (look.voice?.rate || 1) * this.personality.voiceRate } });
     this.hair = new HairSystem({ color: look.hairColor, skin: look.colors.Skin, curl: look.curl, layers: game.quality.hairLayers });
     this.hair.attach(this.ch.bones.Head);
     this.hair.setStyle(startStyle(this.cutId));
+    this.hair.setStyleDir(this.cut.style);
     this.ch.hair = this.hair;
     // beard: required by beard cuts, otherwise a matter of taste
     const beardSpec = startBeard(this.cutId) || opts.beard || (opts.noBeard ? null : (chance(0.38) ? BEARD_STYLES[pick(['stubble', 'stubble', 'short', 'full', 'goatee', 'moustache'])] : null));

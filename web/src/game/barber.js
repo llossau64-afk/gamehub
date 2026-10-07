@@ -96,6 +96,7 @@ export class BarberMode {
     g.ui.showBarber({
       cutName: customer.cut.name,
       regions: Object.keys(customer.cut.target),
+      style: !!customer.cut.style,
       tools: TOOLS,
       onTool: (id) => this.selectTool(id),
       onPower: () => this.togglePower(),
@@ -122,6 +123,8 @@ export class BarberMode {
     if (!seen.includes('combSpray')) tips.push(['combSpray', g.input.touch ? 'New tools: comb for a groomed finish, spray for cleaner scissor cuts' : 'New tools: comb (4) for a groomed finish, spray (5) for cleaner scissor cuts']);
     if (c.cut.fade && !seen.includes('fade')) tips.push(['fade', 'Fade: short guard at the bottom, then longer guards higher up']);
     if (c.cut.beard && !seen.includes('beard')) tips.push(['beard', 'Beard: turn the chair to face you, trimmer for the neckline']);
+    if (c.cut.style && !seen.includes('style')) tips.push(['style', c.cut.style === 'part' ? 'Side part: cut first, then comb the top until it lies flat. Spray helps.' : 'Slick back: cut first, then comb the top back until it lies flat. Spray helps.']);
+    if (c.cut.curly && !seen.includes('curly')) tips.push(['curly', 'Curly hair: scissors on top, clippers for the fade']);
     if (c.vip && !seen.includes('vip')) tips.push(['vip', 'VIP: four stars or more, or your reputation takes a hit']);
     let t = 600;
     for (const [id, text] of tips) {
@@ -206,6 +209,7 @@ export class BarberMode {
     this.game.ui.updateBarber({
       tool: this.tool, power: this.power, electric: !!(t && t.electric), guard: this.guard,
       cut: this.c.cut, stats: this.stats, time: this.time, focus: this.focus,
+      styled: this.c.cut.style ? this.c.hair.styledShare() : null,
     });
   }
 
@@ -358,6 +362,7 @@ export class BarberMode {
           const mv = Math.hypot(p.dragDX, p.dragDY);
           if (mv > 0.5 || p.touch) {
             sys.comb(hit.phi, hit.theta, beard ? undefined : 0.03);
+            if (!beard && this.c.cut.style) this.cutDirty = true;
             this.markCombed(sys, hit);
             this.combSnd = (this.combSnd || 0) - dt;
             if (this.combSnd <= 0) { this.combSnd = 0.12; audio.noiseBurst(0.05, { vol: 0.05, freq: rand(2500, 3800), q: 2 }); }

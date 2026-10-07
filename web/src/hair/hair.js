@@ -119,25 +119,39 @@ export function makeMaterial(sys) {
       uHl: { value: 0 },
       uHlRegion: { value: -1 },
       uCurl: { value: sys.curl || 0 },
+      uHeadC: { value: HEAD_C },
+      uPart: { value: 9 },
+      uDirA: { value: new THREE.Vector3(0, -0.6, -1).normalize() },
+      uDirB: { value: new THREE.Vector3(0, -0.6, -1).normalize() },
       uKeyDir: hairLight.keyDir, uKeyColor: hairLight.keyColor, uAmbTop: hairLight.ambTop, uAmbBot: hairLight.ambBot, uTime: hairLight.time,
     },
     vertexShader: /* glsl */`
       attribute float layer; attribute vec3 tdown;
       uniform sampler2D uLen; uniform float uMaxLen; uniform vec3 uGrav; uniform float uCurl;
-      varying vec2 vUv; varying float vH; varying vec3 vN; varying vec3 vT; varying vec3 vWPos; varying float vLen;
+      uniform vec3 uHeadC; uniform float uPart; uniform vec3 uDirA; uniform vec3 uDirB;
+      varying vec2 vUv; varying float vH; varying vec3 vN; varying vec3 vT; varying vec3 vWPos; varying float vLen; varying float vPart; varying float vStyled;
       void main(){
         vUv = uv; vH = layer;
         vec4 tx = texture2D(uLen, uv);
         float len = tx.r * uMaxLen;
         vLen = tx.r;
-        vec3 p = position + normal * (0.0011 + layer * len * 0.5);
+        // combed hair (alpha channel) lies flat along the style direction
+        float st = tx.a * (1.0 - uCurl * 0.6);
+        vStyled = st;
+        vec3 rel = position - uHeadC;
+        vPart = rel.x - uPart;
+        vec3 D = vPart > 0.0 ? uDirA : uDirB;
+        vec3 sd = D - normal * dot(D, normal);
+        sd = sd / max(length(sd), 1e-4);
+        vec3 p = position + normal * (0.0011 + layer * len * 0.5 * (1.0 - 0.62 * st));
         float drape = layer * layer * max(len - 0.006, 0.0);
-        p += tdown * drape * (0.75 - uCurl * 0.5);
-        p += uGrav * drape * (0.45 - uCurl * 0.3);
+        p += tdown * drape * (0.75 - uCurl * 0.5) * (1.0 - st * 0.8);
+        p += uGrav * drape * (0.45 - uCurl * 0.3) * (1.0 - st * 0.5);
+        p += sd * layer * len * st * 0.95;
         vec4 wp = modelMatrix * vec4(p, 1.0);
         vWPos = wp.xyz;
         vN = normalize(mat3(modelMatrix) * normal);
-        vT = normalize(mat3(modelMatrix) * (tdown + normal * 0.2));
+        vT = normalize(mat3(modelMatrix) * mix(tdown + normal * 0.2, sd + normal * 0.1, st));
         gl_Position = projectionMatrix * viewMatrix * wp;
       }`,
     fragmentShader: /* glsl */`
@@ -145,9 +159,11 @@ export function makeMaterial(sys) {
       uniform vec3 uColor; uniform vec3 uTip; uniform vec3 uSkin;
       uniform float uHl; uniform float uHlRegion; uniform float uTime; uniform float uCurl;
       uniform vec3 uKeyDir; uniform vec3 uKeyColor; uniform vec3 uAmbTop; uniform vec3 uAmbBot;
-      varying vec2 vUv; varying float vH; varying vec3 vN; varying vec3 vT; varying vec3 vWPos; varying float vLen;
+      varying vec2 vUv; varying float vH; varying vec3 vN; varying vec3 vT; varying vec3 vWPos; varying float vLen; varying float vPart; varying float vStyled;
       void main(){
         vec4 tx = texture2D(uLen, vUv);
+        // a combed side part shows as a thin line of scalp
+        if (vH > 0.001 && vStyled > 0.35 && abs(vPart) < 0.0028 * (0.6 + vH)) discard;
         float L = tx.r;
         float wet = tx.g;
         vec3 col;
@@ -182,7 +198,7 @@ export function makeMaterial(sys) {
         vec3 H = normalize(Ld + V);
         vec3 T = normalize(vT);
         float th = dot(T, H);
-        float spec = pow(sqrt(max(0.0, 1.0 - th * th)), 80.0) * 0.22 * (1.0 + wet * 2.0);
+        float spec = pow(sqrt(max(0.0, 1.0 - th * th)), 80.0 - vStyled * 30.0) * 0.22 * (1.0 + wet * 2.0 + vStyled * 1.4);
         vec3 amb = mix(uAmbBot, uAmbTop, N.y * 0.5 + 0.5);
         col *= (1.0 - wet * 0.4);
         vec3 lit = col * (amb + uKeyColor * diff) * ao * strandShade + uKeyColor * spec * ao;
@@ -205,6 +221,7 @@ export class HairSystem {
     this.curl = opts.curl || 0;
     this.len = new Float32Array(TEX_W * TEX_H);
     this.wet = new Float32Array(TEX_W * TEX_H);
+    this.styled = new Float32Array(TEX_W * TEX_H);
     this.region = new Uint8Array(TEX_W * TEX_H);
     this.area = new Float32Array(TEX_W * TEX_H);
     this.data = new Uint8Array(TEX_W * TEX_H * 4);
@@ -286,6 +303,7 @@ export class HairSystem {
         const n = 1 + (Math.sin(i * 0.9 + offs[0]) * Math.cos(j * 0.7 + offs[1]) * 0.5 + (r() - 0.5) * 0.4) * (spec.noise ?? 0.12);
         this.len[k] = clamp(v * n, 0, 1);
         this.wet[k] = 0;
+        this.styled[k] = 0;
       }
     }
     this.dirty = true;
@@ -299,7 +317,7 @@ export class HairSystem {
       d[k * 4] = Math.round(clamp(this.len[k], 0, 1) * 255);
       d[k * 4 + 1] = Math.round(clamp(this.wet[k], 0, 1) * 255);
       d[k * 4 + 2] = this.region[k] * 20;
-      d[k * 4 + 3] = 255;
+      d[k * 4 + 3] = Math.round(clamp(this.styled[k], 0, 1) * 255);
     }
     this.texture.needsUpdate = true;
     this.dirty = false;
@@ -408,7 +426,7 @@ export class HairSystem {
   clip(phi, theta, guardLen, rate, dt, radius = 0.022) {
     return this.brush(phi, theta, radius, (k, w) => {
       const cur = this.len[k];
-      if (cur > guardLen) this.len[k] = Math.max(guardLen, cur - rate * dt * w * (0.4 + cur));
+      if (cur > guardLen) { this.len[k] = Math.max(guardLen, cur - rate * dt * w * (0.4 + cur)); this.styled[k] *= 1 - 0.08 * w; }
     });
   }
 
@@ -417,7 +435,7 @@ export class HairSystem {
       const cur = this.len[k];
       // damp hair lies flat and cuts evenly
       const ww = this.wet[k] > 0.25 ? 0.85 + 0.15 * w : 0.35 + 0.65 * w;
-      if (cur > floor) this.len[k] = Math.max(floor, cur - amount * ww);
+      if (cur > floor) { this.len[k] = Math.max(floor, cur - amount * ww); this.styled[k] *= 1 - 0.25 * w; }
     });
   }
 
@@ -428,16 +446,40 @@ export class HairSystem {
   }
 
   comb(phi, theta, radius = 0.025) {
-    // evens out lengths slightly toward the local average (tidier, small accuracy bonus)
+    // evens out lengths slightly toward the local average and lays the hair down
+    // along the style direction (stored in the alpha channel)
     let sum = 0, n = 0;
     this.brush(phi, theta, radius, (k) => { if (this.region[k] !== REGION_ID.edges) { sum += this.len[k]; n++; } });
     if (!n) return 0;
     const avg = sum / n;
-    return this.brush(phi, theta, radius, (k, w) => {
+    const r = this.brush(phi, theta, radius * 1.15, (k, w) => {
       if (this.region[k] === REGION_ID.edges) return;
       const c = this.len[k];
       if (c > avg) this.len[k] = c + (avg - c) * 0.04 * w;
+      this.styled[k] = Math.min(1, this.styled[k] + (0.06 + this.wet[k] * 0.06) * w);
     });
+    this.dirty = true;
+    return r;
+  }
+
+  // where combed hair goes: 'back' (slick back), 'part' (side part on the customer's left), or the default
+  setStyleDir(mode) {
+    const u = this.mesh.material.uniforms;
+    if (mode === 'back') { u.uPart.value = 9; u.uDirA.value.set(0, -0.25, -1).normalize(); u.uDirB.value.copy(u.uDirA.value); }
+    else if (mode === 'part') { u.uPart.value = 0.032; u.uDirA.value.set(1, -0.7, -0.15).normalize(); u.uDirB.value.set(-1, -0.25, -0.45).normalize(); }
+    else { u.uPart.value = 9; u.uDirA.value.set(0, -0.6, -1).normalize(); u.uDirB.value.copy(u.uDirA.value); }
+  }
+
+  // share of top + front hair that is combed into place
+  styledShare() {
+    let s = 0, n = 0;
+    for (let k = 0; k < this.len.length; k++) {
+      const r = this.region[k];
+      if (r !== REGION_ID.top && r !== REGION_ID.front) continue;
+      const a = this.area[k];
+      s += clamp(this.styled[k] / 0.7, 0, 1) * a; n += a;
+    }
+    return n ? s / n : 0;
   }
 
   spray(phi, theta, radius = 0.05) {
@@ -449,6 +491,7 @@ export class HairSystem {
   // per-texel error that shrinks with skill
   beginService(cut, skill, fadeTargetFn) {
     this._svcStart = this.len.slice();
+    this._svcStyle = cut.style ? 0.5 + skill * 0.5 : 0;
     const T = this._svcTarget = new Float32Array(this.len.length);
     const names = [null, 'top', 'front', 'left', 'right', 'back', 'edges'];
     const err = (1 - skill) * 0.45;
@@ -471,6 +514,7 @@ export class HairSystem {
     for (let k = 0; k < this.len.length; k++) {
       const a = this._svcStart[k], b = this._svcTarget[k];
       if (b < a) this.len[k] = a + (b - a) * p;
+      if (this._svcStyle && p > 0.7) this.styled[k] = Math.max(this.styled[k], (p - 0.7) / 0.3 * this._svcStyle);
     }
     this.dirty = true;
   }

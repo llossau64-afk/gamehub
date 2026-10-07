@@ -592,6 +592,8 @@ export class Game {
   }
 
   // what the next customer asks for
+  randLook() { return randomCustomerLook(); }
+
   pickCut(vip = false) {
     const av = availableHaircuts(this.level);
     if (vip) return pick([...av].sort((a, b) => HAIRCUTS[b].price - HAIRCUTS[a].price).slice(0, 3));
@@ -599,7 +601,11 @@ export class Game {
       const fades = av.filter((id) => HAIRCUTS[id].fade);
       if (fades.length && chance(0.6)) return pick(fades);
     }
-    return pick(av);
+    // freshly unlocked cuts show up a bit more often
+    const w = av.map((id) => (HAIRCUTS[id].level >= this.level - 1 ? 1.8 : 1));
+    let r = Math.random() * w.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < av.length; i++) { r -= w[i]; if (r <= 0) return av[i]; }
+    return av[av.length - 1];
   }
 
   syncEmployee() {
