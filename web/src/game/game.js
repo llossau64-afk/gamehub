@@ -15,6 +15,7 @@ import { Director, SKIP } from '../cutscene/director.js';
 import { playIntro, introEndState } from '../cutscene/intro.js';
 import { ItemShowcase } from '../fx/itemGet.js';
 import { Exclaim } from '../fx/exclaim.js';
+import { DayClock } from './dayclock.js';
 import { Physics } from '../fx/physics.js';
 import { Reactions } from './reactions.js';
 import { playTutorial } from './tutorial.js';
@@ -47,6 +48,7 @@ export class Game {
     this.mist = new Mist(this.scene);
     this.itemFx = new ItemShowcase(this);
     this.exclaim = new Exclaim(this.scene);
+    this.clock = new DayClock(this);
     this.physics = new Physics(this);
     this.reactions = new Reactions(this);
     this.dir = new Director(this);
@@ -232,6 +234,11 @@ export class Game {
     I({
       id: 'cape', label: () => (this.tutorialActive && this.customers.inChair?.state === 'seated' ? 'Take the cape' : null),
       pos: () => SPOTS.capeHook.clone(), radius: 3.2, action: () => 'cape',
+    });
+    I({
+      id: 'opensign', label: () => (this.state === 'play' && !this.clock.open && !this.tutorialActive ? 'Open the shop' : null),
+      pos: () => V(1.9, 1.5, 2.45), radius: 3.4,
+      action: () => { this.clock.openShop(); this.customers.enabled = true; this.customers.spawnT = 2.5; this.ui.objective('', ''); this.showEvent(); return 'opensign'; },
     });
     I({ id: 'catalog', label: () => 'Upgrades', pos: () => this.shop.slots.catalog.getWorldPosition(V()).add(V(0, 0.05, 0)), radius: 2.2, action: () => { this.openUpgrades(); return 'catalog'; } });
     I({
@@ -439,14 +446,18 @@ export class Game {
     this.state = 'play';
     this.enterFP();
     this.ui.showHud(true);
-    this.customers.enabled = true;
-    this.customers.spawnT = resume ? 3 : 4;
+    // the shop opens when you flip the door sign (8:00); until then nobody comes in
+    this.clock.morning();
+    this.shop.setOpenSign(false);
+    this.customers.enabled = false;
+    this.customers.spawnT = 3;
+    setTimeout(() => { if (!this.clock.open && this.state === 'play') this.ui.objective('Morning', 'Flip the door sign to OPEN'); }, 2600);
     platform.gameplayStart();
     this.updateGoal();
     if (this.owns('radio')) this.setRadio(true);
     this.syncEmployee();
     this.rollEvent();
-    setTimeout(() => this.showEvent(), 2500);
+    setTimeout(() => { if (this.clock.open) this.showEvent(); }, 2500);
     platform.loadingStop();
   }
 
@@ -978,7 +989,6 @@ export class Game {
     this.persist();
     await this.customerPays(c, pay);
     this.servedToday++;
-    if (!c.tutorial && this.servedToday >= 6) this.endOfDay();
   }
 
   async mirrorReaction(c, result) {
@@ -1084,14 +1094,22 @@ export class Game {
   }
 
   async endOfDay() {
+    const served = this.servedToday;
     this.servedToday = 0;
     const s = this.save;
     s.day++;
     this.persist();
     this.checkAchievements();
     this.rollEvent();
-    await this.ui.banner(`Day ${s.day - 1} complete`, `Day ${s.day}`, this.event ? `Today: ${this.event.name}` : `${s.stats.served} customers served so far`, 2200);
-    this.showEvent();
+    audio.duckMusic?.(0.2);
+    await this.ui.fade(true, 700);
+    this.clock.morning();
+    this.shop.setOpenSign(false);
+    this.clippings.sweep();
+    this.ui.fade(false, 900);
+    await this.ui.banner(`Day ${s.day - 1} done · ${served} served`, `Day ${s.day}`, this.event ? `Today: ${this.event.name}` : 'Flip the sign when you are ready', 2400);
+    audio.duckMusic?.(0.55);
+    this.ui.objective('Morning', 'Flip the door sign to OPEN');
     if (this.state === 'play') {
       platform.gameplayStop();
       await platform.showMidgame();
@@ -1167,6 +1185,7 @@ export class Game {
     this.itemFx.update(dt);
     this.exclaim.update(dt);
     this.physics.update(dt);
+    if (this.state !== 'menu') this.clock.update(dt);
     this.reactions.update(dt);
     input.endFrame();
   }

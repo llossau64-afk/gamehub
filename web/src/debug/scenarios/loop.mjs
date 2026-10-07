@@ -10,6 +10,9 @@ export default async ({ step, snap, ev, page, until }) => {
   await until(() => window.__game.state === 'play');
   await step(3);
   await snap('start');
+  await ev(() => { const g = window.__game; g.shop.interactables.find((i) => i.id === 'opensign').action(); });
+  await step(2.5);
+  await snap('opened');
   await until(() => window.__game.customers.list[0]?.state === 'waitingTalk', 40);
   await step(1);
   const lookAt = (fn) => ev((f) => { const g = window.__game; const p = new Function('g', 'return ' + f)(g); g.player.lookTowards(p, 1, 60); g.player.applyCamera(0); }, fn);

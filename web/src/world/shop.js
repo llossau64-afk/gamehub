@@ -4,6 +4,7 @@ import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { spawnProp, part, setSpecialMaterial, meshesByMaterial } from './props.js';
 import { propMaterial, addDetail, shared } from '../render/materials.js';
+const propColor = (n) => propMaterial(n).color;
 import * as T from '../render/textures.js';
 import { Spring, clamp, rand, damp, noise1 } from '../core/util.js';
 import { audio } from '../audio/audio.js';
@@ -389,6 +390,7 @@ export class Shop {
       g.add(p);
     };
     opp(-14, -6, [150, 118, 92], 71, 8); opp(-6, 1, [112, 120, 112], 73, 7); opp(1, 8, [176, 150, 120], 75, 9); opp(8, 16, [126, 98, 86], 77, 7.5);
+    this.buildStreetLife(g, fz);
     const swo = plane(40, 3.5, sw); swo.rotation.x = -Math.PI / 2; swo.position.set(0, 0, fz + 12.3); g.add(swo);
 
     // street props
@@ -416,6 +418,100 @@ export class Shop {
     g.add(this.pole);
     this.poleMat = this.makePoleMaterial();
     part(this.pole, 'stripes').traverse((o) => { if (o.isMesh) o.material = this.poleMat; });
+  }
+
+  // the neighbourhood: shopfronts with depth, rooftops, parked cars, more trees, hanging
+  // planters, bollards and lamp lights that come on at dusk
+  buildStreetLife(g, fz) {
+    const box = (w, h, d, mat, x, y, z, ry = 0) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), typeof mat === 'string' ? propMaterial(mat) : mat);
+      m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = false; m.receiveShadow = true; g.add(m); return m;
+    };
+    // opposite shopfronts: awnings, glowing windows, cornice
+    const awnCols = ['#7a2a26', '#24344d', '#3e6b4a', '#b58a3c'];
+    [[-10, 8], [-2.5, 7], [4.5, 9], [12, 7.5]].forEach(([x, hgt], i) => {
+      const z = fz + 13.95;
+      box(6.2, 0.25, 0.4, 'Concrete', x, hgt - 0.1, z - 0.2);                              // cornice
+      box(6.2, 0.18, 0.3, 'Concrete', x, 3.15, z - 0.15);                                  // shop band
+      const aw = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.06, 1.1), new THREE.MeshStandardMaterial({ color: awnCols[i % 4], roughness: 0.8 }));
+      aw.position.set(x, 2.85, z - 0.55); aw.rotation.x = -0.32; g.add(aw);
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 1.7), this.nightWindowMat ||= new THREE.MeshStandardMaterial({ color: '#2c3540', roughness: 0.15, metalness: 0.4, emissive: new THREE.Color('#ffb46a'), emissiveIntensity: 0.05 }));
+      win.position.set(x, 1.45, z - 0.02); win.rotation.y = Math.PI; g.add(win);
+      // rooftop boxes
+      box(1.4, 0.8, 1.2, 'MetalPainted', x - 1.5, hgt + 0.4, z + 1);
+      box(0.4, 1.2, 0.4, 'Concrete', x + 2, hgt + 0.6, z + 0.6);
+    });
+    // parked cars (simple stylised shapes), one on each side of the road
+    const car = (x, z, ry, col) => {
+      const c = new THREE.Group();
+      const paint = new THREE.MeshStandardMaterial({ color: col, roughness: 0.35, metalness: 0.5 });
+      const glass = new THREE.MeshStandardMaterial({ color: '#1d2630', roughness: 0.1, metalness: 0.6 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(4.1, 0.75, 1.75), paint); body.position.y = 0.62; c.add(body);
+      const cab = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.62, 1.6), glass); cab.position.set(-0.2, 1.28, 0); c.add(cab);
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.08, 1.55), paint); roof.position.set(-0.2, 1.62, 0); c.add(roof);
+      const tyre = new THREE.MeshStandardMaterial({ color: '#151515', roughness: 0.9 });
+      for (const [wx, wz] of [[-1.3, 0.85], [1.3, 0.85], [-1.3, -0.85], [1.3, -0.85]]) {
+        const w = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.25, 14), tyre);
+        w.rotation.x = Math.PI / 2; w.position.set(wx, 0.34, wz); c.add(w);
+      }
+      const lightM = new THREE.MeshStandardMaterial({ color: '#fff2cc', emissive: new THREE.Color('#fff2cc'), emissiveIntensity: 0.4 });
+      for (const lz of [0.6, -0.6]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.15, 0.3), lightM); l.position.set(2.06, 0.75, lz); c.add(l); }
+      c.position.set(x, -0.07, z); c.rotation.y = ry;
+      c.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      g.add(c);
+      return c;
+    };
+    car(-8.5, fz + 4.2, 0, '#8f2f2a');
+    car(10.5, fz + 10.9, Math.PI, '#3b5f7d');
+    car(16, fz + 4.2, 0, '#d8cfb4');
+    // more trees and planters along the pavement
+    for (const [x, s] of [[-12, 1], [14, 0.9], [-16, 1.1]]) { const t = this.makeTree(); t.position.set(x, 0, fz + 2.3); t.scale.setScalar(s); g.add(t); }
+    for (const [x, s] of [[-9, 0.9], [-1, 1], [7, 0.95], [15, 1]]) { const t = this.makeTree(); t.position.set(x, 0, fz + 12.4); t.scale.setScalar(s); g.add(t); }
+    // bollards
+    for (let i = -4; i <= 6; i++) { if (Math.abs(i * 1.6 - 1.9) < 0.8) continue; box(0.12, 0.7, 0.12, 'MetalDark', i * 1.6, 0.35, fz + 2.8); }
+    // flower boxes under our window
+    const fb = box(2.6, 0.22, 0.28, 'WoodDark', WINDOW.x, 0.62, fz + 0.24);
+    const flower = ['#e0455a', '#f2cf7c', '#ffffff', '#c985d6'];
+    for (let i = 0; i < 14; i++) {
+      const f = new THREE.Mesh(new THREE.IcosahedronGeometry(0.06 + Math.random() * 0.03, 0), new THREE.MeshStandardMaterial({ color: i % 3 ? propColor('Leaf') : flower[i % 4], roughness: 0.8 }));
+      f.position.set(WINDOW.x - 1.2 + i * 0.18 + Math.random() * 0.05, 0.78 + Math.random() * 0.06, fz + 0.24 + (Math.random() - 0.5) * 0.12);
+      g.add(f);
+    }
+    // street lamp light pools (only shine at dusk)
+    this.streetLights = [];
+    for (const x of [-3.9, 6.5]) {
+      const L = new THREE.PointLight('#ffc98a', 0, 8, 2);
+      L.position.set(x, 3.4, fz + 2.6);
+      g.add(L);
+      this.streetLights.push(L);
+    }
+  }
+
+  setDusk(k) {
+    for (const L of this.streetLights || []) L.intensity = k * 6;
+    if (this.nightWindowMat) this.nightWindowMat.emissiveIntensity = 0.05 + k * 0.9;
+    const lamps = this.exterior ? [] : [];
+    if (this.signMat) this.signMat.emissiveIntensity = 0.6 + k * 1.2;
+  }
+
+  // the little OPEN / CLOSED card hanging in the door
+  setOpenSign(open) {
+    this.isOpen = open;
+    if (!this.doorCard) {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+      this.doorCardCanvas = c;
+      const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+      this.doorCard = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.17), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, side: THREE.DoubleSide, emissive: new THREE.Color('#ffffff'), emissiveMap: tex, emissiveIntensity: 0.15 }));
+      this.doorCard.position.set(0.05, 1.62, 0.04);
+      this.doorHinge.add(this.doorCard);
+    }
+    const g = this.doorCardCanvas.getContext('2d');
+    g.fillStyle = open ? '#2f5e3c' : '#7a2a26'; g.fillRect(0, 0, 256, 128);
+    g.strokeStyle = '#efe4cf'; g.lineWidth = 8; g.strokeRect(8, 8, 240, 112);
+    g.fillStyle = '#efe4cf'; g.font = 'bold 64px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(open ? 'OPEN' : 'CLOSED', 128, 68);
+    this.doorCard.material.map.needsUpdate = true;
+    this.doorCard.rotation.y = Math.PI;
   }
 
   makeTree() {

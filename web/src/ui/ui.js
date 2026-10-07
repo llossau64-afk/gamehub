@@ -358,7 +358,7 @@ export class UI {
   // ------------------------------------------------------------------ HUD
   buildHud() {
     const el = h(`<div class="hud off">
-      <div class="hud-tl"><div class="money"><span class="cur">$</span><span class="v">0</span></div>
+      <div class="clock"><div class="ck-t">08:00</div><div class="ck-s">Closed</div><div class="ck-bar"><i></i></div></div><div class="hud-tl"><div class="money"><span class="cur">$</span><span class="v">0</span></div>
         <div class="lvl"><div class="l"><span>Shop level</span><b>1</b></div><div class="bar"><i></i></div></div></div>
       <div class="goal hidden"></div>
       <div class="objective off"><div class="k"></div><div class="t"></div></div>
@@ -383,6 +383,7 @@ export class UI {
     this.reqEl = el.querySelector('.req');
     this.interactBtn = el.querySelector('.interact-btn');
     this.upBtn = el.querySelector('.up-btn');
+    this.clockEl = el.querySelector('.clock');
     this.trophyBtn = el.querySelector('.trophy-btn');
     this.pauseBtn = el.querySelector('.pause-btn');
     this.interactBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); this.input.press('interact'); });
@@ -411,6 +412,15 @@ export class UI {
     };
     this.moneyBox.classList.remove('bump'); void this.moneyBox.offsetWidth; this.moneyBox.classList.add('bump');
     this._moneyAnim = requestAnimationFrame(step);
+  }
+
+  setClock(label, open, k, closing) {
+    if (!this.clockEl) return;
+    this.clockEl.querySelector('.ck-t').textContent = label;
+    this.clockEl.querySelector('.ck-s').textContent = !open ? 'Closed' : closing ? 'Closing' : 'Open';
+    this.clockEl.querySelector('.ck-bar i').style.width = Math.round(k * 100) + '%';
+    this.clockEl.classList.toggle('open', open && !closing);
+    this.clockEl.classList.toggle('closing', !!closing);
   }
 
   setLevel(level, xp) {

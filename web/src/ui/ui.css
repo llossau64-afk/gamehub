@@ -129,7 +129,7 @@
 .lvl .bar i { display: block; height: 100%; background: var(--brass-2); width: 0; transition: width .6s cubic-bezier(.3,.8,.3,1); }
 .goal { position: absolute; left: calc(18px + var(--safe-l)); top: calc(74px + var(--safe-t)); font-family: var(--cond); font-size: 16px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--paper); text-shadow: 0 1px 3px rgba(0,0,0,.8); display: flex; align-items: center; gap: 8px; }
 .goal::before { content: ''; width: 8px; height: 8px; background: var(--brass-2); transform: rotate(45deg); }
-.objective { position: absolute; left: 50%; top: calc(18px + var(--safe-t)); transform: translateX(-50%); text-align: center; transition: opacity .5s, transform .5s; }
+.objective { position: absolute; left: 50%; top: calc(82px + var(--safe-t)); transform: translateX(-50%); text-align: center; transition: opacity .5s, transform .5s; }
 .objective .k { font-family: var(--cond); font-size: 13px; letter-spacing: .3em; color: var(--brass-2); font-weight: 700; text-transform: uppercase; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
 .objective .t { font-family: var(--cond); font-size: 24px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
 .objective.off { opacity: 0; transform: translateX(-50%) translateY(-10px); }
@@ -582,3 +582,11 @@
 .rp-img.menu img { width: auto; height: min(46vh, 340px); border-radius: 3px; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 .rp-note { font-family: var(--cond); font-weight: 700; font-size: 11px; letter-spacing: .25em; text-transform: uppercase; color: var(--ink-2); margin-top: 6px; }
 .ref-thumb img[src^="data:image/jpeg"] { width: 34px; object-fit: cover; object-position: 50% 18%; }
+
+/* ---------------------------------------------------------------- shop clock */
+.clock { position: absolute; left: 50%; top: calc(14px + var(--safe-t)); transform: translateX(-50%); background: rgba(29,22,18,.82); color: var(--paper); border-radius: 8px; padding: 6px 14px 7px; text-align: center; box-shadow: 0 4px 14px rgba(0,0,0,.3), inset 0 0 0 1.5px rgba(209,169,86,.35); min-width: 112px; }
+.clock .ck-t { font-family: var(--cond); font-weight: 800; font-size: 24px; letter-spacing: .08em; line-height: 1; }
+.clock .ck-s { font-family: var(--cond); font-weight: 700; font-size: 10.5px; letter-spacing: .3em; text-transform: uppercase; color: #e07a6a; margin-top: 2px; }
+.clock.open .ck-s { color: #9fd08a; } .clock.closing .ck-s { color: var(--brass-2); animation: pulse 1.2s infinite; }
+.clock .ck-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.14); margin-top: 4px; overflow: hidden; }
+.clock .ck-bar i { display: block; height: 100%; background: linear-gradient(90deg, #f2cf7c, #e0704a, #5d6489); }
