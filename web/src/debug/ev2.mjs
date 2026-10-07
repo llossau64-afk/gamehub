@@ -1,0 +1,10 @@
+import { chromium } from 'playwright-core';
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'] });
+const page = await browser.newPage();
+const logs=[];
+page.on('console', (m) => logs.push(m.type()+': '+m.text()));
+await page.goto('http://localhost:5173/');
+await page.waitForTimeout(8000);
+console.log(await page.evaluate(() => JSON.stringify({ st: window.__game?.state, menuT: window.__game?.menuT, ready: window.__ready })));
+console.log(logs.filter(l=>!l.includes('iterable')).slice(0,20).join('\n'));
+await browser.close();
