@@ -25,11 +25,9 @@ const SMALLTALK = [
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _m = new THREE.Matrix4();
 
-// chair angles that show each side of the head to the (fixed) camera
-const VIEW_SIDES = { back: 0, right: -Math.PI / 2, front: Math.PI, left: Math.PI / 2 };
-const SIDE_ORDER = ['front', 'left', 'back', 'right'];
-const VIEW_LEVELS = [{ pitch: -0.12, dist: 0.62 }, { pitch: 0.28, dist: 0.68 }, { pitch: 0.95, dist: 0.6 }];
-const ZOOMS = [1.35, 1, 0.74];
+// camera yaw around the head, relative to the customer's back (the chair never turns)
+const VIEW_YAW = { back: 0, right: Math.PI / 2, front: Math.PI, left: -Math.PI / 2 };
+const PITCH_MIN = -0.3, PITCH_MAX = 1.2;
 
 export class BarberMode {
   constructor(game) {
@@ -93,13 +91,13 @@ export class BarberMode {
     this.combed = new Set();
     this.smalltalkT = rand(14, 22);
     this.lastSnip = 0;
-    this.camYawOff = 0.3;
-    this.camPitch = 0.3;
+    // camera: orbits the head in "rotate" mode (left panel / right mouse / A D W S); the chair stays put
+    const beardOnly = customer.cut.beard && !('top' in customer.cut.target);
+    this.orbYaw = this.orbYawT = beardOnly ? Math.PI - 0.35 : 0.35;
+    this.orbPitch = this.orbPitchT = 0.3;
     this.camDist = 0.7;
-    // locked camera: preset views, changed only with the arrow pad / arrow keys
-    this.viewSide = customer.cut.beard && !('top' in customer.cut.target) ? 'front' : 'back';
-    this.viewLevel = 1;
-    this.zoom = 1;
+    this.mode = 'cut';
+    this.close = false;
     this.makeTools();
     const g = this.game;
     g.ui.hideRequest();
@@ -112,14 +110,13 @@ export class BarberMode {
       onPower: () => this.togglePower(),
       onGuard: (i) => this.setGuard(i),
       onFinish: () => this.requestFinish(),
-      onView: (a) => {
-        if (a === 'left') this.stepView(-1); else if (a === 'right') this.stepView(1);
-        else if (a === 'up') this.setLevel(this.viewLevel + 1); else if (a === 'down') this.setLevel(this.viewLevel - 1);
-        else if (a === 'flip') this.setView(this.viewSide === 'back' ? 'front' : 'back');
-        else if (a === 'zin') this.setZoom(this.zoom + 1); else if (a === 'zout') this.setZoom(this.zoom - 1);
-      },
+      onMode: (m) => this.setMode(m),
+      refImg: customer.refImg,
+      onRef: () => this.game.ui.showReference(customer.cut, customer.refImg),
+      onClose: () => this.toggleClose(),
     });
-    this.setView(this.viewSide, true);
+    this.game.setChairAngle(0, 3);
+    this.game.ui.setBarberMode?.(this.mode, this.close);
     g.ui.showHud(true, { crosshair: false, buttons: false });
     g.ui.prompt(null);
     g.input.setMode('pointer');
@@ -167,6 +164,8 @@ export class BarberMode {
     g.ui.tip(null);
     g.player.arms.R.set({ visible: false, speed: 9 });
     this.resetChairFade();
+    this.mode = 'cut'; this.close = false;
+    const cv = document.querySelector('canvas'); if (cv) cv.style.cursor = '';
     if (this.c) this.focusRegion(null);
   }
 
@@ -254,14 +253,8 @@ export class BarberMode {
     }
     if (input.pressed('finish')) this.requestFinish();
 
-    // camera views: arrows step around the head, up/down change height, B flips to the back
-    if (input.pressed('orbitLeft')) this.stepView(-1);
-    if (input.pressed('orbitRight')) this.stepView(1);
-    if (input.pressed('orbitUp')) this.setLevel(this.viewLevel + 1);
-    if (input.pressed('orbitDown')) this.setLevel(this.viewLevel - 1);
-    if (input.pressed('viewBack')) this.setView(this.viewSide === 'back' ? 'front' : 'back');
-    if (input.pressed('zoomIn')) this.setZoom(this.zoom + 1);
-    if (input.pressed('zoomOut')) this.setZoom(this.zoom - 1);
+    if (input.pressed('rotateMode')) this.setMode(this.mode === 'rotate' ? 'cut' : 'rotate');
+    if (input.pressed('closeView')) this.toggleClose();
     const p = input.pointer;
     const head = this.headCenter(_v2.set(0, 0, 0)).clone();
     // pick the hair under the cursor
@@ -271,22 +264,39 @@ export class BarberMode {
     if (hit) { hit.sys = c.hair; hit.distance = hit.point.distanceTo(g.camera.position); }
     const bh = c.beard ? c.beard.pick(this.raycaster) : null;
     if (bh && (!hit || bh.distance < hit.distance + 0.004)) hit = bh;
-    // the camera never moves with the mouse: holding the button is always a cut
-    this.dragging = false;
+    // camera orbit: right mouse always, left mouse in rotate mode, keys any time
+    const orbiting = (p.right || (this.mode === 'rotate' && p.down));
+    this.dragging = orbiting;
+    if (orbiting && (p.dragDX || p.dragDY)) {
+      this.orbYawT -= p.dragDX * 0.0075;
+      this.orbPitchT = clamp(this.orbPitchT + p.dragDY * 0.005, PITCH_MIN, PITCH_MAX);
+    }
+    let ky = 0, kp = 0;
+    if (input.held('orbitLeft')) ky += 1;
+    if (input.held('orbitRight')) ky -= 1;
+    if (input.held('orbitUp')) kp += 1;
+    if (input.held('orbitDown')) kp -= 1;
+    this.orbYawT += ky * dt * 2.0;
+    this.orbPitchT = clamp(this.orbPitchT + kp * dt * 1.3, PITCH_MIN, PITCH_MAX);
     if (!p.down) this.cutting = false;
-    const lv = VIEW_LEVELS[this.viewLevel];
-    this.camPitch = damp(this.camPitch, lv.pitch, 6, dt);
-    this.camDist = damp(this.camDist, lv.dist * ZOOMS[this.zoom], 6, dt);
-    // camera
-    const yaw = this.camYawOff;
-    // behind the customer: he bows his head and the view tips down over the backrest onto the nape
+    // critically damped follow: no snapping, no lag that feels floaty
+    this.orbYaw = damp(this.orbYaw, this.orbYawT, 12, dt);
+    this.orbPitch = damp(this.orbPitch, this.orbPitchT, 12, dt);
+    this.camDist = damp(this.camDist, this.close ? 0.3 : 0.7, 7, dt);
+    const back = c.ch.root.rotation.y + Math.PI;          // direction of the customer's back
+    const yaw = back + this.orbYaw;
+    // behind the customer: he bows his head a little, the backrest gets out of the way
     this.updateBow(dt, head);
-    const pitchE = this.camPitch + this.bow * 0.28;
-    const target = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitchE), Math.sin(pitchE), Math.cos(yaw) * Math.cos(pitchE))
-      .multiplyScalar(this.camDist).add(head);
+    const pitchE = this.orbPitch + this.bow * 0.22;
+    const dirC = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitchE), Math.sin(pitchE), Math.cos(yaw) * Math.cos(pitchE));
+    const target = dirC.clone().multiplyScalar(this.camDist).add(head);
+    // close-up looks at the skin surface facing the camera (hairline, sideburns, nape)
+    const look = head.clone();
+    this.closeK = damp(this.closeK || 0, this.close ? 1 : 0, 7, dt);
+    if (this.closeK > 0.001) look.addScaledVector(dirC, 0.07 * this.closeK).add(new THREE.Vector3(0, 0.012 * this.closeK, 0));
     if (!this.camInit) { this.camPos.copy(g.camera.position); this.camInit = true; }
-    this.camPos.lerp(target, 1 - Math.exp(-7 * dt));
-    this.camLook.lerp(head, 1 - Math.exp(-9 * dt));
+    this.camPos.lerp(target, 1 - Math.exp(-14 * dt));
+    this.camLook.lerp(look, 1 - Math.exp(-14 * dt));
     if (!g.dir.cam.active) {
       g.camera.position.copy(this.camPos);
       g.camera.lookAt(this.camLook);
@@ -361,7 +371,7 @@ export class BarberMode {
       g.player.arms.R.set({ visible: false, pos: gp, fingers: fd.clone().multiplyScalar(0.6).add(up.clone().multiplyScalar(-0.4)), palm: up.clone().negate(), pose: this.tool === 'scissors' ? 'scissors' : 'grip', speed: 30 });
 
       // ---- cutting
-      if (hit && p.down && !this.dragging) {
+      if (hit && p.down && !this.dragging && this.mode === 'cut') {
         cutting = true;
         this.cutting = true;
         const fx = g.fx;
@@ -460,35 +470,29 @@ export class BarberMode {
   }
 
   // ---------------------------------------------------------------- views
-  setView(side, silent = false) {
-    const g = this.game;
-    this.viewSide = side;
-    // pick the chair angle nearest to where the chair is now, so it turns the short way
-    const base = VIEW_SIDES[side];
-    const cur = g.chairAngleTarget;
-    const k = Math.round((cur - base) / (Math.PI * 2));
-    g.setChairAngle(base + k * Math.PI * 2, 5);
-    if (!silent) audio.squeak?.(0.25);
-    this.game.ui.setBarberView?.(this.viewSide, this.viewLevel, this.zoom);
+  setMode(m) {
+    this.mode = m;
+    audio.click();
+    this.game.ui.setBarberMode?.(this.mode, this.close);
+    this.onEvent?.('mode', m);
+  }
+
+  toggleClose() {
+    this.close = !this.close;
+    audio.click();
+    this.game.ui.setBarberMode?.(this.mode, this.close);
+    this.onEvent?.('close', this.close);
+  }
+
+  // jump the view to a side of the head (tutorial and tests)
+  setView(side) {
+    let t = VIEW_YAW[side] ?? 0;
+    const k = Math.round((this.orbYawT - t) / (Math.PI * 2));
+    this.orbYawT = t + k * Math.PI * 2;
     this.onEvent?.('view', side);
   }
 
-  stepView(dir) {
-    const i = SIDE_ORDER.indexOf(this.viewSide);
-    this.setView(SIDE_ORDER[(i + dir + 4) % 4]);
-  }
-
-  setLevel(l) {
-    this.viewLevel = clamp(l, 0, VIEW_LEVELS.length - 1);
-    audio.click();
-    this.game.ui.setBarberView?.(this.viewSide, this.viewLevel, this.zoom);
-  }
-
-  setZoom(z) {
-    this.zoom = clamp(z, 0, ZOOMS.length - 1);
-    audio.click();
-    this.game.ui.setBarberView?.(this.viewSide, this.viewLevel, this.zoom);
-  }
+  setLevel(l) { this.orbPitchT = [-0.12, 0.3, 0.95][clamp(l, 0, 2)]; }
 
   // how far the camera is behind the customer (0 front/side .. 1 straight behind)
   updateBow(dt, head) {
@@ -531,15 +535,20 @@ export class BarberMode {
       this.fadeRay.far = len - 0.02;
       if (this.fadeRay.intersectObject(br, true).length) block++;
     }
-    const target = block ? 0.22 : 1;
-    this.fadeA = damp(this.fadeA ?? 1, target, 8, dt);
+    const ch = this.c.ch;
+    const f = new THREE.Vector3(Math.sin(ch.root.rotation.y), 0, Math.cos(ch.root.rotation.y));
+    const toCam = cam.clone().sub(head).setY(0).normalize();
+    const behind = -f.dot(toCam) > -0.55;   // anything but a front view
+    const target = block || behind ? 0.08 : 1;
+    this.fadeA = damp(this.fadeA ?? 1, target, 10, dt);
     const a = Math.min(0.999, this.fadeA);
+    br.visible = a > 0.1;
     br.traverse((o) => { if (o.userData.fadeMat) { o.material.opacity = a; o.castShadow = a > 0.9; } });
   }
 
   resetChairFade() {
     const br = this.backrest;
-    if (br) br.traverse((o) => { if (o.userData.fadeMat) { o.material.opacity = 0.999; o.castShadow = true; } });
+    if (br) { br.visible = true; br.traverse((o) => { if (o.userData.fadeMat) { o.material.opacity = 0.999; o.castShadow = true; } }); }
     if (this.c) { const ch = this.c.ch; delete ch.extra.Neck; delete ch.extra.Head; delete ch.extra.Chest; }
     this.bow = 0; this.fadeA = 1;
   }

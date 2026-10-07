@@ -434,7 +434,8 @@ export class Game {
   }
 
   beginPlay(resume = false) {
-    this.checkAchievements();
+    // after the day banner, so the popups don't pile up on top of it
+    this.reactions.later(4.5, () => this.checkAchievements());
     this.state = 'play';
     this.enterFP();
     this.ui.showHud(true);
@@ -913,8 +914,7 @@ export class Game {
     this.player.control = false;
     this.ui.prompt(null);
     c.state = 'cutting';
-    // beard work starts facing you
-    this.setChairAngle(c.cut.beard && !('top' in c.cut.target) ? Math.PI - 0.35 : 0, 2.5);
+    // the chair faces the mirror; beard work starts with the camera in front
     this.barber.enter(c, opts);
     this.ui.objective('', '');
     platform.gameplayStart();

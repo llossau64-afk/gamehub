@@ -1,5 +1,7 @@
 // DOM user interface. Everything lives in #ui; the 3D canvas is underneath.
 import './ui.css';
+const ROT_ICON = '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/><circle cx="12" cy="12" r="2.5"/></svg>';
+const ZOOM_ICON = '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5M8 10.5h5M10.5 8v5"/></svg>';
 const ARROW = {
   up: '<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>', down: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
   left: '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>', right: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>',
@@ -460,10 +462,39 @@ export class UI {
   showRequest(cut, customer, big = false) {
     const el = this.reqEl;
     el.innerHTML = `<div class="k">Request</div><div class="n">${cut.name}</div><ul>${cut.lines.map((l) => `<li>${l}</li>`).join('')}</ul>
+      ${customer.refImg ? `<button class="ref-thumb" title="Show the reference"><img src="${customer.refImg}" alt=""><span>Reference</span></button>` : ''}
       <div class="who"><span>${customer.name}</span><span>${customer.personality.label}</span></div>`;
+    el.querySelector('.ref-thumb')?.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.showReference(cut, customer.refImg); });
     el.classList.remove('off');
     el.classList.toggle('big', big);
   }
+  // a barbershop poster with the requested cut from three sides; click anywhere to close
+  showReference(cut, img, autoClose = 0) {
+    this.hideReference();
+    if (!img) return;
+    const el = h(`<div class="ref-poster">
+      <div class="rp-card">
+        <div class="rp-top"><span class="rp-k">Barber Empire · Style guide</span><span class="rp-x">×</span></div>
+        <div class="rp-title">${cut.name}</div>
+        <div class="rp-img"><img src="${img}" alt=""><div class="rp-lbl"><span>Front</span><span>Side</span><span>Back</span></div></div>
+        <ul class="rp-lines">${cut.lines.map((l) => `<li>${l}</li>`).join('')}</ul>
+      </div>
+    </div>`);
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.hideReference(); });
+    this.root.append(el);
+    this.refEl = el;
+    audio.paperFlick?.();
+    if (autoClose) this._refT = setTimeout(() => this.hideReference(), autoClose);
+  }
+
+  hideReference() {
+    clearTimeout(this._refT);
+    if (!this.refEl) return;
+    const el = this.refEl; this.refEl = null;
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 350);
+  }
+
   shrinkRequest() { this.reqEl.classList.remove('big'); }
   hideRequest() { this.reqEl.classList.add('off'); this.reqEl.classList.remove('big'); }
 
@@ -504,6 +535,11 @@ export class UI {
     if (this.touch) this.finishBtn.querySelector('small').remove();
     const regions = el.querySelector('.regions');
     regions.querySelector('.rname').textContent = cfg.cutName || '';
+    if (cfg.refImg) {
+      const rb = h(`<button class="ref-thumb small" title="Show the reference"><img src="${cfg.refImg}" alt=""><span>Reference</span></button>`);
+      rb.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); cfg.onRef?.(); });
+      regions.querySelector('.rname').after(rb);
+    }
     this.regionEls = {};
     for (const r of cfg.regions || ['top', 'front', 'left', 'right', 'back', 'edges']) {
       const row = h(`<div class="rg" data-r="${r}"><div class="h"><span>${REGION_LABEL[r]}</span><b></b></div><div class="track"><div class="zone"></div><div class="cur"></div></div></div>`);
@@ -515,21 +551,22 @@ export class UI {
       this.styleEl = h('<div class="rg style"><div class="h"><span>Combed into shape</span><b></b></div><div class="track"><div class="zone" style="left:85%;width:15%"></div><div class="cur"></div></div></div>');
       regions.append(this.styleEl);
     }
-    // view pad: the camera only moves when you ask it to
-    const pad = h(`<div class="viewpad">
-      <div class="vp-title">View</div>
-      <div class="vp-grid">
-        <span></span><button data-a="up" title="From above (↑)">${ARROW.up}</button><span></span>
-        <button data-a="left" title="Turn left (←)">${ARROW.left}</button><button data-a="flip" class="flip" title="Front / back (B)"><b>Back</b></button><button data-a="right" title="Turn right (→)">${ARROW.right}</button>
-        <span></span><button data-a="down" title="From below (↓)">${ARROW.down}</button><span></span>
-      </div>
-      <div class="vp-zoom"><button data-a="zout" title="Zoom out (Z / −)">−</button><span class="vp-lv"></span><button data-a="zin" title="Zoom in (X / +)">+</button></div>
+    // left: what the mouse does (cut / rotate the view around the head)
+    const modes = h(`<div class="bmodes">
+      <div class="bm-title">Mouse</div>
+      <button data-m="cut" title="Cut (R toggles)">${ICON.scissors}<span>Cut</span></button>
+      <button data-m="rotate" title="Turn the head view (R, or hold right mouse)">${ROT_ICON}<span>Rotate</span></button>
     </div>`);
-    pad.querySelectorAll('button').forEach((b) => b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); b.classList.remove('tap'); void b.offsetWidth; b.classList.add('tap'); cfg.onView?.(b.dataset.a); }));
-    el.append(pad);
-    this.viewPad = pad;
+    modes.querySelectorAll('button').forEach((b) => b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); cfg.onMode?.(b.dataset.m); }));
+    el.append(modes);
+    this.modesEl = modes;
+    // tiny close-up toggle next to the tools
+    const closeBtn = h(`<button class="closeup" title="Close-up (C)">${ZOOM_ICON}</button>`);
+    closeBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); cfg.onClose?.(); });
+    tools.append(closeBtn);
+    this.closeBtn = closeBtn;
     el.querySelector('.barber-help').innerHTML = this.touch ? '' :
-      '<div><span class="key">LMB</span>hold to cut</div><div><span class="key">← → ↑ ↓</span>view</div>';
+      '<div><span class="key">LMB</span>cut</div><div><span class="key">RMB</span> / <span class="key">R</span>rotate view</div><div><span class="key">C</span>close-up</div>';
   }
 
   revealCaption(name, effect) {
@@ -538,16 +575,16 @@ export class UI {
     return el;
   }
 
-  setBarberView(side, level, zoom) {
-    if (!this.viewPad) return;
-    const names = { front: 'Front', left: 'Left', back: 'Back', right: 'Right' };
-    this.viewPad.querySelector('.flip b').textContent = names[side] || side;
-    this.viewPad.querySelector('.vp-lv').textContent = ['Low', 'Eye level', 'Top'][level] + ' · ' + ['far', 'mid', 'close'][zoom];
-    this.viewPad.querySelector('[data-a="up"]').classList.toggle('dim', level >= 2);
-    this.viewPad.querySelector('[data-a="down"]').classList.toggle('dim', level <= 0);
+  setBarberMode(mode, close) {
+    if (!this.modesEl) return;
+    this.modesEl.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.m === mode));
+    this.closeBtn.classList.toggle('on', !!close);
+    this.barberEl?.classList.toggle('rotating', mode === 'rotate');
+    document.querySelector('canvas').style.cursor = mode === 'rotate' ? 'grab' : '';
   }
 
-  hideBarber() { if (this.barberEl) { this.barberEl.remove(); this.barberEl = null; } }
+  hideBarber() {
+    this.hideReference(); if (this.barberEl) { this.barberEl.remove(); this.barberEl = null; } }
 
   updateBarber(st) {
     if (!this.barberEl) return;
@@ -590,7 +627,9 @@ export class UI {
     if (!on || !what) return;
     if (what === 'power') this.powerBtn.classList.add('hint');
     else if (what === 'finish') this.finishBtn.classList.add('hint');
-    else if (what === 'view') this.viewPad?.querySelectorAll('[data-a="left"], [data-a="right"]').forEach((b) => b.classList.add('hint'));
+    else if (what === 'view') this.modesEl?.querySelector('[data-m="rotate"]').classList.add('hint');
+    else if (what === 'cutmode') this.modesEl?.querySelector('[data-m="cut"]').classList.add('hint');
+    else if (what === 'close') this.closeBtn?.classList.add('hint');
     else if (what.startsWith('guard:')) this.guardsEl.querySelector(`button[data-i="${what.split(':')[1]}"]`)?.classList.add('hint');
     else if (this.toolBtns[what]) this.toolBtns[what].classList.add('hint');
   }

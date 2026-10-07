@@ -2,7 +2,7 @@
 // two-bone arm IK and finger poses. No baked clips: everything blends continuously.
 import * as THREE from 'three';
 import { createBody, getTemplate } from './template.js';
-import { clamp, lerp, damp, dampAngle, noise1, rand, smooth, easeInOut, wrapAngle } from '../core/util.js';
+import { clamp, lerp, damp, dampAngle, noise1, rand, pick, smooth, easeInOut, wrapAngle } from '../core/util.js';
 import { audio } from '../audio/audio.js';
 import { blobShadowTexture } from '../render/textures.js';
 import { HEAD_C, HEAD_R, hairline } from '../hair/hair.js';
@@ -69,6 +69,8 @@ export class Character {
     this.body = body;
     this.bones = body.bones;
     this.mouth = body.mouth;
+    // under a big moustache the mouth corners would peek out at the sides: keep it narrower
+    if (this.mouth && (look.accessories || []).includes('moustache')) { this.mouth.scale.x = 0.72; this.mouth.position.z -= 0.001; }
     this.mesh = body.mesh;
     this.root.add(body.mesh);
     const sc = look.scale || 1;
@@ -175,6 +177,11 @@ export class Character {
 
   setEmotion(name, hold = 0) {
     const e = EMOTIONS[name] || EMOTIONS.neutral;
+    // people blink when their expression changes; strong changes get a little overshoot
+    if (name !== this.emotion) {
+      if (this.blink < 0.2) this.blink = 1;
+      this.faceKick = ['surprised', 'horrified', 'furious', 'ecstatic', 'starstruck'].includes(name) ? 1 : 0.4;
+    }
     this.emotion = name;
     this.emotionTarget = { ...e };
     this.emotionHold = hold;
@@ -409,6 +416,7 @@ export class Character {
     add('Chest', F.lean * 0.5 + hunch * 0.15 - F.chest * 0.08, 0, 0);
     add('Neck', -hunch * 0.12 + F.pitch * 0.4, 0, F.tilt * 0.4);
     add('Head', -hunch * 0.06 + F.pitch * 0.6, 0, F.tilt * 0.6);
+    if (this.microFace) add('Head', 0, 0, this.microFace.tilt);
     add('ShoulderL', 0, 0, F.shoulders * 0.12); add('ShoulderR', 0, 0, -F.shoulders * 0.12);
 
     // --- scripted extras + gestures
@@ -604,7 +612,27 @@ export class Character {
       if (this.emotionHold <= 0) this.setEmotion('neutral');
     }
     const tgt = this.emotionTarget;
-    for (const k of FACE_KEYS) this.face[k] = damp(this.face[k], tgt[k], 7, dt);
+    // fast attack with a small overshoot on big changes, then settle
+    this.faceKick = Math.max(0, (this.faceKick || 0) - dt * 2.5);
+    const rate = 7 + this.faceKick * 10;
+    for (const k of FACE_KEYS) {
+      const over = (k === 'raise' || k === 'open' || k === 'smile' || k === 'wide') ? 1 + this.faceKick * 0.18 : 1;
+      this.face[k] = damp(this.face[k], tgt[k] * over, rate, dt);
+    }
+    // micro expressions while idle: a brow flick, a half smile, a quick squint
+    this.microT = (this.microT ?? rand(2, 6)) - dt;
+    if (this.microT < 0) {
+      this.microT = rand(2.5, 7);
+      if (!this.talk) this.micro = { kind: pick(['brow', 'brow', 'smirk', 'squint', 'tilt']), t: 0, dur: rand(0.5, 0.9), side: Math.random() < 0.5 ? 1 : -1 };
+    }
+    if (this.micro) {
+      const m = this.micro;
+      m.t += dt;
+      const w = Math.sin(clamp(m.t / m.dur, 0, 1) * Math.PI);
+      this.microFace = { raise: m.kind === 'brow' ? 0.35 * w : 0, asym: m.kind === 'brow' ? 0.4 * w * m.side : 0, smirk: m.kind === 'smirk' ? 0.35 * w : 0,
+        lids: m.kind === 'squint' ? -0.18 * w : 0, tilt: m.kind === 'tilt' ? 0.06 * w * m.side : 0 };
+      if (m.t > m.dur) { this.micro = null; this.microFace = null; }
+    }
     // blinking
     this.blinkT -= dt;
     if (this.blinkT < 0) { this.blink = 1; this.blinkT = rand(1.8, 5) * (this.emotion === 'nervous' ? 0.4 : 1); }
@@ -624,7 +652,7 @@ export class Character {
       let near = 0;
       for (let i = 0; i < s.length; i++) {
         const d = now - s[i];
-        if (d >= 0 && d < 0.12) near = Math.max(near, Math.sin(d / 0.12 * Math.PI));
+        if (d >= 0 && d < 0.12) { near = Math.max(near, Math.sin(d / 0.12 * Math.PI)); this.talk.vowel = ((i * 7919) % 5) / 4; }
       }
       open = near;
       if (now > this.talk.dur + 0.1) this.talk = null;
@@ -665,12 +693,16 @@ export class Character {
     for (const s of ['L', 'R']) {
       b['Eye' + s].rotation.set(ep, ey, 0);
       // lids: openness and blink; lids also follow vertical gaze a little
-      const open = clamp(F.lids * (1 - this.blink), 0, 1.4);
+      const M = this.microFace;
+      // a real smile squints the eyes a little
+      const duch = 1 - Math.max(0, F.smile - 0.35) * 0.22;
+      const open = clamp((F.lids + (M ? M.lids : 0)) * duch * (1 - this.blink), 0, 1.4);
       b['Lid' + s].rotation.set(lerp(0.62, -0.62, Math.min(open, 1)) - Math.max(0, open - 1) * 0.6 + ep * 0.4, 0, 0);
       const sign = s === 'L' ? 1 : -1;
-      const asym = s === 'L' ? F.asym : -F.asym * 0.6;
+      const A = F.asym + (M ? M.asym : 0);
+      const asym = s === 'L' ? A : -A * 0.6;
       b['Brow' + s].position.y = b['Brow' + s].userData.y0 ??= b['Brow' + s].position.y;
-      b['Brow' + s].position.y = b['Brow' + s].userData.y0 + (F.raise + asym * 0.5) * 0.006 + F.inner * 0.002 - F.angry * 0.003 + (this.browBeat || 0) * 0.0025;
+      b['Brow' + s].position.y = b['Brow' + s].userData.y0 + (F.raise + (M ? M.raise : 0) + asym * 0.5) * 0.006 + F.inner * 0.002 - F.angry * 0.003 + (this.browBeat || 0) * 0.0025;
       // inner end up (sad) / down (angry); rotation about the face axis
       b['Brow' + s].rotation.set(0, 0, sign * (-F.inner * 0.32 + F.angry * 0.38 + asym * 0.1));
     }
@@ -679,9 +711,11 @@ export class Character {
       inf[d.Smile] = clamp(F.smile, 0, 1);
       inf[d.Frown] = clamp(F.frown, 0, 1);
       inf[d.Open] = clamp(F.open + this.mouthOpen * 0.65, 0, 1.2);
-      inf[d.Wide] = clamp(F.wide, 0, 1);
-      inf[d.O] = clamp(F.O + this.mouthOpen * 0.15, 0, 1);
-      inf[d.Smirk] = clamp(F.smirk, 0, 1);
+      // vowels: alternate rounder and wider shapes from syllable to syllable
+      const vow = this.talk ? (this.talk.vowel ?? 0) : 0;
+      inf[d.O] = clamp(F.O + this.mouthOpen * (0.1 + 0.45 * vow), 0, 1);
+      inf[d.Wide] = clamp(F.wide + this.mouthOpen * 0.35 * (1 - vow), 0, 1);
+      inf[d.Smirk] = clamp(F.smirk + (this.microFace ? this.microFace.smirk : 0), 0, 1);
     }
   }
 

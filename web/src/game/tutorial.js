@@ -1,4 +1,5 @@
 // First customer: teaches one action at a time, inside the real game loop.
+import { referenceImage } from './reference.js';
 import * as THREE from 'three';
 import { audio } from '../audio/audio.js';
 import { TUTORIAL_LOOK } from '../chars/looks.js';
@@ -39,6 +40,7 @@ export async function playTutorial(game) {
   c.state = 'talking';
   c.ch.setEmotion('happy');
   const d = c.say('Just a simple trim today.', 'happy', 3);
+  c.refImg ||= referenceImage('simpleTrim', c.look);
   ui.showRequest(HAIRCUTS.simpleTrim, c, true);
   audio.paperFlick();
   await wait(Math.max(1.6, d));
@@ -98,7 +100,7 @@ export async function playTutorial(game) {
   ui.tip(key('Hold the mouse and move over the glowing hair', 'Drag across the glowing hair'), 'LMB');
   c.hair.setHighlight('right');
   bm.focus = 'right';
-  bm.setView('right', true);
+  bm.setView('right');
   await waitRegion(game, c, 'right');
   c.hair.setHighlight(null);
   audio.objective();
@@ -106,15 +108,19 @@ export async function playTutorial(game) {
   await wait(1.8);
 
   // ---- 8: match both sides
-  ui.tip(key('Match both sides — turn the chair with the arrow keys or the arrows on screen', 'Match both sides — turn the chair with the arrows'), '← →');
+  ui.tip(key('Other side: pick ROTATE on the left (or hold the right mouse button) and drag to turn the view', 'Other side: pick ROTATE on the left and drag to turn the view'), 'R');
   ui.barberHint('view');
+  await dir.until(() => Math.sin(bm.orbYaw) < 0.2, 60).catch(() => {});
+  ui.barberHint(null);
+  if (bm.mode !== 'cut') { ui.tip('Back to CUT, then clip the other side', 'R'); ui.barberHint('cutmode'); await dir.until(() => bm.mode === 'cut', 40).catch(() => {}); ui.barberHint(null); }
+  ui.tip('Match both sides');
   c.hair.setHighlight('left');
   bm.focus = 'left';
   await waitRegion(game, c, 'left');
   ui.barberHint(null);
   c.hair.setHighlight('back');
   bm.focus = 'back';
-  ui.tip(key('And the back  (B flips to the back)', 'And the back'), 'B');
+  ui.tip(key('And the back — rotate behind him', 'And the back — rotate behind him'), 'R');
   await waitRegion(game, c, 'back');
   c.hair.setHighlight(null);
   audio.objective();
@@ -128,9 +134,9 @@ export async function playTutorial(game) {
   ui.barberHint(null);
   c.hair.setHighlight('top');
   bm.focus = 'top';
-  bm.setView('back', true);
+  bm.setView('back');
   bm.setLevel(2);
-  ui.tip(key('Small controlled cuts on the top  (↑ looks from above)', 'Small controlled cuts on the top'), '↑');
+  ui.tip('Small controlled cuts on the top');
   await waitRegions(game, c, ['top', 'front'], (r) => { c.hair.setHighlight(r); bm.focus = r; });
   c.hair.setHighlight(null);
   audio.objective();
@@ -144,6 +150,7 @@ export async function playTutorial(game) {
   if (!bm.power) {
     ui.tip(key('Switch it on (SPACE) and clean the fuzz below the hairline', 'Tap POWER, then clean the fuzz below the hairline'), 'Space');
   } else ui.tip('Clean the fuzz below the hairline');
+  setTimeout(() => { if (bm.active && !bm.close) { ui.tip(key('Tip: the magnifier next to the tools (C) zooms right in for edges', 'Tip: the magnifier zooms right in for edges'), 'C'); ui.barberHint('close'); } }, 3500);
   c.hair.setHighlight('edges');
   bm.focus = 'edges';
   await dir.until(() => bm.stats && bm.stats.edges.messy < 0.09, 240);

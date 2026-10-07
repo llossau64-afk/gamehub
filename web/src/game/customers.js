@@ -9,6 +9,7 @@ import { SPOTS } from '../world/shop.js';
 import { pick, rand, chance, clamp } from '../core/util.js';
 import { audio } from '../audio/audio.js';
 import { spawnProp } from '../world/props.js';
+import { referenceImage } from './reference.js';
 
 const FIRST = ['Sam', 'Leo', 'Marco', 'Jonas', 'Theo', 'Malik', 'Finn', 'Omar', 'Luca', 'Ravi', 'Ben', 'Elias', 'Noah', 'Kai', 'Diego', 'Arthur', 'Milo', 'Yusuf', 'Hugo', 'Tariq', 'Felix', 'Dev', 'Oscar', 'Nico'];
 
@@ -164,6 +165,7 @@ export class CustomerManager {
     ch.lookAt(this.game.camera, 1);
     const line = c.vip ? 'The usual for someone like me. Your best work.' : pick(c.personality.greet);
     const d = c.say(line, c.personality.id === 'nervous' ? 'nervous' : c.personality.id === 'impatient' ? 'annoyed' : 'happy', 3);
+    c.refImg ||= referenceImage(c.cutId, c.look);
     this.game.ui.showRequest(c.cut, c, true);
     audio.paperFlick();
     await this.game.dir.wait(Math.max(2.2, d)).catch(() => {});
