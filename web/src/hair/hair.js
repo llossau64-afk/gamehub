@@ -13,7 +13,10 @@ export const HEAD_R = new THREE.Vector3(0.089 * 1.025, 0.104 * 1.025, 0.102 * 1.
 
 export const REGIONS = ['top', 'front', 'left', 'right', 'back', 'edges'];
 export const REGION_ID = { top: 1, front: 2, left: 3, right: 4, back: 5, edges: 6 };
-export const REGION_LABEL = { top: 'Top', front: 'Front', left: 'Left side', right: 'Right side', back: 'Back', edges: 'Edges' };
+export const REGION_LABEL = { top: 'Top', front: 'Front', left: 'Left side', right: 'Right side', back: 'Back', edges: 'Edges',
+  chin: 'Chin', cheeks: 'Cheeks', moustache: 'Moustache', neck: 'Neckline' };
+// regions scored by how clean they are rather than by length
+export const EDGE_REGIONS = new Set(['edges', 'neck']);
 
 // hairline polar angle by |azimuth| (deg): forehead, temples, sideburns, over the ears, nape
 const HAIRLINE = [[0, 0.82], [28, 0.86], [42, 1.06], [56, 1.5], [66, 1.92], [74, 1.92], [80, 1.58], [104, 1.58], [118, 1.82], [145, 2.22], [180, 2.32]];
@@ -102,7 +105,7 @@ export const hairLight = {
   time: { value: 0 },
 };
 
-function makeMaterial(sys) {
+export function makeMaterial(sys) {
   noiseTex ||= hairNoise();
   return new THREE.ShaderMaterial({
     uniforms: {
@@ -346,7 +349,7 @@ export class HairSystem {
     const n = new THREE.Vector3(pl.x / R.x, pl.y / R.y, pl.z / R.z).normalize();
     const theta = Math.acos(clamp(n.y, -1, 1));
     const phi = Math.atan2(n.x, n.z);
-    if (theta > THETA_MAX) return null;
+    if (theta > THETA_MAX || theta > hairline(phi) + 0.3) return null;   // no scalp hair down there
     const pw = pl.clone().add(HEAD_C).applyMatrix4(this.mesh.matrixWorld);
     const nw = new THREE.Vector3(pl.x / (R.x * R.x), pl.y / (R.y * R.y), pl.z / (R.z * R.z)).normalize().transformDirection(this.mesh.matrixWorld);
     return { phi, theta, point: pw, normal: nw, region: regionOf(phi, theta) };

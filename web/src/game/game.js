@@ -714,7 +714,8 @@ export class Game {
     this.player.control = false;
     this.ui.prompt(null);
     c.state = 'cutting';
-    this.setChairAngle(0, 2.5);
+    // beard work starts facing you
+    this.setChairAngle(c.cut.beard && !('top' in c.cut.target) ? Math.PI - 0.35 : 0, 2.5);
     this.barber.enter(c, opts);
     this.ui.objective('', '');
     platform.gameplayStart();
@@ -729,7 +730,7 @@ export class Game {
     this.ui.hideRequest();
     this.state = 'reaction';
     if (this._haircutDone) { const f = this._haircutDone; this._haircutDone = null; f(); }
-    const result = evaluate(c.hair, c.cutId, c.tutorial ? Math.min(secs, HAIRCUTS[c.cutId].par) : secs);
+    const result = evaluate(c, c.cutId, c.tutorial ? Math.min(secs, HAIRCUTS[c.cutId].par) : secs);
     // shop comfort and a dirty floor nudge the rating
     const floorPenalty = this.clippings.floorCount > 250 ? 0.04 : 0;
     result.overall = clamp(result.overall + this.fx.sat * 0.25 - floorPenalty, 0, 1);
@@ -955,7 +956,11 @@ export class Game {
     this.updateHighlight(dt);
     this.updateBubbles();
     // hair level of detail by distance
-    for (const c of this.customers.list) c.hair.setLOD(this.state === 'barber' && this.barber.c === c ? 0 : c.ch.root.position.distanceTo(this.camera.position));
+    for (const c of this.customers.list) {
+      const d = this.state === 'barber' && this.barber.c === c ? 0 : c.ch.root.position.distanceTo(this.camera.position);
+      c.hair.setLOD(d);
+      if (c.beard) c.beard.setLOD(d);
+    }
     if (this.owner?.hair) this.owner.hair.setLOD(this.owner.root.position.distanceTo(this.camera.position));
     // hair lighting follows the main lamp
     const L = this.shop.lampSpot;

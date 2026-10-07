@@ -130,6 +130,7 @@ export class Character {
     this.body.material.dispose();
     this.body.palette.dispose();
     if (this.hair) this.hair.dispose();
+    if (this.beard) this.beard.dispose();
   }
 
   // ------------------------------------------------------------------ high level API
@@ -382,6 +383,7 @@ export class Character {
     const sh = 1 - clamp(this.root.position.y, 0, 0.6);
     this.shadow.material.opacity = 0.7 * sh;
     if (this.hair) this.hair.update(dt);
+    if (this.beard) this.beard.update(dt);
   }
 
   updateLocomotion(dt) {

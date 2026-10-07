@@ -72,7 +72,6 @@ export function randomCustomerLook() {
   if (style === 'hoodie') accs.push('hoodie');
   if (style === 'jacket') accs.push('jacket');
   if (chance(0.2)) accs.push('glasses');
-  if (chance(0.12)) accs.push('moustache');
   if (chance(0.12)) accs.push('belly');
   const hairColor = pick(HAIR);
   const sleeve = style === 'tee' ? skin : top;

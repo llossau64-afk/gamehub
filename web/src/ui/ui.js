@@ -3,7 +3,7 @@ import './ui.css';
 import { ICON, starSVG } from './icons.js';
 import { audio } from '../audio/audio.js';
 import { UPGRADES, CATS, ACHIEVEMENTS, xpFor } from '../world/upgrades.js';
-import { REGION_LABEL } from '../hair/hair.js';
+import { REGION_LABEL, EDGE_REGIONS } from '../hair/hair.js';
 import { GUARDS, mm } from '../hair/styles.js';
 import { formatMoney, clamp } from '../core/util.js';
 
@@ -346,7 +346,7 @@ export class UI {
     const regions = el.querySelector('.regions');
     regions.querySelector('.rname').textContent = cfg.cutName || '';
     this.regionEls = {};
-    for (const r of ['top', 'front', 'left', 'right', 'back', 'edges']) {
+    for (const r of cfg.regions || ['top', 'front', 'left', 'right', 'back', 'edges']) {
       const row = h(`<div class="rg" data-r="${r}"><div class="h"><span>${REGION_LABEL[r]}</span><b></b></div><div class="track"><div class="zone"></div><div class="cur"></div></div></div>`);
       regions.append(row);
       this.regionEls[r] = row;
@@ -368,19 +368,21 @@ export class UI {
     for (const [r, row] of Object.entries(this.regionEls)) {
       const stat = st.stats[r];
       const tgt = cut.target[r];
+      if (!stat) continue;
+      const edge = EDGE_REGIONS.has(r);
       const scale = 0.75;
       const cur = clamp(stat.mean / scale, 0, 1);
       const zl = clamp((tgt - cut.tol) / scale, 0, 1), zr = clamp((tgt + cut.tol) / scale, 0, 1);
-      row.querySelector('.cur').style.width = (r === 'edges' ? clamp(stat.messy * 6, 0, 1) : cur) * 100 + '%';
+      row.querySelector('.cur').style.width = (edge ? clamp(stat.messy * 6, 0, 1) : cur) * 100 + '%';
       const zone = row.querySelector('.zone');
-      if (r === 'edges') { zone.style.left = '0%'; zone.style.width = '8%'; }
+      if (edge) { zone.style.left = '0%'; zone.style.width = '8%'; }
       else { zone.style.left = zl * 100 + '%'; zone.style.width = Math.max(2, (zr - zl) * 100) + '%'; }
-      const ok = r === 'edges' ? stat.messy < 0.04 : Math.abs(stat.mean - tgt) <= cut.tol;
-      const short = r !== 'edges' && stat.mean < tgt - cut.tol;
+      const ok = edge ? stat.messy < 0.04 : Math.abs(stat.mean - tgt) <= cut.tol;
+      const short = !edge && stat.mean < tgt - cut.tol;
       row.classList.toggle('ok', ok);
       row.classList.toggle('short', short);
       row.classList.toggle('focus', st.focus === r);
-      row.querySelector('b').textContent = r === 'edges' ? (ok ? 'clean' : 'messy') : `${mm(stat.mean)} / ${mm(tgt)} mm`;
+      row.querySelector('b').textContent = edge ? (ok ? 'clean' : 'messy') : `${mm(stat.mean)} / ${mm(tgt)} mm`;
     }
     this.barberEl.querySelector('.cut-timer').textContent = `Time ${Math.floor(st.time / 60)}:${String(Math.floor(st.time % 60)).padStart(2, '0')}`;
   }

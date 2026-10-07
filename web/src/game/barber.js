@@ -3,8 +3,9 @@
 import * as THREE from 'three';
 import { spawnProp, part } from '../world/props.js';
 import { propMaterial } from '../render/materials.js';
-import { HEAD_C, REGIONS } from '../hair/hair.js';
-import { GUARDS } from '../hair/styles.js';
+import { HEAD_C, REGIONS, REGION_ID, EDGE_REGIONS } from '../hair/hair.js';
+import { BEARD_ID } from '../hair/beard.js';
+import { GUARDS, stats as cutStats } from '../hair/styles.js';
 import { audio } from '../audio/audio.js';
 import { clamp, damp, dampAngle, rand, pick, chance, lerp } from '../core/util.js';
 
@@ -89,6 +90,7 @@ export class BarberMode {
     g.ui.hideRequest();
     g.ui.showBarber({
       cutName: customer.cut.name,
+      regions: Object.keys(customer.cut.target),
       tools: TOOLS,
       onTool: (id) => this.selectTool(id),
       onPower: () => this.togglePower(),
@@ -99,7 +101,7 @@ export class BarberMode {
     g.ui.prompt(null);
     g.input.setMode('pointer');
     this.headCenter(this.camLook);
-    this.stats = customer.hair.regionStats();
+    this.stats = cutStats(customer);
     this.refreshUI();
     g.player.arms.R.set({ visible: false, speed: 26 });
     g.player.arms.L.set({ visible: false });
@@ -115,7 +117,14 @@ export class BarberMode {
     const g = this.game;
     g.ui.hideBarber();
     g.player.arms.R.set({ visible: false, speed: 9 });
-    if (this.c) this.c.hair.setHighlight(null);
+    if (this.c) this.focusRegion(null);
+  }
+
+  // glow on a region of whichever surface owns it
+  focusRegion(r) {
+    this.focus = r;
+    this.c.hair.setHighlight(r && REGION_ID[r] ? r : null);
+    if (this.c.beard) this.c.beard.setHighlight(r && BEARD_ID[r] ? r : null);
   }
 
   headCenter(out) {
@@ -204,7 +213,10 @@ export class BarberMode {
     // pick the hair under the cursor
     const ndc = new THREE.Vector2(p.x, p.y + (p.touch ? 0.09 : 0));
     this.raycaster.setFromCamera(ndc, g.camera);
-    const hit = c.hair.pick(this.raycaster.ray, 0.02);
+    let hit = c.hair.pick(this.raycaster.ray, 0.02);
+    if (hit) { hit.sys = c.hair; hit.distance = hit.point.distanceTo(g.camera.position); }
+    const bh = c.beard ? c.beard.pick(this.raycaster) : null;
+    if (bh && (!hit || bh.distance < hit.distance + 0.004)) hit = bh;
     // dragging off the head turns the chair / tilts the view
     if (p.down && !hit && !this.cutting) this.dragging = true;
     if (!p.down) { this.dragging = false; this.cutting = false; }
@@ -235,7 +247,7 @@ export class BarberMode {
       const n = new THREE.Vector3(), z = new THREE.Vector3(), yv = new THREE.Vector3();
       let pos;
       if (hit) {
-        const len = c.hair.lengthAt(hit.phi, hit.theta) * 0.06;
+        const len = hit.sys.lengthAt(hit.phi, hit.theta) * 0.06;
         n.copy(hit.normal);
         const towardCrown = head.clone().add(new THREE.Vector3(0, 0.15, 0)).sub(hit.point);
         towardCrown.addScaledVector(n, -towardCrown.dot(n)).normalize();
@@ -291,17 +303,18 @@ export class BarberMode {
         this.cutting = true;
         const fx = g.fx;
         let removed = 0;
+        const sys = hit.sys, beard = sys !== c.hair;
         if (this.tool === 'clipper' && this.power) {
-          removed = c.hair.clip(hit.phi, hit.theta, GUARDS[this.guard].len, fx.clipperRate, dt, 0.021);
+          removed = sys.clip(hit.phi, hit.theta, GUARDS[this.guard].len, fx.clipperRate, dt, beard ? undefined : 0.021);
         } else if (this.tool === 'trimmer' && this.power) {
-          removed = c.hair.trim(hit.phi, hit.theta, 3.2, dt, 0.009);
+          removed = sys.trim(hit.phi, hit.theta, 3.2, dt, beard ? undefined : 0.009);
         } else if (this.tool === 'scissors') {
           this.snipT -= dt;
           if (this.snipT <= 0) {
             this.snipT = fx.scissorsPro ? 0.15 : 0.19;
             this.snipAnim = 0.12;
             audio.snip();
-            removed = c.hair.snip(hit.phi, hit.theta, fx.scissorsPro ? 0.05 : 0.06, 0.11, fx.scissorsPro ? 0.028 : 0.032);
+            removed = beard ? sys.snip(hit.phi, hit.theta, fx.scissorsPro ? 0.035 : 0.045, 0.05) : sys.snip(hit.phi, hit.theta, fx.scissorsPro ? 0.05 : 0.06, 0.11, fx.scissorsPro ? 0.028 : 0.032);
             this.onEvent?.('snip');
           }
         } else if ((this.tool === 'clipper' || this.tool === 'trimmer') && !this.power && p.justDown) {
@@ -312,7 +325,7 @@ export class BarberMode {
         }
         if (removed > 0) {
           const amt = removed * (this.tool === 'scissors' ? 260 : 900);
-          g.clippings.spawn(hit.point, hit.normal, amt, c.look.hairColor, clamp(c.hair.lengthAt(hit.phi, hit.theta) + removed * 3, 0.05, 0.6));
+          g.clippings.spawn(hit.point, hit.normal, amt, c.look.hairColor, clamp(hit.sys.lengthAt(hit.phi, hit.theta) + removed * 3, 0.05, 0.6));
           this.load = Math.min(1, this.load + removed * 30);
           this.cutDirty = true;
         }
@@ -334,7 +347,7 @@ export class BarberMode {
     this.statsT -= dt;
     if (this.statsT <= 0) {
       this.statsT = 0.12;
-      if (this.cutDirty) { this.stats = c.hair.regionStats(); this.cutDirty = false; this.checkTooShort(); this.onEvent?.('stats', this.stats); }
+      if (this.cutDirty) { this.stats = cutStats(c); this.cutDirty = false; this.checkTooShort(); this.onEvent?.('stats', this.stats); }
       this.refreshUI();
     }
   }
@@ -356,9 +369,10 @@ export class BarberMode {
 
   checkTooShort() {
     const cut = this.c.cut;
-    for (const r of ['top', 'front', 'left', 'right', 'back']) {
+    for (const r of Object.keys(cut.target)) {
+      if (EDGE_REGIONS.has(r)) continue;
       const s = this.stats[r];
-      if (cut.target[r] > 0.06 && s.mean < cut.target[r] - cut.tol * 1.7 && !this.warned) {
+      if (s && cut.target[r] > 0.06 && s.mean < cut.target[r] - cut.tol * 1.7 && !this.warned) {
         this.warned = true;
         this.c.ch.gesture('flinch');
         this.c.say(pick(['Whoa, whoa! Careful up there!', 'Uh... is it supposed to be that short?', 'Easy! I need some of that!']), 'wince', 2.5);

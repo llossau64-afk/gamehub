@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import { Character } from '../chars/character.js';
 import { HairSystem } from '../hair/hair.js';
 import { randomCustomerLook, randomPersonality, PERSONALITIES } from '../chars/looks.js';
-import { HAIRCUTS, availableHaircuts, startStyle } from '../hair/styles.js';
+import { HAIRCUTS, availableHaircuts, startStyle, startBeard } from '../hair/styles.js';
+import { BeardSystem, BEARD_STYLES } from '../hair/beard.js';
 import { SPOTS } from '../world/shop.js';
 import { pick, rand, chance, clamp } from '../core/util.js';
 import { audio } from '../audio/audio.js';
@@ -28,6 +29,14 @@ export class Customer {
     this.hair.attach(this.ch.bones.Head);
     this.hair.setStyle(startStyle(this.cutId));
     this.ch.hair = this.hair;
+    // beard: required by beard cuts, otherwise a matter of taste
+    const beardSpec = startBeard(this.cutId) || opts.beard || (opts.noBeard ? null : (chance(0.38) ? BEARD_STYLES[pick(['stubble', 'stubble', 'short', 'full', 'goatee', 'moustache'])] : null));
+    if (beardSpec) {
+      this.beard = new BeardSystem({ color: look.hairColor, skin: look.colors.Skin, layers: game.quality.hairLayers });
+      this.beard.attach(this.ch.bones.Head);
+      this.beard.setStyle(beardSpec);
+      this.ch.beard = this.beard;
+    }
     this.ch.onFootstep = (c) => this.game.footstepAt(c.root.position);
     this.state = 'arriving';
     this.patienceMax = 70 * this.personality.patience * game.fx.patience;
@@ -76,7 +85,7 @@ export class CustomerManager {
   // a customer already in place (main menu background)
   spawnStatic(opts = {}) {
     const g = this.game;
-    const c = new Customer(g, {});
+    const c = new Customer(g, opts.customer || {});
     this.list.push(c);
     c.state = 'menu';
     if (opts.chair) {

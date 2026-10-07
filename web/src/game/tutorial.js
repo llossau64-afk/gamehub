@@ -18,7 +18,7 @@ export async function playTutorial(game) {
 
   // ---- the first customer walks in
   const c = game.customers.spawn({
-    look: TUTORIAL_LOOK, name: 'Danny', cutId: 'simpleTrim',
+    look: TUTORIAL_LOOK, name: 'Danny', cutId: 'simpleTrim', noBeard: true,
     personality: { id: 'friendly', label: 'Friendly', patience: 99, payMult: 1, tipMult: 1, voiceRate: 1, greet: [], happy: [], bad: [], wait: [], idle: 'look' },
   });
   c.tutorial = true;
