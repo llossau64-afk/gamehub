@@ -325,8 +325,9 @@ export class Character {
       add('ThighL', -1.5 * w, 0, -0.06 * w); add('ThighR', -1.5 * w, 0, 0.06 * w);
       add('ShinL', 1.45 * w, 0, 0); add('ShinR', 1.45 * w, 0, 0);
       add('Spine', -0.06 * w, 0, 0);
-      add('UpperArmL', -0.35 * w, 0, 0.04 * w); add('UpperArmR', -0.35 * w, 0, -0.04 * w);
-      add('ForeArmL', -0.75 * w, 0, 0); add('ForeArmR', -0.75 * w, 0, 0);
+      add('UpperArmL', -0.12 * w, 0, -0.05 * w); add('UpperArmR', -0.12 * w, 0, 0.05 * w);
+      add('ForeArmL', -0.95 * w, -0.25 * w, 0); add('ForeArmR', -0.95 * w, 0.25 * w, 0);
+      add('HandL', 0.25 * w, 0, -0.1 * w); add('HandR', 0.25 * w, 0, 0.1 * w);
     }
 
     // --- posture from emotion + character traits
@@ -767,11 +768,11 @@ export const GESTURES = {
     start(ch) { ch.setEmotion('neutral'); },
     update(ch, u, inst) {
       const tt = ch.t;
-      const p = new THREE.Vector3(0.02, ch.sitW > 0.5 ? 1.12 : 1.25, 0.3);
+      const p = new THREE.Vector3(0.02, ch.sitW > 0.5 ? 0.98 : 1.25, 0.34);
       ch.reach('L', p, { local: true, weight: 1, speed: 4, fingers: new THREE.Vector3(-0.2, 0.6, 0.6), palm: new THREE.Vector3(-0.3, 0.6, -0.5), hand: 'hold' });
       const tap = Math.max(0, Math.sin(tt * 7)) * 0.012;
       ch.reach('R', new THREE.Vector3(-0.03, p.y + 0.03 + tap, p.z + 0.02), { local: true, weight: 1, speed: 4, fingers: new THREE.Vector3(0.6, 0.2, 0.7), palm: new THREE.Vector3(0, -1, 0.2), hand: 'point' });
-      ch._add('Neck', 0.25, 0, 0); ch._add('Head', 0.2, 0, 0);
+      ch._add('Neck', 0.3, 0, 0); ch._add('Head', 0.28, 0, 0); ch._add('Spine', 0.06, 0, 0);
     },
     end(ch) { ch.release('L'); ch.release('R'); ch.setHand('L', 'relaxed'); ch.setHand('R', 'relaxed'); },
   },

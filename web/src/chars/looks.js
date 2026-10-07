@@ -26,7 +26,7 @@ export const OWNER_LOOK = {
 };
 
 export const PLAYER_LOOK = {
-  colors: { ...BASE, Skin: '#d8a482', Top: '#3d4b5c', Sleeve: '#3d4b5c', Pants: '#2b2f38', Shoes: '#2a1a12', Hair: '#2a1d14', Iris: '#4a3a2a' },
+  colors: { ...BASE, Skin: '#d8a482', Top: '#2b3442', Sleeve: '#2b3442', Pants: '#2b2f38', Shoes: '#2a1a12', Hair: '#2a1d14', Iris: '#4a3a2a' },
 };
 
 export const PERSONALITIES = {

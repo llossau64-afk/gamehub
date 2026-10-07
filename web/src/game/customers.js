@@ -111,6 +111,14 @@ export class CustomerManager {
     await ch.walkTo([SPOTS.doorStep], 'walk');
     shop.openDoor(false, 1.4);
     await ch.walkTo([SPOTS.doorIn, SPOTS.hub.clone().add(new THREE.Vector3(rand(-0.15, 0.15), 0, rand(-0.1, 0.25)))], 'walk');
+    // someone already waiting at the counter spot? take a seat instead
+    const busy = this.list.some((x) => x !== c && ['looking', 'waitingTalk', 'talking'].includes(x.state));
+    if (busy && !c.tutorial) {
+      ch.gesture('lookAround', { dur: 2.0 });
+      await this.game.dir.wait(1.2).catch(() => {});
+      await this.toSeat(c);
+      return;
+    }
     c.state = 'looking';
     ch.gesture('lookAround', { dur: 2.6 });
     if (!this.game.shop.has('clean')) ch.setEmotion('concerned', 2.5);
@@ -124,6 +132,8 @@ export class CustomerManager {
   async talk(c) {
     if (c.talked) return;
     c.talked = true;
+    const seated = c.ch.sitW > 0.5;
+    this.stopIdle(c);
     c.state = 'talking';
     const ch = c.ch;
     ch.lookAt(this.game.camera, 1);
@@ -133,6 +143,7 @@ export class CustomerManager {
     audio.paperFlick();
     await this.game.dir.wait(Math.max(2.2, d)).catch(() => {});
     this.game.ui.shrinkRequest();
+    if (seated) { if (!this.inChair) this.toChair(c); else { c.state = 'waiting'; this.idleBehaviour(c); } return; }
     this.afterTalk(c);
   }
 

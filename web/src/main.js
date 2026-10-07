@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { createRenderer, detectQuality } from './render/renderer.js';
 import { initMaterials } from './render/materials.js';
 import { registerProps } from './world/props.js';
@@ -34,13 +35,14 @@ async function boot() {
   } catch (e) { /* fall back to system fonts */ }
   ui.setLoading(0.15);
   const loader = new GLTFLoader();
+  loader.setMeshoptDecoder(MeshoptDecoder);
   const progress = { props: 0, characters: 0 };
   const load = (key) => new Promise((res, rej) => loader.load(ASSETS[key], res, (e) => {
     if (e.total) { progress[key] = e.loaded / e.total; ui.setLoading(0.15 + 0.6 * (progress.props + progress.characters) / 2); }
   }, rej));
   const [props, chars] = await Promise.all([load('props'), load('characters')]);
   registerProps(props.scene);
-  buildTemplate(chars.scene);
+  window.__T = buildTemplate(chars.scene);
   ui.setLoading(0.82, 'Sweeping the floor');
   await new Promise((r) => setTimeout(r, 30));
   const game = new Game({ renderer, ui, input, qualityName });

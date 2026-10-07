@@ -17,7 +17,7 @@ export class UI {
     this.touch = input.touch;
     this.fadeEl = h('<div class="fade on"></div>');
     this.lb = h('<div class="letterbox" style="position:absolute;inset:0;pointer-events:none"></div>');
-    root.append(this.lb, this.fadeEl);
+    root.append(h('<div class="vignette"></div>'), this.lb, this.fadeEl);
     this.buildHud();
     this.subsEl = h('<div class="subs off"><div class="who"></div><div><span class="line"></span></div></div>');
     this.bannerEl = h('<div class="banner off"><div class="k"></div><div class="t"></div><div class="s"></div></div>');
@@ -478,6 +478,9 @@ export class UI {
   }
 
   toast(text, badge = '') {
+    // never stack more than three
+    const live = [...this.toastsEl.children].filter((e) => !e.classList.contains('out'));
+    if (live.length >= 3) { live[0].classList.add('out'); setTimeout(() => live[0].remove(), 400); }
     const el = h(`<div class="toast">${badge ? `<span class="b">${badge}</span>` : ''}<span>${text}</span></div>`);
     this.toastsEl.append(el);
     setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 450); }, 2600);

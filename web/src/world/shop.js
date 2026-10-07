@@ -1,6 +1,7 @@
 // The barbershop: room shell, street outside, props, lights and every visible upgrade state.
 import * as THREE from 'three';
 import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { spawnProp, part, setSpecialMaterial, meshesByMaterial } from './props.js';
 import { propMaterial, addDetail, shared } from '../render/materials.js';
 import * as T from '../render/textures.js';
@@ -97,7 +98,48 @@ export class Shop {
     this.buildLights();
     this.buildProps();
     this.buildDirt();
+    this.optimize();
     this.applyState(new Set());
+  }
+
+  // merge static meshes by material and keep shadow casting to the few things that matter
+  optimize() {
+    const batch = (group) => {
+      group.updateMatrixWorld(true);
+      const inv = new THREE.Matrix4().copy(group.matrixWorld).invert();
+      const byMat = new Map();
+      const victims = [];
+      group.traverse((o) => {
+        if (!o.isMesh || o.isInstancedMesh || o.userData.keep || o.material.transparent) return;
+        let p = o.parent, dyn = false;
+        while (p && p !== group) { if (p.userData.dynamic || /^(pivot|hinge|bell|rotor|bulb|stripes|glass|signface|hourHand|minuteHand|screen)/.test(p.name)) dyn = true; p = p.parent; }
+        if (dyn || /^(bulb|glass|stripes|signface|screen)/.test(o.name)) return;
+        const g = o.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+        for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+        const key = o.material.uuid + (g.attributes.uv ? 'uv' : '');
+        if (!byMat.has(key)) byMat.set(key, { mat: o.material, geos: [], shadow: false });
+        const e = byMat.get(key);
+        e.geos.push(g.index ? g.toNonIndexed() : g);
+        e.shadow ||= o.castShadow;
+        victims.push(o);
+      });
+      for (const o of victims) o.parent.remove(o);
+      for (const { mat, geos, shadow } of byMat.values()) {
+        const merged = mergeGeometries(geos, false);
+        if (!merged) continue;
+        const m = new THREE.Mesh(merged, mat);
+        m.receiveShadow = true;
+        m.castShadow = false;
+        group.add(m);
+      }
+    };
+    batch(this.exterior);
+    batch(this.shellGroup);
+    // only big furniture and people cast shadows from the lamp
+    const casters = new Set(['chairOld', 'chairClassic', 'cart', 'counter', 'stationOld', 'stationClassic', 'couch', 'waitChairs', 'lampOld', 'lampPendant']);
+    for (const [k, o] of Object.entries(this.slots)) {
+      o.traverse((m) => { if (m.isMesh) m.castShadow = casters.has(k); });
+    }
   }
 
   buildSky() {
@@ -121,6 +163,11 @@ export class Shop {
 
   buildRoom() {
     const R = ROOM;
+    const shell = new THREE.Group();
+    this.shellGroup = shell;
+    this.root.add(shell);
+    const root = this.root;
+    this.root = shell;
     const W = R.x1 - R.x0, D = R.z1 - R.z0;
     // floor
     this.floorMat = texMat(this.tex.floorOld, { rough: 0.6, detail: [0.3, 0, 0, 0.5], scale: 2, grime: 0.8 });
@@ -233,6 +280,7 @@ export class Shop {
     const top = plane(wx1 - wx0, 0.24, revMat); top.rotation.x = Math.PI / 2; top.position.set(WINDOW.x, wy1, R.z1 + 0.12); this.root.add(top);
     const dtop = plane(dx1 - dx0, 0.24, revMat); dtop.rotation.x = Math.PI / 2; dtop.position.set(DOOR.x, dy1, R.z1 + 0.12); this.root.add(dtop);
 
+    this.root = root;
     // colliders (player)
     this.colliders.push(
       { x0: -99, x1: R.x0 + 0.25, z0: -99, z1: 99 }, { x0: R.x1 - 0.25, x1: 99, z0: -99, z1: 99 },
@@ -416,7 +464,7 @@ export class Shop {
     this.lampPoint = new THREE.PointLight('#ffd7a0', 3, 7, 2);
     this.lampPoint.position.set(SPOTS.lamp.x, 2.1, SPOTS.lamp.z);
     s.add(this.lampPoint);
-    this.lampSpot = new THREE.SpotLight('#ffdcae', 10, 9, 1.15, 0.85, 2);
+    this.lampSpot = new THREE.SpotLight('#ffdcae', 10, 9, 1.0, 0.75, 2);
     this.lampSpot.position.set(SPOTS.lamp.x, 2.2, SPOTS.lamp.z);
     this.lampSpot.target.position.set(SPOTS.lamp.x, 0, SPOTS.lamp.z + 0.2);
     s.add(this.lampSpot, this.lampSpot.target);
@@ -557,10 +605,14 @@ export class Shop {
     if (this.quality.mirror) {
       const scale = this.quality.shadowSize >= 2048 ? 0.6 : 0.42;
       surface = new Reflector(new THREE.PlaneGeometry(w, h), {
-        textureWidth: Math.round(innerWidth * scale * (w / 1.0)), textureHeight: Math.round(innerHeight * scale * (h / 1.0)),
+        textureWidth: Math.min(1024, Math.round(innerWidth * scale * w)), textureHeight: Math.min(1024, Math.round(innerHeight * scale * h)),
         color: old ? 0x9a9688 : 0xb8b6ae, clipBias: 0.003,
       });
       surface.userData.reflector = true;
+      // the reflection refreshes at half rate: nobody notices, the GPU does
+      const orig = surface.onBeforeRender;
+      let frame = 0;
+      surface.onBeforeRender = function (r, sc, cam) { if ((frame++ & 1) === 1) return; orig.call(this, r, sc, cam); };
     } else {
       surface = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ color: '#9aa3a6', metalness: 1, roughness: 0.08 }));
     }
@@ -651,10 +703,10 @@ export class Shop {
     // lights
     this.lampFlicker = 1;
     this.lampSpot.color.set(goodLight ? '#ffd7a2' : '#f7e6c4');
-    this.baseSpot = goodLight ? 30 : 14;
-    this.basePoint = goodLight ? 3.6 : 1.6;
+    this.baseSpot = goodLight ? 34 : 15;
+    this.basePoint = goodLight ? 3.4 : 1.1;
     this.lamp2.intensity = h('decor') ? 3.2 : 1.4;
-    this.hemi.intensity = clean ? 0.42 : 0.26;
+    this.hemi.intensity = (clean ? 0.4 : 0.22) + (goodLight ? 0.08 : 0);
     this.hemi.color.set(paint ? '#f5dfc2' : '#e6d6bf');
     // pole + neon + sign
     this.poleOn = h('pole');

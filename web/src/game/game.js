@@ -250,7 +250,7 @@ export class Game {
     for (const it of this.shop.interactables) consider(it.pos(), it.radius, it.label(), it.action, it.id);
     for (const c of this.customers.list) {
       let label = null, action = null;
-      if (c.state === 'waitingTalk' || (c.state === 'looking' && !c.tutorial)) { label = 'Talk'; action = () => { if (!c.tutorial) this.customers.talk(c); return 'customer'; }; }
+      if (c.state === 'waitingTalk' || (c.state === 'looking' && !c.tutorial) || (c.state === 'waiting' && !c.talked)) { label = 'Talk'; action = () => { if (!c.tutorial) this.customers.talk(c); return 'customer'; }; }
       else if (c.talked && ['waiting', 'standing'].includes(c.state) && !this.customers.inChair) { label = `Call ${c.name}`; action = () => { this.customers.toChair(c); return 'callNext'; }; }
       if (label) consider(c.headPos().add(V(0, -0.15, 0)), 2.8, label, action, 'customer');
     }
@@ -856,7 +856,7 @@ export class Game {
     ch.lookAt(this.camera, 1);
     await ch.walkTo([V(SPOTS.chair.x + 0.25, 0, SPOTS.chair.z + 0.62)], 'walk');
     await ch.faceTo(this.camera.position);
-    ch.gesture('checkHair', { dur: 1.8 });
+    ch.gesture('touchHair', { dur: 1.8 });
     await dir.wait(1.6);
     // hands over the money
     const note = spawnProp('Note');
@@ -954,6 +954,9 @@ export class Game {
     } else if (this.state !== 'barber') this.ui.prompt(null);
     this.updateHighlight(dt);
     this.updateBubbles();
+    // hair level of detail by distance
+    for (const c of this.customers.list) c.hair.setLOD(this.state === 'barber' && this.barber.c === c ? 0 : c.ch.root.position.distanceTo(this.camera.position));
+    if (this.owner?.hair) this.owner.hair.setLOD(this.owner.root.position.distanceTo(this.camera.position));
     // hair lighting follows the main lamp
     const L = this.shop.lampSpot;
     hairLight.keyDir.value.copy(L.position).sub(V(SPOTS.chair.x, 1.2, SPOTS.chair.z)).normalize();
@@ -1003,7 +1006,7 @@ export class Game {
       const p = c.headPos().add(V(0, 0.28, 0)).project(this.camera);
       if (p.z > 1 || Math.abs(p.x) > 1.1 || Math.abs(p.y) > 1.1) { this.ui.removeBubble(c.id); continue; }
       const pat = c.patience / c.patienceMax;
-      const text = c.state === 'waitingTalk' || c.state === 'looking' ? '!' : c.state === 'seated' ? '✂' : '…';
+      const text = !c.talked ? '!' : c.state === 'seated' ? '✂' : '…';
       this.ui.setBubble(c.id, (p.x * 0.5 + 0.5) * w, (-p.y * 0.5 + 0.5) * h, text, pat, pat < 0.25 ? 'bad' : pat < 0.5 ? 'warn' : '');
     }
   }

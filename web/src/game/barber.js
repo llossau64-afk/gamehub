@@ -283,7 +283,7 @@ export class BarberMode {
       const gp = grip.clone().applyMatrix4(camInv);
       const fd = new THREE.Vector3(0, 0, 1).applyQuaternion(this.toolQuat).transformDirection(camInv);
       const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.toolQuat).transformDirection(camInv);
-      g.player.arms.R.set({ visible: true, pos: gp, fingers: fd.clone().multiplyScalar(0.6).add(up.clone().multiplyScalar(-0.4)), palm: up.clone().negate(), pose: this.tool === 'scissors' ? 'scissors' : 'grip', speed: 30 });
+      g.player.arms.R.set({ visible: false, pos: gp, fingers: fd.clone().multiplyScalar(0.6).add(up.clone().multiplyScalar(-0.4)), palm: up.clone().negate(), pose: this.tool === 'scissors' ? 'scissors' : 'grip', speed: 30 });
 
       // ---- cutting
       if (hit && p.down && !this.dragging) {

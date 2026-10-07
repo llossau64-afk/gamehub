@@ -4,6 +4,25 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { propMaterial } from '../render/materials.js';
 
 const library = new Map();
+
+// gltfpack quantises vertex data; the game bakes transforms into geometry, so go back to floats
+export function toFloat(g) {
+  for (const name of Object.keys(g.attributes)) {
+    const a = g.attributes[name];
+    if (a.array instanceof Float32Array && !a.isInterleavedBufferAttribute && !a.normalized) continue;
+    const n = a.count, s = a.itemSize, out = new Float32Array(n * s);
+    for (let i = 0; i < n; i++) for (let k = 0; k < s; k++) out[i * s + k] = a.getComponent ? a.getComponent(i, k) : [a.getX(i), a.getY(i), a.getZ(i), a.getW(i)][k];
+    g.setAttribute(name, new THREE.BufferAttribute(out, s));
+  }
+  for (const name of Object.keys(g.morphAttributes || {})) {
+    g.morphAttributes[name] = g.morphAttributes[name].map((a) => {
+      const n = a.count, s = a.itemSize, out = new Float32Array(n * s);
+      for (let i = 0; i < n; i++) for (let k = 0; k < s; k++) out[i * s + k] = a.getComponent ? a.getComponent(i, k) : [a.getX(i), a.getY(i), a.getZ(i)][k];
+      return new THREE.BufferAttribute(out, s);
+    });
+  }
+  return g;
+}
 const special = new Map(); // material-name -> material override (set by the world)
 
 export function setSpecialMaterial(name, mat) { special.set(name, mat); }
@@ -57,13 +76,15 @@ function prepare(root) {
   });
   root.traverse((o) => {
     if (!o.isMesh) return;
-    const isKeepMesh = KEEP.has(o.name.replace(/(\.\d+|\d{3})$/, ''));
+    const oname = o.name && !/^mesh_\d+$/.test(o.name) ? o.name : (o.parent && !o.parent.name.startsWith('P_') ? o.parent.name : '');
+    const isKeepMesh = KEEP.has(oname.replace(/(\.\d+|\d{3})$/, '')) && o.parent?.name !== oname;
     const own = isKeepMesh ? o : owner(o);
     const target = isKeepMesh ? ensureNode(o) : ensureNode(own);
     const ownWorld = own.matrixWorld;
     const rel = new THREE.Matrix4().copy(ownWorld).invert().multiply(o.matrixWorld);
-    const g = o.geometry.clone().applyMatrix4(rel);
+    const g = toFloat(o.geometry.clone()).applyMatrix4(rel);
     for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
+    g.morphAttributes = {}; g.morphTargetsRelative = false;
     const mname = o.material.name.replace(/(\.\d+|\d{3})$/, '');
     if (!groups.has(target)) groups.set(target, new Map());
     const mm = groups.get(target);

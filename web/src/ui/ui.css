@@ -34,6 +34,9 @@
 #ui button { font-family: var(--cond); cursor: pointer; pointer-events: auto; }
 .hidden { display: none !important; }
 
+/* ---------------------------------------------------------------- vignette */
+.vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 55%, rgba(20,12,6,.38) 100%); z-index: 1; }
+
 /* ---------------------------------------------------------------- fade + letterbox */
 .fade { position: absolute; inset: 0; background: #0f0c0a; opacity: 0; transition: opacity .6s ease; pointer-events: none; z-index: 40; }
 .fade.on { opacity: 1; }

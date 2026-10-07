@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "assets": "python tools/blender/build_assets.py"
+    "assets": "python tools/blender/build_assets.py && npm run pack",
+    "pack": "gltfpack -i assets-src/props.glb -o public/assets/props.glb -cc -kn -km -ke && gltfpack -i assets-src/characters.glb -o public/assets/characters.glb -cc -kn -km -ke"
   },
   "license": "UNLICENSED",
   "dependencies": {
@@ -16,6 +17,7 @@
     "three": "^0.186.1"
   },
   "devDependencies": {
+    "gltfpack": "^1.3.0",
     "playwright-core": "^1.63.0",
     "vite": "^8.3.3"
   },

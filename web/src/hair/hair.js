@@ -43,11 +43,12 @@ function dirOf(phi, theta, out) {
 }
 
 let noiseTex = null;
+let g_layerIdx = 0;
 const geoCache = new Map();
 
 function buildGeometry(layers) {
   if (geoCache.has(layers)) return geoCache.get(layers);
-  const NU = 64, NV = 34;
+  const NU = 52, NV = 28;
   const pos = [], nrm = [], tdn = [], uvs = [], lay = [];
   const idx = [];
   const d = new THREE.Vector3(), p = new THREE.Vector3(), n = new THREE.Vector3(), p2 = new THREE.Vector3();
@@ -70,9 +71,14 @@ function buildGeometry(layers) {
     }
     const base = L * vertsPerLayer;
     for (let j = 0; j < NV; j++) for (let i = 0; i < NU; i++) {
+      // skip the face: quads well below the hairline never carry hair
+      const phi = ((i + 0.5) / NU) * Math.PI * 2 - Math.PI;
+      const theta = (j / NV) * THETA_MAX;
+      if (theta > hairline(phi) + 0.3) continue;
       const a = base + j * (NU + 1) + i, b = a + 1, c = a + NU + 1, e = c + 1;
       idx.push(a, c, b, b, c, e);
     }
+    if (L === 0) g_layerIdx = idx.length;
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -81,6 +87,8 @@ function buildGeometry(layers) {
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   g.setAttribute('layer', new THREE.Float32BufferAttribute(lay, 1));
   g.setIndex(idx);
+  g.userData.idxPerLayer = g_layerIdx;
+  g.userData.layers = layers;
   g.boundingSphere = new THREE.Sphere(HEAD_C.clone(), 0.25);
   geoCache.set(layers, g);
   return g;
@@ -212,6 +220,7 @@ export class HairSystem {
       }
     }
     const layers = opts.layers || 16;
+    this.layers = layers;
     this.mesh = new THREE.Mesh(buildGeometry(layers), makeMaterial(this));
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 3;
@@ -291,6 +300,13 @@ export class HairSystem {
     }
     this.texture.needsUpdate = true;
     this.dirty = false;
+  }
+
+  // fewer shells when the head is small on screen
+  setLOD(dist) {
+    const L = this.layers;
+    const want = dist > 4 ? Math.max(5, Math.ceil(L * 0.35)) : dist > 2.2 ? Math.ceil(L * 0.6) : L;
+    if (want !== this._lod) { this._lod = want; this.mesh.geometry = buildGeometry(want); }
   }
 
   update(dt) {

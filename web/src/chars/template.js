@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PAL_SLOTS, makePalette, characterMaterial } from '../render/materials.js';
+import { toFloat } from '../world/props.js';
 
 let TEMPLATE = null;
 
@@ -32,14 +33,15 @@ export function buildTemplate(gltfScene) {
     let p = o.parent;
     while (p && !p.name.startsWith('J_')) p = p.parent;
     const jname = p ? p.name.slice(2) : 'Hips';
-    const name = o.name;
+    // gltfpack nests meshes (auto-named mesh_N) under the named node
+    const name = o.name && !/^mesh_\d+$/.test(o.name) ? o.name : (o.parent ? o.parent.name : '');
     const acc = (name.match(/__acc_(\w+?)(?:_\d+)?$/) || name.match(/__acc_(\w+)/) || [])[1] || null;
-    const g = o.geometry.clone();
+    const g = toFloat(o.geometry.clone());
     const m = new THREE.Matrix4().multiplyMatrices(rootInv, o.matrixWorld);
     g.applyMatrix4(m);
     const slot = (Array.isArray(o.material) ? o.material[0] : o.material).name.replace(/\.\d+$/, '');
     if (name.includes('__morph')) {
-      mouth = { geometry: o.geometry, joint: jname, matrix: m, morphDict: o.morphTargetDictionary };
+      mouth = { geometry: toFloat(o.geometry.clone()), joint: jname, matrix: m, morphDict: o.morphTargetDictionary };
       return;
     }
     pieces.push({ name, geometry: g, joint: jname, slot, acc });
@@ -70,6 +72,7 @@ function buildGeometry(accs, jointFilter) {
     for (let i = 0; i < n; i++) { si[i * 4] = ji; sw[i * 4] = 1; pal[i] = slot; }
     for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
     g.morphAttributes = {};
+    g.morphTargetsRelative = false;
     g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
     g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
     g.setAttribute('pal', new THREE.Float32BufferAttribute(pal, 1));

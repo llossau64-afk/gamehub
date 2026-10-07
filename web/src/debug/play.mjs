@@ -8,7 +8,7 @@ const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
 const logs = [];
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') logs.push(m.type() + ': ' + m.text()); });
 page.on('pageerror', (e) => logs.push('PAGEERROR: ' + e.message + ' ' + (e.stack || '').split('\n').slice(1, 4).join(' | ')));
-await page.goto('http://localhost:5173/?manual' + (process.env.Q ? '&q=' + process.env.Q : ''));
+await page.goto((process.env.BASE || 'http://localhost:5173/') + '?manual' + (process.env.Q ? '&q=' + process.env.Q : ''));
 await page.waitForFunction(() => window.__ready === true, null, { timeout: 90000 });
 const step = (sec, dt = 1 / 30) => page.evaluate(([n, dt]) => window.__step(n, dt, false), [Math.round(sec / dt), dt]);
 let shot = 0;

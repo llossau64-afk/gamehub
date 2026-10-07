@@ -19,7 +19,7 @@ HEAD_C = (0, 0.005, 0.125)       # cranium centre, head-local (Blender)
 HEAD_R = (0.089, 0.102, 0.104)   # rx (width), ry (depth), rz (height)
 
 
-def limb(name, x, y0, pts, material, parent, seg=14, round_top=True, round_bot=True):
+def limb(name, x, y0, pts, material, parent, seg=10, round_top=True, round_bot=True):
     """pts: list of (z, r) top->bottom; ends get rounded caps so joints overlap cleanly."""
     rings = []
     z0, r0 = pts[0]
@@ -55,18 +55,18 @@ def build_person():
 
     # ------------------------------------------------------------ torso
     loft('M_Pelvis', [(0.80, 0.135, 0.095, 0, 0.005), (0.86, 0.160, 0.106), (0.93, 0.166, 0.108),
-                      (1.00, 0.160, 0.103), (1.04, 0.152, 0.098)], 'Pants', seg=18,
+                      (1.00, 0.160, 0.103), (1.04, 0.152, 0.098)], 'Pants', seg=14,
          parent=j['Hips'], power=2.3)
     box('M_Belt', (0.325, 0.215, 0.035), (0, 0, 1.005), 'Belt', parent=j['Hips'], bevel=0.012)
     box('M_Buckle', (0.045, 0.012, 0.03), (0, -0.108, 1.005), 'Metal', parent=j['Hips'], bevel=0.004)
     loft('M_Abdomen', [(0.98, 0.160, 0.104), (1.06, 0.153, 0.100, 0, -0.004), (1.15, 0.157, 0.104, 0, -0.006),
-                       (1.25, 0.170, 0.112, 0, -0.006)], 'Top', seg=18, parent=j['Spine'],
+                       (1.25, 0.170, 0.112, 0, -0.006)], 'Top', seg=14, parent=j['Spine'],
          power=2.3, caps=(True, False))
-    loft('M_Chest', [(1.20, 0.168, 0.110, 0, -0.006), (1.29, 0.183, 0.118, 0, -0.010),
-                     (1.37, 0.190, 0.114, 0, -0.006), (1.42, 0.180, 0.103, 0, 0.0),
-                     (1.455, 0.150, 0.090, 0, 0.003), (1.485, 0.105, 0.075, 0, 0.005),
-                     (1.505, 0.062, 0.058, 0, 0.006)],
-         'Top', seg=20, parent=j['Chest'], power=2.6)
+    loft('M_Chest', [(1.20, 0.166, 0.110, 0, -0.006), (1.29, 0.178, 0.117, 0, -0.010),
+                     (1.36, 0.186, 0.113, 0, -0.007), (1.41, 0.190, 0.104, 0, -0.002),
+                     (1.443, 0.176, 0.094, 0, 0.002), (1.468, 0.138, 0.082, 0, 0.004),
+                     (1.49, 0.094, 0.07, 0, 0.005), (1.505, 0.062, 0.058, 0, 0.006)],
+         'Top', seg=16, parent=j['Chest'], power=2.6)
     # neck
     loft('M_Neck', [(1.44, 0.047, 0.050, 0, 0.008), (1.52, 0.044, 0.047, 0, 0.004),
                     (1.60, 0.045, 0.048, 0, 0.004)], 'Skin', seg=14, parent=j['Neck'])
@@ -76,12 +76,12 @@ def build_person():
           parent=j['Chest'], scale=(1.0, 0.92))
     # jacket: lapels, shirt, tie, buttons, hem
     for side in (-1, 1):
-        pts = [(side * 0.035, -0.072, 1.485), (side * 0.07, -0.105, 1.40),
-               (side * 0.075, -0.122, 1.30), (side * 0.04, -0.124, 1.20)]
-        sweep('M_Lapel%s__acc_jacket' % ('L' if side > 0 else 'R'), pts, [(0.004, 0.022)] * 4,
+        pts = [(side * 0.04, -0.075, 1.48), (side * 0.045, -0.108, 1.40),
+               (side * 0.03, -0.12, 1.32), (side * 0.008, -0.122, 1.27)]
+        sweep('M_Lapel%s__acc_jacket' % ('L' if side > 0 else 'R'), pts, [(0.004, 0.016), (0.004, 0.02), (0.004, 0.016), (0.003, 0.008)],
               'Lapel', seg=6, parent=j['Chest'], power=2.0)
-    loft('M_ShirtV__acc_jacket', [(1.22, 0.02, 0.01, 0, -0.118), (1.36, 0.045, 0.012, 0, -0.112),
-                                  (1.47, 0.055, 0.04, 0, -0.07)], 'Shirt', seg=10,
+    loft('M_ShirtV__acc_jacket', [(1.29, 0.008, 0.006, 0, -0.117), (1.38, 0.026, 0.01, 0, -0.113),
+                                  (1.47, 0.042, 0.03, 0, -0.078)], 'Shirt', seg=10,
          parent=j['Chest'], subsurf=1)
     torus('M_ShirtCollar__acc_jacket', 0.055, 0.008, (0, 0.0, 1.49), 'Shirt', seg=20, tseg=6,
           parent=j['Chest'], scale=(1.0, 0.95))
@@ -126,7 +126,7 @@ def build_person():
         a = math.radians(deg)
         rings.append((cz + rz * math.sin(a), rx * math.cos(a), ry * math.cos(a), cx, cy))
     rings = [(hz + r[0], r[1], r[2], r[3], r[4]) for r in rings]
-    loft('M_Head', rings, 'Skin', seg=22, parent=H, power=2.0, subsurf=1)
+    loft('M_Head', rings, 'Skin', seg=18, parent=H, power=2.0, subsurf=1)
     # nose
     nose = [(hz + 0.122, 0.011, 0.012, 0, -0.090), (hz + 0.104, 0.013, 0.018, 0, -0.103),
             (hz + 0.086, 0.018, 0.022, 0, -0.110), (hz + 0.073, 0.021, 0.019, 0, -0.108),
@@ -135,7 +135,7 @@ def build_person():
     # ears
     for side in (-1, 1):
         sphere('M_Ear%s' % side, 0.03, (side * 0.081, 0.012, hz + 0.098), 'Skin',
-               scale=(0.36, 0.62, 1.0), seg=16, rings=10, parent=H, subsurf=1)
+               scale=(0.36, 0.62, 1.0), seg=12, rings=8, parent=H, subsurf=1)
     # eyes, lids, brows
     for side, nm in ((1, 'L'), (-1, 'R')):
         ex, ey, ez = side * 0.034, -0.080, hz + 0.112
@@ -182,9 +182,7 @@ def build_person():
         fa = joint('ForeArm' + nm, ua, (side * 0.196, 0.012, 1.15))
         hd = joint('Hand' + nm, fa, (side * 0.196, 0.0, 0.905))
         x = side * 0.19
-        sphere('M_Deltoid' + nm, 0.064, (side * 0.178, 0.004, 1.43), 'Top', scale=(1.0, 1.08, 0.92),
-               seg=14, rings=8, parent=ua)
-        limb('M_UpperArm' + nm, x, 0.006, [(1.452, 0.060), (1.40, 0.058), (1.30, 0.051),
+        limb('M_UpperArm' + nm, x, 0.006, [(1.428, 0.055), (1.40, 0.055), (1.30, 0.051),
                                            (1.20, 0.046), (1.145, 0.043)], 'Top', ua)
         x2 = side * 0.196
         limb('M_ForeArm' + nm, x2, 0.010, [(1.17, 0.043), (1.10, 0.043), (1.00, 0.038),
@@ -196,7 +194,7 @@ def build_person():
         # palm faces the body (-side * X); slightly oversized hands read better on screen
         loft('M_Palm' + nm, [(0.905, 0.017, 0.032, x2, -0.002), (0.88, 0.019, 0.044, x2, -0.003),
                              (0.85, 0.018, 0.049, x2, -0.002), (0.822, 0.016, 0.047, x2, -0.001),
-                             (0.808, 0.011, 0.040, x2, 0.0)], 'Skin', seg=14, parent=hd,
+                             (0.808, 0.011, 0.040, x2, 0.0)], 'Skin', seg=12, parent=hd,
              power=2.8)
         fingers = [('Index', -0.032, 0.049, 0.036, 0.0098), ('Middle', -0.011, 0.054, 0.039, 0.0101),
                    ('Ring', 0.010, 0.051, 0.036, 0.0095), ('Pinky', 0.029, 0.040, 0.029, 0.0085)]
@@ -205,9 +203,9 @@ def build_person():
             fx = x2 - side * 0.002
             f1 = joint(fname + nm + '1', hd, (fx, fy, z0))
             f2 = joint(fname + nm + '2', f1, (fx, fy, z0 - l1))
-            limb('M_' + fname + nm + '1', fx, fy, [(z0, fr), (z0 - l1, fr * 0.95)], 'Skin', f1, seg=8)
+            limb('M_' + fname + nm + '1', fx, fy, [(z0, fr), (z0 - l1, fr * 0.95)], 'Skin', f1, seg=6)
             limb('M_' + fname + nm + '2', fx, fy, [(z0 - l1, fr * 0.92), (z0 - l1 - l2 + fr * 0.6, fr * 0.78)],
-                 'Skin', f2, seg=8)
+                 'Skin', f2, seg=6)
         # thumb: sits on the front edge, angled toward the palm side
         t0 = (x2 - side * 0.013, -0.033, 0.877)
         t1 = joint('Thumb' + nm + '1', hd, t0)
@@ -238,7 +236,7 @@ def build_person():
                 (0.180, 0.048, 0.032, 0, 0.034), (0.205, 0.032, 0.022, 0, 0.030),
                 (0.214, 0.012, 0.010, 0, 0.028)]
         xf = Matrix.Translation(Vector((x, 0.0, 0.0))) @ Matrix.Rotation(math.pi / 2, 4, 'X')
-        loft('M_Shoe' + nm, shoe, 'Shoes', seg=16, parent=ft, xform=xf, power=2.4,
+        loft('M_Shoe' + nm, shoe, 'Shoes', seg=12, parent=ft, xform=xf, power=2.4,
              caps=(False, False))
         box('M_Sole' + nm, (0.114, 0.29, 0.024), (x, -0.07, 0.012), 'Sole', parent=ft, bevel=0.01,
             taper=(1.0, 1.0))

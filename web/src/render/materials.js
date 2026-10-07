@@ -218,7 +218,10 @@ diffuseColor.rgb = palC.rgb * (1.0 + (fab - 0.5) * 0.12 * palC.a);`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
 roughnessFactor = palC.a;`)
       .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
-metalnessFactor = palM.r;`);
+metalnessFactor = palM.r;`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+float rim = pow(1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0), 3.0);
+totalEmissiveRadiance += diffuseColor.rgb * rim * 0.22 + vec3(0.06, 0.045, 0.03) * rim;`);
   };
   m.customProgramCacheKey = () => 'charpal';
   return m;

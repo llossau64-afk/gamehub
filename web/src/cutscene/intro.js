@@ -56,29 +56,29 @@ export async function playIntro(game) {
   dir.cam.handheld = 0.8;
   dir.takeCamera(V(-0.2, 1.7, 11.5), V(0.2, 2.9, 2.7));
   ui.fade(false, 1800);
-  dir.move(V(1.0, 1.66, 6.6), V(0.4, 2.7, 2.7), 5.2);
-  await wait(2.8);
+  dir.move(V(1.0, 1.66, 6.6), V(0.4, 2.7, 2.7), 4.2);
+  await wait(2.4);
   // sign: one letter keeps dying
-  await wait(2.0);
+  await wait(1.5);
   // walk to the door
-  game.walkSteps(2.6);
-  await dir.move(V(1.9, 1.64, 3.55), V(1.9, 1.45, 2.6), 2.6);
+  game.walkSteps(2.1);
+  await dir.move(V(1.9, 1.64, 3.55), V(1.9, 1.45, 2.6), 2.1);
   shop.openDoor(false, 3.0);
   await wait(0.45);
-  game.walkSteps(1.8);
-  dir.move(V(1.72, 1.62, 1.8), V(0.5, 1.25, -0.2), 2.0);
-  await wait(0.6);
-  game.ambience?.setOutside(0.3);
-  await wait(1.3);
-  // look around: chair, mirror, light
-  await dir.move(null, V(-0.9, 0.95, -1.45), 1.0);
-  await wait(0.35);
-  await dir.move(null, V(-0.75, 1.75, -2.55), 0.8);
-  await wait(0.3);
-  shop.flicker(true);
-  await dir.move(null, V(-0.9, 2.45, -1.25), 0.7);
+  game.walkSteps(1.6);
+  dir.move(V(1.72, 1.62, 1.8), V(0.5, 1.25, -0.2), 1.7);
   await wait(0.5);
-  await dir.move(null, V(-2.45, 1.5, -0.6), 0.9);
+  game.ambience?.setOutside(0.3);
+  await wait(1.0);
+  // look around: chair, mirror, light
+  await dir.move(null, V(-0.9, 0.95, -1.45), 0.85);
+  await wait(0.2);
+  await dir.move(null, V(-0.75, 1.75, -2.55), 0.7);
+  await wait(0.15);
+  shop.flicker(true);
+  await dir.move(null, V(-0.9, 2.45, -1.25), 0.6);
+  await wait(0.4);
+  await dir.move(null, V(-2.45, 1.5, -0.6), 0.8);
 
   // ---- he notices us
   o.endGesture('armR');
@@ -89,14 +89,14 @@ export async function playIntro(game) {
   o.bounce = 0.03;
   setTimeout(() => { o.bounce = 0; }, 160);
   dir.track(() => head().add(V(0, -0.15, 0)), 3);
-  await wait(0.8);
+  await wait(0.7);
   o.faceTo(game.camera.position);
-  await wait(0.35);
+  await wait(0.3);
   o.setEmotion('happy');
-  await wait(0.5);
+  await wait(0.4);
   o.gesture('straightenSuit');
   audio.cloth(0.8, 0.5);
-  await wait(1.5);
+  await wait(1.3);
   o.headTurnSpeed = 6;
   o.walkTo([V(0.2, 0, 0.2)], 'stroll');
   dir.move(V(1.55, 1.62, 1.55), null, 2.2);
@@ -106,8 +106,8 @@ export async function playIntro(game) {
   await say('So... you’re actually here.', 'happy', 0.6);
   // looking around his shop
   o.setEmotion('awkward');
-  o.gesture('lookAround', { dur: 2.0 });
-  await wait(1.9);
+  o.gesture('lookAround', { dur: 1.7 });
+  await wait(1.6);
   o.lookAt(game.camera, 1);
   await say('Beautiful place, huh?', 'awkward', 0.3);
   await wait(0.4);
@@ -116,7 +116,7 @@ export async function playIntro(game) {
   o.headTurnSpeed = 2.2;
   o.lookAt(V(-0.9, 2.3, -1.25), 1);
   o.setEmotion('concerned');
-  await wait(1.6);
+  await wait(1.3);
   o.headTurnSpeed = 4;
   o.lookAt(game.camera, 1);
   await wait(0.5);
@@ -164,8 +164,8 @@ export async function playIntro(game) {
   o.extra.Spine = [0, 0, 0.08];
   o.extra.Head = [-0.05, 0, -0.1];
   await wait(0.5);
-  o.gesture('wave', { dur: 1.1 });
-  await wait(1.3);
+  o.gesture('wave', { dur: 1.0 });
+  await wait(1.0);
   o.extra = {};
 
   // ---- the money
@@ -193,7 +193,7 @@ export async function playIntro(game) {
   const handOff = () => camPoint(game, 0.06, -0.27, -0.66);
   o.reach('L', handOff, { speed: 4, fingers: () => game.camera.position.clone().sub(o.root.position).setY(0).normalize(), palm: () => V(0, 1, 0), hand: 'cup' });
   o.lookAt(env, 0.6);
-  await wait(1.2);
+  await wait(1.0);
   // transfer
   R.drop();
   o.hold('L', env, HOLD_L);
@@ -206,7 +206,7 @@ export async function playIntro(game) {
   await wait(0.7);
   o.lookAt(env, 1);
   o.headTurnSpeed = 5;
-  await wait(1.0);
+  await wait(0.8);
   // eyes widen... he hides it
   o.setEmotion('surprised');
   audio.gasp();
@@ -266,10 +266,10 @@ export async function playIntro(game) {
     await wait(look);
   };
   o.setEmotion('neutral');
-  await rummage(1.1);
+  await rummage(0.9);
   const receipt = spawnProp('Receipt', { shadows: false });
   audio.paperCrumple();
-  await showItem(receipt, 'confused', 1.1);
+  await showItem(receipt, 'confused', 0.9);
   // tossed over his shoulder
   o.reach('R', V(-0.24, 1.62, -0.05), { local: true, speed: 14, hand: 'open' });
   await wait(0.22);
@@ -277,7 +277,7 @@ export async function playIntro(game) {
   game.throwItem(receipt, V(0.6, 1.2, -1.2).applyQuaternion(o.root.quaternion), V(6, 3, 4));
   audio.whoosh(0.4);
   await wait(0.25);
-  await rummage(0.9);
+  await rummage(0.7);
   const coin = spawnProp('Coin', { shadows: false });
   audio.coin();
   await showItem(coin, 'confused', 0.8);
@@ -294,9 +294,9 @@ export async function playIntro(game) {
   o.headTurnSpeed = 2.5;
   blendEmotion(o, 'neutral', 'nostalgic', 1);
   dir.move(V(0.9, 1.6, 0.66), V(0.38, 1.45, 0.05), 2.0);
-  await wait(1.0);
+  await wait(0.8);
   o.gesture('sigh');
-  await wait(1.6);
+  await wait(1.4);
   o.lookAt(game.camera, 1);
   blendEmotion(o, 'nostalgic', 'happy', 0.55);
   await wait(0.8);
@@ -306,8 +306,8 @@ export async function playIntro(game) {
   R.set({ visible: true, pos: V(0.1, -0.42, -0.4), fingers: V(-0.2, 0.15, -1), palm: V(0, 1, 0), pose: 'cup', speed: 5 });
   await wait(0.4);
   R.set({ pos: V(0.05, -0.27, -0.56) });
-  dir.fov(54);
-  dir.move(null, giveAt().add(V(0, -0.02, 0)), 1.4);
+  dir.fov(56);
+  dir.move(null, head().lerp(giveAt(), 0.6), 1.4);
   await wait(1.4);
   o.drop('R', game.scene);
   R.hold(key, { pos: [0.025, -0.075, 0.01], rot: [0, 0, -Math.PI / 2] });
@@ -378,14 +378,14 @@ export async function playIntro(game) {
   await say('Try not to remove all of it.', 'proud', 0.2);
   o.extra = {};
   o.walkTo([V(1.9, 0, 3.6), V(-9, 0, 4.0)], 'run');
-  await wait(1.6);
+  await wait(1.3);
   o.setVisible(false);
   // alone
   dir.track(null);
-  dir.move(null, V(0.5, 1.5, -0.6), 2.4);
-  await wait(1.6);
-  shop.flicker(false);
+  dir.move(null, V(0.5, 1.5, -0.6), 2.2);
   await wait(1.2);
+  shop.flicker(false);
+  await wait(1.0);
   dir.cam.handheld = 0.6;
 }
 

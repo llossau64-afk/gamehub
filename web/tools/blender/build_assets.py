@@ -2,7 +2,7 @@
 
     python tools/blender/build_assets.py            (needs `pip install bpy`)
 
-Outputs to public/assets/: characters.glb, props.glb
+Outputs to assets-src/ (raw). `npm run pack` compresses them into public/assets/.
 """
 import os
 import sys
@@ -14,7 +14,7 @@ import geo  # noqa: E402
 import characters  # noqa: E402
 import props  # noqa: E402
 
-OUT = os.path.normpath(os.path.join(HERE, '..', '..', 'public', 'assets'))
+OUT = os.path.normpath(os.path.join(HERE, '..', '..', 'assets-src'))
 
 
 def main():

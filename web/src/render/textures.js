@@ -205,7 +205,7 @@ export function wallTexture(variant = 'old') {
   const c = canvas(W, H), ctx = c.getContext('2d');
   const r = rng(variant === 'old' ? 17 : 19);
   const n = makeNoise(64, 31);
-  const base = variant === 'old' ? [176, 160, 128] : [52, 78, 66];
+  const base = variant === 'old' ? [158, 142, 112] : [52, 78, 66];
   const img = ctx.createImageData(W, H);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const g = fbm(n, x / W * 10, y / H * 5, 5);

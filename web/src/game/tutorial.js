@@ -166,6 +166,7 @@ export async function playTutorial(game) {
   game.highlight(shop.slots.catalog, 'prop');
   await dir.until(() => game.owns('bulb'), 600);
   game.highlight(null);
+  ui.objective('', '');
   ui.attention('upgrades', false);
   ui.tip(null);
   game.tutorialUpgrade = false;
