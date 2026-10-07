@@ -27,7 +27,7 @@ npm run preview    # serve dist/ locally
 | Cut | hold the left mouse button on the hair | drag on the hair |
 | Turn the chair / tilt view | right drag, A/D, W/S, or drag beside the head | drag beside the head |
 | Zoom | wheel | pinch |
-| Tools | 1 clipper, 2 scissors, 3 trimmer | tool bar |
+| Tools | 1 clipper, 2 scissors, 3 trimmer, 4 comb, 5 spray | tool bar |
 | Power (clipper, trimmer) | Space | power button |
 | Clipper guard | Q / E | guard chips |
 | Finish | F | Finish cut |
@@ -38,8 +38,13 @@ npm run preview    # serve dist/ locally
 - **Opening cutscene** (about 60 s, skippable): the old owner, money handover and counting, pocket search, key handover, his escape, and his head poking back in.
 - **Interactive tutorial** with the first customer, one step at a time: talk, chair, cape, clippers, power, right side, both sides, back, scissors on top, trimmer edges, finish, mirror reaction, rating, payment, first upgrade (the flickering bulb).
 - **Haircut system** (`src/hair/`): each customer's hair is a 128×64 length map on the scalp, rendered with up to 22 shells in a single draw call. Tools write into the map, and clippings fall as instanced particles and stay on the floor until you sweep. Scoring covers per-region accuracy against the request, uniformity, bald patches, symmetry, edge cleanup and speed.
+- **Beards** (`src/hair/beard.js`): a second cuttable surface along the jaw with chin, cheek, moustache and neckline zones. Customers grow random beards; beard cuts score them.
+- **Haircuts**: Simple Trim, Buzz Cut, Beard Trim, Short Back & Sides, Clean Shave, Crew Cut, Trim & Beard, Basic Fade, Textured Crop, Mid Fade, Skin Fade and Mullet, unlocked by level. Fades are scored texel by texel against the requested gradient. The comb adds a grooming bonus; spray-damp hair cuts more evenly with scissors.
 - **Customers** with personalities (chill, impatient, nervous, confident, risky), patience, waiting seats, phone idling, small talk, mirror reactions (selfie at five stars), payment hand-off and walking out.
-- **Progression**: money, tips, XP and levels, 15 upgrades that all visibly change the shop or your tools, 10 achievements, a next-goal line, and days (an interstitial ad slot sits between days).
+- **Progression**: money, tips, XP and levels, 19 upgrades that all visibly change the shop, your tools or your staff, 15 achievements, a next-goal line, and days (an interstitial ad slot sits between days).
+- **Shop life**: pedestrians walk past and peek in, customers queue on the waiting seats, and fictional VIP guests (footballer, rapper, streamer, actor, businessman, influencer) pay more but expect four stars.
+- **Daily events** from day 2: Friday Rush, Double Tips, VIP Day, Fade Challenge.
+- **Staff**: buy a second station and hire Marco. He calls waiting customers to his chair, cuts their hair himself (skill and speed upgrades) and keeps 35%.
 - **Save**: autosave after every haircut, purchase and level-up (localStorage, or the portal's data module). Settings include volumes, quality, look speed, replay tutorial and delete progress.
 
 ## Code map
@@ -51,7 +56,7 @@ npm run preview    # serve dist/ locally
 | `src/world/` | `shop.js` (room, street, lights, upgrade states, mirror, colliders), `props.js` (prop loading and merging), `upgrades.js` |
 | `src/chars/` | `template.js` turns the Blender rig into one rigid-skinned mesh per character; `character.js` holds locomotion, sitting, look-at, emotions, lip sync, arm IK and gestures; `looks.js` |
 | `src/hair/` | hair rendering, cutting and picking; haircut definitions and scoring; clippings |
-| `src/game/` | `game.js` (states, interactions, economy, haircut flow), `barber.js`, `customers.js`, `player.js` (first person + hands), `tutorial.js` |
+| `src/game/` | `game.js` (states, interactions, economy, events, haircut flow), `barber.js`, `customers.js`, `employee.js`, `street.js`, `player.js` (first person + hands), `tutorial.js` |
 | `src/cutscene/` | `director.js` (game-time waits, camera moves, skip), `intro.js` |
 | `src/audio/` | WebAudio synthesis: bell, door, squeaky chair, clipper motor with load, snips, voices, ambience, lo-fi music on the radio |
 | `src/platform/` | portal adapters (CrazyGames v3, GamePix, Playgama, none). The SDK script is added by the portal packaging, not bundled. |

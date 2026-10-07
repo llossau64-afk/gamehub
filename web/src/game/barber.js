@@ -111,6 +111,26 @@ export class BarberMode {
     g.player.arms.R.set({ visible: false, speed: 26 });
     g.player.arms.L.set({ visible: false });
     if (this.tool) this.selectTool(this.tool, true);
+    if (!opts.tutorial) this.introduceMechanics(customer);
+  }
+
+  // new mechanics get one short tip the first time they show up
+  introduceMechanics(c) {
+    const g = this.game;
+    const seen = (g.save.hints ||= []);
+    const tips = [];
+    if (!seen.includes('combSpray')) tips.push(['combSpray', g.input.touch ? 'New tools: comb for a groomed finish, spray for cleaner scissor cuts' : 'New tools: comb (4) for a groomed finish, spray (5) for cleaner scissor cuts']);
+    if (c.cut.fade && !seen.includes('fade')) tips.push(['fade', 'Fade: short guard at the bottom, then longer guards higher up']);
+    if (c.cut.beard && !seen.includes('beard')) tips.push(['beard', 'Beard: turn the chair to face you, trimmer for the neckline']);
+    if (c.vip && !seen.includes('vip')) tips.push(['vip', 'VIP: four stars or more, or your reputation takes a hit']);
+    let t = 600;
+    for (const [id, text] of tips) {
+      seen.push(id);
+      setTimeout(() => { if (this.active) g.ui.tip(text); }, t);
+      t += 4200;
+      setTimeout(() => { if (this.active) g.ui.tip(null); }, t - 400);
+    }
+    if (tips.length) g.persist();
   }
 
   exit() {
