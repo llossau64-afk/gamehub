@@ -7,7 +7,7 @@ import { HEAD_C, REGIONS, REGION_ID, EDGE_REGIONS } from '../hair/hair.js';
 import { BEARD_ID } from '../hair/beard.js';
 import { GUARDS, stats as cutStats } from '../hair/styles.js';
 import { audio } from '../audio/audio.js';
-import { clamp, damp, dampAngle, rand, pick, chance, lerp } from '../core/util.js';
+import { clamp, damp, dampAngle, rand, pick, chance, lerp, smooth } from '../core/util.js';
 
 export const TOOLS = [
   { id: 'clipper', label: 'Clipper', icon: 'clipper', electric: true },
@@ -109,6 +109,9 @@ export class BarberMode {
     this.headCenter(this.camLook);
     this.stats = cutStats(customer);
     this.refreshUI();
+    this.fadeRay ||= new THREE.Raycaster();
+    this.prepareChairFade();
+    this.bow = 0; this.fadeA = 1;
     g.player.arms.R.set({ visible: false, speed: 26 });
     g.player.arms.L.set({ visible: false });
     if (this.tool) this.selectTool(this.tool, true);
@@ -145,6 +148,7 @@ export class BarberMode {
     const g = this.game;
     g.ui.hideBarber();
     g.player.arms.R.set({ visible: false, speed: 9 });
+    this.resetChairFade();
     if (this.c) this.focusRegion(null);
   }
 
@@ -264,7 +268,10 @@ export class BarberMode {
     this.camDist = clamp(this.camDist + input.wheel * 0.05 + input.pinch * 0.05, 0.42, 1.0);
     // camera
     const yaw = this.camYawOff;
-    const target = new THREE.Vector3(Math.sin(yaw) * Math.cos(this.camPitch), Math.sin(this.camPitch), Math.cos(yaw) * Math.cos(this.camPitch))
+    // behind the customer: he bows his head and the view tips down over the backrest onto the nape
+    this.updateBow(dt, head);
+    const pitchE = this.camPitch + this.bow * 0.28;
+    const target = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitchE), Math.sin(pitchE), Math.cos(yaw) * Math.cos(pitchE))
       .multiplyScalar(this.camDist).add(head);
     if (!this.camInit) { this.camPos.copy(g.camera.position); this.camInit = true; }
     this.camPos.lerp(target, 1 - Math.exp(-7 * dt));
@@ -410,6 +417,7 @@ export class BarberMode {
 
     // customer reactions
     this.react(dt, cutting);
+    this.updateChairFade(dt, head);
 
     // UI refresh
     this.statsT -= dt;
@@ -430,9 +438,68 @@ export class BarberMode {
         c.say(pick(SMALLTALK), null);
       }
     }
-    // eyes follow the tool a little, head stays still while cutting
-    ch.lookAt(this.toolPos, cutting ? 0.25 : 0.5);
+    // eyes follow the tool a little, head stays still while cutting; head down while the nape is worked on
+    if (this.bow > 0.3) ch.lookAt(ch.root.localToWorld(new THREE.Vector3(0, 0.2, 1.2)), 0.3);
+    else ch.lookAt(this.toolPos, cutting ? 0.25 : 0.5);
     ch.headTurnSpeed = 2;
+    const b = smooth(this.bow);
+    ch.extra.Neck = [0.34 * b, 0, 0];
+    ch.extra.Head = [0.3 * b, 0, 0];
+    ch.extra.Chest = [0.08 * b, 0, 0];
+  }
+
+  // how far the camera is behind the customer (0 front/side .. 1 straight behind)
+  updateBow(dt, head) {
+    const ch = this.c.ch;
+    const f = new THREE.Vector3(Math.sin(ch.root.rotation.y), 0, Math.cos(ch.root.rotation.y));
+    const toCam = this.game.camera.position.clone().sub(head).setY(0).normalize();
+    const behind = clamp((-f.dot(toCam) - 0.35) / 0.5, 0, 1);
+    const want = this.c.tutorial && this.focus && this.focus !== 'back' ? behind * 0.6 : behind;
+    this.bow = damp(this.bow || 0, want, 3.5, dt);
+  }
+
+  // the backrest and headrest fade (dithered) whenever they stand between the camera and the head
+  prepareChairFade() {
+    const br = this.game.shop.chairPivot().getObjectByName('backrest');
+    this.backrest = br || null;
+    if (!br || br.userData.fadeReady) return;
+    br.traverse((o) => {
+      if (!o.isMesh) return;
+      const m0 = o.material, m = m0.clone();
+      m.onBeforeCompile = m0.onBeforeCompile;
+      m.customProgramCacheKey = m0.customProgramCacheKey;
+      m.alphaHash = true;
+      m.opacity = 0.999;
+      o.material = m;
+      o.userData.fadeMat = true;
+    });
+    br.userData.fadeReady = true;
+  }
+
+  updateChairFade(dt, head) {
+    const br = this.backrest;
+    if (!br) return;
+    const cam = this.game.camera.position;
+    let block = 0;
+    const pts = [head, head.clone().add(new THREE.Vector3(0, -0.09, 0)), this.toolPos];
+    for (const p of pts) {
+      const d = p.clone().sub(cam);
+      const len = d.length();
+      this.fadeRay.set(cam, d.divideScalar(len));
+      this.fadeRay.far = len - 0.02;
+      if (this.fadeRay.intersectObject(br, true).length) block++;
+    }
+    const target = block ? 0.22 : 1;
+    this.fadeA = damp(this.fadeA ?? 1, target, 8, dt);
+    const a = Math.min(0.999, this.fadeA);
+    br.traverse((o) => { if (o.userData.fadeMat) { o.material.opacity = a; o.castShadow = a > 0.9; } });
+  }
+
+  resetChairFade() {
+    const br = this.backrest;
+    if (br) br.traverse((o) => { if (o.userData.fadeMat) { o.material.opacity = 0.999; o.castShadow = true; } });
+    if (this.c) { const ch = this.c.ch; delete ch.extra.Neck; delete ch.extra.Head; delete ch.extra.Chest; }
+    this.bow = 0; this.fadeA = 1;
   }
 
   // grooming: share of hair touched by the comb (small bonus in the rating)

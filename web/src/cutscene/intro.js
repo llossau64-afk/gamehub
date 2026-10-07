@@ -212,7 +212,8 @@ export async function playIntro(game) {
   audio.gasp();
   await wait(0.55);
   o.setEmotion('neutral');
-  await wait(0.35);
+  o.gesture('wipeBrow');
+  await wait(1.3);
   o.lookAt(game.camera, 1);
   audio.throatClear();
   o.gesture('chinUp', { dur: 0.9 });
@@ -347,46 +348,57 @@ export async function playIntro(game) {
   await wait(0.5);
   await say('Well...', 'greedy', 0.6);
   await say('Good luck.', 'happy', 0.1);
-  // clutch the money
+  // clutch the money and stroll out like nothing happened
   o.reach('L', V(0.02, 1.25, 0.17), { local: true, speed: 8, fingers: V(-1, 0, 0.2), palm: V(0, 0, -1), hand: 'hold' });
   o.lookAt(null);
-  o.walkTo([V(1.0, 0, 0.75), V(1.9, 0, 1.85), V(1.9, 0, 3.15), V(0.0, 0, 3.55), V(-9, 0, 3.9)], 'walk');
-  dir.track(() => head().add(V(0, -0.05, 0)), 3.5);
-  await wait(0.9);
-  o.gait = 'speedwalk';
-  o.setEmotion('excited');
-  await wait(0.7);
-  o.gait = 'run';
-  o.setEmotion('ecstatic');
-  await dir.until(() => o.root.position.z > 1.35, 4);
-  shop.openDoor(true, 2.2);
-  game.player.shake = 0.6;
-  await dir.until(() => o.root.position.z > 3.0, 4);
-  dir.track(() => head().add(V(0, -0.2, 0)), 2.5);
-  await dir.until(() => o.root.position.x < -1.2, 5);
-  await wait(0.5);
-  dir.track(null);
-  dir.move(null, V(1.9, 1.45, 2.6), 0.9);
-  await wait(0.9);
-  // ...and pokes his head back in
-  o.stop();
-  o.place(V(1.9, 0, 3.35), Math.PI);
-  o.gait = 'walk';
   o.setEmotion('happy');
-  shop.openDoor(false, 4.6);
-  o.walkTo([V(1.9, 0, 2.92)], 'walk');
+  o.walkTo([V(1.0, 0, 0.75), V(1.9, 0, 1.85), V(1.9, 0, 3.15), V(1.4, 0, 3.7), V(-0.75, 0, 3.75)], 'walk');
+  dir.track(() => head().add(V(0, -0.05, 0)), 3.0);
+  await dir.until(() => o.root.position.z > 1.35, 6);
+  shop.openDoor(false, 3.2);
+  await dir.until(() => o.root.position.z > 3.0, 5);
+  dir.move(V(0.15, 1.6, 1.0), null, 2.6);
+  await dir.until(() => o.path.length === 0, 5);
+  // he stops on the pavement... something just occurred to him
+  o.faceTo(V(-5, 0, 3.8));
+  await wait(0.7);
+  o.setEmotion('neutral');
+  await wait(0.35);
+  o.headTurnSpeed = 16;
   o.lookAt(game.camera, 1);
+  o.setEmotion('surprised');
+  o.gesture('flinch');
+  game.exclaim.show(o, 1.5);
+  dir.fov(52);
+  game.player.shake = 0.25;
+  await wait(1.0);
+  // ...and hurries back to the door
+  o.setEmotion('excited');
+  o.walkTo([V(1.4, 0, 3.55), V(1.9, 0, 3.3), V(1.9, 0, 2.92)], 'speedwalk');
+  dir.fov(64);
+  shop.openDoor(false, 4.6);
   dir.track(() => head().add(V(0, -0.08, 0)), 4);
-  await wait(0.9);
+  await dir.until(() => o.path.length === 0, 5);
+  o.faceTo(game.camera.position);
+  await wait(0.35);
+  o.lookAt(game.camera, 1);
   o.extra.Spine = [0.32, 0, 0];
   o.extra.Chest = [0.1, 0, 0];
   o.extra.Head = [-0.25, 0, 0.12];
+  o.setEmotion('happy');
   await wait(0.3);
   await say('Oh— customers usually like hair.', 'happy', 0.5);
   await say('Try not to remove all of it.', 'proud', 0.2);
   o.extra = {};
-  o.walkTo([V(1.9, 0, 3.6), V(-9, 0, 4.0)], 'run');
-  await wait(1.3);
+  // and now he is really gone: off down the street, in full view until he is out of sight
+  o.setEmotion('ecstatic');
+  o.walkTo([V(1.9, 0, 3.6), V(0.4, 0, 3.95), V(-12, 0, 4.1)], 'run');
+  game.player.shake = 0.4;
+  dir.track(() => head().add(V(0, -0.15, 0)), 3.0);
+  await dir.until(() => o.root.position.x < -1.6, 5);
+  dir.track(null);
+  dir.move(null, V(-2.6, 1.3, 3.2), 1.4);
+  await dir.until(() => o.root.position.x < -11.5, 7);
   o.setVisible(false);
   // alone
   dir.track(null);

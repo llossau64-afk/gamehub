@@ -390,6 +390,13 @@ class AudioEngine {
     this.metal(base * 4, 0.9, [1, 2.76, 5.4], { vol: 0.04, when: 0.36, room: 0.4, bus: 'ui' });
     if (tier === 'gold') this.tone(base * 3, 1.2, { type: 'sine', vol: 0.04, bus: 'ui', room: 0.5, when: 0.4, detune: 7 });
   }
+  // comic realisation "!": a quick rising blip and a bright ping
+  exclaim() {
+    if (!this.ctx) return;
+    this.tone(520, 0.12, { type: 'square', vol: 0.05, bus: 'ui', room: 0.1, slide: 2.4 });
+    this.tone(1568, 0.5, { type: 'triangle', vol: 0.09, bus: 'ui', room: 0.3, when: 0.09 });
+    this.tone(2093, 0.4, { type: 'sine', vol: 0.05, bus: 'ui', room: 0.3, when: 0.11 });
+  }
   pop() { this.tone(500, 0.08, { type: 'sine', vol: 0.12, bus: 'ui', room: 0.05, slide: 2.2 }); }
   bulbPop() {
     this.noiseBurst(0.06, { vol: 0.3, freq: 3000, q: 1, room: 0.3 });

@@ -14,6 +14,7 @@ import { BarberMode } from './barber.js';
 import { Director, SKIP } from '../cutscene/director.js';
 import { playIntro, introEndState } from '../cutscene/intro.js';
 import { ItemShowcase } from '../fx/itemGet.js';
+import { Exclaim } from '../fx/exclaim.js';
 import { playTutorial } from './tutorial.js';
 import { UPGRADES, byId, effects, xpFor, ACHIEVEMENTS, EVENTS } from '../world/upgrades.js';
 import { Street } from './street.js';
@@ -43,6 +44,7 @@ export class Game {
     this.clippings = new Clippings(this.scene);
     this.mist = new Mist(this.scene);
     this.itemFx = new ItemShowcase(this);
+    this.exclaim = new Exclaim(this.scene);
     this.dir = new Director(this);
     this.customers = new CustomerManager(this);
     this.barber = new BarberMode(this);
@@ -1105,6 +1107,7 @@ export class Game {
     if (this.state === 'play' || this.state === 'barber') this.save.playTime += dt;
     // last, after every camera move of the frame, so the showcased item sticks to the view
     this.itemFx.update(dt);
+    this.exclaim.update(dt);
     input.endFrame();
   }
 

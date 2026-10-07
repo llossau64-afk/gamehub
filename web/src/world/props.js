@@ -44,7 +44,7 @@ export function propNames() { return [...library.keys()]; }
 // Merge meshes that share a material inside each "rigid" group (a node that the game may
 // animate keeps its own subtree). Cuts draw calls a lot for multi-part props.
 const KEEP = new Set(['pivot', 'glass', 'bulb', 'hinge', 'bell', 'bladeA', 'bladeB', 'stripes', 'poster',
-  'rotor', 'hourHand', 'minuteHand', 'signface', 'screen', 'drawer']);
+  'rotor', 'hourHand', 'minuteHand', 'signface', 'screen', 'drawer', 'backrest']);
 
 function prepare(root) {
   root.updateMatrixWorld(true);

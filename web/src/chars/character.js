@@ -5,6 +5,9 @@ import { createBody, getTemplate } from './template.js';
 import { clamp, lerp, damp, dampAngle, noise1, rand, smooth, easeInOut, wrapAngle } from '../core/util.js';
 import { audio } from '../audio/audio.js';
 import { blobShadowTexture } from '../render/textures.js';
+import { HEAD_C, HEAD_R } from '../hair/hair.js';
+
+const _hs = new THREE.Vector3(), _hs2 = new THREE.Vector3();
 
 // ------------------------------------------------------------------ emotions
 // brow: raise (-1..1), inner (sad/worried raise), angry (inner down), asym
@@ -137,9 +140,13 @@ export class Character {
   place(pos, yaw = 0) {
     this.root.position.set(pos.x, 0, pos.z);
     this.yaw = yaw;
+    this._prevYaw = yaw;
+    this.yawVel = 0;
     this.root.rotation.y = yaw;
     this.path = [];
     this.speed = 0;
+    this._prevSpeed = 0;
+    this.accel = 0;
   }
 
   walkTo(points, gait = 'walk') {
@@ -320,6 +327,34 @@ export class Character {
       add('Head', -lerp(0.0, 0.18, runW) * walkW, -s * 0.08 * walkW, 0);
     }
 
+    // --- turning on the spot: little alternating steps, hips lead the turn
+    if (this.turnW > 0.02) {
+      const w = this.turnW, tp = this.turnPhase;
+      const l = Math.max(0, Math.sin(tp)), r = Math.max(0, Math.sin(tp + Math.PI));
+      add('ThighL', -0.32 * l * w, 0, 0); add('ShinL', 0.6 * l * w, 0, 0); add('FootL', -0.15 * l * w, 0, 0);
+      add('ThighR', -0.32 * r * w, 0, 0); add('ShinR', 0.6 * r * w, 0, 0); add('FootR', -0.15 * r * w, 0, 0);
+      const dirT = Math.sign(this.yawVel);
+      add('Hips', 0, 0.12 * dirT * w, 0);
+      add('Spine', 0, -0.05 * dirT * w, 0);
+      add('UpperArmL', 0.1 * (l - r) * w, 0, 0.05 * w); add('UpperArmR', -0.1 * (l - r) * w, 0, -0.05 * w);
+    }
+    // --- weight shifts: lean into acceleration, rock back when stopping, bank into turns while walking
+    {
+      const lean = clamp((this.accel || 0) * 0.045, -0.12, 0.16) * (1 - this.sitW);
+      add('Spine', lean, 0, 0);
+      add('Chest', lean * 0.4, 0, 0);
+      add('Head', -lean * 0.5, 0, 0);
+      const bank = clamp(-(this.yawVel || 0) * 0.05, -0.14, 0.14) * walkW;
+      add('Hips', 0, 0, bank * 0.6);
+      add('Spine', 0, 0, bank);
+      add('Head', 0, 0, -bank * 0.8);
+      // the head leads a turn on the spot
+      if (this.faceYaw !== undefined && this.faceYaw !== null) {
+        const ahead = clamp(wrapAngle(this.faceYaw - this.yaw) * 0.45, -0.55, 0.55) * (1 - walkW);
+        add('Neck', 0, ahead * 0.5, 0); add('Head', 0, ahead * 0.5, 0);
+      }
+    }
+
     // --- sitting
     if (this.sitW > 0.001) {
       const w = smooth(this.sitW);
@@ -329,6 +364,19 @@ export class Character {
       add('UpperArmL', -0.12 * w, 0, -0.05 * w); add('UpperArmR', -0.12 * w, 0, 0.05 * w);
       add('ForeArmL', -0.95 * w, -0.25 * w, 0); add('ForeArmR', -0.95 * w, 0.25 * w, 0);
       add('HandL', 0.25 * w, 0, -0.1 * w); add('HandR', 0.25 * w, 0, 0.1 * w);
+      // getting in or out of a seat: the chest swings forward over the knees, then settles
+      if (this.sitW < 0.999 && this.sitW > 0.001) {
+        const mid = Math.sin(Math.PI * this.sitW);
+        add('Spine', 0.38 * mid, 0, 0);
+        add('Chest', 0.16 * mid, 0, 0);
+        add('Head', -0.22 * mid, 0, 0);
+        add('UpperArmL', -0.35 * mid, 0, 0.08 * mid); add('UpperArmR', -0.35 * mid, 0, -0.08 * mid);
+      } else {
+        // seated breathing and the odd fidget
+        const br2 = Math.sin(t * 1.5 + this.idleSeed) * 0.5 + 0.5;
+        add('Chest', -0.02 * br2 * w, 0, 0);
+        add('Spine', noise1(t * 0.23 + this.idleSeed) * 0.04 * w, noise1(t * 0.19 + 3) * 0.05 * w, 0);
+      }
     }
 
     // --- posture from emotion + character traits
@@ -429,6 +477,23 @@ export class Character {
       }
     }
     this.root.rotation.y = this.yaw;
+    // motion derivatives for secondary animation (turn steps, leaning into turns, weight shifts)
+    if (dt > 0) {
+      const yv = wrapAngle(this.yaw - (this._prevYaw ?? this.yaw)) / dt;
+      this.yawVel = damp(this.yawVel || 0, yv, 10, dt);
+      const acc = (this.speed - (this._prevSpeed ?? this.speed)) / dt;
+      this.accel = damp(this.accel || 0, acc, 6, dt);
+    }
+    this._prevYaw = this.yaw;
+    this._prevSpeed = this.speed;
+    // stepping on the spot while turning instead of skating round
+    const turning = this.speed < 0.25 && this.sitW < 0.05 ? clamp((Math.abs(this.yawVel) - 0.6) / 1.5, 0, 1) : 0;
+    this.turnW = damp(this.turnW || 0, turning, 10, dt);
+    if (this.turnW > 0.02) {
+      const prevT = this.turnPhase || 0;
+      this.turnPhase = prevT + dt * (5 + Math.abs(this.yawVel) * 2.2);
+      if (Math.floor(prevT / Math.PI) !== Math.floor(this.turnPhase / Math.PI) && this.onFootstep) this.onFootstep(this);
+    }
     // sitting transitions
     if (this.sitTarget !== this.sitW) {
       const rate = 1.5;
@@ -645,6 +710,33 @@ export class Character {
   headWorld(out = new THREE.Vector3()) {
     return this.bones.Head.localToWorld(out.set(0, 0.12, 0.02));
   }
+
+  // A point on the skull (an ellipsoid in head space: x left, y up, z forward) plus its outward
+  // normal, both in world space. `lift` pushes the point off the skin (hair, palm thickness).
+  headSurface(dx, dy, dz, lift = 0, out = { p: new THREE.Vector3(), n: new THREE.Vector3() }) {
+    const d = _hs.set(dx, dy, dz).normalize();
+    const t = 1 / Math.sqrt((d.x / HEAD_R.x) ** 2 + (d.y / HEAD_R.y) ** 2 + (d.z / HEAD_R.z) ** 2);
+    const n = out.n.set(d.x / HEAD_R.x ** 2, d.y / HEAD_R.y ** 2, d.z / HEAD_R.z ** 2).normalize();
+    out.p.copy(HEAD_C).addScaledVector(d, t).addScaledVector(n, lift);
+    // hair adds its own thickness where there is hair
+    if (this.hair && dy > -0.2) {
+      const theta = Math.acos(clamp(d.y, -1, 1)), phi = Math.atan2(d.x, d.z);
+      out.p.addScaledVector(n, (this.hair.lengthAt(phi, theta) || 0) * 0.06 * 0.55);
+    }
+    const head = this.bones.Head;
+    head.localToWorld(out.p);
+    out.n.transformDirection(head.matrixWorld);
+    return out;
+  }
+
+  // put a palm flat on the head: target at the palm centre, palm facing the skull,
+  // fingers along `along` (head space) projected onto the surface
+  touchHead(side, dx, dy, dz, along, opts = {}) {
+    const s = this.headSurface(dx, dy, dz, opts.lift ?? 0.016);
+    const a = _hs2.copy(along).transformDirection(this.bones.Head.matrixWorld);
+    a.addScaledVector(s.n, -a.dot(s.n)).normalize();
+    this.reach(side, s.p.clone(), { weight: opts.weight ?? 1, speed: opts.speed ?? 30, fingers: a.clone(), palm: s.n.clone().negate(), hand: opts.hand || 'relaxed' });
+  }
 }
 
 // ------------------------------------------------------------------ gesture library
@@ -699,10 +791,9 @@ export const GESTURES = {
     dur: 1.8, channel: 'armR',
     update(ch, u) {
       const w = env(u, 0.25, 0.25);
-      const head = ch.headWorld(new THREE.Vector3());
-      head.y += 0.04;
-      head.x += Math.sin(u * 40) * 0.01;
-      ch.reach('R', head, { weight: w, speed: 30, hand: 'pinch' });
+      // fingertips work the side of the crown in small circles
+      const wob = Math.sin(u * 38) * 0.12;
+      ch.touchHead('R', -0.45 + wob * 0.3, 0.85, -0.15 + wob, new THREE.Vector3(0.6, 0.6, -0.2), { weight: w, hand: 'pinch', lift: 0.022 });
       ch._add('Head', 0.08 * w, 0, 0.1 * w);
     },
     end(ch) { ch.release('R'); ch.setHand('R', 'relaxed'); },
@@ -711,11 +802,23 @@ export const GESTURES = {
     dur: 2.2, channel: 'armR',
     update(ch, u) {
       const w = env(u, 0.2, 0.25);
-      const head = ch.headWorld(new THREE.Vector3());
-      const side = new THREE.Vector3(-0.06, 0.02 + Math.sin(u * 8) * 0.015, -0.02).applyQuaternion(ch.root.quaternion);
-      head.add(side);
-      ch.reach('R', head, { weight: w, speed: 30, hand: 'open' });
+      // palm slides up the side of the head, front to back
+      const k = 0.5 + 0.5 * Math.sin(u * 8);
+      ch.touchHead('R', -0.95, 0.15 + k * 0.35, 0.25 - k * 0.45, new THREE.Vector3(0, 0.6, -0.8), { weight: w, hand: 'open' });
       ch._add('Head', 0, 0.12 * Math.sin(u * 5) * w, -0.05 * w);
+    },
+    end(ch) { ch.release('R'); ch.setHand('R', 'relaxed'); },
+  },
+  wipeBrow: {
+    dur: 1.5, channel: 'armR',
+    start(ch) { audio.sigh(ch.voice.pitch / 150); },
+    update(ch, u) {
+      const w = env(u, 0.22, 0.2);
+      // the palm wipes across the forehead from his left to his right, head tipping back with relief
+      const k = smooth(clamp((u - 0.18) / 0.6, 0, 1));
+      ch.touchHead('R', 0.55 - k * 1.1, 0.42, 0.85, new THREE.Vector3(1, 0.25, 0), { weight: w, hand: 'open', lift: 0.014 });
+      ch._add('Head', -0.14 * w * k, 0.08 * w * (k - 0.5), 0);
+      ch._add('Chest', -0.05 * w, 0, 0);
     },
     end(ch) { ch.release('R'); ch.setHand('R', 'relaxed'); },
   },
@@ -829,12 +932,9 @@ export const GESTURES = {
     dur: 2.6, channel: 'arms',
     update(ch, u) {
       const w = env(u, 0.2, 0.2);
-      const h = ch.headWorld(new THREE.Vector3());
-      const q = ch.root.quaternion;
-      const l = new THREE.Vector3(0.09, -0.02, 0.0).applyQuaternion(q).add(h);
-      const r = new THREE.Vector3(-0.09, -0.02 + Math.sin(u * 6) * 0.02, 0.0).applyQuaternion(q).add(h);
-      ch.reach('R', r, { weight: w, speed: 25, hand: 'open' });
-      ch.reach('L', l, { weight: w * 0.8, speed: 25, hand: 'open' });
+      const k = Math.sin(u * 6) * 0.5 + 0.5;
+      ch.touchHead('R', -0.95, 0.2 + k * 0.3, 0.1 - k * 0.3, new THREE.Vector3(0, 0.6, -0.8), { weight: w, hand: 'open' });
+      ch.touchHead('L', 0.95, 0.35, -0.05, new THREE.Vector3(0, 0.6, -0.8), { weight: w, hand: 'open' });
       ch._add('Head', 0, Math.sin(u * Math.PI * 2) * 0.3 * w, 0);
     },
     end(ch) { ch.release('R'); ch.release('L'); ch.setHand('R', 'relaxed'); ch.setHand('L', 'relaxed'); },

@@ -84,8 +84,9 @@ export class Director {
   // move the camera (and/or its look target) over `dur` seconds
   move(pos, look, dur = 1.5, ease = easeInOut) {
     const c = this.cam;
-    c.tween = { fromP: c.pos.clone(), toP: pos ? pos.clone() : c.pos.clone(), fromL: c.look.clone(), toL: look ? look.clone() : c.look.clone(), t: 0, dur, ease };
-    c.track = null;
+    // a position-only move keeps whatever the camera is tracking
+    c.tween = { fromP: c.pos.clone(), toP: pos ? pos.clone() : c.pos.clone(), fromL: c.look.clone(), toL: look ? look.clone() : c.look.clone(), t: 0, dur, ease, keepLook: !look };
+    if (look) c.track = null;
     return this.wait(dur);
   }
 
@@ -102,7 +103,7 @@ export class Director {
       tw.t += dt;
       const k = tw.ease(clamp(tw.t / tw.dur, 0, 1));
       c.pos.lerpVectors(tw.fromP, tw.toP, k);
-      c.look.lerpVectors(tw.fromL, tw.toL, k);
+      if (!tw.keepLook) c.look.lerpVectors(tw.fromL, tw.toL, k);
       if (tw.t >= tw.dur) c.tween = null;
     }
     if (c.track) {

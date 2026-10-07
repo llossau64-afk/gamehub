@@ -8,6 +8,7 @@ const mobile = !!process.env.MOBILE;
 const page = await browser.newPage(mobile ? { viewport: { width: 844, height: 390 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' } : { viewport: { width: 960, height: 540 } });
 const logs = [];
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') logs.push(m.type() + ': ' + m.text()); });
+page.on('crash', () => logs.push('PAGE CRASH'));
 page.on('pageerror', (e) => logs.push('PAGEERROR: ' + e.message + ' ' + (e.stack || '').split('\n').slice(1, 4).join(' | ')));
 await page.goto((process.env.BASE || 'http://localhost:5173/') + '?manual' + (process.env.Q ? '&q=' + process.env.Q : ''));
 await page.waitForFunction(() => window.__ready === true, null, { timeout: 90000 });

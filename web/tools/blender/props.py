@@ -61,14 +61,16 @@ def barber_chair(name, classic=False):
     box(name + '_seat', (0.54, 0.52, 0.12), (0, -0.01, 0.51), leather, parent=pv, bevel=(0.045), seg=4)
     # backrest (tilted back)
     tilt = rot('X', -12, (0, 0.24, 0.56))
-    box(name + '_back', (0.50, 0.12, 0.58), (0, 0.27, 0.86), leather, parent=pv, bevel=0.045, seg=4,
+    # backrest + headrest live under their own node so the game can fade them out of the way
+    br = empty('backrest', (0, 0.24, 0.56 - 0.36), pv)
+    box(name + '_back', (0.50, 0.12, 0.58), (0, 0.27, 0.86), leather, parent=br, bevel=0.045, seg=4,
         xform=tilt)
     box(name + '_backshell', (0.47, 0.04, 0.54), (0, 0.345, 0.85), metal if classic else 'MetalPainted',
-        parent=pv, bevel=0.015, xform=tilt)
+        parent=br, bevel=0.015, xform=tilt)
     # headrest on a rod
     sweep(name + '_hrod', [(0, 0.37, 1.10), (0, 0.39, 1.20), (0, 0.38, 1.26)], 0.011, metal, seg=8,
-          parent=pv)
-    box(name + '_head', (0.28, 0.09, 0.13), (0, 0.35, 1.28), leather, parent=pv, bevel=0.035, seg=3)
+          parent=br)
+    box(name + '_head', (0.28, 0.09, 0.13), (0, 0.35, 1.28), leather, parent=br, bevel=0.035, seg=3)
     # armrests
     for s in (-1, 1):
         sweep(name + '_armbar%d' % s, [(s * 0.25, 0.18, 0.47), (s * 0.30, 0.17, 0.58),
@@ -92,12 +94,12 @@ def barber_chair(name, classic=False):
                 z = 0.70 + i * 0.15
                 p = tilt @ Vector((x, 0.208, z))
                 sphere(name + '_tuft%d%d' % (i, k), 0.011, tuple(p), leather, scale=(1, 0.5, 1), seg=8,
-                       rings=4, parent=pv)
+                       rings=4, parent=br)
         # piping
         for s in (-1, 1):
             sweep(name + '_pipe%d' % s, [tuple(tilt @ Vector((s * 0.25, 0.21, 0.58))),
                                         tuple(tilt @ Vector((s * 0.25, 0.21, 1.15)))], 0.006,
-                  'LeatherBlack', seg=6, parent=pv)
+                  'LeatherBlack', seg=6, parent=br)
     else:
         # duct tape over the torn seat + exposed foam on the arm
         box(name + '_tape1', (0.16, 0.055, 0.004), (0.06, -0.06, 0.571), 'Tape', parent=pv, bevel=0,
@@ -105,7 +107,7 @@ def barber_chair(name, classic=False):
         box(name + '_tape2', (0.14, 0.05, 0.004), (0.08, -0.05, 0.573), 'Tape', parent=pv, bevel=0,
             xform=rot('Z', -35, (0.08, -0.05, 0.573)))
         box(name + '_foam', (0.05, 0.08, 0.012), (0.31, -0.12, 0.731), 'Foam', parent=pv, bevel=0.004)
-        box(name + '_tape3', (0.11, 0.06, 0.004), (-0.10, 0.25, 1.02), 'Tape', parent=pv, bevel=0,
+        box(name + '_tape3', (0.11, 0.06, 0.004), (-0.10, 0.25, 1.02), 'Tape', parent=br, bevel=0,
             xform=tilt @ rot('Y', 15, (-0.10, 0.25, 1.02)))
     # lower the whole seat assembly: children are relative to the pivot
     pv.location.z -= PIVOT_DROP
