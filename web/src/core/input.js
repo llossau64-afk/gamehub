@@ -245,4 +245,5 @@ const ACTIONS = {
   upgrades: ['KeyU', 'Tab'],
   orbitLeft: ['KeyA', 'ArrowLeft'], orbitRight: ['KeyD', 'ArrowRight'],
   orbitUp: ['KeyW', 'ArrowUp'], orbitDown: ['KeyS', 'ArrowDown'],
+  viewBack: ['KeyB'], zoomIn: ['Equal', 'NumpadAdd', 'KeyX'], zoomOut: ['Minus', 'NumpadSubtract', 'KeyZ'],
 };

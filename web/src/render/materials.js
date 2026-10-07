@@ -169,7 +169,7 @@ roughnessFactor = clamp(roughnessFactor + (dt.r-0.5)*0.25*(uDetailW.x+uDetailW.z
 // --------------------------------------------------------------- characters
 export const PAL_SLOTS = ['Skin', 'Top', 'Sleeve', 'Pants', 'Shoes', 'Hair', 'EyeWhite', 'Iris', 'Pupil',
   'Shirt', 'Tie', 'Lapel', 'Mouth', 'Teeth', 'Frame', 'Sole', 'Belt', 'Metal', 'Button', 'TopDark',
-  'MouthDark', 'Apron', 'Nail', 'Face'];
+  'MouthDark', 'Apron', 'Nail', 'Face', 'Glint'];
 export const PAL_SIZE = 32;
 
 const _nailTint = new THREE.Color('#f3d6cc');
@@ -183,7 +183,7 @@ export function makePalette(colors) {
   return tex;
 }
 
-const DEFAULT_ROUGH = { Skin: 0.55, Face: 0.55, Nail: 0.28, EyeWhite: 0.15, Iris: 0.2, Pupil: 0.1, Shoes: 0.35, Sole: 0.8, Metal: 0.3,
+const DEFAULT_ROUGH = { Glint: 0.05, Skin: 0.55, Face: 0.55, Nail: 0.28, EyeWhite: 0.15, Iris: 0.2, Pupil: 0.1, Shoes: 0.35, Sole: 0.8, Metal: 0.3,
   Frame: 0.3, Tie: 0.45, Teeth: 0.3, Mouth: 0.4, Belt: 0.4, Button: 0.3, Hair: 0.7 };
 const DEFAULT_METAL = { Metal: 1, Frame: 0.6 };
 
@@ -192,12 +192,15 @@ export function setPalette(tex, colors) {
   const c = new THREE.Color();
   PAL_SLOTS.forEach((slot, i) => {
     if (slot === 'Nail' && !colors.Nail) c.set(colors.Skin || '#c99a7c').lerp(_nailTint, 0.38);
+    else if (slot === 'Glint') c.set('#ffffff');
     else if (slot === 'Face' && !colors.Face) c.set(colors.Skin || '#c99a7c');
     else c.set(colors[slot] || '#ff00ff');
     d[i * 4] = c.r; d[i * 4 + 1] = c.g; d[i * 4 + 2] = c.b;
     d[i * 4 + 3] = colors[slot + 'Rough'] ?? DEFAULT_ROUGH[slot] ?? 0.8;
     const j = (PAL_SIZE + i) * 4;
     d[j] = colors[slot + 'Metal'] ?? DEFAULT_METAL[slot] ?? 0;
+    d[j + 1] = slot === 'Glint' ? 1 : 0;                           // emissive
+    d[j + 2] = slot === 'Face' ? 1 : slot === 'Skin' ? 0.5 : 0;    // skin shading (1 = face with cheeks)
   });
   tex.needsUpdate = true;
 }
@@ -222,14 +225,25 @@ vec4 palM = texture2D(uPal, vec2(pu, 0.75));
 vec3 bn = abs(normalize(vBindN)); bn = pow(bn, vec3(4.0)); bn /= (bn.x+bn.y+bn.z+1e-5);
 vec3 bp = vBindPos * 22.0;
 float fab = texture2D(uDetail, bp.zy).r*bn.x + texture2D(uDetail, bp.xz).r*bn.y + texture2D(uDetail, bp.xy).r*bn.z;
-diffuseColor.rgb = palC.rgb * (1.0 + (fab - 0.5) * 0.12 * palC.a);`)
+diffuseColor.rgb = palC.rgb * (1.0 + (fab - 0.5) * 0.12 * palC.a);
+// rosy cheeks, nose tip and ears on faces (bind pose: head joint at y 1.565, face toward +z)
+if (palM.b > 0.75) {
+  vec3 hp = vBindPos - vec3(0.0, 1.565, 0.0);
+  float ck = exp(-(pow(abs(hp.x) - 0.048, 2.0) + pow(hp.y - 0.075, 2.0)) / 0.00045) * smoothstep(0.03, 0.08, hp.z);
+  float ns = exp(-(hp.x * hp.x + pow(hp.y - 0.07, 2.0) + pow(hp.z - 0.108, 2.0)) / 0.0002);
+  float er = smoothstep(0.072, 0.09, abs(hp.x)) * exp(-pow(hp.y - 0.098, 2.0) / 0.0012);
+  diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.12, 0.82, 0.8), clamp(ck * 0.55 + ns * 0.45 + er * 0.4, 0.0, 0.6));
+}`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
 roughnessFactor = palC.a;`)
       .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
 metalnessFactor = palM.r;`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
 float rim = pow(1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0), 3.0);
-totalEmissiveRadiance += diffuseColor.rgb * rim * 0.22 + vec3(0.06, 0.045, 0.03) * rim;`);
+totalEmissiveRadiance += diffuseColor.rgb * rim * 0.22 + vec3(0.06, 0.045, 0.03) * rim;
+totalEmissiveRadiance += vec3(palM.g * 1.6);
+// skin: light bleeding through (a cheap subsurface look) on the shadow side and at the edges
+if (palM.b > 0.25) totalEmissiveRadiance += diffuseColor.rgb * vec3(0.22, 0.08, 0.05) * (0.35 + rim * 1.4);`);
   };
   m.customProgramCacheKey = () => 'charpal';
   return m;

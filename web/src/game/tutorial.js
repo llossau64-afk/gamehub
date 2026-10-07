@@ -98,7 +98,7 @@ export async function playTutorial(game) {
   ui.tip(key('Hold the mouse and move over the glowing hair', 'Drag across the glowing hair'), 'LMB');
   c.hair.setHighlight('right');
   bm.focus = 'right';
-  game.setChairAngle(-0.9, 3);
+  bm.setView('right', true);
   await waitRegion(game, c, 'right');
   c.hair.setHighlight(null);
   audio.objective();
@@ -106,13 +106,15 @@ export async function playTutorial(game) {
   await wait(1.8);
 
   // ---- 8: match both sides
-  ui.tip(key('Match both sides — turn the chair with A / D or right-drag', 'Match both sides — drag beside the head to turn the chair'), 'A D');
+  ui.tip(key('Match both sides — turn the chair with the arrow keys or the arrows on screen', 'Match both sides — turn the chair with the arrows'), '← →');
+  ui.barberHint('view');
   c.hair.setHighlight('left');
   bm.focus = 'left';
   await waitRegion(game, c, 'left');
+  ui.barberHint(null);
   c.hair.setHighlight('back');
   bm.focus = 'back';
-  ui.tip('And the back');
+  ui.tip(key('And the back  (B flips to the back)', 'And the back'), 'B');
   await waitRegion(game, c, 'back');
   c.hair.setHighlight(null);
   audio.objective();
@@ -126,8 +128,9 @@ export async function playTutorial(game) {
   ui.barberHint(null);
   c.hair.setHighlight('top');
   bm.focus = 'top';
-  game.setChairAngle(0, 3);
-  ui.tip('Small controlled cuts on the top');
+  bm.setView('back', true);
+  bm.setLevel(2);
+  ui.tip(key('Small controlled cuts on the top  (↑ looks from above)', 'Small controlled cuts on the top'), '↑');
   await waitRegions(game, c, ['top', 'front'], (r) => { c.hair.setHighlight(r); bm.focus = r; });
   c.hair.setHighlight(null);
   audio.objective();

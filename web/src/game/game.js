@@ -505,11 +505,86 @@ export class Game {
     this.player.control = false;
     this.ui.upgradesPanel(this, {
       hint: this.tutorialUpgrade ? 'bulb' : null,
+      // after a purchase in the shop, close the catalogue and show the new thing off
+      reveal: (id) => {
+        if (fromPause || this.state !== 'play' || this.tutorialUpgrade) return false;
+        this.ui.openPanel?.el.remove(); this.ui.openPanel = null;
+        this.revealUpgrade(id).catch((e) => { if (e !== SKIP) console.error(e); }).finally(() => { if (this.state === 'play') { this.player.control = true; this.enterFP(); } });
+        return true;
+      },
       onClose: () => {
         if (fromPause) { this.pause(); return; }
         if (this.state === 'play') { this.player.control = true; this.enterFP(); }
       },
     });
+  }
+
+  // camera glides over to a new upgrade, sparkles, caption, then back to you
+  async revealUpgrade(id) {
+    const u = byId[id];
+    const dir = this.dir;
+    const R = { x0: -3.2, x1: 3.2, z0: -2.6, z1: 2.6 };
+    const SHOTS = {
+      bulb: [V(-0.2, 1.7, 0.3), V(-0.9, 2.55, -1.25)],
+      clean: [V(1.2, 1.9, 1.6), V(-0.4, 0.2, -0.6)],
+      radio: [V(-1.9, 1.75, -0.2), V(R.x0 + 0.13, 1.8, -1.1)],
+      decor: [V(0.6, 1.6, 0.9), V(-2.4, 1.4, 0.6)],
+      paint: [V(1.6, 1.6, 1.6), V(-1.6, 1.3, -1.8)],
+      couch: [V(0.9, 1.4, -0.2), V(2.78, 0.5, -0.35)],
+      pole: [V(-0.8, 1.6, 1.4), V(-0.15, 1.7, 2.7)],
+      products: [V(-1.7, 1.6, 0.1), V(R.x0, 1.5, -0.75)],
+      floorWood: [V(1.5, 2.1, 1.7), V(-0.3, 0, -0.4)],
+      tv: [V(1.0, 1.6, 0.6), V(R.x1 - 0.06, 1.85, 0.75)],
+      chairClassic: [V(0.1, 1.4, 0.0), V(-0.9, 0.7, -1.45)],
+      mirrorLarge: [V(-0.4, 1.55, 0.0), V(-0.9, 1.6, -2.55)],
+      station2: [V(0.4, 1.5, 0.2), V(1.2, 0.9, -1.8)],
+      hireBarber: [V(0.8, 1.6, 0.0), V(1.75, 1.5, -1.05)],
+      trainBarber: [V(0.8, 1.6, 0.0), V(1.75, 1.5, -1.05)],
+      fastHands: [V(0.8, 1.6, 0.0), V(1.75, 1.5, -1.05)],
+    };
+    this.player.control = false;
+    this.input.setMode('ui');
+    this.ui.showHud(false);
+    if (u.cat === 'tools' && u.equip) {
+      // tools: straight into your hands
+      const prop = { clipperBasic: 'ClipperCheap', clipperPro: 'ClipperPro', scissorsPro: 'Scissors' }[id];
+      if (prop) {
+        let obj = null;
+        try { obj = spawnProp(prop, { shadows: false }); } catch (e) { obj = null; }
+        if (obj) { await new Promise((res) => { this.itemFx.show(obj, { title: 'NEW GEAR!', name: u.name, desc: u.effect }).then(res); }); this.ui.showHud(true); return; }
+      }
+    }
+    const shot = SHOTS[id];
+    if (!shot) { this.ui.showHud(true); return; }
+    dir.takeCamera(this.camera.position.clone(), this.camera.position.clone().add(new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion)));
+    dir.cam.handheld = 0.5;
+    dir.move(shot[0], shot[1], 1.3);
+    await dir.wait(1.25);
+    audio.sparkle?.();
+    audio.purchase();
+    this.player.shake = 0.1;
+    this.burstSparkles(shot[1]);
+    const cap = this.ui.revealCaption(u.name, u.effect);
+    await dir.wait(2.2);
+    cap.classList.add('out'); setTimeout(() => cap.remove(), 500);
+    const back = this.player.pos.clone().setY(this.player.eye ?? 1.62);
+    dir.move(back, back.clone().add(new THREE.Vector3(-Math.sin(this.player.yaw), 0, -Math.cos(this.player.yaw))), 0.9);
+    await dir.wait(0.9);
+    dir.releaseCamera();
+    this.ui.showHud(true);
+  }
+
+  // a puff of golden sparkles at a world point (physics-driven confetti)
+  burstSparkles(p) {
+    const geo = new THREE.PlaneGeometry(0.035, 0.035);
+    const cols = ['#f2cf7c', '#fff3cf', '#d1a956', '#e0455a', '#9fd08a'];
+    for (let i = 0; i < 28; i++) {
+      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: cols[i % cols.length], side: THREE.DoubleSide, toneMapped: false }));
+      m.position.copy(p).add(V((Math.random() - 0.5) * 0.2, 0.1, (Math.random() - 0.5) * 0.2));
+      this.scene.add(m);
+      this.physics.add(m, { r: 0.01, vel: V((Math.random() - 0.5) * 3, 1.5 + Math.random() * 2.5, (Math.random() - 0.5) * 3), ang: V(Math.random() * 20, Math.random() * 20, Math.random() * 20),
+        drag: 2.6, bounce: 0.1, flat: true, friction: 2, lift: -0.009, life: 6 });
+    }
   }
 
   // ------------------------------------------------------------------ economy

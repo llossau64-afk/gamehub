@@ -173,7 +173,7 @@ export function makeMaterial(sys) {
           if (L < 0.005) discard;
           float cov = smoothstep(0.0, 0.06, L);
           float n = texture2D(uNoise, vUv * vec2(512.0, 256.0)).r;
-          col = mix(uSkin, uColor * 0.8, cov * (0.55 + 0.45 * n));
+          col = mix(uSkin * 0.86, uColor * 0.8, cov * (0.55 + 0.45 * n));
           ao = mix(1.0, 0.4, smoothstep(0.08, 0.5, L));
         } else {
           if (L * uMaxLen < 0.0022) discard;

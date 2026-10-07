@@ -36,6 +36,42 @@ def limb(name, x, y0, pts, material, parent, seg=10, round_top=True, round_bot=T
     return loft(name, rings, material, seg=seg, parent=parent)
 
 
+def _g(d2, r):
+    return math.exp(-d2 / (r * r))
+
+
+def sculpt_face(ob, hz):
+    """Pushes the plain head loft into a face: brow ridge, eye sockets, cheekbones, a chin,
+    jaw corners and temples. Coordinates are head-local, the face looks down -Y."""
+    for v in ob.data.vertices:
+        x, y, z = v.co.x, v.co.y, v.co.z - hz
+        front = min(1.0, max(0.0, (-y - 0.03) / 0.05))
+        dx = dy = dz = 0.0
+        # brow ridge
+        dy -= 0.0065 * front * _g((z - 0.132) ** 2, 0.012) * _g(x * x, 0.055)
+        # eye sockets (a little deeper, so lids and eyes sit inside the skull)
+        for sx in (-1, 1):
+            d2 = (x - sx * 0.034) ** 2 + (z - 0.110) ** 2
+            dy += 0.0055 * front * _g(d2, 0.016)
+            # cheekbones: out and forward under the outer corner of the eye
+            d2 = (x - sx * 0.052) ** 2 + (z - 0.083) ** 2
+            k = _g(d2, 0.02) * front
+            dx += sx * 0.004 * k
+            dy -= 0.0055 * k
+            # jaw corners
+            d2 = (x - sx * 0.05) ** 2 + (z - 0.022) ** 2 + (y + 0.03) ** 2
+            dx += sx * 0.006 * _g(d2, 0.02)
+            # temples
+            d2 = (x - sx * 0.08) ** 2 + (z - 0.13) ** 2 + (y + 0.04) ** 2
+            dx -= sx * 0.004 * _g(d2, 0.02)
+        # chin: forward and a touch down, with a small cleft
+        k = _g(x * x, 0.022) * _g((z - 0.004) ** 2, 0.018) * front
+        dy -= 0.009 * k * (1 - 0.25 * _g(x * x, 0.004))
+        dz -= 0.003 * k
+        v.co.x += dx; v.co.y += dy; v.co.z += dz
+    ob.data.update()
+
+
 def build_person():
     root = empty('Person')
     j = {}
@@ -68,8 +104,8 @@ def build_person():
                      (1.49, 0.094, 0.07, 0, 0.005), (1.505, 0.062, 0.058, 0, 0.006)],
          'Top', seg=16, parent=j['Chest'], power=2.6)
     # neck
-    loft('M_Neck', [(1.44, 0.047, 0.050, 0, 0.008), (1.52, 0.044, 0.047, 0, 0.004),
-                    (1.60, 0.045, 0.048, 0, 0.004)], 'Skin', seg=14, parent=j['Neck'])
+    loft('M_Neck', [(1.44, 0.046, 0.049, 0, 0.008), (1.50, 0.041, 0.043, 0, 0.006),
+                    (1.56, 0.040, 0.042, 0, 0.007), (1.60, 0.043, 0.046, 0, 0.006)], 'Skin', seg=16, parent=j['Neck'])
 
     # tee collar / jacket parts / hoodie
     torus('M_Collar__acc_tee', 0.058, 0.009, (0, 0.004, 1.49), 'Top', seg=22, tseg=6,
@@ -116,40 +152,49 @@ def build_person():
     H = j['Head']
     cx, cy, cz = HEAD_C
     rx, ry, rz = HEAD_R
-    rings = [(-0.03, 0.046, 0.048, 0, 0.012),
-             (-0.004, 0.046, 0.052, 0, -0.010),
-             (0.014, 0.056, 0.064, 0, -0.024),
-             (0.034, 0.070, 0.080, 0, -0.016),
+    rings = [(-0.03, 0.044, 0.046, 0, 0.012),
+             (-0.008, 0.047, 0.052, 0, -0.008),
+             (0.006, 0.055, 0.062, 0, -0.022),
+             (0.018, 0.062, 0.070, 0, -0.024),
+             (0.034, 0.072, 0.081, 0, -0.016),
              (0.060, 0.081, 0.092, 0, -0.008),
              (0.090, 0.087, 0.100, 0, -0.002)]
-    for deg in (6, 20, 34, 48, 61, 72, 81, 87):
+    for deg in (6, 14, 22, 30, 38, 46, 54, 62, 70, 77, 83, 88):
         a = math.radians(deg)
         rings.append((cz + rz * math.sin(a), rx * math.cos(a), ry * math.cos(a), cx, cy))
     rings = [(hz + r[0], r[1], r[2], r[3], r[4]) for r in rings]
-    loft('M_Head', rings, 'Skin', seg=18, parent=H, power=2.0, subsurf=1)
+    head = loft('M_Head', rings, 'Skin', seg=32, parent=H, power=2.0, subsurf=1)
+    sculpt_face(head, hz)
     # nose
-    nose = [(hz + 0.122, 0.011, 0.012, 0, -0.090), (hz + 0.104, 0.013, 0.018, 0, -0.103),
-            (hz + 0.086, 0.018, 0.022, 0, -0.110), (hz + 0.073, 0.021, 0.019, 0, -0.108),
-            (hz + 0.064, 0.017, 0.010, 0, -0.100), (hz + 0.060, 0.008, 0.004, 0, -0.095)]
+    nose = [(hz + 0.122, 0.009, 0.010, 0, -0.091), (hz + 0.106, 0.010, 0.014, 0, -0.101),
+            (hz + 0.089, 0.013, 0.018, 0, -0.108), (hz + 0.077, 0.017, 0.017, 0, -0.108),
+            (hz + 0.068, 0.016, 0.010, 0, -0.101), (hz + 0.064, 0.008, 0.004, 0, -0.096)]
     loft('M_Nose', nose, 'Skin', seg=12, parent=H, subsurf=1)
     # ears
     for side in (-1, 1):
-        sphere('M_Ear%s' % side, 0.03, (side * 0.081, 0.012, hz + 0.098), 'Skin',
-               scale=(0.36, 0.62, 1.0), seg=12, rings=8, parent=H, subsurf=1)
+        sphere('M_Ear%s' % side, 0.031, (side * 0.085, 0.014, hz + 0.1), 'Skin',
+               scale=(0.34, 0.6, 1.0), seg=12, rings=8, parent=H, subsurf=1,
+               xform=Matrix.Translation(Vector((side * 0.085, 0.014, hz + 0.1))) @ Matrix.Rotation(side * 0.35, 4, 'Z') @ Matrix.Translation(Vector((-side * 0.085, -0.014, -hz - 0.1))))
+        # inner ear fold
+        torus('M_EarIn%s' % side, 0.012, 0.0028, (side * 0.094, 0.012, hz + 0.1), 'Skin', seg=10, tseg=4, axis='X',
+              parent=H, scale=(1.0, 0.7, 1.35))
     # eyes, lids, brows
     for side, nm in ((1, 'L'), (-1, 'R')):
         ex, ey, ez = side * 0.034, -0.080, hz + 0.112
         eye = empty('J_Eye' + nm, tuple(Vector((ex, ey, ez)) - world_pos(H)), H)
-        sphere('M_EyeWhite' + nm, 0.0128, (ex, ey, ez), 'EyeWhite', seg=14, rings=8, parent=eye)
-        sphere('M_Iris' + nm, 0.0068, (ex, ey - 0.0105, ez), 'Iris', scale=(1, 0.38, 1), seg=12,
+        sphere('M_EyeWhite' + nm, 0.0134, (ex, ey, ez), 'EyeWhite', seg=16, rings=10, parent=eye)
+        sphere('M_Iris' + nm, 0.0078, (ex, ey - 0.0106, ez), 'Iris', scale=(1, 0.4, 1), seg=16,
                rings=6, parent=eye)
-        sphere('M_Pupil' + nm, 0.0034, (ex, ey - 0.0128, ez), 'Pupil', scale=(1, 0.3, 1), seg=10,
+        sphere('M_Pupil' + nm, 0.0038, (ex, ey - 0.0131, ez), 'Pupil', scale=(1, 0.3, 1), seg=12,
+               rings=4, parent=eye)
+        # catchlight: a tiny bright dot that makes the eyes look wet and alive
+        sphere('M_Glint' + nm, 0.0016, (ex + 0.0035, ey - 0.0142, ez + 0.0036), 'Glint', scale=(1, 0.35, 1), seg=8,
                rings=4, parent=eye)
         lid = empty('J_Lid' + nm, tuple(Vector((ex, ey, ez)) - world_pos(H)), H)
         # upper lid: a dome over the eye; rotating it about X closes the eye
-        sphere('M_Lid' + nm, 0.0141, (ex, ey, ez), 'Skin', seg=14, rings=6, parent=lid,
+        sphere('M_Lid' + nm, 0.0148, (ex, ey, ez), 'Skin', seg=14, rings=6, parent=lid,
                zcut=(0.0, 1.0), xform=None)
-        sphere('M_LowLid' + nm, 0.0139, (ex, ey, ez), 'Skin', seg=14, rings=4, parent=H,
+        sphere('M_LowLid' + nm, 0.0146, (ex, ey, ez), 'Skin', seg=14, rings=4, parent=H,
                zcut=(-1.0, -0.55))
         brow = empty('J_Brow' + nm, (ex - world_pos(H).x, -0.094, ez + 0.026 - hz), H)
         bp = [(ex - side * 0.017, -0.092, ez + 0.022), (ex - side * 0.004, -0.097, ez + 0.028),
@@ -278,7 +323,7 @@ def build_mouth(H, hz):
 
     def face_y(x, z):
         # follow the jaw curvature roughly
-        return -0.0985 + (x / 0.05) ** 2 * 0.024 + (z - zc) * 0.12
+        return -0.1 + (x / 0.05) ** 2 * 0.022 + (z - zc) * 0.12
 
     def build(upper, lower, width=1.0, cornerz=0.0, opn=0.0):
         vs = []

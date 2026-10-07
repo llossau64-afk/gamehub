@@ -47,8 +47,37 @@ export class Physics {
     }
   }
 
+  // walkers (player, customers) nudge whatever lies at their feet: coins skitter, paper rolls
+  feet(dt) {
+    const g = this.game;
+    const walkers = [];
+    if (g.player && !g.dir.cam.active && g.state === 'play') walkers.push({ p: g.player.pos, v: g.player.vel || null, r: 0.22 });
+    for (const c of g.customers.list) if (c.ch.visible && c.ch.sitW < 0.5) walkers.push({ p: c.ch.root.position, v: null, r: 0.2, ch: c.ch });
+    if (g.employee) walkers.push({ p: g.employee.ch.root.position, v: null, r: 0.2, ch: g.employee.ch });
+    for (const w of walkers) {
+      if (!w.prev) w.prev = w.p.clone();
+      for (const b of this.bodies) {
+        const o = b.obj.position;
+        if (o.y > 0.25) continue;
+        const dx = o.x - w.p.x, dz = o.z - w.p.z;
+        const d = Math.hypot(dx, dz);
+        if (d > w.r || d < 1e-4) continue;
+        const spd = w.ch ? w.ch.speed : (w.v ? Math.hypot(w.v.x, w.v.z) : 1.2);
+        if (spd < 0.15) continue;
+        const k = (1 - d / w.r) * Math.min(3, spd) * 1.4 / b.mass;
+        const fx = w.ch ? Math.sin(w.ch.yaw) : 0, fz = w.ch ? Math.cos(w.ch.yaw) : 0;
+        b.vel.x += (dx / d * 0.7 + fx * 0.5) * k;
+        b.vel.z += (dz / d * 0.7 + fz * 0.5) * k;
+        b.vel.y += 0.6 * k * (b.flat ? 0.5 : 0.2);
+        b.ang.x += (Math.random() - 0.5) * 30 * k; b.ang.z += (Math.random() - 0.5) * 30 * k;
+        b.asleep = false; b.sleep = 0;
+      }
+    }
+  }
+
   update(dt) {
     if (!(dt > 0)) return;
+    this.feet(dt);
     const n = Math.min(4, Math.ceil(dt / (1 / 120)));
     const h = dt / n;
     for (let s = 0; s < n; s++) this.step(h);
@@ -89,6 +118,8 @@ export class Physics {
           const roll = _v.set(b.vel.z, 0, -b.vel.x).divideScalar(Math.max(0.005, b.r));
           b.ang.lerp(roll, 0.5);
         } else if (Math.abs(b.vel.y) < 0.05) {
+          // a settling coin spins down like a real one
+          if (b.r < 0.02) b.ang.y += (b.ang.y >= 0 ? 1 : -1) * h * 8 * Math.min(1, b.vel.length() * 3 + 0.2);
           // flat things tip over onto a face
           const up = _v.set(0, 1, 0).applyQuaternion(b.obj.quaternion);
           const target = up.y >= 0 ? UP : _ax.set(0, -1, 0);

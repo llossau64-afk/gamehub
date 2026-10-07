@@ -25,6 +25,12 @@ const SMALLTALK = [
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _m = new THREE.Matrix4();
 
+// chair angles that show each side of the head to the (fixed) camera
+const VIEW_SIDES = { back: 0, right: -Math.PI / 2, front: Math.PI, left: Math.PI / 2 };
+const SIDE_ORDER = ['front', 'left', 'back', 'right'];
+const VIEW_LEVELS = [{ pitch: -0.12, dist: 0.62 }, { pitch: 0.28, dist: 0.68 }, { pitch: 0.95, dist: 0.6 }];
+const ZOOMS = [1.35, 1, 0.74];
+
 export class BarberMode {
   constructor(game) {
     this.game = game;
@@ -87,9 +93,13 @@ export class BarberMode {
     this.combed = new Set();
     this.smalltalkT = rand(14, 22);
     this.lastSnip = 0;
-    this.camYawOff = 0.42;
+    this.camYawOff = 0.3;
     this.camPitch = 0.3;
     this.camDist = 0.7;
+    // locked camera: preset views, changed only with the arrow pad / arrow keys
+    this.viewSide = customer.cut.beard && !('top' in customer.cut.target) ? 'front' : 'back';
+    this.viewLevel = 1;
+    this.zoom = 1;
     this.makeTools();
     const g = this.game;
     g.ui.hideRequest();
@@ -102,7 +112,14 @@ export class BarberMode {
       onPower: () => this.togglePower(),
       onGuard: (i) => this.setGuard(i),
       onFinish: () => this.requestFinish(),
+      onView: (a) => {
+        if (a === 'left') this.stepView(-1); else if (a === 'right') this.stepView(1);
+        else if (a === 'up') this.setLevel(this.viewLevel + 1); else if (a === 'down') this.setLevel(this.viewLevel - 1);
+        else if (a === 'flip') this.setView(this.viewSide === 'back' ? 'front' : 'back');
+        else if (a === 'zin') this.setZoom(this.zoom + 1); else if (a === 'zout') this.setZoom(this.zoom - 1);
+      },
     });
+    this.setView(this.viewSide, true);
     g.ui.showHud(true, { crosshair: false, buttons: false });
     g.ui.prompt(null);
     g.input.setMode('pointer');
@@ -237,13 +254,14 @@ export class BarberMode {
     }
     if (input.pressed('finish')) this.requestFinish();
 
-    // chair rotation + camera orbit
-    let turn = 0;
-    if (input.held('orbitLeft')) turn -= 1;
-    if (input.held('orbitRight')) turn += 1;
-    let pitch = 0;
-    if (input.held('orbitUp')) pitch += 1;
-    if (input.held('orbitDown')) pitch -= 1;
+    // camera views: arrows step around the head, up/down change height, B flips to the back
+    if (input.pressed('orbitLeft')) this.stepView(-1);
+    if (input.pressed('orbitRight')) this.stepView(1);
+    if (input.pressed('orbitUp')) this.setLevel(this.viewLevel + 1);
+    if (input.pressed('orbitDown')) this.setLevel(this.viewLevel - 1);
+    if (input.pressed('viewBack')) this.setView(this.viewSide === 'back' ? 'front' : 'back');
+    if (input.pressed('zoomIn')) this.setZoom(this.zoom + 1);
+    if (input.pressed('zoomOut')) this.setZoom(this.zoom - 1);
     const p = input.pointer;
     const head = this.headCenter(_v2.set(0, 0, 0)).clone();
     // pick the hair under the cursor
@@ -253,20 +271,12 @@ export class BarberMode {
     if (hit) { hit.sys = c.hair; hit.distance = hit.point.distanceTo(g.camera.position); }
     const bh = c.beard ? c.beard.pick(this.raycaster) : null;
     if (bh && (!hit || bh.distance < hit.distance + 0.004)) hit = bh;
-    // dragging off the head turns the chair / tilts the view
-    if (p.justDown) this.pressMove = 0;
-    if (p.down) this.pressMove = (this.pressMove || 0) + Math.abs(p.dragDX) + Math.abs(p.dragDY);
-    if (p.down && !hit && !this.cutting) this.dragging = true;
-    // pressed just beside the hair and slid onto it: that is a cut, not a chair turn
-    if (this.dragging && hit && this.pressMove < 40 && !p.right) this.dragging = false;
-    if (!p.down) { this.dragging = false; this.cutting = false; }
-    if ((this.dragging || p.right) && (p.dragDX || p.dragDY)) {
-      g.chairAngleTarget -= p.dragDX * 0.008;
-      this.camPitch = clamp(this.camPitch + p.dragDY * 0.004, -0.25, 1.15);
-    }
-    g.chairAngleTarget += turn * dt * 2.2;
-    this.camPitch = clamp(this.camPitch + pitch * dt * 1.2, -0.25, 1.15);
-    this.camDist = clamp(this.camDist + input.wheel * 0.05 + input.pinch * 0.05, 0.42, 1.0);
+    // the camera never moves with the mouse: holding the button is always a cut
+    this.dragging = false;
+    if (!p.down) this.cutting = false;
+    const lv = VIEW_LEVELS[this.viewLevel];
+    this.camPitch = damp(this.camPitch, lv.pitch, 6, dt);
+    this.camDist = damp(this.camDist, lv.dist * ZOOMS[this.zoom], 6, dt);
     // camera
     const yaw = this.camYawOff;
     // behind the customer: he bows his head and the view tips down over the backrest onto the nape
@@ -447,6 +457,37 @@ export class BarberMode {
     ch.extra.Neck = [0.34 * b, 0, 0];
     ch.extra.Head = [0.3 * b, 0, 0];
     ch.extra.Chest = [0.08 * b, 0, 0];
+  }
+
+  // ---------------------------------------------------------------- views
+  setView(side, silent = false) {
+    const g = this.game;
+    this.viewSide = side;
+    // pick the chair angle nearest to where the chair is now, so it turns the short way
+    const base = VIEW_SIDES[side];
+    const cur = g.chairAngleTarget;
+    const k = Math.round((cur - base) / (Math.PI * 2));
+    g.setChairAngle(base + k * Math.PI * 2, 5);
+    if (!silent) audio.squeak?.(0.25);
+    this.game.ui.setBarberView?.(this.viewSide, this.viewLevel, this.zoom);
+    this.onEvent?.('view', side);
+  }
+
+  stepView(dir) {
+    const i = SIDE_ORDER.indexOf(this.viewSide);
+    this.setView(SIDE_ORDER[(i + dir + 4) % 4]);
+  }
+
+  setLevel(l) {
+    this.viewLevel = clamp(l, 0, VIEW_LEVELS.length - 1);
+    audio.click();
+    this.game.ui.setBarberView?.(this.viewSide, this.viewLevel, this.zoom);
+  }
+
+  setZoom(z) {
+    this.zoom = clamp(z, 0, ZOOMS.length - 1);
+    audio.click();
+    this.game.ui.setBarberView?.(this.viewSide, this.viewLevel, this.zoom);
   }
 
   // how far the camera is behind the customer (0 front/side .. 1 straight behind)

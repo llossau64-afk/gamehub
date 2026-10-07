@@ -430,6 +430,30 @@ export class Character {
 
     // talking: nods on syllables
     if (this.talk) add('Head', this.mouthOpen * 0.05, 0, 0);
+    // talking with the hands: one arm comes up and beats on the stressed syllables, the
+    // brows lift with it. Only when the arms are free (no gesture, no reach).
+    const armsBusy = this.gestures.some((g) => ['arms', 'armR', 'armL', 'body'].includes(g.g.channel)) || this.ik.R.wt > 0 || this.ik.L.wt > 0;
+    this.talkW = damp(this.talkW || 0, this.talk && !armsBusy && walkW < 0.3 ? 1 : 0, this.talk ? 4 : 2.5, dt);
+    if (this.talkW > 0.01) {
+      const w = this.talkW, beat = this.mouthOpen;
+      const side = (this.idleSeed * 10) % 2 > 1 ? 'L' : 'R', sg = side === 'L' ? 1 : -1;
+      const sit = this.sitW > 0.5 ? 0.5 : 1;
+      add('UpperArm' + side, -0.35 * w * sit - beat * 0.12 * w, 0, sg * 0.12 * w);
+      add('ForeArm' + side, -0.9 * w - beat * 0.35 * w, sg * 0.4 * w, 0);
+      add('Hand' + side, -0.25 * w + beat * 0.3 * w, 0, sg * 0.2 * w);
+      add('Chest', 0, -sg * 0.04 * w, 0);
+      if (!armsBusy) this.handTarget[side] = beat > 0.3 ? 'open' : 'relaxed';
+      this.browBeat = beat * w;
+    } else this.browBeat = 0;
+    // idle: shift the weight from one leg to the other every few seconds
+    if (walkW < 0.05 && this.sitW < 0.05 && this.turnW < 0.05) {
+      const sh = Math.sin(t * 0.21 + this.idleSeed * 7);
+      const k = smooth(clamp(sh * 1.5 * 0.5 + 0.5, 0, 1)) * 2 - 1;
+      add('Hips', 0, 0, k * 0.035);
+      add('ThighL', 0, 0, -k * 0.035); add('ThighR', 0, 0, -k * 0.035);
+      add('ShinL', Math.max(0, k) * 0.12, 0, 0); add('ShinR', Math.max(0, -k) * 0.12, 0, 0);
+      add('Spine', 0, 0, -k * 0.025);
+    }
 
     // bounce (hops, laughter): applied to root height
     // write pose to bones
@@ -562,6 +586,14 @@ export class Character {
     const s0 = this._skin0, c = f ? f.c : null, w = this._flushW;
     for (let k = 0; k < 3; k++) d[o + k] = c ? s0[k] + ([c.r, c.g, c.b][k] - s0[k]) * w : s0[k];
     this.body.palette.needsUpdate = true;
+    // the scalp under short hair is drawn by the hair shader: tint it the same way
+    for (const sys of [this.hair, this.beard]) {
+      const u = sys?.mesh?.material?.uniforms?.uSkin;
+      if (!u) continue;
+      sys._skin0 ||= u.value.clone();
+      u.value.copy(sys._skin0);
+      if (c) u.value.lerp(c, w);
+    }
     if (w < 0.002 && f && f.hold <= 0) this._flush = null;
   }
 
@@ -638,7 +670,7 @@ export class Character {
       const sign = s === 'L' ? 1 : -1;
       const asym = s === 'L' ? F.asym : -F.asym * 0.6;
       b['Brow' + s].position.y = b['Brow' + s].userData.y0 ??= b['Brow' + s].position.y;
-      b['Brow' + s].position.y = b['Brow' + s].userData.y0 + (F.raise + asym * 0.5) * 0.006 + F.inner * 0.002 - F.angry * 0.003;
+      b['Brow' + s].position.y = b['Brow' + s].userData.y0 + (F.raise + asym * 0.5) * 0.006 + F.inner * 0.002 - F.angry * 0.003 + (this.browBeat || 0) * 0.0025;
       // inner end up (sad) / down (angry); rotation about the face axis
       b['Brow' + s].rotation.set(0, 0, sign * (-F.inner * 0.32 + F.angry * 0.38 + asym * 0.1));
     }

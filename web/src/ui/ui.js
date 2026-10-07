@@ -1,5 +1,9 @@
 // DOM user interface. Everything lives in #ui; the 3D canvas is underneath.
 import './ui.css';
+const ARROW = {
+  up: '<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>', down: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
+  left: '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>', right: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>',
+};
 import { ICON, starSVG } from './icons.js';
 import { audio } from '../audio/audio.js';
 import { UPGRADES, CATS, ACHIEVEMENTS, ACH_CATS, xpFor } from '../world/upgrades.js';
@@ -145,45 +149,92 @@ export class UI {
   }
 
   upgradesPanel(game, opts = {}) {
-    const body = h('<div></div>');
-    const tabs = h('<div class="up-tabs"></div>');
-    const grid = h('<div class="up-grid"></div>');
-    let cat = opts.cat || 'shop';
+    const CAT_INFO = {
+      shop: { label: 'Shop', sub: 'Walls, floors and lights', icon: 'paint', color: '#7a2a26' },
+      decor: { label: 'Comfort', sub: 'Keep them waiting happily', icon: 'couch', color: '#3e6b4a' },
+      tools: { label: 'Equipment', sub: 'Better tools, better cuts', icon: 'clipper', color: '#24344d' },
+      staff: { label: 'Staff', sub: 'Grow the business', icon: 'users', color: '#8a5e14' },
+    };
+    const body = h('<div class="cat2"></div>');
+    let cat = opts.cat || 'all';
+    if (opts.hint) cat = UPGRADES.find((u) => u.id === opts.hint)?.cat || cat;
+    const state = (u) => {
+      const owned = game.owns(u.id);
+      const needs = u.req && !game.owns(u.req);
+      const lvl = game.level < u.level;
+      return { owned, needs, lvl, locked: !owned && (lvl || needs), afford: game.money >= u.price };
+    };
+    const featured = () => UPGRADES.filter((u) => { const st = state(u); return !st.owned && !st.locked; }).sort((x, y) => x.price - y.price)[0];
     const render = () => {
-      tabs.innerHTML = '';
-      for (const c of CATS) {
-        const b = h(`<button class="${c.id === cat ? 'on' : ''}">${c.label}</button>`);
-        b.addEventListener('click', () => { cat = c.id; render(); });
-        tabs.append(b);
-      }
-      grid.innerHTML = '';
-      for (const u of UPGRADES.filter((x) => x.cat === cat)) {
-        const owned = game.owns(u.id);
-        const needs = u.req && !game.owns(u.req);
-        const locked = !owned && (game.level < u.level || needs);
-        const afford = game.money >= u.price;
-        const el = h(`<div class="up ${owned ? 'owned' : ''} ${locked ? 'locked' : ''} ${opts.hint === u.id ? 'hint' : ''}">
-          <div class="ic">${ICON[u.icon] || ''}</div>
-          <h4>${u.name}</h4><p>${u.desc}</p><div class="eff">${u.effect}</div>
-          <button class="buy ${!afford && !owned && !locked ? 'cant' : ''}">${owned ? 'Owned' : game.level < u.level ? `Level ${u.level}` : needs ? 'Needs ' + (UPGRADES.find((x) => x.id === u.req)?.name || '') : formatMoney(u.price)}</button></div>`);
-        el.querySelector('.buy').addEventListener('click', () => {
-          if (owned || locked) return;
-          if (!afford) { audio.error(); el.classList.remove('flash'); void el.offsetWidth; return; }
-          if (game.buy(u.id)) {
-            el.classList.add('flash');
-            setTimeout(render, 350);
-            moneyEl.textContent = formatMoney(game.money);
-            if (opts.onBuy) opts.onBuy(u.id);
-          }
-        });
+      const totalOwned = game.save.owned.length;
+      const f = featured();
+      body.innerHTML = `
+        <aside class="c2-side">
+          <div class="c2-wallet"><span>Cash on hand</span><b>${formatMoney(game.money)}</b><div class="c2-own"><i style="width:${Math.round(totalOwned / UPGRADES.length * 100)}%"></i></div><small>${totalOwned} / ${UPGRADES.length} upgrades owned</small></div>
+          <nav>${[['all', { label: 'Everything', sub: 'All upgrades', icon: 'shop', color: '#4a3d33' }], ...Object.entries(CAT_INFO)].map(([id, c]) => {
+            const list = id === 'all' ? UPGRADES : UPGRADES.filter((u) => u.cat === id);
+            const own = list.filter((u) => game.owns(u.id)).length;
+            const buyable = list.some((u) => { const st = state(u); return !st.owned && !st.locked && st.afford; });
+            return `<button data-c="${id}" class="${id === cat ? 'on' : ''}" style="--cc:${c.color}"><span class="ci">${ICON[c.icon] || ''}</span><span class="ct"><b>${c.label}</b><small>${own}/${list.length} owned</small></span>${buyable ? '<i class="pip"></i>' : ''}</button>`;
+          }).join('')}</nav>
+        </aside>
+        <section class="c2-main">
+          ${f ? `<div class="c2-hero" style="--cc:${CAT_INFO[f.cat].color}">
+            <div class="hl">Next up</div>
+            <div class="hi">${ICON[f.icon] || ''}</div>
+            <div class="ht"><h3>${f.name}</h3><p>${f.desc}</p><div class="chips"><span class="chip eff">${f.effect}</span><span class="chip">${CAT_INFO[f.cat].label}</span></div></div>
+            <div class="hb">${state(f).afford ? `<button class="buy big" data-id="${f.id}">Buy · ${formatMoney(f.price)}</button>` : `<div class="save"><div class="bar"><i style="width:${Math.round(Math.min(1, game.money / f.price) * 100)}%"></i></div><span>${formatMoney(f.price - game.money)} to go</span></div><button class="buy big cant" data-id="${f.id}">${formatMoney(f.price)}</button>`}</div>
+          </div>` : '<div class="c2-hero done"><div class="ht"><h3>Everything is bought.</h3><p>This is the best barbershop on the street.</p></div></div>'}
+          <div class="c2-grid"></div>
+        </section>`;
+      body.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => { cat = b.dataset.c; audio.click(); render(); }));
+      const grid = body.querySelector('.c2-grid');
+      const list = UPGRADES.filter((u) => cat === 'all' || u.cat === cat)
+        .map((u) => ({ u, st: state(u) }))
+        .sort((x, y) => (x.st.owned - y.st.owned) || (x.st.locked - y.st.locked) || x.u.price - y.u.price);
+      for (const { u, st } of list) {
+        const c = CAT_INFO[u.cat];
+        const lockTxt = st.lvl ? `Shop level ${u.level}` : st.needs ? 'Needs ' + (UPGRADES.find((x) => x.id === u.req)?.name || '') : '';
+        const el = h(`<div class="c2-card ${st.owned ? 'owned' : ''} ${st.locked ? 'locked' : ''} ${st.afford && !st.owned && !st.locked ? 'can' : ''} ${opts.hint === u.id ? 'hint' : ''}" style="--cc:${c.color}">
+          <div class="cc-top"><div class="cc-ic">${ICON[u.icon] || ''}</div><div class="cc-tag">${c.label}</div></div>
+          <h4>${u.name}</h4><p>${u.desc}</p>
+          <div class="chips"><span class="chip eff">${u.effect}</span></div>
+          <div class="cc-foot">${st.owned ? '<div class="stamp">Owned</div>' : st.locked ? `<div class="lock">${ICON.lock}<span>${lockTxt}</span></div>` : `<button class="buy ${st.afford ? '' : 'cant'}" data-id="${u.id}">${formatMoney(u.price)}</button>${st.afford ? '' : `<div class="short">${formatMoney(u.price - game.money)} short</div>`}`}</div>
+        </div>`);
         grid.append(el);
       }
+      body.querySelectorAll('.buy').forEach((btn) => btn.addEventListener('click', (e) => buy(btn.dataset.id, btn.closest('.c2-card, .c2-hero'), e)));
     };
-    body.append(grid);
-    const wrap = this.panel('Catalogue', 'Upgrades', body, opts.onClose, `<span class="money-chip">${formatMoney(game.money)}</span>`);
-    const moneyEl = wrap.querySelector('.money-chip');
-    wrap.querySelector('.panel').insertBefore(tabs, wrap.querySelector('.body'));
+    const buy = (id, el, e) => {
+      const u = UPGRADES.find((x) => x.id === id);
+      const st = state(u);
+      if (st.owned || st.locked) return;
+      if (!st.afford) { audio.error(); el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); return; }
+      if (!game.buy(id)) return;
+      // SOLD stamp, coins, then show it off in the shop
+      el.classList.add('sold');
+      const stamp = h('<div class="sold-stamp">Sold!</div>');
+      el.append(stamp);
+      const r = (e.currentTarget || e.target).getBoundingClientRect(), rr = this.root.getBoundingClientRect();
+      for (let i = 0; i < 12; i++) {
+        const coin = h(`<div class="coin-fly">${ICON.coin}</div>`);
+        coin.style.left = r.left - rr.left + r.width / 2 + 'px';
+        coin.style.top = r.top - rr.top + r.height / 2 + 'px';
+        coin.style.setProperty('--dx', (Math.random() - 0.5) * 220 + 'px');
+        coin.style.setProperty('--dy', -50 - Math.random() * 120 + 'px');
+        coin.style.animationDelay = i * 0.025 + 's';
+        this.root.append(coin);
+        setTimeout(() => coin.remove(), 1100);
+      }
+      if (opts.onBuy) opts.onBuy(id);
+      setTimeout(() => {
+        if (opts.reveal && opts.reveal(id)) return;   // the panel closes for the reveal shot
+        render();
+      }, 650);
+    };
     render();
+    const wrap = this.panel('Barber supply co.', 'Catalogue', body, opts.onClose);
+    wrap.querySelector('.panel').classList.add('wide', 'catalogue');
     return wrap;
   }
 
@@ -464,8 +515,36 @@ export class UI {
       this.styleEl = h('<div class="rg style"><div class="h"><span>Combed into shape</span><b></b></div><div class="track"><div class="zone" style="left:85%;width:15%"></div><div class="cur"></div></div></div>');
       regions.append(this.styleEl);
     }
+    // view pad: the camera only moves when you ask it to
+    const pad = h(`<div class="viewpad">
+      <div class="vp-title">View</div>
+      <div class="vp-grid">
+        <span></span><button data-a="up" title="From above (↑)">${ARROW.up}</button><span></span>
+        <button data-a="left" title="Turn left (←)">${ARROW.left}</button><button data-a="flip" class="flip" title="Front / back (B)"><b>Back</b></button><button data-a="right" title="Turn right (→)">${ARROW.right}</button>
+        <span></span><button data-a="down" title="From below (↓)">${ARROW.down}</button><span></span>
+      </div>
+      <div class="vp-zoom"><button data-a="zout" title="Zoom out (Z / −)">−</button><span class="vp-lv"></span><button data-a="zin" title="Zoom in (X / +)">+</button></div>
+    </div>`);
+    pad.querySelectorAll('button').forEach((b) => b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); b.classList.remove('tap'); void b.offsetWidth; b.classList.add('tap'); cfg.onView?.(b.dataset.a); }));
+    el.append(pad);
+    this.viewPad = pad;
     el.querySelector('.barber-help').innerHTML = this.touch ? '' :
-      '<div><span class="key">LMB</span>cut on the hair</div><div><span class="key">RMB</span>/<span class="key">A</span><span class="key">D</span>turn the chair</div><div><span class="key">Wheel</span>zoom</div><div><span class="key">Space</span>power</div><div><span class="key">Q</span><span class="key">E</span>guard</div>';
+      '<div><span class="key">LMB</span>hold to cut</div><div><span class="key">← → ↑ ↓</span>view</div>';
+  }
+
+  revealCaption(name, effect) {
+    const el = h(`<div class="reveal-cap"><div class="k">New in the shop</div><div class="t">${name}</div><div class="s">${effect}</div></div>`);
+    this.root.append(el);
+    return el;
+  }
+
+  setBarberView(side, level, zoom) {
+    if (!this.viewPad) return;
+    const names = { front: 'Front', left: 'Left', back: 'Back', right: 'Right' };
+    this.viewPad.querySelector('.flip b').textContent = names[side] || side;
+    this.viewPad.querySelector('.vp-lv').textContent = ['Low', 'Eye level', 'Top'][level] + ' · ' + ['far', 'mid', 'close'][zoom];
+    this.viewPad.querySelector('[data-a="up"]').classList.toggle('dim', level >= 2);
+    this.viewPad.querySelector('[data-a="down"]').classList.toggle('dim', level <= 0);
   }
 
   hideBarber() { if (this.barberEl) { this.barberEl.remove(); this.barberEl = null; } }
@@ -511,6 +590,7 @@ export class UI {
     if (!on || !what) return;
     if (what === 'power') this.powerBtn.classList.add('hint');
     else if (what === 'finish') this.finishBtn.classList.add('hint');
+    else if (what === 'view') this.viewPad?.querySelectorAll('[data-a="left"], [data-a="right"]').forEach((b) => b.classList.add('hint'));
     else if (what.startsWith('guard:')) this.guardsEl.querySelector(`button[data-i="${what.split(':')[1]}"]`)?.classList.add('hint');
     else if (this.toolBtns[what]) this.toolBtns[what].classList.add('hint');
   }

@@ -25,8 +25,7 @@ npm run preview    # serve dist/ locally
 | Skip intro | hold Space / Enter / Esc, or hold the skip ring | hold the skip ring |
 | **Barber mode** | | |
 | Cut | hold the left mouse button on the hair | drag on the hair |
-| Turn the chair / tilt view | right drag, A/D, W/S, or drag beside the head | drag beside the head |
-| Zoom | wheel | pinch |
+| Camera (locked while cutting) | ← → turn the chair to the next side, ↑ ↓ view height, B front/back, Z / X zoom | view pad arrows |
 | Tools | 1 clipper, 2 scissors, 3 trimmer, 4 comb, 5 spray | tool bar |
 | Power (clipper, trimmer) | Space | power button |
 | Clipper guard | Q / E | guard chips |
