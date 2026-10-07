@@ -13,6 +13,8 @@ export const TOOLS = [
   { id: 'clipper', label: 'Clipper', icon: 'clipper', electric: true },
   { id: 'scissors', label: 'Scissors', icon: 'scissors', electric: false },
   { id: 'trimmer', label: 'Trimmer', icon: 'trimmer', electric: true },
+  { id: 'comb', label: 'Comb', icon: 'comb', electric: false },
+  { id: 'spray', label: 'Spray', icon: 'spray', electric: false },
 ];
 
 const SMALLTALK = [
@@ -62,7 +64,9 @@ export class BarberMode {
     const sc = spawnProp('Scissors', { shadows: false });
     if (fx.scissorsPro) sc.traverse((o) => { if (o.isMesh && o.userData.materialName === 'Steel') o.material = propMaterial('Gold'); });
     const tr = spawnProp('Trimmer', { shadows: false });
-    this.toolObjs = { clipper: cl, scissors: sc, trimmer: tr };
+    const cb = spawnProp('Comb', { shadows: false });
+    const sp = spawnProp('Spray', { shadows: false });
+    this.toolObjs = { clipper: cl, scissors: sc, trimmer: tr, comb: cb, spray: sp };
     for (const o of Object.values(this.toolObjs)) {
       o.visible = false;
       o.traverse((m) => { if (m.isMesh) { m.castShadow = false; m.renderOrder = 4; } });
@@ -80,6 +84,7 @@ export class BarberMode {
     this.power = false;
     this.guard = 4;
     this.warned = false;
+    this.combed = new Set();
     this.smalltalkT = rand(14, 22);
     this.lastSnip = 0;
     this.camYawOff = 0.42;
@@ -194,6 +199,8 @@ export class BarberMode {
     if (input.pressed('tool1')) this.selectTool('clipper');
     if (input.pressed('tool2')) this.selectTool('scissors');
     if (input.pressed('tool3')) this.selectTool('trimmer');
+    if (input.pressed('tool4')) this.selectTool('comb');
+    if (input.pressed('tool5')) this.selectTool('spray');
     if (input.pressed('power')) this.togglePower();
     if (this.tool === 'clipper') {
       if (input.pressed('guardDown')) this.setGuard(this.guard - 1);
@@ -257,6 +264,16 @@ export class BarberMode {
           z.copy(side).multiplyScalar(Math.sign(side.dot(new THREE.Vector3().crossVectors(camDir, n))) || 1);
           yv.copy(n);
           pos = hit.point.clone().addScaledVector(n, Math.max(0.004, len * 0.55));
+        } else if (this.tool === 'comb') {
+          // teeth (-y) into the hair, spine along the stroke
+          yv.copy(n);
+          z.copy(side);
+          pos = hit.point.clone().addScaledVector(n, 0.012 + len * 0.35);
+        } else if (this.tool === 'spray') {
+          // nozzle (+z) aimed at the hair from a hand's width away
+          z.copy(n).negate();
+          yv.set(0, 1, 0).addScaledVector(z, -z.y).normalize();
+          pos = hit.point.clone().addScaledVector(n, 0.12).addScaledVector(side, 0.05).addScaledVector(yv, -0.19);
         } else {
           const into = this.tool === 'trimmer' ? 0.75 : 0.5;
           z.copy(n).multiplyScalar(-into).addScaledVector(towardCrown, 1 - into * 0.5).normalize();
@@ -317,6 +334,25 @@ export class BarberMode {
             removed = beard ? sys.snip(hit.phi, hit.theta, fx.scissorsPro ? 0.035 : 0.045, 0.05) : sys.snip(hit.phi, hit.theta, fx.scissorsPro ? 0.05 : 0.06, 0.11, fx.scissorsPro ? 0.028 : 0.032);
             this.onEvent?.('snip');
           }
+        } else if (this.tool === 'comb') {
+          const mv = Math.hypot(p.dragDX, p.dragDY);
+          if (mv > 0.5 || p.touch) {
+            sys.comb(hit.phi, hit.theta, beard ? undefined : 0.03);
+            this.markCombed(sys, hit);
+            this.combSnd = (this.combSnd || 0) - dt;
+            if (this.combSnd <= 0) { this.combSnd = 0.12; audio.noiseBurst(0.05, { vol: 0.05, freq: rand(2500, 3800), q: 2 }); }
+          }
+        } else if (this.tool === 'spray') {
+          this.sprayT = (this.sprayT || 0) - dt;
+          if (this.sprayT <= 0 || p.justDown) {
+            this.sprayT = 0.35;
+            sys.spray(hit.phi, hit.theta, 0.05);
+            audio.noiseBurst(0.22, { vol: 0.14, type: 'highpass', freq: 3200, attack: 0.01 });
+            const nozzle = toolObj.localToWorld(new THREE.Vector3(0, 0.205, 0.05));
+            g.mist?.burst(nozzle, hit.point);
+            this.sprayAnim = 0.15;
+            this.onEvent?.('spray');
+          }
         } else if ((this.tool === 'clipper' || this.tool === 'trimmer') && !this.power && p.justDown) {
           g.ui.tip(g.input.touch ? 'Tap POWER to switch it on' : 'Press SPACE to switch it on', 'Space');
           clearTimeout(this._tipT);
@@ -334,6 +370,9 @@ export class BarberMode {
     if (!cutting) this.snipT = Math.min(this.snipT, 0.02);
     this.load = damp(this.load, 0, 6, dt);
     if (this.motor) this.motor.setLoad(this.load);
+    this.sprayAnim = Math.max(0, (this.sprayAnim || 0) - dt);
+    const spO = this.toolObjs.spray;
+    if (spO) spO.scale.y = spO.scale.x * (1 - this.sprayAnim * 0.25);
     // scissors blades
     this.snipAnim = Math.max(0, (this.snipAnim || 0) - dt);
     const open = this.snipAnim > 0 ? (this.snipAnim > 0.06 ? 0.0 : 0.25) : 0.32;
@@ -366,6 +405,15 @@ export class BarberMode {
     ch.lookAt(this.toolPos, cutting ? 0.25 : 0.5);
     ch.headTurnSpeed = 2;
   }
+
+  // grooming: share of hair touched by the comb (small bonus in the rating)
+  markCombed(sys, hit) {
+    this.combed ||= new Set();
+    const key = (sys === this.c.hair ? 'h' : 'b') + Math.round(hit.phi * 8) + ':' + Math.round(hit.theta * (sys === this.c.hair ? 8 : 120));
+    this.combed.add(key);
+  }
+
+  get groom() { return Math.min(1, (this.combed?.size || 0) / 70); }
 
   checkTooShort() {
     const cut = this.c.cut;

@@ -92,3 +92,50 @@ export class Clippings {
     this.landed = 0;
   }
 }
+
+// fine water mist from the spray bottle
+export class Mist {
+  constructor(scene) {
+    const N = 160;
+    this.N = N;
+    this.pos = new Float32Array(N * 3);
+    this.vel = new Float32Array(N * 3);
+    this.life = new Float32Array(N);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
+    const c = document.createElement('canvas'); c.width = c.height = 32;
+    const ctx = c.getContext('2d');
+    const gr = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, 32, 32);
+    this.points = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.011, map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, opacity: 0.6, color: '#dfeff5' }));
+    this.points.frustumCulled = false;
+    scene.add(this.points);
+    this.next = 0;
+  }
+  burst(from, to) {
+    const d = to.clone().sub(from);
+    const len = d.length();
+    d.normalize();
+    for (let n = 0; n < 40; n++) {
+      const i = this.next; this.next = (this.next + 1) % this.N;
+      this.pos[i * 3] = from.x; this.pos[i * 3 + 1] = from.y; this.pos[i * 3 + 2] = from.z;
+      const sp = len * rand(2.2, 3.4);
+      this.vel[i * 3] = d.x * sp + rand(-0.12, 0.12); this.vel[i * 3 + 1] = d.y * sp + rand(-0.12, 0.12); this.vel[i * 3 + 2] = d.z * sp + rand(-0.12, 0.12);
+      this.life[i] = rand(0.25, 0.45);
+    }
+  }
+  update(dt) {
+    let any = false;
+    for (let i = 0; i < this.N; i++) {
+      if (this.life[i] <= 0) { this.pos[i * 3 + 1] = -10; continue; }
+      any = true;
+      this.life[i] -= dt;
+      const k = 1 - 3 * dt;
+      this.vel[i * 3] *= k; this.vel[i * 3 + 1] = this.vel[i * 3 + 1] * k - 0.3 * dt; this.vel[i * 3 + 2] *= k;
+      this.pos[i * 3] += this.vel[i * 3] * dt; this.pos[i * 3 + 1] += this.vel[i * 3 + 1] * dt; this.pos[i * 3 + 2] += this.vel[i * 3 + 2] * dt;
+    }
+    if (any || this._was) this.points.geometry.attributes.position.needsUpdate = true;
+    this._was = any;
+  }
+}

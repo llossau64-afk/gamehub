@@ -236,8 +236,8 @@ export class BeardSystem {
   trim(a, y, rate, dt, radius = 0.007) {
     return this.brush(a, y, radius, (k, w) => { this.len[k] = Math.max(0, this.len[k] - rate * dt * (0.5 + w)); });
   }
-  spray() {}
-  comb() { return 0; }
+  spray(a, y, radius = 0.03) { this.brush(a, y, radius, (k, w) => { this.wet[k] = Math.min(1, this.wet[k] + 0.5 * w); }); this.dirty = true; }
+  comb(a, y, radius = 0.015) { return this.brush(a, y, radius, () => {}); }
 
   regionStats() {
     const acc = {};
@@ -257,6 +257,23 @@ export class BeardSystem {
       out[r] = { mean, std: Math.sqrt(Math.max(0, s.sq / (s.w || 1) - mean * mean)), messy: s.w ? s.over / s.w : 0 };
     }
     return out;
+  }
+
+  beginService(cut, skill) {
+    this._svcStart = this.len.slice();
+    const names = { 7: 'chin', 8: 'cheeks', 9: 'moustache', 10: 'neck' };
+    const err = (1 - skill) * 0.45;
+    this._svcTarget = this.len.map((v, k) => {
+      const t = cut.target[names[this.region[k]]];
+      if (t === undefined) return v;
+      return names[this.region[k]] === 'neck' ? (Math.random() < skill ? 0 : v * 0.6) : Math.max(0, t * (1 + (Math.random() - 0.5) * err));
+    });
+  }
+
+  serviceProgress(p) {
+    if (!this._svcStart) return;
+    for (let k = 0; k < this.len.length; k++) { const a = this._svcStart[k], b = this._svcTarget[k]; if (b < a) this.len[k] = a + (b - a) * p; }
+    this.dirty = true;
   }
 
   damage(region, below) {

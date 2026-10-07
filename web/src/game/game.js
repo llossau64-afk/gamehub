@@ -6,7 +6,7 @@ import { spawnProp, part } from '../world/props.js';
 import { Player } from './player.js';
 import { Character } from '../chars/character.js';
 import { HairSystem, hairLight, HEAD_C } from '../hair/hair.js';
-import { Clippings } from '../hair/clippings.js';
+import { Clippings, Mist } from '../hair/clippings.js';
 import { evaluate, payment, HAIRCUTS } from '../hair/styles.js';
 import { OWNER_LOOK, randomCustomerLook, PERSONALITIES } from '../chars/looks.js';
 import { CustomerManager } from './customers.js';
@@ -14,7 +14,10 @@ import { BarberMode } from './barber.js';
 import { Director, SKIP } from '../cutscene/director.js';
 import { playIntro, introEndState } from '../cutscene/intro.js';
 import { playTutorial } from './tutorial.js';
-import { UPGRADES, byId, effects, xpFor, ACHIEVEMENTS } from '../world/upgrades.js';
+import { UPGRADES, byId, effects, xpFor, ACHIEVEMENTS, EVENTS } from '../world/upgrades.js';
+import { Street } from './street.js';
+import { Employee } from './employee.js';
+import { availableHaircuts } from '../hair/styles.js';
 import { audio } from '../audio/audio.js';
 import { store } from '../core/save.js';
 import { platform } from '../platform/platform.js';
@@ -37,9 +40,11 @@ export class Game {
     this.shop = new Shop(this.scene, renderer, this.quality);
     this.player = new Player(this.scene, this.camera, this.shop);
     this.clippings = new Clippings(this.scene);
+    this.mist = new Mist(this.scene);
     this.dir = new Director(this);
     this.customers = new CustomerManager(this);
     this.barber = new BarberMode(this);
+    this.street = new Street(this);
     this.save = store.data;
     this.settings = store.settings;
     this.state = 'boot';
@@ -276,8 +281,10 @@ export class Game {
     this.dir.cancel(); this.dir.reset();
     this.barber.active && this.barber.exit();
     this.customers.enabled = false;
+    if (this.employee) this.employee.reset();
     this.customers.clear();
     if (this.owner) { this.owner.dispose(); this.owner = null; }
+    this.syncEmployee();
     this.ui.showHud(false);
     this.ui.letterbox(false);
     this.ui.subtitle(null);
@@ -344,6 +351,7 @@ export class Game {
     this.save = store.data;
     this.save.started = true;
     this.fx = effects(this.save.owned);
+    this.syncEmployee();
     this.shop.applyState(new Set());
     this.clippings.sweep();
     this.persist();
@@ -423,6 +431,9 @@ export class Game {
     platform.gameplayStart();
     this.updateGoal();
     if (this.owns('radio')) this.setRadio(true);
+    this.syncEmployee();
+    this.rollEvent();
+    setTimeout(() => this.showEvent(), 2500);
     platform.loadingStop();
   }
 
@@ -495,7 +506,7 @@ export class Game {
 
   buy(id) {
     const u = byId[id];
-    if (!u || this.owns(id) || this.money < u.price || this.level < u.level) return false;
+    if (!u || this.owns(id) || this.money < u.price || this.level < u.level || (u.req && !this.owns(u.req))) return false;
     this.save.money -= u.price;
     this.save.owned.push(id);
     if (u.equip) this.save.equipped[u.equip] = id;
@@ -521,6 +532,15 @@ export class Game {
       shop.applyState(new Set(this.save.owned));
     }
     if (id === 'radio') this.setRadio(true);
+    if (id === 'hireBarber') {
+      this.syncEmployee();
+      this.unlock('hire');
+      const m = this.employee.ch;
+      m.lookAt(this.camera, 1);
+      const d = m.say('Hey boss! Marco. I’ll take the next one in line.');
+      this.showLine('Marco', 'Hey boss! Marco. I’ll take the next one in line.', d + 1);
+      m.gesture('wave');
+    }
     if (id === 'clean') this.clippings.sweep();
     if (this.save.owned.filter((x) => byId[x].cat !== 'tools').length >= 6) this.unlock('makeover');
     this.ui.toast(byId[id].name, 'New');
@@ -558,7 +578,7 @@ export class Game {
 
   updateGoal() {
     const s = this.save;
-    const next = UPGRADES.filter((u) => !this.owns(u.id) && u.level <= s.level).sort((a, b) => a.price - b.price)[0];
+    const next = UPGRADES.filter((u) => !this.owns(u.id) && u.level <= s.level && (!u.req || this.owns(u.req))).sort((a, b) => a.price - b.price)[0];
     let text = '';
     if (next) {
       const d = next.price - s.money;
@@ -569,6 +589,38 @@ export class Game {
       this.ui.attention('upgrades', false);
     }
     this.ui.setGoal(text);
+  }
+
+  // what the next customer asks for
+  pickCut(vip = false) {
+    const av = availableHaircuts(this.level);
+    if (vip) return pick([...av].sort((a, b) => HAIRCUTS[b].price - HAIRCUTS[a].price).slice(0, 3));
+    if (this.event?.id === 'fadeChallenge') {
+      const fades = av.filter((id) => HAIRCUTS[id].fade);
+      if (fades.length && chance(0.6)) return pick(fades);
+    }
+    return pick(av);
+  }
+
+  syncEmployee() {
+    if (this.owns('hireBarber') && !this.employee) this.employee = new Employee(this);
+    if (!this.owns('hireBarber') && this.employee) { this.employee.dispose(); this.employee = null; }
+  }
+
+  rollEvent() {
+    const s = this.save;
+    if (s.level < 2 || s.day < 2) { this.event = null; return; }
+    if (s.eventDay === s.day) { this.event = EVENTS.find((e) => e.id === s.eventId) || null; return; }
+    s.eventDay = s.day;
+    let pool = EVENTS.filter((e) => !(e.id === 'fadeChallenge' && s.level < 4) && !(e.id === 'vipDay' && s.level < 3));
+    this.event = chance(0.5) && pool.length ? pick(pool) : null;
+    s.eventId = this.event?.id || null;
+    this.persist();
+  }
+
+  showEvent() {
+    if (this.event) this.ui.objective(`Today · ${this.event.name}`, this.event.desc);
+    else this.ui.objective('', '');
   }
 
   loseCustomer(c) {
@@ -726,6 +778,7 @@ export class Game {
   async finishHaircut() {
     const c = this.barber.c;
     const secs = this.barber.time;
+    const groom = this.barber.groom;
     this.barber.exit();
     this.ui.hideRequest();
     this.state = 'reaction';
@@ -733,14 +786,16 @@ export class Game {
     const result = evaluate(c, c.cutId, c.tutorial ? Math.min(secs, HAIRCUTS[c.cutId].par) : secs);
     // shop comfort and a dirty floor nudge the rating
     const floorPenalty = this.clippings.floorCount > 250 ? 0.04 : 0;
-    result.overall = clamp(result.overall + this.fx.sat * 0.25 - floorPenalty, 0, 1);
+    result.overall = clamp(result.overall + this.fx.sat * 0.25 + groom * 0.035 - floorPenalty, 0, 1);
+    result.groom = groom;
     result.stars = result.overall >= 0.88 ? 5 : result.overall >= 0.76 ? 4 : result.overall >= 0.6 ? 3 : result.overall >= 0.42 ? 2 : 1;
     if (c.tutorial) { result.stars = Math.max(result.stars, 3); }
     try {
       await this.mirrorReaction(c, result);
     } catch (e) { if (e !== SKIP) console.error(e); }
     // result screen
-    const pay = payment(c.cutId, result, c.personality, { tips: this.fx.tips * (1 + Math.min(3, this.save.stats.streak) * 0.05) });
+    const pay = payment(c.cutId, result, c.personality, { tips: this.fx.tips * (1 + Math.min(3, this.save.stats.streak) * 0.05) * (this.event?.id === 'doubleTips' ? 2 : 1) });
+    if (this.event?.id === 'fadeChallenge' && c.cut.fade && result.stars >= 4) { pay.tip += 25; this.ui.toast('Fade Challenge bonus +$25', 'Event'); }
     const s = this.save;
     const xpBefore = s.xp, needBefore = xpFor(s.level), lvlBefore = s.level;
     this.ui.showHud(true, { crosshair: false });
@@ -751,7 +806,7 @@ export class Game {
       kicker: c.tutorial ? 'First cut complete' : `${c.name} · ${c.cut.name}`,
       title: ['Rough', 'Not great', 'Decent', 'Clean', 'Perfect'][result.stars - 1] + (result.stars >= 4 ? '!' : ''),
       quote, stars: result.stars, accuracy: result.accuracy, symmetry: result.symmetry, edges: result.edges, fade: result.fade,
-      speed: result.speed, pay: pay.pay, tip: pay.tip, xp: pay.xp, level: lvlBefore, levelUp: up,
+      speed: result.speed, groom: result.groom, pay: pay.pay, tip: pay.tip, xp: pay.xp, level: lvlBefore, levelUp: up,
       xpBefore, xpNeedBefore: needBefore, xpAfter: s.xp, xpNeedAfter: xpFor(s.level),
     });
     // stats
@@ -763,6 +818,12 @@ export class Game {
     if (s.stats.served >= 50) this.unlock('fiftyServed');
     if (s.stats.streak >= 3) this.unlock('streak3');
     s.reputation = clamp(s.reputation + (result.stars - 3) * 2, 0, 100);
+    if (result.stars === 5 && c.cut.fade) this.unlock('fadeMaster');
+    if (result.stars === 5 && c.cut.beard) this.unlock('beardBoss');
+    if (c.vip) {
+      if (result.stars >= 4) { this.unlock('vip'); s.reputation = clamp(s.reputation + 5, 0, 100); this.ui.toast(`${c.vip.title} ${c.vip.name} loved it`, 'VIP'); platform.happyTime(); }
+      else { s.reputation = clamp(s.reputation - 6, 0, 100); this.ui.toast('The VIP was not impressed', 'VIP'); }
+    }
     this.persist();
     await this.customerPays(c, pay);
     this.servedToday++;
@@ -900,7 +961,10 @@ export class Game {
     const s = this.save;
     s.day++;
     this.persist();
-    await this.ui.banner(`Day ${s.day - 1} complete`, `Day ${s.day}`, `${s.stats.served} customers served so far`, 2200);
+    if (s.day >= 10) this.unlock('day10');
+    this.rollEvent();
+    await this.ui.banner(`Day ${s.day - 1} complete`, `Day ${s.day}`, this.event ? `Today: ${this.event.name}` : `${s.stats.served} customers served so far`, 2200);
+    this.showEvent();
     if (this.state === 'play') {
       platform.gameplayStop();
       await platform.showMidgame();
@@ -934,8 +998,11 @@ export class Game {
     this.updateChair(dt);
     if (this.owner) this.owner.update(dt);
     this.customers.update(dt);
+    this.street.update(dt);
+    if (this.employee) this.employee.update(dt);
     this.updateItems(dt);
     this.clippings.update(dt);
+    this.mist.update(dt);
     this.shop.update(dt, this.camera);
     this.updateCape(dt);
     // ---- player
@@ -1011,7 +1078,7 @@ export class Game {
       const p = c.headPos().add(V(0, 0.28, 0)).project(this.camera);
       if (p.z > 1 || Math.abs(p.x) > 1.1 || Math.abs(p.y) > 1.1) { this.ui.removeBubble(c.id); continue; }
       const pat = c.patience / c.patienceMax;
-      const text = !c.talked ? '!' : c.state === 'seated' ? '✂' : '…';
+      const text = (c.vip ? '★ ' : '') + (!c.talked ? '!' : c.state === 'seated' ? '✂' : '…');
       this.ui.setBubble(c.id, (p.x * 0.5 + 0.5) * w, (-p.y * 0.5 + 0.5) * h, text, pat, pat < 0.25 ? 'bad' : pat < 0.5 ? 'warn' : '');
     }
   }

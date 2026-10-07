@@ -30,6 +30,14 @@ export const UPGRADES = [
     desc: 'Red leather, chrome, hydraulic pump. Customers tip better in it.', effect: '+12% tips' },
   { id: 'mirrorLarge', cat: 'tools', name: 'Big Mirror & Station', price: 150, level: 3, icon: 'mirror',
     desc: 'A proper mirror and a dark wood station. No more crack.', effect: '+8% satisfaction' },
+  { id: 'station2', cat: 'staff', name: 'Second Station', price: 420, level: 5, icon: 'chair',
+    desc: 'A second chair, mirror and cart. Room for another barber.', effect: '+1 station' },
+  { id: 'hireBarber', cat: 'staff', name: 'Hire a Barber', price: 300, level: 5, icon: 'scissors', req: 'station2',
+    desc: 'Marco takes waiting customers on his own. He keeps 35% of what they pay.', effect: 'Serves customers' },
+  { id: 'trainBarber', cat: 'staff', name: 'Barber Training', price: 380, level: 6, icon: 'star', req: 'hireBarber',
+    desc: 'A weekend course. Marco’s cuts get noticeably cleaner.', effect: 'Better ratings' },
+  { id: 'fastHands', cat: 'staff', name: 'Faster Hands', price: 320, level: 6, icon: 'clipper', req: 'hireBarber',
+    desc: 'Pro tools for Marco. He finishes a cut in half the time.', effect: '+80% speed' },
   { id: 'clipperPro', cat: 'tools', name: 'Pro Clippers', price: 240, level: 4, icon: 'clipper', equip: 'clipper',
     desc: 'Black and gold, quiet motor, perfect fades.', effect: '+90% clipper speed' },
 ];
@@ -38,6 +46,7 @@ export const CATS = [
   { id: 'shop', label: 'Shop' },
   { id: 'decor', label: 'Comfort' },
   { id: 'tools', label: 'Equipment' },
+  { id: 'staff', label: 'Staff' },
 ];
 
 export const byId = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));
@@ -51,7 +60,9 @@ export function effects(owned) {
   const clipper = h('clipperPro') ? 'pro' : h('clipperBasic') ? 'basic' : 'rusty';
   const clipperRate = { rusty: 1.6, basic: 2.3, pro: 3.1 }[clipper];
   const arrival = 1 + (h('pole') ? 0.35 : 0) + (h('decor') ? 0.1 : 0) + (h('paint') ? 0.1 : 0);
-  return { sat, tips, patience, clipper, clipperRate, scissorsPro: h('scissorsPro'), arrival };
+  const staffSkill = h('trainBarber') ? 0.86 : 0.62;
+  const staffSpeed = h('fastHands') ? 1.8 : 1;
+  return { sat, tips, patience, clipper, clipperRate, scissorsPro: h('scissorsPro'), arrival: arrival + (h('hireBarber') ? 0.25 : 0), staffSkill, staffSpeed };
 }
 
 // XP needed to go from level n to n+1
@@ -68,4 +79,16 @@ export const ACHIEVEMENTS = [
   { id: 'makeover', name: 'Makeover', desc: 'Own 6 shop upgrades.' },
   { id: 'level5', name: 'Local Legend', desc: 'Reach shop level 5.' },
   { id: 'sweep', name: 'Tidy Barber', desc: 'Sweep the floor.' },
+  { id: 'vip', name: 'Celebrity Barber', desc: 'Give a VIP a 4-star cut or better.' },
+  { id: 'fadeMaster', name: 'Fade Master', desc: 'A five-star fade.' },
+  { id: 'beardBoss', name: 'Beard Boss', desc: 'A five-star beard cut.' },
+  { id: 'day10', name: 'Ten Days In', desc: 'Keep the shop open for ten days.' },
+  { id: 'hire', name: 'Boss', desc: 'Hire your first barber.' },
+];
+
+export const EVENTS = [
+  { id: 'rush', name: 'Friday Rush', desc: 'Customers keep coming. Stay fast.' },
+  { id: 'doubleTips', name: 'Double Tips', desc: 'Everybody tips twice as much today.' },
+  { id: 'vipDay', name: 'VIP Day', desc: 'Word got out. Celebrities might drop by.' },
+  { id: 'fadeChallenge', name: 'Fade Challenge', desc: '+$25 for every fade with 4 stars or more.' },
 ];

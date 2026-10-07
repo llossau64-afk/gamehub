@@ -30,6 +30,13 @@ export const SPOTS = {
   broom: new THREE.Vector3(2.95, 0, 2.25),
 };
 
+export const STATION2 = {
+  chair: new THREE.Vector3(1.2, 0, -1.45),
+  chairFront: new THREE.Vector3(1.2, 0, -0.62),
+  stand: new THREE.Vector3(1.75, 0, -1.05),
+  cart: new THREE.Vector3(2.1, 0, -1.6),
+};
+
 const WAIT_CHAIRS = [
   { pos: new THREE.Vector3(2.88, 0, -1.05), rot: -Math.PI / 2 },
   { pos: new THREE.Vector3(2.88, 0, -0.35), rot: -Math.PI / 2 },
@@ -526,6 +533,7 @@ export class Shop {
     S.productsFull = this.addProp('ProductsFull', new THREE.Vector3(R.x0 + 0.01, 1.367, -0.75), Math.PI / 2);
     S.productsFull2 = this.addProp('ProductsFull', new THREE.Vector3(R.x0 + 0.01, 1.787, -0.75), Math.PI / 2);
     S.radio = this.addProp('Radio', new THREE.Vector3(R.x0 + 0.13, 1.787, -1.1), Math.PI / 2 + 0.3);
+    this.buildStation2();
     // waiting chairs / couch
     S.waitChairs = new THREE.Group();
     this.root.add(S.waitChairs);
@@ -595,14 +603,37 @@ export class Shop {
     if (torn) { p.rotation.z = 0.06; }
   }
 
-  setupMirror(mirrorObj, w, h, old) {
+  // second barber station (bought later): its own chair, mirror and cart
+  buildStation2() {
+    const S = this.slots, R = ROOM, P = STATION2;
+    const g = new THREE.Group();
+    this.root.add(g);
+    S.station2 = g;
+    S.st2StationOld = this.addProp('StationOld', new THREE.Vector3(P.chair.x, 0, R.z0 + 0.23), 0, g);
+    S.st2StationClassic = this.addProp('StationClassic', new THREE.Vector3(P.chair.x, 0, R.z0 + 0.23), 0, g);
+    S.st2MirrorOld = this.addProp('MirrorOld', new THREE.Vector3(P.chair.x, 1.62, R.z0 + 0.03), 0, g);
+    S.st2MirrorLarge = this.addProp('MirrorLarge', new THREE.Vector3(P.chair.x, 1.66, R.z0 + 0.03), 0, g);
+    this.setupMirror(S.st2MirrorOld, 0.58, 0.78, true, true);
+    this.setupMirror(S.st2MirrorLarge, 0.86, 1.12, false, true);
+    S.st2ChairOld = this.addProp('ChairOld', P.chair, Math.PI, g);
+    S.st2ChairClassic = this.addProp('ChairClassic', P.chair, Math.PI, g);
+    S.st2Cart = this.addProp('Cart', P.cart, -0.3, g);
+    const own = () => this.has('station2');
+    this.colliders.push({ x0: P.chair.x - 0.38, x1: P.chair.x + 0.38, z0: P.chair.z - 0.4, z1: P.chair.z + 0.45, active: own });
+    this.colliders.push({ x0: P.chair.x - 0.62, x1: P.chair.x + 0.62, z0: R.z0, z1: R.z0 + 0.5, active: own });
+    this.colliders.push({ x0: P.cart.x - 0.28, x1: P.cart.x + 0.28, z0: P.cart.z - 0.24, z1: P.cart.z + 0.24, active: own });
+  }
+
+  chair2Pivot() { return part(this.has('chairClassic') ? this.slots.st2ChairClassic : this.slots.st2ChairOld, 'pivot'); }
+
+  setupMirror(mirrorObj, w, h, old, cheap = false) {
     const glassNode = part(mirrorObj, 'glass');
     glassNode.visible = false;
     const holder = new THREE.Group();
     holder.position.set(0, 0, 0.006);
     mirrorObj.add(holder);
     let surface;
-    if (this.quality.mirror) {
+    if (this.quality.mirror && !cheap) {
       const scale = this.quality.shadowSize >= 2048 ? 0.6 : 0.42;
       surface = new Reflector(new THREE.PlaneGeometry(w, h), {
         textureWidth: Math.min(1024, Math.round(innerWidth * scale * w)), textureHeight: Math.min(1024, Math.round(innerHeight * scale * h)),
@@ -677,6 +708,10 @@ export class Shop {
     S.stationOld.visible = !h('mirrorLarge'); S.stationClassic.visible = h('mirrorLarge');
     for (const m of [S.mirrorOld, S.mirrorLarge]) { const s = m.userData.surface; if (s) s.visible = m.visible; }
     S.waitChairs.visible = !h('couch'); S.couch.visible = h('couch');
+    S.station2.visible = h('station2');
+    S.st2ChairOld.visible = !h('chairClassic'); S.st2ChairClassic.visible = h('chairClassic');
+    S.st2MirrorOld.visible = !h('mirrorLarge'); S.st2MirrorLarge.visible = h('mirrorLarge');
+    S.st2StationOld.visible = !h('mirrorLarge'); S.st2StationClassic.visible = h('mirrorLarge');
     S.posterOld.visible = !h('decor'); S.posters.visible = h('decor'); S.plants.visible = h('decor');
     S.radio.visible = h('radio');
     S.productsFew.visible = !h('products'); S.productsFull.visible = h('products'); S.productsFull2.visible = h('products');
@@ -843,6 +878,7 @@ export class Shop {
 
   collide(pos, radius = 0.25) {
     for (const c of this.colliders) {
+      if (c.active && !c.active()) continue;
       const cx = clamp(pos.x, c.x0, c.x1), cz = clamp(pos.z, c.z0, c.z1);
       const dx = pos.x - cx, dz = pos.z - cz;
       const d2 = dx * dx + dz * dz;

@@ -321,7 +321,14 @@ export class HairSystem {
     this.highlight = lerp(this.highlight, this.highlightTarget, Math.min(1, dt * 6));
     this.mesh.material.uniforms.uHl.value = this.highlight;
     this.mesh.material.uniforms.uHlRegion.value = this.highlightRegion;
-    for (let k = 0; k < this.wet.length; k += 7) if (this.wet[k] > 0) { this.wet[k] = Math.max(0, this.wet[k] - dt * 0.004); }
+    // damp hair dries slowly
+    this.dryT = (this.dryT || 0) + dt;
+    if (this.dryT > 1) {
+      let any = false;
+      for (let k = 0; k < this.wet.length; k++) if (this.wet[k] > 0) { this.wet[k] = Math.max(0, this.wet[k] - this.dryT * 0.006); any = true; }
+      if (any) this.dirty = true;
+      this.dryT = 0;
+    }
     this.upload();
   }
 
@@ -408,7 +415,9 @@ export class HairSystem {
   snip(phi, theta, amount, floor = 0.1, radius = 0.02) {
     return this.brush(phi, theta, radius, (k, w) => {
       const cur = this.len[k];
-      if (cur > floor) this.len[k] = Math.max(floor, cur - amount * (0.35 + 0.65 * w));
+      // damp hair lies flat and cuts evenly
+      const ww = this.wet[k] > 0.25 ? 0.85 + 0.15 * w : 0.35 + 0.65 * w;
+      if (cur > floor) this.len[k] = Math.max(floor, cur - amount * ww);
     });
   }
 
@@ -434,6 +443,42 @@ export class HairSystem {
   spray(phi, theta, radius = 0.05) {
     this.brush(phi, theta, radius, (k, w) => { this.wet[k] = Math.min(1, this.wet[k] + 0.5 * w); });
     this.dirty = true;
+  }
+
+  // an employee's haircut: lengths move from the start towards the request, with
+  // per-texel error that shrinks with skill
+  beginService(cut, skill, fadeTargetFn) {
+    this._svcStart = this.len.slice();
+    const T = this._svcTarget = new Float32Array(this.len.length);
+    const names = [null, 'top', 'front', 'left', 'right', 'back', 'edges'];
+    const err = (1 - skill) * 0.45;
+    const bias = (Math.random() - 0.5) * err * 0.6;
+    for (let j = 0; j < TEX_H; j++) {
+      const theta = (j + 0.5) / TEX_H * THETA_MAX;
+      for (let i = 0; i < TEX_W; i++) {
+        const k = j * TEX_W + i;
+        const r = names[this.region[k]];
+        let t = cut.target[r];
+        if (t === undefined) { T[k] = this.len[k]; continue; }
+        if (cut.fade && ['left', 'right', 'back'].includes(r)) t = fadeTargetFn(cut.fade, hairline((i + 0.5) / TEX_W * Math.PI * 2 - Math.PI), theta);
+        T[k] = r === 'edges' ? this.len[k] * (Math.random() < skill ? 0 : 0.6) : Math.max(0, t * (1 + bias + (Math.random() - 0.5) * err));
+      }
+    }
+  }
+
+  serviceProgress(p) {
+    if (!this._svcStart) return;
+    for (let k = 0; k < this.len.length; k++) {
+      const a = this._svcStart[k], b = this._svcTarget[k];
+      if (b < a) this.len[k] = a + (b - a) * p;
+    }
+    this.dirty = true;
+  }
+
+  wetShare() {
+    let w = 0, n = 0;
+    for (let k = 0; k < this.wet.length; k++) if (this.region[k] !== REGION_ID.edges) { n++; if (this.wet[k] > 0.25) w++; }
+    return n ? w / n : 0;
   }
 
   // ------------------------------------------------------------------ evaluation

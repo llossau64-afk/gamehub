@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { Character } from '../chars/character.js';
 import { HairSystem } from '../hair/hair.js';
-import { randomCustomerLook, randomPersonality, PERSONALITIES } from '../chars/looks.js';
+import { randomCustomerLook, randomPersonality, PERSONALITIES, VIPS, VIP_PERSONALITY } from '../chars/looks.js';
 import { HAIRCUTS, availableHaircuts, startStyle, startBeard } from '../hair/styles.js';
 import { BeardSystem, BEARD_STYLES } from '../hair/beard.js';
 import { SPOTS } from '../world/shop.js';
@@ -18,11 +18,16 @@ export class Customer {
   constructor(game, opts = {}) {
     this.game = game;
     this.id = nextId++;
-    const look = opts.look || randomCustomerLook();
+    let look = opts.look || randomCustomerLook();
+    if (opts.vip) {
+      const v = opts.vip;
+      look = { ...look, colors: { ...look.colors, ...v.colors, Skin: v.skin, Sleeve: v.colors.Sleeve || v.colors.Top }, accessories: v.accessories, scale: 1.0, hunch: 0 };
+      this.vip = v;
+    }
     this.look = look;
-    this.name = opts.name || pick(FIRST);
-    this.personality = opts.personality || randomPersonality(game.level);
-    this.cutId = opts.cutId || pick(availableHaircuts(game.level));
+    this.name = opts.name || (opts.vip ? opts.vip.name : pick(FIRST));
+    this.personality = opts.personality || (opts.vip ? VIP_PERSONALITY : randomPersonality(game.level));
+    this.cutId = opts.cutId || game.pickCut(!!opts.vip);
     this.cut = HAIRCUTS[this.cutId];
     this.ch = new Character(game.scene, { ...look, name: this.name, voice: { ...look.voice, rate: (look.voice?.rate || 1) * this.personality.voiceRate } });
     this.hair = new HairSystem({ color: look.hairColor, skin: look.colors.Skin, curl: look.curl, layers: game.quality.hairLayers });
@@ -107,6 +112,14 @@ export class CustomerManager {
     return c;
   }
 
+  spawnVIP() {
+    const v = pick(VIPS);
+    const c = this.spawn({ vip: v });
+    this.game.ui.toast(`${v.title} ${v.name} is coming in`, 'VIP');
+    audio.levelUp();
+    return c;
+  }
+
   remove(c) {
     this.list = this.list.filter((x) => x !== c);
     if (this.inChair === c) this.inChair = null;
@@ -134,7 +147,8 @@ export class CustomerManager {
     await this.game.dir.wait(2.4).catch(() => {});
     ch.lookAt(this.game.camera, 1);
     c.state = 'waitingTalk';
-    if (!c.tutorial && chance(0.7)) c.say(pick(['Hey. Got time for one?', 'Hi! Can I get a cut?', 'You open?', 'Morning. One haircut, please.']), 'neutral');
+    if (c.vip) c.say(c.vip.line, 'proud', 3);
+    else if (!c.tutorial && chance(0.7)) c.say(pick(['Hey. Got time for one?', 'Hi! Can I get a cut?', 'You open?', 'Morning. One haircut, please.']), 'neutral');
   }
 
   // player talks to a customer standing at the hub
@@ -146,7 +160,7 @@ export class CustomerManager {
     c.state = 'talking';
     const ch = c.ch;
     ch.lookAt(this.game.camera, 1);
-    const line = pick(c.personality.greet);
+    const line = c.vip ? 'The usual for someone like me. Your best work.' : pick(c.personality.greet);
     const d = c.say(line, c.personality.id === 'nervous' ? 'nervous' : c.personality.id === 'impatient' ? 'annoyed' : 'happy', 3);
     this.game.ui.showRequest(c.cut, c, true);
     audio.paperFlick();
@@ -228,9 +242,13 @@ export class CustomerManager {
       this.spawnT -= dt;
       const cap = g.shop.waitSeats().length + 2;
       if (this.spawnT <= 0) {
-        if (this.list.length < cap) this.spawn();
+        if (this.list.length < cap) {
+          const vipChance = g.level >= 3 ? (g.event?.id === 'vipDay' ? 0.35 : 0.1) : 0;
+          if (chance(vipChance) && !this.list.some((x) => x.vip)) this.spawnVIP();
+          else this.spawn();
+        }
         const base = this.list.length === 0 ? 9 : 26;
-        this.spawnT = base / g.fx.arrival * rand(0.75, 1.25);
+        this.spawnT = base / g.fx.arrival * (g.event?.id === 'rush' ? 0.55 : 1) * rand(0.75, 1.25);
       }
     }
     for (const c of this.list) {
@@ -280,6 +298,7 @@ export class CustomerManager {
   }
 
   clear() {
+    if (this.game.employee?.customer) this.game.employee.reset();
     for (const c of [...this.list]) this.remove(c);
     this.inChair = null;
   }

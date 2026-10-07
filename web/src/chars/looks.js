@@ -95,3 +95,26 @@ export const TUTORIAL_LOOK = {
   voice: { pitch: 150, rate: 1.0, wobble: 0.08, vol: 0.09 },
   hairColor: '#3a2618',
 };
+
+// VIP guests: fictional celebrities with their own look, line and demands
+export const VIPS = [
+  { title: 'Footballer', name: 'Rico “Rocket” Alves', line: 'Big match tomorrow. Make it sharp.',
+    colors: { Top: '#b8302b', Sleeve: '#b8302b', Pants: '#1f2228', Shoes: '#e8e2d6' }, accessories: ['tee'], skin: '#b77f5c' },
+  { title: 'Rapper', name: 'Lil Fade', line: 'Yo. Cameras are outside. Don’t mess this up.',
+    colors: { Top: '#171717', Sleeve: '#171717', Pants: '#171717', Shoes: '#e8e2d6', Frame: '#c7a24a', TopDark: '#c7a24a' }, accessories: ['hoodie', 'glasses'], skin: '#6b4330' },
+  { title: 'Streamer', name: 'GlitchKid', line: 'I’m live right now, by the way. Say hi to chat.',
+    colors: { Top: '#5c3a8f', Sleeve: '#5c3a8f', Pants: '#2b2f38', Shoes: '#3a3f4a' }, accessories: ['hoodie'], skin: '#f1c9a8' },
+  { title: 'Actor', name: 'Julian Vance', line: 'Premiere tonight. Nothing too dramatic.',
+    colors: { Top: '#2c2f3a', Sleeve: '#2c2f3a', Pants: '#2c2f3a', Shoes: '#1b1b1d', Shirt: '#e9e1cf', Frame: '#111' }, accessories: ['jacket', 'glasses'], skin: '#e3b08c' },
+  { title: 'Businessman', name: 'Mr. Sterling', line: 'You have twenty minutes. Impress me.',
+    colors: { Top: '#3a3f4a', Sleeve: '#3a3f4a', Pants: '#3a3f4a', Shoes: '#1b1b1d', Tie: '#7a2a26' }, accessories: ['jacket', 'tie'], skin: '#d29b77' },
+  { title: 'Influencer', name: 'Kai Lumen', line: 'This is going on my page. No pressure.',
+    colors: { Top: '#e0a33c', Sleeve: '#d29b77', Pants: '#e8e2d6', Shoes: '#e8e2d6' }, accessories: ['tee'], skin: '#d29b77' },
+];
+
+export const VIP_PERSONALITY = {
+  id: 'vip', label: 'VIP', patience: 0.9, payMult: 2.5, tipMult: 1.6, voiceRate: 1.0, vip: true,
+  greet: [], happy: ['Now THAT is what I pay for.', 'You’re my barber now. Official.', 'Chat is going crazy. They love it.'],
+  bad: ['I can’t go out like this.', 'My manager is going to hear about this.'],
+  wait: ['Do you know who I am?'], idle: 'phone',
+};

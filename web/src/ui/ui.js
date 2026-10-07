@@ -159,12 +159,13 @@ export class UI {
       grid.innerHTML = '';
       for (const u of UPGRADES.filter((x) => x.cat === cat)) {
         const owned = game.owns(u.id);
-        const locked = !owned && game.level < u.level;
+        const needs = u.req && !game.owns(u.req);
+        const locked = !owned && (game.level < u.level || needs);
         const afford = game.money >= u.price;
         const el = h(`<div class="up ${owned ? 'owned' : ''} ${locked ? 'locked' : ''} ${opts.hint === u.id ? 'hint' : ''}">
           <div class="ic">${ICON[u.icon] || ''}</div>
           <h4>${u.name}</h4><p>${u.desc}</p><div class="eff">${u.effect}</div>
-          <button class="buy ${!afford && !owned && !locked ? 'cant' : ''}">${owned ? 'Owned' : locked ? `Level ${u.level}` : formatMoney(u.price)}</button></div>`);
+          <button class="buy ${!afford && !owned && !locked ? 'cant' : ''}">${owned ? 'Owned' : game.level < u.level ? `Level ${u.level}` : needs ? 'Needs ' + (UPGRADES.find((x) => x.id === u.req)?.name || '') : formatMoney(u.price)}</button></div>`);
         el.querySelector('.buy').addEventListener('click', () => {
           if (owned || locked) return;
           if (!afford) { audio.error(); el.classList.remove('flash'); void el.offsetWidth; return; }
@@ -405,6 +406,7 @@ export class UI {
       const rows = [['Accuracy', r.accuracy], ['Symmetry', r.symmetry], ['Edges', r.edges]];
       if (r.fade !== null && r.fade !== undefined) rows.push(['Fade', r.fade]);
       rows.push(['Speed', r.speed]);
+      if (r.groom > 0.05) rows.push(['Grooming', r.groom]);
       const wrap = h(`<div class="panel-wrap"><div class="card result">
         <div class="k">${r.kicker}</div><h3>${r.title}</h3>
         <div class="quote">“${r.quote}”</div>
