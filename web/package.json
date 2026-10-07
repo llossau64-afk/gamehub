@@ -9,7 +9,8 @@
     "assets": "python tools/blender/build_assets.py && npm run pack",
     "pack": "gltfpack -i assets-src/props.glb -o public/assets/props.glb -cc -kn -km -ke && gltfpack -i assets-src/characters.glb -o public/assets/characters.glb -cc -kn -km -ke",
     "artifact": "vite build && node tools/make-artifact.mjs",
-    "mac": "bash tools/mac/build-dmg.sh"
+    "mac": "bash tools/mac/build-dmg.sh",
+    "mac:lite": "bash tools/mac/build-lite.sh"
   },
   "license": "UNLICENSED",
   "dependencies": {

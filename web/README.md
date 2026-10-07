@@ -70,7 +70,9 @@ npm run preview    # serve dist/ locally
 RCODESIGN=/path/to/rcodesign npm run mac   # needs genisoimage, python3 + Pillow; downloads Electron
 ```
 
-Builds `release/BarberEmpire-<version>-mac-apple-silicon.dmg` and `…-intel.dmg`: an Electron window around the single-file build, ad-hoc signed (no Apple developer certificate). On first launch macOS asks for confirmation: right-click the app → Open, or allow it under System Settings → Privacy & Security.
+Builds `release/BarberEmpire-<version>-mac-apple-silicon.dmg` and `…-intel.dmg`: an Electron window around the single-file build, ad-hoc signed (no Apple developer certificate). `npm run mac:lite` builds `release/BarberEmpire-<version>-mac.dmg` (about 1 MB, Intel and Apple Silicon): a launcher that opens the game in its own Chrome/Edge/Brave app window, or in the default browser.
+
+On first launch macOS asks for confirmation: right-click the app → Open, or allow it under System Settings → Privacy & Security.
 
 ## Rebuilding the 3D assets
 
