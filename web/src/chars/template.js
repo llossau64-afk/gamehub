@@ -67,7 +67,8 @@ function buildGeometry(accs, jointFilter) {
     const ji = jointFilter ? jointFilter.remap.get(pc.joint) : T.jointIndex.get(pc.joint);
     const si = new Uint16Array(n * 4); const sw = new Float32Array(n * 4);
     const pal = new Float32Array(n);
-    let slot = PAL_SLOTS.indexOf(pc.slot);
+    // the head's skin gets its own slot so faces can blush or go pale on their own
+    let slot = PAL_SLOTS.indexOf(pc.slot === 'Skin' && (pc.joint === 'Head' || pc.joint === 'Neck' || pc.joint === 'Jaw' || pc.joint.startsWith('Lid') || pc.joint.startsWith('Brow')) ? 'Face' : pc.slot);
     if (slot < 0) slot = 0;
     for (let i = 0; i < n; i++) { si[i * 4] = ji; sw[i * 4] = 1; pal[i] = slot; }
     for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);

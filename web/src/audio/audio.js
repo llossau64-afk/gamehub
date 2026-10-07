@@ -2,6 +2,8 @@
 // sound tuned to the same warm, slightly lo-fi palette.
 import { rand, pick, clamp } from '../core/util.js';
 
+const clamp01 = (v) => Math.max(0, Math.min(0.35, v));
+
 class AudioEngine {
   constructor() {
     this.ctx = null;
@@ -396,6 +398,62 @@ class AudioEngine {
     this.tone(520, 0.12, { type: 'square', vol: 0.05, bus: 'ui', room: 0.1, slide: 2.4 });
     this.tone(1568, 0.5, { type: 'triangle', vol: 0.09, bus: 'ui', room: 0.3, when: 0.09 });
     this.tone(2093, 0.4, { type: 'sine', vol: 0.05, bus: 'ui', room: 0.3, when: 0.11 });
+  }
+  question() {
+    if (!this.ctx) return;
+    this.tone(660, 0.12, { type: 'triangle', vol: 0.07, bus: 'ui', room: 0.2 });
+    this.tone(990, 0.22, { type: 'triangle', vol: 0.06, bus: 'ui', room: 0.25, when: 0.1, slide: 1.12 });
+  }
+  angerPop() {
+    if (!this.ctx) return;
+    this.tone(180, 0.18, { type: 'square', vol: 0.05, bus: 'ui', room: 0.1, slide: 0.6 });
+    this.noiseBurst(0.08, { vol: 0.08, freq: 900, q: 2, bus: 'ui' });
+  }
+  hearts() {
+    if (!this.ctx) return;
+    [880, 1109, 1319, 1760].forEach((f, i) => this.tone(f, 0.3, { type: 'sine', vol: 0.06, bus: 'ui', room: 0.4, when: i * 0.06 }));
+  }
+  sparkle() {
+    if (!this.ctx) return;
+    for (let i = 0; i < 6; i++) this.tone(2000 + Math.random() * 2500, 0.15, { type: 'sine', vol: 0.03, bus: 'ui', room: 0.4, when: i * 0.05 });
+  }
+  // wah wah wah waaah
+  sadTrombone() {
+    if (!this.ctx) return;
+    [[311, 0.32], [294, 0.32], [277, 0.32], [262, 0.95]].forEach(([f, d], i) => {
+      const o = this.tone(f, d, { type: 'sawtooth', vol: 0.045, bus: 'ui', room: 0.3, when: i * 0.36, attack: 0.03, slide: i === 3 ? 0.94 : 0.98 });
+      if (o && i === 3) { const t = this.ctx.currentTime + i * 0.36; for (let k = 0; k < 8; k++) o.detune.setValueAtTime(k % 2 ? 30 : -30, t + 0.2 + k * 0.08); }
+    });
+  }
+  steam() {
+    if (!this.ctx) return;
+    this.noiseBurst(0.9, { vol: 0.07, type: 'highpass', freq: 3000, attack: 0.05, bus: 'ui', room: 0.2 });
+    this.tone(1400, 0.6, { type: 'sine', vol: 0.025, bus: 'ui', slide: 1.6 });
+  }
+  coinBounce(v = 1) {
+    if (!this.ctx) return;
+    this.metal(3200 + Math.random() * 600, 0.18 + v * 0.05, [1, 2.4, 3.9], { vol: clamp01(0.03 + v * 0.025), room: 0.25 });
+  }
+  paperTap(v = 1) { this.noiseBurst(0.04, { vol: clamp01(0.03 + v * 0.03), freq: 1500, q: 1.2, room: 0.15 }); }
+  binCrash() {
+    if (!this.ctx) return;
+    this.metal(420, 0.6, [1, 1.7, 2.9, 4.3], { vol: 0.16, room: 0.4 });
+    this.noiseBurst(0.35, { vol: 0.2, freq: 1200, q: 0.6, room: 0.4 });
+    this.tone(90, 0.3, { type: 'sine', vol: 0.12, room: 0.2 });
+  }
+  thud(v = 1) { this.tone(80, 0.15, { type: 'sine', vol: clamp01(0.05 + 0.08 * v), room: 0.2 }); this.noiseBurst(0.06, { vol: clamp01(0.04 * v), freq: 400, q: 0.8 }); }
+  doorSlam() {
+    if (!this.ctx) return;
+    this.tone(70, 0.4, { type: 'sine', vol: 0.3, room: 0.5 });
+    this.noiseBurst(0.25, { vol: 0.35, freq: 600, q: 0.5, room: 0.5, brown: true });
+    this.noiseBurst(0.05, { vol: 0.2, freq: 2500, q: 1, room: 0.4, when: 0.01 });
+    this.bellFrantic(10);
+  }
+  cheer() {
+    if (!this.ctx) return;
+    // a short whoop
+    const o = this.tone(320, 0.45, { type: 'triangle', vol: 0.07, room: 0.2, slide: 2.2, bus: 'voice' });
+    this.tone(640, 0.3, { type: 'sine', vol: 0.03, room: 0.2, slide: 2.0, bus: 'voice' });
   }
   pop() { this.tone(500, 0.08, { type: 'sine', vol: 0.12, bus: 'ui', room: 0.05, slide: 2.2 }); }
   bulbPop() {

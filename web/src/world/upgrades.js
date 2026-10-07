@@ -115,6 +115,7 @@ export const ACHIEVEMENTS = [
   // ---- secret: no hint until they happen
   { id: 'oops', cat: 'secret', tier: 'bronze', icon: 'mask', name: 'Oops.', desc: 'Leave a bald patch where nobody asked for one.', goal: 1, progress: st('oops'), reward: { money: 5, xp: 10 }, secret: true },
   { id: 'toughCrowd', cat: 'secret', tier: 'bronze', icon: 'mask', name: 'Tough Crowd', desc: 'A customer gave up waiting and walked out.', goal: 1, progress: st('lost'), reward: { money: 5, xp: 10 }, secret: true },
+  { id: 'collateral', cat: 'secret', tier: 'bronze', icon: 'mask', name: 'Collateral Damage', desc: 'An angry customer kicked your trash bin over.', goal: 1, progress: st('binsKicked'), reward: { money: 5, xp: 10 }, secret: true },
   { id: 'tidyFreak', cat: 'secret', tier: 'silver', icon: 'broom', name: 'Spotless', desc: 'Sweep the floor 25 times.', goal: 25, progress: st('sweeps'), reward: { money: 40, xp: 60 }, secret: true },
 ];
 ACHIEVEMENTS.find((a) => a.id === 'repertoire').goal = 0;   // set from the haircut list (styles.js) at startup

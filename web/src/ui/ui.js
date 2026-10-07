@@ -619,6 +619,13 @@ export class UI {
     this.itemEl = el;
   }
 
+  // camera flash (selfies)
+  flash() {
+    const el = h('<div class="cam-flash"></div>');
+    this.root.append(el);
+    setTimeout(() => el.remove(), 500);
+  }
+
   toast(text, badge = '') {
     // never stack more than three
     const live = [...this.toastsEl.children].filter((e) => !e.classList.contains('out'));

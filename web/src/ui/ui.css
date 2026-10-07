@@ -444,3 +444,5 @@
   .achc { padding: 8px 10px 10px; }
   .achc .medal { transform: scale(.85); }
 }
+.cam-flash { position: absolute; inset: 0; background: #fff; pointer-events: none; z-index: 40; animation: camFlash .45s ease-out forwards; }
+@keyframes camFlash { from { opacity: .85; } to { opacity: 0; } }

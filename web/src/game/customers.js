@@ -44,7 +44,7 @@ export class Customer {
       this.beard.setStyle(beardSpec);
       this.ch.beard = this.beard;
     }
-    this.ch.onFootstep = (c) => this.game.footstepAt(c.root.position);
+    this.ch.onFootstep = (c) => this.game.footstepAt(c.root.position, c.gait === 'storm' ? 2.4 : 1);
     this.state = 'arriving';
     this.patienceMax = 70 * this.personality.patience * game.fx.patience;
     this.patience = this.patienceMax;
@@ -62,9 +62,9 @@ export class Customer {
     this.game.ui.removeBubble(this.id);
   }
 
-  say(text, emotion, hold = 2.5) {
+  say(text, emotion, hold = 2.5, voice = null) {
     if (emotion) this.ch.setEmotion(emotion, hold + 1);
-    const d = this.ch.say(text);
+    const d = this.ch.say(text, voice ? { voice } : {});
     this.game.showLine(this.name, text, d + 1.2);
     return d;
   }
@@ -259,7 +259,8 @@ export class CustomerManager {
       if (['waitingTalk', 'waiting', 'standing', 'seated', 'looking'].includes(c.state) && !c.tutorial && g.state !== 'barber') {
         const rate = c.state === 'seated' ? 0.6 : 1;
         c.patience -= dt * rate;
-        if (c.patience < c.patienceMax * 0.35 && !c.sighed) { c.sighed = true; c.ch.gesture('sigh'); c.ch.setEmotion('annoyed', 2); if (chance(0.6)) c.say(pick(c.personality.wait), 'annoyed'); }
+        if (c.patience < c.patienceMax * 0.35 && !c.sighed) { c.sighed = true; c.ch.gesture('sigh'); c.ch.setEmotion('annoyed', 2); g.exclaim.show(c.ch, 2.5, 'anger'); if (chance(0.6)) c.say(pick(c.personality.wait), 'annoyed'); }
+        if (c.patience < c.patienceMax * 0.12 && !c.fuming) { c.fuming = true; c.ch.setEmotion('furious', 3); c.ch.flush('#d8402c', 0.4, 4); g.exclaim.show(c.ch, 2, 'steam'); }
         if (c.patience <= 0) this.leaveAngry(c);
       }
       // waiting customers occasionally glance around
@@ -278,18 +279,19 @@ export class CustomerManager {
     c.state = 'leaving';
     this.stopIdle(c);
     if (this.inChair === c) this.inChair = null;
-    c.say(pick(['Forget it.', 'I’m out. Unbelievable.', 'Wow. Okay. Bye.']), 'annoyed', 3);
+    c.say(pick(['Forget it.', 'I’m out. Unbelievable.', 'Wow. Okay. Bye.', 'I’ll cut it myself!', 'I’ve grown a whole beard waiting here!']), 'furious', 3);
+    c.ch.gesture('rage', { dur: 1.2 });
     this.game.loseCustomer(c);
     if (c.ch.sitW > 0) await c.ch.standUp();
     if (c.seat) c.seat = null;
-    await this.walkOut(c, 'speedwalk');
+    await this.walkOut(c, 'storm');
   }
 
   async walkOut(c, gait = 'walk') {
     c.state = 'leaving';
     c.ch.lookAt(null);
     await c.ch.walkTo([SPOTS.hub, SPOTS.doorIn], gait);
-    this.game.shop.openDoor(gait !== 'walk', 1.3);
+    this.game.shop.openDoor(['speedwalk', 'run', 'storm'].includes(gait), gait === 'sulk' ? 2.2 : 1.3);
     await c.ch.walkTo([SPOTS.doorStep, SPOTS.doorOut.clone().add(new THREE.Vector3(rand(-6, -4), 0, 0.4))], gait);
     this.remove(c);
   }

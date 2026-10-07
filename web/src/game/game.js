@@ -15,6 +15,8 @@ import { Director, SKIP } from '../cutscene/director.js';
 import { playIntro, introEndState } from '../cutscene/intro.js';
 import { ItemShowcase } from '../fx/itemGet.js';
 import { Exclaim } from '../fx/exclaim.js';
+import { Physics } from '../fx/physics.js';
+import { Reactions } from './reactions.js';
 import { playTutorial } from './tutorial.js';
 import { UPGRADES, byId, effects, xpFor, ACHIEVEMENTS, EVENTS } from '../world/upgrades.js';
 import { Street } from './street.js';
@@ -45,6 +47,8 @@ export class Game {
     this.mist = new Mist(this.scene);
     this.itemFx = new ItemShowcase(this);
     this.exclaim = new Exclaim(this.scene);
+    this.physics = new Physics(this);
+    this.reactions = new Reactions(this);
     this.dir = new Director(this);
     this.customers = new CustomerManager(this);
     this.barber = new BarberMode(this);
@@ -758,7 +762,7 @@ export class Game {
   }
 
   throwItem(obj, vel, spin = V(3, 2, 1)) {
-    this.items.push({ obj, vel: vel.clone(), spin: spin.clone(), rest: false });
+    this.physics.add(obj, { r: 0.025, vel, ang: spin, flat: true, bounce: 0.15, friction: 1.2, drag: 1.4, lift: -0.022, sound: (s) => audio.paperTap(s) });
   }
 
   updateItems(dt) {
@@ -772,9 +776,9 @@ export class Game {
     }
   }
 
-  footstepAt(pos) {
+  footstepAt(pos, loud = 1) {
     const d = pos.distanceTo(this.camera.position);
-    if (d < 9) audio.footstep(this.shop.has('floorWood') ? 'wood' : 'tile', clamp(1.4 / (d + 0.6), 0.05, 0.8));
+    if (d < 9) audio.footstep(this.shop.has('floorWood') ? 'wood' : 'tile', clamp(1.4 * loud / (d + 0.6), 0.05, loud > 1 ? 1.2 : 0.8));
   }
 
   walkSteps(dur) {
@@ -810,6 +814,7 @@ export class Game {
     R.set({ visible: true, pos: V(0.1, -0.45, -0.5), fingers: V(0, -1, -0.5), palm: V(-1, 0, 0), pose: 'grip' });
     setTimeout(() => {
       this.clippings.sweep();
+      this.reactions.tidy();
       R.set({ visible: false });
       this.player.control = true;
       this.sweeping = false;
@@ -856,7 +861,9 @@ export class Game {
     result.overall = clamp(result.overall + this.fx.sat * 0.25 + groom * 0.035 - floorPenalty, 0, 1);
     result.groom = groom;
     result.stars = result.overall >= 0.88 ? 5 : result.overall >= 0.76 ? 4 : result.overall >= 0.6 ? 3 : result.overall >= 0.42 ? 2 : 1;
+    if (window.__forceStars) result.stars = window.__forceStars;   // debug harness only
     if (c.tutorial) { result.stars = Math.max(result.stars, 3); }
+    c.stars = result.stars;
     try {
       await this.mirrorReaction(c, result);
     } catch (e) { if (e !== SKIP) console.error(e); }
@@ -917,48 +924,18 @@ export class Game {
     await dir.wait(0.6);
     ch.gesture('touchHair');
     await dir.wait(1.5);
-    let lines;
-    const st = result.stars;
     if (c.tutorial) {
       ch.setEmotion('happy');
       c.say('Okay...', 'happy', 2);
       await dir.wait(1.3);
-      lines = 'That’s actually clean.';
+      const line = 'That’s actually clean.';
       ch.setEmotion('excited', 2.5);
-      ch.gesture('nod');
-    } else if (st >= 5) {
-      lines = pick(['Bro cooked me.', ...c.personality.happy]);
-      ch.setEmotion('ecstatic', 2.6);
-      ch.gesture('laugh');
-    } else if (st === 4) {
-      lines = pick(c.personality.happy);
-      ch.setEmotion('happy', 2.4);
-      ch.gesture('nod');
-    } else if (st === 3) {
-      lines = pick(['It’s... okay. Yeah. Okay.', 'Hm. Not bad.', 'It’ll grow.']);
-      ch.setEmotion('confused', 2.4);
+      ch.gesture('thumbsUp');
+      c.reactionLine = line;
+      const d = c.say(line, null);
+      await dir.wait(d + 0.6);
     } else {
-      // checks twice
-      ch.setEmotion('confused');
-      ch.lookAt(V(SPOTS.chair.x - 0.3, 1.25, SPOTS.mirror.z), 1);
-      await dir.wait(0.6);
-      ch.lookAt(V(SPOTS.chair.x + 0.3, 1.25, SPOTS.mirror.z), 1);
-      await dir.wait(0.6);
-      lines = pick(['What happened?', 'I’m wearing a hat.', ...c.personality.bad]);
-      ch.setEmotion(st === 1 ? 'annoyed' : 'disappointed', 2.6);
-    }
-    c.reactionLine = lines;
-    const d = c.say(lines, null);
-    await dir.wait(d + 0.6);
-    if (st >= 5 && !c.tutorial) {
-      // selfie
-      c.selfie = spawnProp('Phone');
-      ch.hold('R', c.selfie, { pos: [0.01, -0.09, 0.0], rot: [Math.PI / 2, 0, 0] });
-      ch.gesture('selfie');
-      await dir.wait(1.2);
-      audio.tone(1800, 0.05, { vol: 0.08 }); audio.noiseBurst(0.06, { vol: 0.12, freq: 3000 });
-      await dir.wait(1.1);
-      ch.held.R?.parent?.remove(c.selfie); ch.held.R = null;
+      await this.reactions.mirror(c, result);
     }
     audio.duckMusic(0.55);
   }
@@ -976,6 +953,11 @@ export class Game {
     this.player.pitch = -0.15;
     this.player.control = false;
     this.input.setMode('ui');
+    if (!c.tutorial && c.stars <= 1) {
+      try { await this.reactions.meltdown(c, pay); } catch (e) { if (e !== SKIP) console.error(e); }
+      this.player.control = true;
+      return;
+    }
     // spin to face the room, cape off, stand up
     this.setChairAngle(Math.PI, 3);
     await dir.wait(0.9);
@@ -1013,11 +995,12 @@ export class Game {
     await dir.wait(0.5);
     R.set({ pos: V(0.2, -0.6, -0.2) });
     setTimeout(() => { R.set({ visible: false }); R.drop(); }, 500);
-    const bye = c.tutorial ? 'I’ll be back.' : pick(['See you next time.', 'Thanks, man.', 'Later!', 'I’ll be back.']);
-    c.say(bye, ch.emotion === 'annoyed' ? 'annoyed' : 'happy');
-    ch.gesture('wave', { dur: 1.2 });
+    let gait = 'walk';
+    if (c.tutorial) { c.say('I’ll be back.', 'happy'); ch.gesture('wave', { dur: 1.2 }); }
+    else gait = this.reactions.exitStyle(c, c.stars);
     this.enterFP();
-    this.customers.walkOut(c, 'walk');
+    if (gait === 'skip') await dir.wait(1.6).catch(() => {});
+    this.customers.walkOut(c, gait);
     // call the next waiting customer automatically after a moment
     setTimeout(() => {
       const n = this.customers.nextWaiting();
@@ -1108,6 +1091,8 @@ export class Game {
     // last, after every camera move of the frame, so the showcased item sticks to the view
     this.itemFx.update(dt);
     this.exclaim.update(dt);
+    this.physics.update(dt);
+    this.reactions.update(dt);
     input.endFrame();
   }
 

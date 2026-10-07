@@ -118,8 +118,8 @@ export class Shop {
       const victims = [];
       group.traverse((o) => {
         if (!o.isMesh || o.isInstancedMesh || o.userData.keep || o.material.transparent) return;
-        let p = o.parent, dyn = false;
-        while (p && p !== group) { if (p.userData.dynamic || /^(pivot|hinge|bell|rotor|bulb|stripes|glass|signface|hourHand|minuteHand|screen)/.test(p.name)) dyn = true; p = p.parent; }
+        let p = o.parent, dyn = !!o.userData.dynamic;
+        while (p && p !== group.parent) { if (p.userData.dynamic || /^(pivot|hinge|bell|rotor|bulb|stripes|glass|signface|hourHand|minuteHand|screen)/.test(p.name)) dyn = true; p = p.parent; }
         if (dyn || /^(bulb|glass|stripes|signface|screen)/.test(o.name)) return;
         const g = o.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
         for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
@@ -580,7 +580,8 @@ export class Shop {
     S.tv = this.addProp('TV', new THREE.Vector3(R.x1 - 0.06, 1.85, 0.75), -Math.PI / 2);
     this.tvScreen = part(S.tv, 'screen');
     S.neon = this.addProp('NeonOpen', new THREE.Vector3(WINDOW.x + 0.9, 1.75, R.z1 + 0.05), 0);
-    S.trash = this.addProp('Trash', new THREE.Vector3(R.x0 + 0.3, 0, 2.25), 0);
+    S.trash = this.addProp('Trash', new THREE.Vector3(1.16, 0, 2.3), 0);
+    S.trash.userData.dynamic = true;
     S.broom = this.addProp('Broom', SPOTS.broom, 0);
     S.broom.rotation.z = 0.18;
     S.broom.rotation.x = -0.12;
@@ -777,6 +778,15 @@ export class Shop {
 
   closeDoor() {
     this.doorSpring.target = 0;
+  }
+
+  // slammed shut from outside: it overshoots, rattles in the frame
+  slamDoor() {
+    this.doorCloseTimer = 0;
+    this.doorSpring.target = 0;
+    this.doorSpring.kick(-16);
+    this.bellSpring.kick(14);
+    this._closing = false;
   }
 
   flicker(strong = true) {

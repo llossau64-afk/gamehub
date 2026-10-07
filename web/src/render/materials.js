@@ -169,7 +169,7 @@ roughnessFactor = clamp(roughnessFactor + (dt.r-0.5)*0.25*(uDetailW.x+uDetailW.z
 // --------------------------------------------------------------- characters
 export const PAL_SLOTS = ['Skin', 'Top', 'Sleeve', 'Pants', 'Shoes', 'Hair', 'EyeWhite', 'Iris', 'Pupil',
   'Shirt', 'Tie', 'Lapel', 'Mouth', 'Teeth', 'Frame', 'Sole', 'Belt', 'Metal', 'Button', 'TopDark',
-  'MouthDark', 'Apron', 'Nail'];
+  'MouthDark', 'Apron', 'Nail', 'Face'];
 export const PAL_SIZE = 32;
 
 const _nailTint = new THREE.Color('#f3d6cc');
@@ -183,7 +183,7 @@ export function makePalette(colors) {
   return tex;
 }
 
-const DEFAULT_ROUGH = { Skin: 0.55, Nail: 0.28, EyeWhite: 0.15, Iris: 0.2, Pupil: 0.1, Shoes: 0.35, Sole: 0.8, Metal: 0.3,
+const DEFAULT_ROUGH = { Skin: 0.55, Face: 0.55, Nail: 0.28, EyeWhite: 0.15, Iris: 0.2, Pupil: 0.1, Shoes: 0.35, Sole: 0.8, Metal: 0.3,
   Frame: 0.3, Tie: 0.45, Teeth: 0.3, Mouth: 0.4, Belt: 0.4, Button: 0.3, Hair: 0.7 };
 const DEFAULT_METAL = { Metal: 1, Frame: 0.6 };
 
@@ -192,6 +192,7 @@ export function setPalette(tex, colors) {
   const c = new THREE.Color();
   PAL_SLOTS.forEach((slot, i) => {
     if (slot === 'Nail' && !colors.Nail) c.set(colors.Skin || '#c99a7c').lerp(_nailTint, 0.38);
+    else if (slot === 'Face' && !colors.Face) c.set(colors.Skin || '#c99a7c');
     else c.set(colors[slot] || '#ff00ff');
     d[i * 4] = c.r; d[i * 4 + 1] = c.g; d[i * 4 + 2] = c.b;
     d[i * 4 + 3] = colors[slot + 'Rough'] ?? DEFAULT_ROUGH[slot] ?? 0.8;

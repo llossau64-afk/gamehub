@@ -5,7 +5,9 @@ import { createBody, getTemplate } from './template.js';
 import { clamp, lerp, damp, dampAngle, noise1, rand, smooth, easeInOut, wrapAngle } from '../core/util.js';
 import { audio } from '../audio/audio.js';
 import { blobShadowTexture } from '../render/textures.js';
-import { HEAD_C, HEAD_R } from '../hair/hair.js';
+import { HEAD_C, HEAD_R, hairline } from '../hair/hair.js';
+import { PAL_SLOTS } from '../render/materials.js';
+const FACE_SLOT = PAL_SLOTS.indexOf('Face');
 
 const _hs = new THREE.Vector3(), _hs2 = new THREE.Vector3();
 
@@ -27,6 +29,11 @@ export const EMOTIONS = {
   nostalgic:    { raise: 0, inner: 0.6, angry: 0, asym: 0, lids: 0.72, smile: 0.35, frown: 0, open: 0, wide: 0, O: 0, smirk: 0, lean: 0.03, shoulders: -0.1, tilt: 0.08, pitch: 0.12, chest: 0 },
   greedy:       { raise: 0.45, inner: 0, angry: 0.2, asym: 0.3, lids: 0.8, smile: 0.9, frown: 0, open: 0.1, wide: 0.6, O: 0, smirk: 0.4, lean: 0.04, shoulders: 0.2, tilt: 0.05, pitch: 0.06, chest: 0 },
   concerned:    { raise: 0.1, inner: 0.6, angry: 0, asym: 0.25, lids: 1.0, smile: 0, frown: 0.35, open: 0, wide: 0.1, O: 0, smirk: 0, lean: 0.02, shoulders: 0.2, tilt: 0.06, pitch: 0.04, chest: 0 },
+  furious:      { raise: -0.45, inner: 0, angry: 1, asym: 0.1, lids: 0.6, smile: 0, frown: 1, open: 0.55, wide: 0.9, O: 0, smirk: 0, lean: 0.1, shoulders: 0.45, tilt: 0, pitch: 0.1, chest: 0.2 },
+  devastated:   { raise: 0.1, inner: 1, angry: 0, asym: 0, lids: 0.62, smile: 0, frown: 1, open: 0.12, wide: 0.15, O: 0.1, smirk: 0, lean: 0.12, shoulders: -0.35, tilt: 0.1, pitch: 0.28, chest: -0.3 },
+  horrified:    { raise: 1, inner: 0.7, angry: 0, asym: 0, lids: 1.45, smile: 0, frown: 0.6, open: 0.85, wide: 0.6, O: 0.3, smirk: 0, lean: -0.08, shoulders: 0.5, tilt: 0, pitch: -0.06, chest: 0.1 },
+  starstruck:   { raise: 0.9, inner: 0.35, angry: 0, asym: 0, lids: 1.25, smile: 1, frown: 0, open: 0.6, wide: 1, O: 0, smirk: 0, lean: -0.06, shoulders: 0.35, tilt: 0.05, pitch: -0.14, chest: 0.35 },
+  smug:         { raise: 0.25, inner: 0, angry: 0, asym: 0.6, lids: 0.7, smile: 0.5, frown: 0, open: 0, wide: 0, O: 0, smirk: 1, lean: -0.08, shoulders: -0.05, tilt: -0.08, pitch: -0.12, chest: 0.3 },
   wince:        { raise: -0.1, inner: 0.7, angry: 0.3, asym: 0.2, lids: 0.45, smile: 0, frown: 0.3, open: 0.1, wide: 0.8, O: 0, smirk: 0, lean: 0.04, shoulders: 0.45, tilt: 0.05, pitch: 0.06, chest: 0 },
 };
 const FACE_KEYS = Object.keys(EMOTIONS.neutral);
@@ -40,6 +47,7 @@ const HAND_POSES = {
   point: { curl: [0.0, 1.3, 1.35, 1.4], thumb: 0.8 },
   pinch: { curl: [0.55, 0.7, 0.85, 0.95], thumb: 0.6 },
   cup: { curl: [0.3, 0.32, 0.35, 0.4], thumb: 0.05 },
+  thumb: { curl: [1.35, 1.4, 1.45, 1.45], thumb: -0.45 },
   count: { curl: [0.5, 0.75, 0.9, 1.0], thumb: 0.15 },
 };
 const FINGERS = ['Index', 'Middle', 'Ring', 'Pinky'];
@@ -285,7 +293,8 @@ export class Character {
     const spd = this.speed;
     const walkW = clamp(spd / 1.2, 0, 1) * (1 - this.sitW);
     const runW = clamp((spd - 2.2) / 1.2, 0, 1);
-    const fast = this.gait === 'speedwalk';
+    const fast = this.gait === 'speedwalk' || this.gait === 'storm';
+    const gait = this.gait;
 
     // --- idle (always, faded under walking)
     const idleW = 1 - walkW;
@@ -325,6 +334,21 @@ export class Character {
       add('Spine', lerp(0.02, 0.22, runW) * walkW + (fast ? 0.08 : 0) * walkW, s * 0.12 * walkW, 0);
       add('Chest', 0, s * 0.08 * walkW, 0);
       add('Head', -lerp(0.0, 0.18, runW) * walkW, -s * 0.08 * walkW, 0);
+      if (gait === 'skip') {
+        // happy hop-skip: knees high, arms swinging up
+        add('ThighL', -Math.max(0, s) * 0.5 * walkW, 0, 0); add('ThighR', -Math.max(0, -s) * 0.5 * walkW, 0, 0);
+        add('UpperArmL', -Math.max(0, -s) * 0.7 * walkW, 0, 0.15 * walkW); add('UpperArmR', -Math.max(0, s) * 0.7 * walkW, 0, -0.15 * walkW);
+        add('Head', -0.1 * walkW, 0, Math.sin(ph) * 0.1 * walkW);
+      } else if (gait === 'storm') {
+        // angry stomp: stiff arms, chest forward, head down
+        add('Spine', 0.12 * walkW, 0, 0); add('Head', 0.12 * walkW, 0, 0);
+        add('UpperArmL', 0, 0, 0.12 * walkW); add('UpperArmR', 0, 0, -0.12 * walkW);
+        add('ShoulderL', 0, 0, 0.12 * walkW); add('ShoulderR', 0, 0, -0.12 * walkW);
+      } else if (gait === 'sulk') {
+        // dragging feet, shoulders hanging, looking at the floor
+        add('Spine', 0.18 * walkW, 0, 0); add('Neck', 0.25 * walkW, 0, 0); add('Head', 0.2 * walkW, 0, 0);
+        add('ShoulderL', 0, 0, -0.1 * walkW); add('ShoulderR', 0, 0, 0.1 * walkW);
+      }
     }
 
     // --- turning on the spot: little alternating steps, hips lead the turn
@@ -418,7 +442,8 @@ export class Character {
 
     // root height (sitting, bob)
     const sitY = this.seat ? this.seat.height + 0.075 - this.hipsY : 0;
-    const bob = walkW * (Math.abs(Math.cos(this.phase)) * lerp(0.025, 0.06, runW) - 0.015);
+    let bob = walkW * (Math.abs(Math.cos(this.phase)) * lerp(0.025, 0.06, runW) - 0.015);
+    if (this.gait === 'skip') bob += walkW * Math.abs(Math.sin(this.phase)) * 0.09;
     this.root.position.y = lerp(0, sitY, smooth(this.sitW)) + bob + this.bounce;
 
     // IK pass
@@ -442,7 +467,7 @@ export class Character {
       const dx = tgt.x - pos.x, dz = tgt.z - pos.z;
       const d = Math.hypot(dx, dz);
       const last = this.path.length === 1;
-      const gs = { walk: 1.2, speedwalk: 2.1, run: 3.6, stroll: 0.85 }[this.gait] || 1.2;
+      const gs = { walk: 1.2, speedwalk: 2.1, run: 3.6, stroll: 0.85, skip: 1.6, storm: 1.9, sulk: 0.6 }[this.gait] || 1.2;
       want = last ? Math.min(gs, d * 2.2 + 0.25) : gs;
       if (d < (last ? 0.05 : 0.3)) {
         this.path.shift();
@@ -462,7 +487,7 @@ export class Character {
     this.speed = damp(this.speed, want, this.gait === 'run' ? 4 : 6, dt);
     if (this.speed < 0.01) this.speed = 0;
     // gait phase
-    const stride = { walk: 0.62, speedwalk: 0.42, run: 0.95, stroll: 0.55 }[this.gait] || 0.62;
+    const stride = { walk: 0.62, speedwalk: 0.42, run: 0.95, stroll: 0.55, skip: 0.55, storm: 0.45, sulk: 0.42 }[this.gait] || 0.62;
     const prev = this.phase;
     this.phase += dt * this.speed / stride * Math.PI;
     if (this.speed > 0.2 && Math.floor(prev / Math.PI) !== Math.floor(this.phase / Math.PI)) {
@@ -519,7 +544,29 @@ export class Character {
     }
   }
 
+  // face colour: red with anger, pale with shock. amount 0..1, eases in and out
+  flush(color = '#e0412f', amount = 0.55, hold = 3) {
+    this._flush = { c: new THREE.Color(color), a: amount, hold };
+  }
+
+  updateFlush(dt) {
+    const f = this._flush;
+    const want = f && f.hold > 0 ? f.a : 0;
+    if (f) f.hold -= dt;
+    const prev = this._flushW || 0;
+    this._flushW = damp(prev, want, want > prev ? 3 : 1.2, dt);
+    if (Math.abs(this._flushW - prev) < 1e-4 && !(this._flushW > 0 && f)) return;
+    const d = this.body.palette.image.data;
+    const o = FACE_SLOT * 4;
+    if (!this._skin0) this._skin0 = [d[o], d[o + 1], d[o + 2]];
+    const s0 = this._skin0, c = f ? f.c : null, w = this._flushW;
+    for (let k = 0; k < 3; k++) d[o + k] = c ? s0[k] + ([c.r, c.g, c.b][k] - s0[k]) * w : s0[k];
+    this.body.palette.needsUpdate = true;
+    if (w < 0.002 && f && f.hold <= 0) this._flush = null;
+  }
+
   updateFace(dt) {
+    this.updateFlush(dt);
     if (this.emotionHold > 0) {
       this.emotionHold -= dt;
       if (this.emotionHold <= 0) this.setEmotion('neutral');
@@ -719,9 +766,9 @@ export class Character {
     const n = out.n.set(d.x / HEAD_R.x ** 2, d.y / HEAD_R.y ** 2, d.z / HEAD_R.z ** 2).normalize();
     out.p.copy(HEAD_C).addScaledVector(d, t).addScaledVector(n, lift);
     // hair adds its own thickness where there is hair
-    if (this.hair && dy > -0.2) {
+    if (this.hair) {
       const theta = Math.acos(clamp(d.y, -1, 1)), phi = Math.atan2(d.x, d.z);
-      out.p.addScaledVector(n, (this.hair.lengthAt(phi, theta) || 0) * 0.06 * 0.55);
+      if (theta < hairline(phi)) out.p.addScaledVector(n, (this.hair.lengthAt(phi, theta) || 0) * 0.06 * 0.55);
     }
     const head = this.bones.Head;
     head.localToWorld(out.p);
@@ -927,6 +974,119 @@ export const GESTURES = {
       ch._add('Head', -0.06 * w, -0.25 * w, 0.12 * w);
     },
     end(ch) { ch.release('R'); ch.setHand('R', 'relaxed'); },
+  },
+  facepalm: {
+    dur: 2.0, channel: 'armR',
+    start(ch) { audio.thud(0.4); },
+    update(ch, u) {
+      const w = env(u, 0.15, 0.25);
+      ch.touchHead('R', 0, 0.25, 1, new THREE.Vector3(0.2, 1, 0), { weight: w, hand: 'open', lift: 0.01, speed: 40 });
+      ch._add('Head', 0.22 * w, Math.sin(u * 14) * 0.08 * w, 0);
+      ch._add('Chest', 0.1 * w, 0, 0);
+    },
+    end(ch) { ch.release('R'); ch.setHand('R', 'relaxed'); },
+  },
+  coverHead: {
+    // both hands clamped on top of the head in horror
+    dur: 2.2, channel: 'arms',
+    update(ch, u) {
+      const w = env(u, 0.12, 0.2);
+      ch.touchHead('R', -0.45, 0.85, 0.15, new THREE.Vector3(0.4, 0.2, -0.8), { weight: w, hand: 'open', speed: 40 });
+      ch.touchHead('L', 0.45, 0.85, 0.15, new THREE.Vector3(-0.4, 0.2, -0.8), { weight: w, hand: 'open', speed: 40 });
+      ch._add('Head', 0, Math.sin(u * 22) * 0.12 * w, 0);
+      ch._add('Spine', 0.05 * w, 0, 0);
+    },
+    end(ch) { ch.release('R'); ch.release('L'); ch.setHand('R', 'relaxed'); ch.setHand('L', 'relaxed'); },
+  },
+  thumbsUp: {
+    dur: 1.6, channel: 'armR',
+    update(ch, u) {
+      const w = env(u, 0.2, 0.25);
+      const pump = Math.max(0, Math.sin(u * 12)) * 0.02;
+      ch.reach('R', new THREE.Vector3(-0.2, (ch.sitW > 0.5 ? 1.12 : 1.32) + pump, 0.34), { local: true, weight: w, speed: 22,
+        fingers: new THREE.Vector3(0.9, 0, 0.3), palm: new THREE.Vector3(0, 0, -1), hand: 'thumb' });
+      ch._add('Head', 0, 0, -0.08 * w);
+    },
+    end(ch) { ch.release('R'); ch.setHand('R', 'relaxed'); },
+  },
+  fistPump: {
+    dur: 1.4, channel: 'armR',
+    start(ch) { audio.cheer(); },
+    update(ch, u) {
+      const w = env(u, 0.12, 0.25);
+      const yank = Math.max(0, Math.sin(u * Math.PI * 3)) ;
+      ch.reach('R', new THREE.Vector3(-0.2, (ch.sitW > 0.5 ? 1.15 : 1.4) + yank * 0.14, 0.22 - yank * 0.06), { local: true, weight: w, speed: 30,
+        fingers: new THREE.Vector3(0, 1, 0.2), palm: new THREE.Vector3(1, 0, 0), hand: 'fist' });
+      ch._add('Chest', -0.1 * w, 0, 0);
+      ch._add('Head', -0.15 * w * yank, 0, 0);
+    },
+    end(ch) { ch.release('R'); ch.setHand('R', 'relaxed'); },
+  },
+  rage: {
+    // fists shaking at the sky, stomping
+    dur: 2.0, channel: 'arms',
+    update(ch, u) {
+      const w = env(u, 0.12, 0.2);
+      const sh = Math.sin(u * 60) * 0.025;
+      const y = ch.sitW > 0.5 ? 1.25 : 1.55;
+      ch.reach('R', new THREE.Vector3(-0.22 + sh, y + sh, 0.26), { local: true, weight: w, speed: 40, fingers: new THREE.Vector3(0, 1, 0.3), palm: new THREE.Vector3(1, 0, 0), hand: 'fist' });
+      ch.reach('L', new THREE.Vector3(0.22 - sh, y - sh, 0.26), { local: true, weight: w, speed: 40, fingers: new THREE.Vector3(0, 1, 0.3), palm: new THREE.Vector3(-1, 0, 0), hand: 'fist' });
+      ch._add('Chest', -0.12 * w, Math.sin(u * 30) * 0.05 * w, 0);
+      ch._add('Head', -0.2 * w, Math.sin(u * 26) * 0.1 * w, 0);
+      if (ch.sitW < 0.5) {
+        const st = Math.max(0, Math.sin(u * Math.PI * 6));
+        ch._add('ThighL', -0.5 * st * w, 0, 0); ch._add('ShinL', 0.7 * st * w, 0, 0);
+        if (Math.sin(u * Math.PI * 6) < -0.95 && !ch._stomped) { ch._stomped = true; audio.thud(0.9); ch.onStomp?.(ch); }
+        if (Math.sin(u * Math.PI * 6) > 0) ch._stomped = false;
+      }
+    },
+    end(ch) { ch.release('R'); ch.release('L'); ch.setHand('R', 'relaxed'); ch.setHand('L', 'relaxed'); },
+  },
+  pointAccuse: {
+    dur: 1.8, channel: 'armR',
+    update(ch, u, inst) {
+      const w = env(u, 0.12, 0.2);
+      const tgt = inst.opts.target ? (typeof inst.opts.target === 'function' ? inst.opts.target() : inst.opts.target) : ch.root.localToWorld(new THREE.Vector3(0, 1.5, 2));
+      const sh = ch.bones.UpperArmR.getWorldPosition(new THREE.Vector3());
+      const dir = tgt.clone().sub(sh).normalize();
+      const jab = Math.max(0, Math.sin(u * Math.PI * 5)) * 0.06;
+      const p = sh.clone().addScaledVector(dir, 0.5 + jab);
+      ch.reach('R', p, { weight: w, speed: 35, fingers: dir, palm: new THREE.Vector3(0, -1, 0), hand: 'point' });
+      ch._add('Chest', 0.06 * w, 0, 0);
+      ch._add('Head', 0.05 * w + jab, 0, 0);
+    },
+    end(ch) { ch.release('R'); ch.setHand('R', 'relaxed'); },
+  },
+  dance: {
+    dur: 2.4, channel: 'body',
+    update(ch, u) {
+      const w = env(u, 0.12, 0.2);
+      const b = u * Math.PI * 8;
+      ch._add('Hips', 0, Math.sin(b) * 0.25 * w, Math.sin(b) * 0.08 * w);
+      ch._add('Spine', 0, -Math.sin(b) * 0.15 * w, -Math.sin(b) * 0.06 * w);
+      ch._add('Head', -0.08 * w, Math.sin(b) * 0.15 * w, Math.sin(b + 1) * 0.1 * w);
+      ch._add('UpperArmL', -0.6 * w, 0, 0.5 * w + Math.sin(b) * 0.3 * w); ch._add('ForeArmL', -1.2 * w, 0, 0);
+      ch._add('UpperArmR', -0.6 * w, 0, -0.5 * w + Math.sin(b) * 0.3 * w); ch._add('ForeArmR', -1.2 * w, 0, 0);
+      const l = Math.max(0, Math.sin(b)), r = Math.max(0, -Math.sin(b));
+      ch._add('ThighL', -0.35 * l * w, 0, 0); ch._add('ShinL', 0.55 * l * w, 0, 0);
+      ch._add('ThighR', -0.35 * r * w, 0, 0); ch._add('ShinR', 0.55 * r * w, 0, 0);
+      ch.bounce = Math.abs(Math.sin(b)) * 0.04 * w;
+    },
+    end(ch) { ch.bounce = 0; },
+  },
+  sob: {
+    dur: 2.4, channel: 'arms',
+    start(ch) { audio.sigh((ch.voice.pitch / 150) * 1.2); },
+    update(ch, u) {
+      const w = env(u, 0.15, 0.2);
+      const hic = Math.max(0, Math.sin(u * 30)) * 0.04;
+      ch.touchHead('R', -0.35, -0.05, 1, new THREE.Vector3(0.3, 1, 0), { weight: w, hand: 'open', speed: 30 });
+      ch.touchHead('L', 0.35, -0.05, 1, new THREE.Vector3(-0.3, 1, 0), { weight: w, hand: 'open', speed: 30 });
+      ch._add('Chest', 0.15 * w - hic, 0, 0);
+      ch._add('Head', 0.3 * w, 0, 0);
+      ch._add('ShoulderL', 0, 0, hic * 2); ch._add('ShoulderR', 0, 0, -hic * 2);
+    },
+    end(ch) { ch.release('R'); ch.release('L'); ch.setHand('R', 'relaxed'); ch.setHand('L', 'relaxed'); },
   },
   checkHair: {
     dur: 2.6, channel: 'arms',

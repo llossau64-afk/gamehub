@@ -147,6 +147,7 @@ export class BarberMode {
     this.toolObjs = {};
     const g = this.game;
     g.ui.hideBarber();
+    g.ui.tip(null);
     g.player.arms.R.set({ visible: false, speed: 9 });
     this.resetChairFade();
     if (this.c) this.focusRegion(null);
@@ -519,6 +520,7 @@ export class BarberMode {
       if (s && cut.target[r] > 0.06 && s.mean < cut.target[r] - cut.tol * 1.7 && !this.warned) {
         this.warned = true;
         this.c.ch.gesture('flinch');
+        this.game.exclaim.show(this.c.ch, 2.2, 'sweat');
         this.c.say(pick(['Whoa, whoa! Careful up there!', 'Uh... is it supposed to be that short?', 'Easy! I need some of that!']), 'wince', 2.5);
         this.onEvent?.('tooShort', r);
         const g = this.game;
