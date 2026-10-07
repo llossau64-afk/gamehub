@@ -190,7 +190,7 @@ export async function playTutorial(game) {
   game.tutorialActive = false;
   game.save.tutorialDone = true;
   game.persist();
-  await ui.banner('Tutorial complete', 'Day 1', 'The shop is open', 2400);
+  await ui.banner('Tutorial complete', 'Day 1', 'Flip the door sign to open up', 2400);
   ui.objective('', '');
 }
 
