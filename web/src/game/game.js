@@ -111,6 +111,7 @@ export class Game {
   }
 
   bindUI() {
+    audio.onTrack = (T, style) => { if (style !== 'menu' && this.state !== 'menu') this.ui.nowPlaying?.(T); };
     this.ui.onDecline = (c) => this.declineCustomer(c);
     this.ui.upBtn.addEventListener('click', () => this.openUpgrades());
     this.ui.pauseBtn.addEventListener('click', () => this.pause());
@@ -278,9 +279,9 @@ export class Game {
       pos: () => SPOTS.broom.clone().setY(0.8), radius: 2.4, action: () => { this.sweep(); return 'broom'; },
     });
     I({
-      id: 'radio', label: () => (this.owns('radio') ? (this.radioOn ? 'Radio off' : 'Radio on') : null),
+      id: 'radio', label: () => (this.owns('radio') ? (this.radioOn ? 'Next song' : 'Radio on') : null),
       pos: () => this.shop.slots.radio.getWorldPosition(V()).add(V(0, 0.1, 0)), radius: 2.6,
-      action: () => { this.setRadio(!this.radioOn); return 'radio'; },
+      action: () => { if (this.radioOn) audio.nextTrack(); else this.setRadio(true); return 'radio'; },
     });
   }
 
@@ -359,6 +360,8 @@ export class Game {
     this.ui.showMenu({
       hasSave: store.hasProgress,
       saveInfo: store.hasProgress ? `Lv ${s.level} · ${formatMoney(s.money)}` : '',
+      stats: store.hasProgress ? { day: s.day, served: s.stats.served, stars: s.stats.fiveStars, money: s.money, level: s.level, rep: s.reputation } : null,
+      track: 'Hot Towel — Velvet Razor',
       onContinue: () => this.continueGame(),
       onNew: () => this.newGame(),
       onUpgrades: () => this.ui.upgradesPanel(this, { readOnly: true }),
@@ -488,7 +491,7 @@ export class Game {
     setTimeout(() => { if (!this.clock.open && this.state === 'play') this.ui.objective('Morning', 'Flip the door sign to OPEN'); }, 2600);
     platform.gameplayStart();
     this.updateGoal();
-    if (this.owns('radio')) this.setRadio(true);
+    this.setRadio(true);
     this.syncEmployee();
     this.rollEvent();
     setTimeout(() => { if (this.clock.open) this.showEvent(); }, 2500);
@@ -687,7 +690,7 @@ export class Game {
     } else {
       shop.applyState(new Set(this.save.owned));
     }
-    if (id === 'radio') this.setRadio(true);
+    if (id === 'radio' || id === 'sound') { audio.stopMusic(0.3); setTimeout(() => this.setRadio(true), 400); }
     if (id === 'hireBarber') {
       this.syncEmployee();
       this.checkAchievements();
@@ -955,9 +958,12 @@ export class Game {
     this._subT = setTimeout(() => this.ui.subtitle(null), dur * 1000);
   }
 
+  // shop music is always on (a little ceiling speaker); the radio and hi-fi make it fuller
   setRadio(on) {
     this.radioOn = on;
-    if (on) audio.startMusic('radio'); else audio.stopMusic();
+    if (!audio.ctx) return;
+    audio.music?.setQuality(this.owns('sound') ? 2 : this.owns('radio') ? 1 : 0);
+    if (on) { if (audio._musicStyle !== 'shop') audio.startMusic('shop'); } else audio.stopMusic();
   }
 
   sweep() {

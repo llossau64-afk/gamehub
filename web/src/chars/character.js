@@ -75,6 +75,8 @@ export class Character {
     this.root.add(body.mesh);
     const sc = look.scale || 1;
     this.mesh.scale.set(sc * (look.width || 1), sc, sc * (look.width || 1));
+    // head proportions: a touch wider, longer or rounder per person (hair follows the bone)
+    if (look.head) this.bones.Head.scale.set(look.head[0], look.head[1], look.head[2]);
     scene.add(this.root);
     for (const b of Object.values(this.bones)) b.rotation.order = 'YXZ';
     // rig measurements

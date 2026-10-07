@@ -1,3 +1,4 @@
+import { Music, TRACKS } from './music.js';
 // All sound is synthesised with WebAudio at runtime: no audio downloads, every
 // sound tuned to the same warm, slightly lo-fi palette.
 import { rand, pick, clamp } from '../core/util.js';
@@ -588,7 +589,27 @@ class AudioEngine {
   }
 
   // ------------------------------------------------------------------ music
+  // the soundtrack: 'menu' plays the slow jam, 'shop' the playlist through the shop speakers
   startMusic(style = 'menu') {
+    if (!this.ctx) return;
+    this.music ||= new Music(this);
+    if (this._musicStyle === style && this.music.track) return;
+    this._musicStyle = style;
+    this.music.onTrack = (T) => this.onTrack?.(T, this._musicStyle);
+    const T = style === 'menu' ? this.music.play(2, { quality: 2, volume: 0.55 }) : this.music.play(this.music.idx, { volume: 0.5 });
+    if (T) this.onTrack?.(T, style);
+    return T;
+  }
+
+  nextTrack() {
+    if (!this.music) return null;
+    const T = this.music.play(this.music.idx + 1, { volume: 0.5 });
+    this._musicStyle = 'shop';
+    if (T) this.onTrack?.(T, 'shop');
+    return T;
+  }
+
+  oldMusic(style = 'menu') {
     if (!this.ctx) return;
     if (this._music && this._music.style === style) return;
     this.stopMusic();
@@ -678,6 +699,8 @@ class AudioEngine {
   }
 
   stopMusic(fade = 0.8) {
+    this._musicStyle = null;
+    this.music?.stop(fade);
     if (!this._music) return;
     const m = this._music;
     this._music = null;
@@ -687,6 +710,7 @@ class AudioEngine {
 
   duckMusic(v) {
     if (this._music) this._music.out.gain.setTargetAtTime(v, this.ctx.currentTime, 0.3);
+    if (this.music?.track) this.music.track.out.gain.setTargetAtTime(v * 0.9, this.ctx.currentTime, 0.3);
   }
 }
 

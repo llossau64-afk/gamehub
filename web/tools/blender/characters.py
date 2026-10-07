@@ -312,6 +312,47 @@ def build_person():
              caps=(False, False))
         box('M_Sole' + nm, (0.114, 0.29, 0.024), (x, -0.07, 0.012), 'Sole', parent=ft, bevel=0.01,
             taper=(1.0, 1.0))
+    # gold chain over the top
+    chain = [(0.0, -0.118, 1.33)]
+    for k in range(1, 9):
+        t = k / 8.0
+        ang = math.pi * t
+        chain.append((-math.cos(ang) * 0.072, -0.118 + math.sin(ang) * 0.02 - 0.0 * t, 1.33 + math.sin(ang) * 0.13))
+    pts = [(math.cos(math.pi * k / 10) * 0.075, -0.09 - 0.03 * math.sin(math.pi * k / 10), 1.47 - 0.15 * math.sin(math.pi * k / 10)) for k in range(11)]
+    sweep('M_Chain__acc_chain', pts, 0.0045, 'Metal', seg=6, parent=j['Chest'])
+    sphere('M_Pendant__acc_chain', 0.014, (0, -0.128, 1.315), 'Metal', scale=(1, 0.5, 1.2), seg=10, rings=6, parent=j['Chest'])
+    # headphones resting around the neck
+    hp = [(math.cos(math.pi * k / 12) * 0.075, -0.02 - 0.05 * math.sin(math.pi * k / 12), 1.5) for k in range(13)]
+    sweep('M_PhoneBand__acc_headphones', hp, (0.006, 0.012), 'TopDark', seg=6, parent=j['Neck'])
+    for side in (-1, 1):
+        cyl('M_PhoneCup%d__acc_headphones' % side, 0.032, 0.026, (side * 0.074, -0.03, 1.48), 'TopDark', axis='X', seg=16,
+            parent=j['Neck'], bevel=0.006)
+        cyl('M_PhonePad%d__acc_headphones' % side, 0.026, 0.008, (side * 0.06, -0.03, 1.48), 'Metal', axis='X', seg=14,
+            parent=j['Neck'], bevel=0.002)
+    # bomber collar (knit rib) and a zip line
+    torus('M_Bomber__acc_bomber', 0.064, 0.016, (0, 0.006, 1.48), 'TopDark', seg=22, tseg=6, parent=j['Chest'],
+          scale=(1.0, 0.95))
+    box('M_Zip__acc_bomber', (0.006, 0.006, 0.36), (0, -0.117, 1.27), 'Metal', parent=j['Chest'], bevel=0.001)
+    loft('M_BomberHem__acc_bomber', [(0.93, 0.168, 0.114, 0, -0.004), (0.98, 0.17, 0.115)], 'TopDark', seg=18,
+         parent=j['Hips'], caps=(False, False), power=2.3)
+    # knitted scarf
+    sc = [(math.cos(math.pi * 2 * k / 16) * 0.06, math.sin(math.pi * 2 * k / 16) * 0.058 + 0.004, 1.5) for k in range(17)]
+    sweep('M_Scarf__acc_scarf', sc, 0.022, 'Tie', seg=8, parent=j['Neck'])
+    sweep('M_ScarfEnd__acc_scarf', [(0.03, -0.06, 1.49), (0.04, -0.105, 1.40), (0.042, -0.118, 1.28)], (0.008, 0.03),
+          'Tie', seg=6, parent=j['Chest'])
+    # puffer vest panels
+    loft('M_Vest__acc_vest', [(1.10, 0.172, 0.118, 0, -0.006), (1.20, 0.182, 0.124, 0, -0.008), (1.30, 0.192, 0.128, 0, -0.01),
+                              (1.40, 0.196, 0.118, 0, -0.004), (1.45, 0.17, 0.1, 0, 0.0)], 'TopDark', seg=18,
+         parent=j['Chest'], caps=(False, False), power=2.6)
+    for i, z in enumerate((1.14, 1.22, 1.30, 1.38)):
+        torus('M_VestRib%d__acc_vest' % i, 0.18 if z < 1.4 else 0.19, 0.006, (0, -0.004, z), 'TopDark', seg=24, tseg=4,
+              parent=j['Chest'], scale=(1.0, 0.68))
+    # wristwatch (left) and earrings
+    torus('M_Watch__acc_watch', 0.03, 0.006, (0.196, 0.0, 0.94), 'Belt', seg=16, tseg=5, parent=j['ForeArmL'],
+          scale=(1.0, 1.0))
+    cyl('M_WatchFace__acc_watch', 0.014, 0.006, (0.222, 0.0, 0.94), 'Metal', axis='X', seg=14, parent=j['ForeArmL'], bevel=0.002)
+    for side in (-1, 1):
+        sphere('M_Earring%d__acc_earring' % side, 0.0045, (side * 0.088, -0.006, hz + 0.074), 'Metal', seg=8, rings=5, parent=H)
     return root
 
 

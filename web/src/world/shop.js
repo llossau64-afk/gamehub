@@ -368,13 +368,26 @@ export class Shop {
       const t = T.facadeTexture(seed, tint);
       t.repeat.set(1, 1);
       const m = new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 });
-      const box = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, h, 6), [m, m, m, m, m, m]);
+      // a single material (multi-material boxes vanish in the static batching)
+      const box = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, h, 6), m);
       box.position.set((x0 + x1) / 2, h / 2, fz - 3 + 0.02);
       g.add(box);
-      // shopfront at street level
-      const sf = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0 - 0.6, 2.4), new THREE.MeshStandardMaterial({ color: '#2b3438', roughness: 0.2, metalness: 0.2 }));
-      sf.position.set((x0 + x1) / 2, 1.5, fz + 0.03);
+      // shopfront at street level: framed window with a warm glow, a sign and an awning
+      const w = x1 - x0, cx = (x0 + x1) / 2;
+      const sf = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.9, 2.0), this.nightWindowMat ||= new THREE.MeshStandardMaterial({ color: '#2c3540', roughness: 0.15, metalness: 0.4, emissive: new THREE.Color('#ffb46a'), emissiveIntensity: 0.05 }));
+      sf.position.set(cx, 1.45, fz + 0.03);
       g.add(sf);
+      const frame = propMaterial('PaintedWood');
+      for (const [sx, sy, x, y] of [[w - 0.7, 0.1, cx, 2.5], [w - 0.7, 0.1, cx, 0.42], [0.1, 2.1, cx - (w - 0.8) / 2, 1.45], [0.1, 2.1, cx + (w - 0.8) / 2, 1.45]]) {
+        const b = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, 0.08), frame); b.position.set(x, y, fz + 0.05); g.add(b);
+      }
+      const signCol = ['#24344d', '#2f4a3a', '#7a2a26', '#3a2a1e'][seed % 4];
+      const sign = new THREE.Mesh(new THREE.BoxGeometry(Math.min(3.2, w - 1.2), 0.42, 0.08), new THREE.MeshStandardMaterial({ color: signCol, roughness: 0.6 }));
+      sign.position.set(cx, 2.95, fz + 0.06);
+      g.add(sign);
+      const aw = new THREE.Mesh(new THREE.BoxGeometry(w - 0.8, 0.05, 0.9), new THREE.MeshStandardMaterial({ color: ['#b8302b', '#3e6b4a', '#c9922e', '#24344d'][seed % 4], roughness: 0.8 }));
+      aw.position.set(cx, 2.68, fz + 0.45); aw.rotation.x = 0.3;
+      g.add(aw);
     };
     nb(X0 - 6, X0, [140, 132, 116], 21, 7.5);
     nb(X1, X1 + 5.5, [96, 104, 98], 33, 5.8);

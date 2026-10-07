@@ -65,13 +65,29 @@ export class UI {
   // ------------------------------------------------------------------ menu
   showMenu(opts) {
     this.hideMenu();
+    const st = opts.stats;
+    const ticker = ['Fresh fades', 'Hot towel shaves', 'Beard sculpting', 'Colour bar', 'Walk-ins welcome', 'Since today', 'No appointment needed', 'VIPs get the good chair'];
     const el = h(`<div class="menu">
       <div class="shade"></div>
+      <div class="vign"></div>
       <div class="col">
-        <div class="logo"><div class="top">Est. today</div><div class="name">Barber<br><em>Empire</em></div><div class="sub">From a broken chair to the best shop in town</div></div>
+        <div class="logo">
+          <div class="pole"><i></i></div>
+          <div class="top">Est. today · Barbershop</div>
+          <div class="name"><span class="w1">Barber</span><br><em class="w2">Empire</em></div>
+          <div class="sub">From a broken chair to the best shop in town</div>
+        </div>
         <div class="btns"></div>
       </div>
-      <div class="foot">v0.1 · made with Blender & three.js</div>
+      ${st ? `<div class="menu-card">
+        <div class="mc-k">Your shop</div>
+        <div class="mc-row"><div><b>Day ${st.day}</b><span>open</span></div><div><b>Lv ${st.level}</b><span>shop level</span></div></div>
+        <div class="mc-row"><div><b>${st.served}</b><span>served</span></div><div><b>${st.stars}</b><span>five stars</span></div></div>
+        <div class="mc-rep"><span>Reputation</span><div class="bar"><i style="width:${st.rep}%"></i></div></div>
+      </div>` : ''}
+      <div class="menu-np"><div class="np-disc"></div><span>${opts.track || ''}</span></div>
+      <div class="ticker"><div class="tk-in">${[...ticker, ...ticker].map((t) => `<span>${t}</span><i>✂</i>`).join('')}</div></div>
+      <div class="foot">v0.2 · made with Blender & three.js</div>
     </div>`);
     const btns = el.querySelector('.btns');
     const add = (label, cb, cls = '', small = '') => {
@@ -676,6 +692,14 @@ export class UI {
       '<div><span class="key">LMB</span>cut</div><div><span class="key">RMB</span> / <span class="key">R</span>rotate view</div><div><span class="key">C</span>close-up</div>';
   }
 
+  // film-style title over the cold open
+  titleCard(title, sub) {
+    const el = h(`<div class="title-card"><div class="tc-line"></div><div class="tc-t">${title.split('').map((c, i) => `<span style="animation-delay:${0.2 + i * 0.06}s">${c === ' ' ? '&nbsp;' : c}</span>`).join('')}</div><div class="tc-s">${sub}</div><div class="tc-line"></div></div>`);
+    this.root.append(el);
+    setTimeout(() => el.classList.add('out'), 3600);
+    setTimeout(() => el.remove(), 4400);
+  }
+
   revealCaption(name, effect) {
     const el = h(`<div class="reveal-cap"><div class="k">New in the shop</div><div class="t">${name}</div><div class="s">${effect}</div></div>`);
     this.root.append(el);
@@ -856,6 +880,15 @@ export class UI {
     const el = h('<div class="cam-flash"></div>');
     this.root.append(el);
     setTimeout(() => el.remove(), 500);
+  }
+
+  nowPlaying(T) {
+    this.npEl?.remove();
+    const el = h(`<div class="now-playing"><div class="np-disc"></div><div><div class="np-k">Now playing</div><b>${T.title}</b><span>${T.artist}</span></div></div>`);
+    this.root.append(el);
+    this.npEl = el;
+    setTimeout(() => el.classList.add('out'), 4200);
+    setTimeout(() => el.remove(), 4800);
   }
 
   toast(text, badge = '') {

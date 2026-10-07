@@ -10,9 +10,9 @@ const BASE = {
 export const SKIN = ['#f1c9a8', '#e3b08c', '#d29b77', '#b77f5c', '#8f5c3e', '#6b4330', '#efc3a0'];
 const HAIR = ['#1f1611', '#2e2018', '#4a3020', '#6b4a2e', '#8c6a42', '#b58c5a', '#2a2a2a', '#5e2c18', '#141414'];
 const IRIS = ['#4a6a7a', '#5c4632', '#3b2a1e', '#5f7a52', '#6a8aa0', '#3e3226'];
-const TOPS = ['#7a2a26', '#2f4a3a', '#24344d', '#c9b48a', '#5a5f66', '#8a5a3a', '#3d3d42', '#a8843f', '#6c7a8a', '#d8cdb8', '#46303a'];
+const TOPS = ['#7a2a26', '#2f4a3a', '#24344d', '#5a5f66', '#3d3d42', '#a8843f', '#6c7a8a', '#d8cdb8', '#46303a', '#e0a33c', '#3b6e8f', '#e8e2d6', '#9b3d5a', '#5d7a3a'];
 const PANTS = ['#2b2f38', '#3a332c', '#4a4f57', '#6a5a44', '#1f2228', '#5a4a3a', '#34404f'];
-const SHOES = ['#2a1a12', '#1b1b1d', '#e8e2d6', '#6a4a2e', '#3a3f4a', '#8a2a20'];
+const SHOES = ['#2a1a12', '#1b1b1d', '#e8e2d6', '#e8e2d6', '#6a4a2e', '#3a3f4a', '#8a2a20', '#f0f0f0', '#c9922e'];
 
 export const OWNER_LOOK = {
   name: 'Owner',
@@ -66,20 +66,31 @@ export function randomPersonality(level) {
 export function randomCustomerLook() {
   const skin = pick(SKIN);
   const top = pick(TOPS);
-  const style = pick(['tee', 'tee', 'hoodie', 'jacket']);
+  const style = pick(['tee', 'tee', 'tee', 'hoodie', 'hoodie', 'jacket', 'bomber', 'vest']);
   const accs = [];
   if (style === 'tee') accs.push('tee');
   if (style === 'hoodie') accs.push('hoodie');
   if (style === 'jacket') accs.push('jacket');
+  if (style === 'bomber') accs.push('bomber');
+  if (style === 'vest') accs.push('vest', 'tee');
   if (chance(0.2)) accs.push('glasses');
   if (chance(0.12)) accs.push('belly');
+  // the little things that make a person
+  if (style !== 'jacket' && chance(0.2)) accs.push('chain');
+  if (chance(0.12) && style !== 'jacket') accs.push('headphones');
+  else if (chance(0.1) && style !== 'hoodie') accs.push('scarf');
+  if (chance(0.35)) accs.push('watch');
+  if (chance(0.18)) accs.push('earring');
   const hairColor = pick(HAIR);
   const sleeve = style === 'tee' ? skin : top;
   return {
     colors: { ...BASE, Skin: skin, Top: top, Sleeve: sleeve, Pants: pick(PANTS), Shoes: pick(SHOES), Hair: hairColor, Iris: pick(IRIS),
-      Lapel: top, Shirt: pick(['#e9e1cf', '#d8dde3', '#ece3c8']), Tie: pick(['#7a2a26', '#24344d', '#2f4a3a']) },
+      Lapel: top, Shirt: pick(['#e9e1cf', '#d8dde3', '#ece3c8']), Tie: pick(['#7a2a26', '#24344d', '#2f4a3a', '#c9922e', '#5c3a8f']),
+      TopDark: style === 'bomber' || style === 'vest' ? pick(['#1f2a36', '#2f4a3a', '#5a3b1c', '#141414', '#7a2a26', '#c9922e']) : pick(['#2d2a28', '#1f2a36']),
+      Metal: pick(['#d1a956', '#d1a956', '#c4c6c6']), Belt: pick(['#2a1d15', '#141414', '#5a3b1c']) },
     accessories: accs,
     scale: rand(0.94, 1.05),
+    head: [rand(0.95, 1.06), rand(0.96, 1.05), rand(0.96, 1.04)],
     width: rand(0.96, 1.08),
     hunch: rand(0, 0.25),
     voice: { pitch: rand(120, 175), rate: rand(0.95, 1.12), wobble: rand(0.06, 0.12), vol: 0.085 },

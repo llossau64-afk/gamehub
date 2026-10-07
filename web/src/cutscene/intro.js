@@ -54,12 +54,19 @@ export async function playIntro(game) {
   ui.showHud(false);
   game.ambience?.setOutside(1);
   dir.cam.handheld = 0.8;
-  dir.takeCamera(V(-0.2, 1.7, 11.5), V(0.2, 2.9, 2.7));
+  // cold open: a high crane shot down the street, title card, the music from a radio inside
+  dir.takeCamera(V(-6.5, 6.2, 13), V(0.2, 2.2, 2.7));
   ui.fade(false, 1800);
-  dir.move(V(1.0, 1.66, 6.6), V(0.4, 2.7, 2.7), 4.2);
-  await wait(2.4);
+  game.clock.hour = 7.6; game.clock.applyLight();
+  audio.startMusic('menu');
+  audio.duckMusic(0.32);
+  dir.move(V(-0.2, 1.7, 11.5), V(0.2, 2.9, 2.7), 4.5);
+  ui.titleCard?.('Barber Empire', 'Chapter one — The keys');
+  await wait(4.2);
+  dir.move(V(1.0, 1.66, 6.6), V(0.4, 2.7, 2.7), 3.6);
+  await wait(2.2);
   // sign: one letter keeps dying
-  await wait(1.5);
+  await wait(1.2);
   // walk to the door
   game.walkSteps(2.1);
   await dir.move(V(1.9, 1.64, 3.55), V(1.9, 1.45, 2.6), 2.1);
