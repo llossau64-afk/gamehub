@@ -1,0 +1,26 @@
+export default async ({ step, snap, ev, until }) => {
+  await step(1);
+  await snap('menu');
+  await ev(() => { const g = window.__game; Object.assign(g.save, { started: true, introSeen: true, tutorialDone: true, money: 60, level: 2, owned: ['bulb'] }); g.persist(); });
+  await ev(() => window.__game.continueGame());
+  await until(() => window.__game.state === 'play');
+  await step(2);
+  await snap('play');
+  await until(() => window.__game.customers.list[0]?.state === 'waitingTalk', 40);
+  await ev(() => { const g = window.__game; g.player.lookTowards(g.customers.list[0].headPos(), 1, 60); g.player.applyCamera(0); });
+  await step(0.3);
+  await snap('talk_button');
+  await ev(() => window.__game.input.press('interact'));
+  await until(() => window.__game.customers.inChair?.state === 'seated', 25);
+  await ev(() => { const g = window.__game; g.player.place({ x: -0.5, z: 0.4 }, 0, -0.2); g.player.lookTowards(new g.camera.position.constructor(-0.9, 1.0, -1.45), 1, 60); g.player.applyCamera(0); });
+  await step(0.3);
+  await ev(() => window.__game.input.press('interact'));
+  await until(() => window.__game.state === 'barber', 10);
+  await step(2);
+  await ev(() => window.__game.barber.selectTool('clipper'));
+  await step(1);
+  await snap('barber');
+  await ev(() => window.__game.openUpgrades(true));
+  await step(0.5);
+  await snap('upgrades');
+};

@@ -614,7 +614,7 @@ export class Shop {
       let frame = 0;
       surface.onBeforeRender = function (r, sc, cam) { if ((frame++ & 1) === 1) return; orig.call(this, r, sc, cam); };
     } else {
-      surface = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ color: '#9aa3a6', metalness: 1, roughness: 0.08 }));
+      surface = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ color: '#4c5456', metalness: 0.9, roughness: 0.18, envMapIntensity: 0.5 }));
     }
     holder.add(surface);
     if (old) {

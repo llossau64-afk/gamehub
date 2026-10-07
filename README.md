@@ -1,5 +1,7 @@
 # Barbershop Simulator
 
+> **New: [`web/`](web/README.md) holds _Barber Empire_, a browser-native HTML5/WebGL version (three.js + Blender-made assets) that runs directly on portals like GamePix without Unity. Start there for the playable game: `cd web && npm install && npm run dev`.**
+
 First-person barbershop simulator for Unity WebGL (CrazyGames, GamePix, Playgama), playable on desktop and mobile browsers.
 
 **Current state: Phase 3: workday loop, shop computer with upgrades and shop levels, on top of the Phase 2 customer loop and haircut gameplay.**
