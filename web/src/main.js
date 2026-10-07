@@ -37,7 +37,12 @@ async function boot() {
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const progress = { props: 0, characters: 0 };
-  const load = (key) => new Promise((res, rej) => loader.load(ASSETS[key], res, (e) => {
+  // single-file builds (claude.ai artifact) embed the models as base64
+  const embedded = window.__EMBED_ASSETS;
+  const load = (key) => embedded?.[key] ? new Promise((res, rej) => {
+    const bin = Uint8Array.from(atob(embedded[key]), (c) => c.charCodeAt(0));
+    loader.parse(bin.buffer, '', res, rej);
+  }) : new Promise((res, rej) => loader.load(ASSETS[key], res, (e) => {
     if (e.total) { progress[key] = e.loaded / e.total; ui.setLoading(0.15 + 0.6 * (progress.props + progress.characters) / 2); }
   }, rej));
   const [props, chars] = await Promise.all([load('props'), load('characters')]);
