@@ -3,13 +3,26 @@
 import * as THREE from 'three';
 import { Character } from '../chars/character.js';
 import { HairSystem } from '../hair/hair.js';
-import { STATION2, SPOTS } from '../world/shop.js';
+import { STATION2, STATION3, SPOTS } from '../world/shop.js';
 import { spawnProp } from '../world/props.js';
 import { evaluate, payment, fadeTarget } from '../hair/styles.js';
 import { audio } from '../audio/audio.js';
 import { pick, rand, chance, damp, clamp, formatMoney } from '../core/util.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+const LUCA = {
+  name: 'Luca',
+  colors: {
+    Skin: '#e2b591', Top: '#1f2a36', Sleeve: '#1f2a36', Pants: '#3a3430', Shoes: '#111111', Hair: '#c9a26a', Iris: '#4a6a8a',
+    EyeWhite: '#efe8dc', Pupil: '#0d0b0a', Mouth: '#5a2622', Teeth: '#ece6da', Frame: '#1d1b1a', Sole: '#1e1916', Belt: '#2a1d15',
+    Metal: '#b9a06a', Button: '#2a2420', MouthDark: '#2a0d0b', Apron: '#6a3b22', Shirt: '#1f2a36', Tie: '#7a2a26', Lapel: '#1f2a36', TopDark: '#151d26',
+  },
+  accessories: ['tee', 'apron'],
+  scale: 0.98, hunch: 0.0, hairColor: '#c9a26a', hairStyle: { top: 0.45, front: 0.5, left: 0.08, right: 0.08, back: 0.1, fuzz: 0, fade: 0.4 },
+  voice: { pitch: 150, rate: 1.12, wobble: 0.1, vol: 0.085 },
+  lines: { call: (n) => [`${n}! You’re with me.`, 'Free chair over here!', 'I’ve got you, come on back.'] },
+};
 
 const MARCO = {
   name: 'Marco',
@@ -24,15 +37,21 @@ const MARCO = {
 };
 
 export class Employee {
-  constructor(game) {
+  constructor(game, which = 'marco') {
     this.game = game;
-    const ch = this.ch = new Character(game.scene, MARCO);
-    const hair = new HairSystem({ color: '#1f1611', skin: MARCO.colors.Skin, layers: Math.max(8, game.quality.hairLayers - 6) });
+    const L = which === 'luca' ? LUCA : MARCO;
+    this.look = L;
+    this.name = L.name;
+    // which station this barber works at
+    this.st = which === 'luca' ? STATION3 : STATION2;
+    this.pivotFn = which === 'luca' ? () => game.shop.chair3Pivot() : () => game.shop.chair2Pivot();
+        const ch = this.ch = new Character(game.scene, L);
+    const hair = new HairSystem({ color: L.hairColor || '#1f1611', skin: L.colors.Skin, layers: Math.max(8, game.quality.hairLayers - 6) });
     hair.attach(ch.bones.Head);
-    hair.setStyle({ top: 0.32, front: 0.3, left: 0.05, right: 0.05, back: 0.06, fuzz: 0, fade: 0.5 }, 0.7);
+    hair.setStyle(L.hairStyle || { top: 0.32, front: 0.3, left: 0.05, right: 0.05, back: 0.06, fuzz: 0, fade: 0.5 }, 0.7);
     ch.hair = hair;
     ch.onFootstep = (c) => game.footstepAt(c.root.position);
-    ch.place(STATION2.stand, -0.6);
+    ch.place(this.st.stand, -0.6);
     this.state = 'idle';
     this.customer = null;
     this.chairAngle = 0;
@@ -55,14 +74,14 @@ export class Employee {
     this.ch.update(dt);
     // chair 2 turns, the seated customer turns with it
     this.chairAngle = damp(this.chairAngle, this.chairTarget, 3, dt);
-    const pivot = g.shop.chair2Pivot();
+    const pivot = this.pivotFn();
     pivot.rotation.y = this.chairAngle;
     const c = this.customer;
-    if (c && c.seatedInChair2 && c.ch.sitW > 0.98) {
+    if (c && c.seatedAt === this.st && c.seatedInChair2 && c.ch.sitW > 0.98) {
       c.ch.yaw = Math.PI + this.chairAngle;
       c.ch.faceYaw = null;
       const f = V(Math.sin(c.ch.yaw), 0, Math.cos(c.ch.yaw));
-      c.ch.root.position.set(STATION2.chair.x - f.x * 0.05, c.ch.root.position.y, STATION2.chair.z - f.z * 0.05);
+      c.ch.root.position.set(this.st.chair.x - f.x * 0.05, c.ch.root.position.y, this.st.chair.z - f.z * 0.05);
       c.ch.root.rotation.y = c.ch.yaw;
     }
     if (this.state === 'idle') {
@@ -97,17 +116,17 @@ export class Employee {
     ch.lookAt(() => c.headPos(), 1);
     const callLine = pick([`${c.name}? Over here!`, 'Next, please!', 'I can take you, come on over.']);
     const d = ch.say(callLine);
-    g.showLine('Marco', callLine, d + 1);
+    g.showLine(this.name, callLine, d + 1);
     ch.gesture('wave', { dur: 1.2 });
     c.state = 'toEmployee';
     if (c.ch.sitW > 0) { await c.ch.standUp(); c.seat = null; }
     this.chairTarget = Math.PI;
     c.ch.lookAt(null);
-    await c.ch.walkTo([STATION2.chairFront], 'walk');
-    await c.ch.faceTo(V(STATION2.chair.x, 0, 3));
-    await c.ch.sitOn({ pos: STATION2.chair.clone().add(V(0, 0, -0.05)), rot: 0, height: g.shop.seatHeight() - 0.03 });
+    await c.ch.walkTo([this.st.chairFront], 'walk');
+    await c.ch.faceTo(V(this.st.chair.x, 0, 3));
+    await c.ch.sitOn({ pos: this.st.chair.clone().add(V(0, 0, -0.05)), rot: 0, height: g.shop.seatHeight() - 0.03 });
     audio.chairThump();
-    c.seatedInChair2 = true;
+    c.seatedInChair2 = true; c.seatedAt = this.st;
     // cape on, chair to the mirror
     const cape = spawnProp('Cape');
     c.ch.bones.Chest.add(cape);
@@ -116,7 +135,7 @@ export class Employee {
     audio.capeSnap();
     await wait(0.6);
     this.chairTarget = 0;
-    await ch.walkTo([V(STATION2.chair.x + 0.45, 0, STATION2.chair.z + 0.35)], 'walk');
+    await ch.walkTo([V(this.st.chair.x + 0.45, 0, this.st.chair.z + 0.35)], 'walk');
     ch.faceTo(c.headPos());
     // start cutting
     c.state = 'employeeCut';
@@ -143,7 +162,7 @@ export class Employee {
     if (this.walkT <= 0) {
       this.walkT = rand(3, 5);
       const a = rand(-1.2, 1.4);
-      ch.walkTo([V(STATION2.chair.x + Math.sin(a) * 0.5, 0, STATION2.chair.z + Math.cos(a) * 0.5)], 'stroll').then(() => ch.faceTo(c.headPos()));
+      ch.walkTo([V(this.st.chair.x + Math.sin(a) * 0.5, 0, this.st.chair.z + Math.cos(a) * 0.5)], 'stroll').then(() => ch.faceTo(c.headPos()));
       if (chance(0.25)) { const d = ch.say(pick(['Hold still for me.', 'Looking good so far.', 'So, any plans this weekend?', 'Little more off the sides...'])); }
     }
     const head = c.headPos();
@@ -151,7 +170,7 @@ export class Employee {
     ch.reach('R', head.clone().add(V(Math.sin(t * 2.3) * 0.07, 0.02 + Math.sin(t * 3.1) * 0.03, Math.cos(t * 1.7) * 0.07)), { speed: 6, hand: 'grip' });
     ch.reach('L', head.clone().add(V(0, 0.12, 0)), { speed: 4, hand: 'open', weight: 0.6 });
     ch.lookAt(head, 1);
-    c.ch.lookAt(V(STATION2.chair.x, 1.2, SPOTS.mirror.z), 0.6);
+    c.ch.lookAt(V(this.st.chair.x, 1.2, SPOTS.mirror.z), 0.6);
     // a few clippings
     if (Math.random() < dt * 6) g.clippings.spawn(ch.handWorld('R', new THREE.Vector3()), V(0, -1, 0), 2, c.look.hairColor, 0.2);
     // motor volume by distance
@@ -171,7 +190,7 @@ export class Employee {
     result.stars = result.overall >= 0.88 ? 5 : result.overall >= 0.76 ? 4 : result.overall >= 0.6 ? 3 : result.overall >= 0.42 ? 2 : 1;
     if (!g.owns('trainBarber')) result.stars = Math.min(result.stars, 4);   // untrained: never perfect
     // quick look in the mirror
-    c.ch.lookAt(V(STATION2.chair.x, 1.25, SPOTS.mirror.z), 1);
+    c.ch.lookAt(V(this.st.chair.x, 1.25, SPOTS.mirror.z), 1);
     await g.dir.wait(1.2).catch(() => {});
     c.ch.gesture('touchHair');
     c.ch.setEmotion(result.stars >= 4 ? 'happy' : result.stars === 3 ? 'neutral' : 'disappointed', 2.5);
@@ -184,19 +203,19 @@ export class Employee {
     c.cape?.parent?.remove(c.cape); c.cape = null;
     audio.capeSnap();
     await c.ch.standUp();
-    c.seatedInChair2 = false;
+    c.seatedInChair2 = false; c.seatedAt = null;
     g.addMoney(total);
     g.addXP(Math.round(pay.xp * 0.4));
     audio.register();
-    g.ui.toast(`Marco: ${c.name} · ${'★'.repeat(result.stars)} · +${formatMoney(total)}`, 'Staff');
+    g.ui.toast(`${this.name}: ${c.name} · ${'★'.repeat(result.stars)} · +${formatMoney(total)}`, 'Staff');
     g.save.stats.served++;
     g.persist();
     g.updateGoal();
-    c.say(result.stars >= 4 ? pick(['Thanks, Marco!', 'Nice work, man.']) : pick(['Hm. Okay.', 'Thanks... I guess.']), result.stars >= 4 ? 'happy' : 'neutral');
+    c.say(result.stars >= 4 ? pick([`Thanks, ${this.name}!`, 'Nice work, man.']) : pick(['Hm. Okay.', 'Thanks... I guess.']), result.stars >= 4 ? 'happy' : 'neutral');
     g.customers.walkOut(c, 'walk');
     this.customer = null;
     this.chairTarget = 0;
-    await ch.walkTo([STATION2.stand], 'walk');
+    await ch.walkTo([this.st.stand], 'walk');
     ch.faceTo(V(0, 0, 1));
     this.state = 'idle';
     this.checkT = 3;
@@ -211,6 +230,6 @@ export class Employee {
     this.state = 'idle';
     this.chairTarget = 0;
     this.ch.stop();
-    this.ch.place(STATION2.stand, -0.6);
+    this.ch.place(this.st.stand, -0.6);
   }
 }

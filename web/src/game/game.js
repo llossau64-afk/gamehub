@@ -298,7 +298,7 @@ export class Game {
     this.dir.cancel(); this.dir.reset();
     this.barber.active && this.barber.exit();
     this.customers.enabled = false;
-    if (this.employee) this.employee.reset();
+    for (const e of this.staff) e.reset();
     this.customers.clear();
     if (this.owner) { this.owner.dispose(); this.owner = null; }
     this.syncEmployee();
@@ -384,6 +384,8 @@ export class Game {
   }
 
   async continueGame() {
+    this.fx = effects(this.save.owned);
+    this.shop.applyState(new Set(this.save.owned));
     audio.unlock();
     this.ui.hideMenu();
     audio.stopMusic(1.0);
@@ -641,6 +643,15 @@ export class Game {
       this.showLine('Marco', 'Hey boss! Marco. I’ll take the next one in line.', d + 1);
       m.gesture('wave');
     }
+    if (id === 'hireBarber2') {
+      this.syncEmployee();
+      const m = this.employee2.ch;
+      m.lookAt(this.camera, 1);
+      const line = 'Luca, at your service. Nice back room, boss!';
+      const d = m.say(line);
+      this.showLine('Luca', line, d + 1);
+      m.gesture('wave');
+    }
     if (id === 'clean') this.clippings.sweep();
     this.checkAchievements();
     this.ui.toast(byId[id].name, 'New');
@@ -758,9 +769,13 @@ export class Game {
     return av[av.length - 1];
   }
 
+  get staff() { return [this.employee, this.employee2].filter(Boolean); }
+
   syncEmployee() {
     if (this.owns('hireBarber') && !this.employee) this.employee = new Employee(this);
     if (!this.owns('hireBarber') && this.employee) { this.employee.dispose(); this.employee = null; }
+    if (this.owns('hireBarber2') && !this.employee2) this.employee2 = new Employee(this, 'luca');
+    if (!this.owns('hireBarber2') && this.employee2) { this.employee2.dispose(); this.employee2 = null; }
   }
 
   rollEvent() {
@@ -1144,7 +1159,7 @@ export class Game {
     if (this.owner) this.owner.update(dt);
     this.customers.update(dt);
     this.street.update(dt);
-    if (this.employee) this.employee.update(dt);
+    for (const e of this.staff) e.update(dt);
     this.updateItems(dt);
     this.clippings.update(dt);
     this.mist.update(dt);

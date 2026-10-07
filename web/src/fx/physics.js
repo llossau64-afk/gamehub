@@ -53,7 +53,7 @@ export class Physics {
     const walkers = [];
     if (g.player && !g.dir.cam.active && g.state === 'play') walkers.push({ p: g.player.pos, v: g.player.vel || null, r: 0.22 });
     for (const c of g.customers.list) if (c.ch.visible && c.ch.sitW < 0.5) walkers.push({ p: c.ch.root.position, v: null, r: 0.2, ch: c.ch });
-    if (g.employee) walkers.push({ p: g.employee.ch.root.position, v: null, r: 0.2, ch: g.employee.ch });
+    for (const e of g.staff || []) walkers.push({ p: e.ch.root.position, v: null, r: 0.2, ch: e.ch });
     for (const w of walkers) {
       if (!w.prev) w.prev = w.p.clone();
       for (const b of this.bodies) {

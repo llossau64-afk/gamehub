@@ -38,6 +38,16 @@ export const UPGRADES = [
     desc: 'A weekend course. Marco’s cuts get noticeably cleaner.', effect: 'Better ratings' },
   { id: 'fastHands', cat: 'staff', name: 'Faster Hands', price: 320, level: 6, icon: 'clipper', req: 'hireBarber',
     desc: 'Pro tools for Marco. He finishes a cut in half the time.', effect: '+80% speed' },
+  { id: 'extension', cat: 'staff', name: 'Shop Extension', price: 900, level: 7, icon: 'key', req: 'station2',
+    desc: 'Knock through to the back room: a third chair, a lounge corner and an archway.', effect: '+1 station · more customers' },
+  { id: 'hireBarber2', cat: 'staff', name: 'Hire Luca', price: 520, level: 7, icon: 'users', req: 'extension',
+    desc: 'A second barber for the new chair. Works as well as Marco does.', effect: 'Serves customers' },
+  { id: 'dyeStation', cat: 'tools', name: 'Colour Bar', price: 260, level: 4, icon: 'spray',
+    desc: 'Hair & beard dye with a brush. Customers start asking for colour — and pay for it.', effect: 'Dye service · +$15 per colour' },
+  { id: 'sound', cat: 'decor', name: 'Hi-Fi Speakers', price: 190, level: 3, icon: 'sound', req: 'radio',
+    desc: 'Proper speakers on the wall. The music hits different.', effect: '+10% tips · better music' },
+  { id: 'arcade', cat: 'decor', name: 'Arcade Cabinet', price: 340, level: 5, icon: 'tv',
+    desc: 'A blinking arcade machine in the corner. Waiting is fun now.', effect: '+30% patience' },
   { id: 'clipperPro', cat: 'tools', name: 'Pro Clippers', price: 240, level: 4, icon: 'clipper', equip: 'clipper',
     desc: 'Black and gold, quiet motor, perfect fades.', effect: '+90% clipper speed' },
 ];
@@ -55,14 +65,14 @@ export const byId = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));
 export function effects(owned) {
   const h = (id) => owned.includes(id);
   const sat = (h('bulb') ? 0.05 : 0) + (h('clean') ? 0.08 : 0) + (h('paint') ? 0.08 : 0) + (h('mirrorLarge') ? 0.08 : 0) + (h('floorWood') ? 0.08 : 0);
-  const tips = 1 + (h('decor') ? 0.06 : 0) + (h('products') ? 0.1 : 0) + (h('chairClassic') ? 0.12 : 0);
-  const patience = 1 + (h('radio') ? 0.2 : 0) + (h('couch') ? 0.25 : 0) + (h('tv') ? 0.25 : 0);
+  const tips = 1 + (h('decor') ? 0.06 : 0) + (h('products') ? 0.1 : 0) + (h('chairClassic') ? 0.12 : 0) + (h('sound') ? 0.1 : 0);
+  const patience = 1 + (h('radio') ? 0.2 : 0) + (h('couch') ? 0.25 : 0) + (h('tv') ? 0.25 : 0) + (h('arcade') ? 0.3 : 0);
   const clipper = h('clipperPro') ? 'pro' : h('clipperBasic') ? 'basic' : 'rusty';
   const clipperRate = { rusty: 1.6, basic: 2.3, pro: 3.1 }[clipper];
   const arrival = 1 + (h('pole') ? 0.35 : 0) + (h('decor') ? 0.1 : 0) + (h('paint') ? 0.1 : 0);
   const staffSkill = h('trainBarber') ? 0.86 : 0.62;
   const staffSpeed = h('fastHands') ? 1.8 : 1;
-  return { sat, tips, patience, clipper, clipperRate, scissorsPro: h('scissorsPro'), arrival: arrival + (h('hireBarber') ? 0.25 : 0), staffSkill, staffSpeed };
+  return { sat, tips, patience, clipper, clipperRate, scissorsPro: h('scissorsPro'), arrival: arrival + (h('hireBarber') ? 0.25 : 0) + (h('extension') ? 0.2 : 0) + (h('hireBarber2') ? 0.25 : 0), dye: h('dyeStation'), staffSkill, staffSpeed };
 }
 
 // XP needed to go from level n to n+1

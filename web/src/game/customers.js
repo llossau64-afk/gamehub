@@ -304,7 +304,7 @@ export class CustomerManager {
   }
 
   clear() {
-    if (this.game.employee?.customer) this.game.employee.reset();
+    for (const e of this.game.staff) if (e.customer) e.reset();
     for (const c of [...this.list]) this.remove(c);
     this.inChair = null;
   }
