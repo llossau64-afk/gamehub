@@ -53,7 +53,7 @@ async function boot() {
   const game = new Game({ renderer, ui, input, qualityName });
   window.__game = game;
   window.__spawnProp = spawnProp;
-  import('./game/reference.js').then((m) => { window.__ref = m.referenceImage; });
+  import('./game/reference.js').then((m) => { window.__ref = m.referenceImage; window.__menuPic = m.menuPicture; });
   // warm up shaders so the first frames do not hitch
   game.camera.position.set(1.6, 1.55, 1.7);
   game.camera.lookAt(-0.9, 1, -1.4);

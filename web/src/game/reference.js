@@ -7,6 +7,24 @@ import { HairSystem } from '../hair/hair.js';
 import { BeardSystem } from '../hair/beard.js';
 import { HAIRCUTS, fadeTarget } from '../hair/styles.js';
 
+import buzzCut from '../assets/ref/buzzCut.jpg?inline';
+import lowFade from '../assets/ref/lowFade.jpg?inline';
+import midFade from '../assets/ref/midFade.jpg?inline';
+import highFade from '../assets/ref/highFade.jpg?inline';
+import frenchCrop from '../assets/ref/frenchCrop.jpg?inline';
+import curtainHair from '../assets/ref/curtainHair.jpg?inline';
+import curlyTop from '../assets/ref/curlyTop.jpg?inline';
+import crewCut from '../assets/ref/crewCut.jpg?inline';
+import sidePart from '../assets/ref/sidePart.jpg?inline';
+import longerTop from '../assets/ref/longerTop.jpg?inline';
+
+// cuts that are on the shop's haircut menu use its picture; the rest are rendered
+export const MENU_PICS = {
+  buzzCut, lowFade, midFade, highFade, frenchCrop, curtainHair, crewCut, sidePart, longerTop,
+  curlyFade: curlyTop, basicFade: lowFade, skinFade: highFade, texturedCrop: longerTop,
+};
+export function menuPicture(cutId) { return MENU_PICS[cutId] || null; }
+
 const W = 220, H = 260;
 const cache = new Map();
 let R = null;

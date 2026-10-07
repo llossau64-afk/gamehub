@@ -150,12 +150,27 @@ export const HAIRCUTS = {
     start: HAIR_START,
   },
   curlyFade: {
-    name: 'Curly Fade', price: 62, level: 7, par: 130, curly: true,
+    name: 'Curly Top', price: 62, level: 7, par: 130, curly: true,
     lines: ['Keep the curls on top', 'Mid fade on the sides', 'Shape it with scissors'],
     target: { top: 0.5, front: 0.44, left: 0, right: 0, back: 0, edges: 0 },
     fade: { bottom: 0.008, top: 0.167, height: 0.62 },
     tol: 0.06,
     start: { top: 0.72, front: 0.66, left: 0.42, right: 0.42, back: 0.44, fuzz: 0.08 },
+  },
+  longerTop: {
+    name: 'Longer Top', price: 44, level: 3, par: 110,
+    lines: ['Messy longer top', 'Scissors on top, keep the length', 'Sides faded to 6 mm'],
+    target: { top: 0.55, front: 0.5, left: 0, right: 0, back: 0, edges: 0 },
+    fade: { bottom: 0.008, top: 0.1, height: 0.5 },
+    tol: 0.06,
+    start: { top: 0.76, front: 0.7, left: 0.42, right: 0.42, back: 0.44, fuzz: 0.08 },
+  },
+  curtainHair: {
+    name: 'Curtain Hair', price: 50, level: 4, par: 120, style: 'center',
+    lines: ['Long top, middle parting', 'Sides and back tidy at 18 mm', 'Comb it away from the centre'],
+    target: { top: 0.56, front: 0.62, left: 0.3, right: 0.3, back: 0.3, edges: 0 },
+    tol: 0.065,
+    start: { top: 0.78, front: 0.82, left: 0.48, right: 0.48, back: 0.5, fuzz: 0.07 },
   },
   mullet: {
     name: 'Mullet', price: 55, level: 6, par: 115,

@@ -466,6 +466,7 @@ export class HairSystem {
   setStyleDir(mode) {
     const u = this.mesh.material.uniforms;
     if (mode === 'back') { u.uPart.value = 9; u.uDirA.value.set(0, -0.25, -1).normalize(); u.uDirB.value.copy(u.uDirA.value); }
+    else if (mode === 'center') { u.uPart.value = 0; u.uDirA.value.set(1, -0.55, -0.2).normalize(); u.uDirB.value.set(-1, -0.55, -0.2).normalize(); }
     else if (mode === 'part') { u.uPart.value = 0.032; u.uDirA.value.set(1, -0.7, -0.15).normalize(); u.uDirB.value.set(-1, -0.25, -0.45).normalize(); }
     else { u.uPart.value = 9; u.uDirA.value.set(0, -0.6, -1).normalize(); u.uDirB.value.copy(u.uDirA.value); }
   }

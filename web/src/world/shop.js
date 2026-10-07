@@ -7,6 +7,7 @@ import { propMaterial, addDetail, shared } from '../render/materials.js';
 import * as T from '../render/textures.js';
 import { Spring, clamp, rand, damp, noise1 } from '../core/util.js';
 import { audio } from '../audio/audio.js';
+import menuPosterUrl from '../assets/menu-poster.jpg?inline';
 
 export const ROOM = { x0: -3.2, x1: 3.2, z0: -2.6, z1: 2.6, h: 2.9 };
 export const DOOR = { x: 1.9, w: 0.95 };
@@ -580,6 +581,7 @@ export class Shop {
     S.tv = this.addProp('TV', new THREE.Vector3(R.x1 - 0.06, 1.85, 0.75), -Math.PI / 2);
     this.tvScreen = part(S.tv, 'screen');
     S.neon = this.addProp('NeonOpen', new THREE.Vector3(WINDOW.x + 0.9, 1.75, R.z1 + 0.05), 0);
+    S.menu = this.buildMenuPoster(new THREE.Vector3(R.x1 - 0.025, 1.78, -0.78), -Math.PI / 2);
     S.trash = this.addProp('Trash', new THREE.Vector3(1.16, 0, 2.3), 0);
     S.trash.userData.dynamic = true;
     S.broom = this.addProp('Broom', SPOTS.broom, 0);
@@ -596,6 +598,34 @@ export class Shop {
     }
     // tools live on the cart; game code spawns the actual tool objects
     this.cartTop = new THREE.Vector3(SPOTS.cart.x, 0.645, SPOTS.cart.z);
+  }
+
+  // the framed haircut menu on the wall (the same pictures the customers point at)
+  buildMenuPoster(pos, rotY) {
+    const g = new THREE.Group();
+    const w = 1.3, hgt = w * 694 / 1024;
+    const tex = new THREE.TextureLoader().load(menuPosterUrl);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(w, hgt), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55 }));
+    face.userData.keep = true;
+    face.position.z = 0.012;
+    g.add(face);
+    const wood = propMaterial('WoodDark');
+    const t = 0.035, d = 0.03;
+    for (const [sx, sy, x, y] of [[w + 2 * t, t, 0, hgt / 2 + t / 2], [w + 2 * t, t, 0, -hgt / 2 - t / 2], [t, hgt, -w / 2 - t / 2, 0], [t, hgt, w / 2 + t / 2, 0]]) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, d), wood);
+      b.position.set(x, y, d / 2);
+      b.castShadow = false; b.receiveShadow = true;
+      g.add(b);
+    }
+    const back = new THREE.Mesh(new THREE.BoxGeometry(w, hgt, 0.01), wood);
+    back.position.z = 0.005;
+    g.add(back);
+    g.position.copy(pos);
+    g.rotation.y = rotY;
+    this.root.add(g);
+    return g;
   }
 
   setPoster(p, tex, torn = false) {

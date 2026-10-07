@@ -476,7 +476,7 @@ export class UI {
       <div class="rp-card">
         <div class="rp-top"><span class="rp-k">Barber Empire · Style guide</span><span class="rp-x">×</span></div>
         <div class="rp-title">${cut.name}</div>
-        <div class="rp-img"><img src="${img}" alt=""><div class="rp-lbl"><span>Front</span><span>Side</span><span>Back</span></div></div>
+        ${img.startsWith('data:image/jpeg') ? `<div class="rp-img menu"><img src="${img}" alt=""><div class="rp-note">From the haircut menu</div></div>` : `<div class="rp-img"><img src="${img}" alt=""><div class="rp-lbl"><span>Front</span><span>Side</span><span>Back</span></div></div>`}
         <ul class="rp-lines">${cut.lines.map((l) => `<li>${l}</li>`).join('')}</ul>
       </div>
     </div>`);
