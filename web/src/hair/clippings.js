@@ -76,7 +76,7 @@ export class Clippings {
       }
       d.position.copy(p.pos);
       d.rotation.copy(p.rot);
-      d.scale.set(0.0011, 0.0011, p.len);
+      d.scale.set(0.0018, 0.0018, p.len);
       d.updateMatrix();
       this.mesh.setMatrixAt(i, d.matrix);
     }
