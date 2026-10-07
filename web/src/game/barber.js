@@ -7,6 +7,7 @@ import { HEAD_C, REGIONS, REGION_ID, EDGE_REGIONS } from '../hair/hair.js';
 import { BEARD_ID } from '../hair/beard.js';
 import { GUARDS, stats as cutStats } from '../hair/styles.js';
 import { audio } from '../audio/audio.js';
+import { inventory, applySkin } from './items.js';
 import { clamp, damp, dampAngle, rand, pick, chance, lerp, smooth } from '../core/util.js';
 
 export const TOOLS = [
@@ -15,6 +16,7 @@ export const TOOLS = [
   { id: 'trimmer', label: 'Trimmer', icon: 'trimmer', electric: true },
   { id: 'comb', label: 'Comb', icon: 'comb', electric: false },
   { id: 'spray', label: 'Spray', icon: 'spray', electric: false },
+  { id: 'dye', label: 'Colour', icon: 'paint', electric: false },
 ];
 
 const SMALLTALK = [
@@ -72,7 +74,16 @@ export class BarberMode {
     const tr = spawnProp('Trimmer', { shadows: false });
     const cb = spawnProp('Comb', { shadows: false });
     const sp = spawnProp('Spray', { shadows: false });
-    this.toolObjs = { clipper: cl, scissors: sc, trimmer: tr, comb: cb, spray: sp };
+    // dye brush: wooden handle, bristles soaked in the requested colour
+    const db = new THREE.Group();
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.008, 0.12, 10), propMaterial('WoodDark'));
+    handle.rotation.x = Math.PI / 2; handle.position.z = 0.06; db.add(handle);
+    this.dyeBristleMat = new THREE.MeshStandardMaterial({ color: '#222', roughness: 0.6 });
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.012, 0.03), this.dyeBristleMat);
+    head.position.z = -0.01; db.add(head);
+    this.toolObjs = { clipper: cl, scissors: sc, trimmer: tr, comb: cb, spray: sp, dye: db };
+    const eq = inventory(this.game.save).equip;
+    for (const t of ['clipper', 'scissors', 'spray']) if (eq[t]) applySkin(this.toolObjs[t], t, eq[t]);
     for (const o of Object.values(this.toolObjs)) {
       o.visible = false;
       o.traverse((m) => { if (m.isMesh) { m.castShadow = false; m.renderOrder = 4; } });
@@ -101,13 +112,19 @@ export class BarberMode {
     this.mode = 'cut';
     this.close = false;
     this.makeTools();
+    if (customer.dyeReq) {
+      this.dyeBristleMat.color.set(customer.dyeReq.color);
+      customer.hair.setDyeColor(customer.dyeReq.color);
+      customer.beard?.setDyeColor(customer.dyeReq.color);
+    }
     const g = this.game;
     g.ui.hideRequest();
     g.ui.showBarber({
       cutName: customer.cut.name,
       regions: Object.keys(customer.cut.target),
       style: !!customer.cut.style,
-      tools: TOOLS,
+      dye: customer.dyeReq || null,
+      tools: TOOLS.filter((t) => t.id !== 'dye' || customer.dyeReq),
       onTool: (id) => this.selectTool(id),
       onPower: () => this.togglePower(),
       onGuard: (i) => this.setGuard(i),
@@ -233,6 +250,7 @@ export class BarberMode {
       tool: this.tool, power: this.power, electric: !!(t && t.electric), guard: this.guard,
       cut: this.c.cut, stats: this.stats, time: this.time, focus: this.focus,
       styled: this.c.cut.style ? this.c.hair.styledShare() : null,
+      dyed: this.c.dyeReq ? this.dyeCoverage() : null,
     });
   }
 
@@ -248,6 +266,7 @@ export class BarberMode {
     if (input.pressed('tool3')) this.selectTool('trimmer');
     if (input.pressed('tool4')) this.selectTool('comb');
     if (input.pressed('tool5')) this.selectTool('spray');
+    if (input.pressed('tool6') && this.c.dyeReq) this.selectTool('dye');
     if (input.pressed('power')) this.togglePower();
     if (this.tool === 'clipper') {
       if (input.pressed('guardDown')) this.setGuard(this.guard - 1);
@@ -322,6 +341,11 @@ export class BarberMode {
           z.copy(side).multiplyScalar(Math.sign(side.dot(new THREE.Vector3().crossVectors(camDir, n))) || 1);
           yv.copy(n);
           pos = hit.point.clone().addScaledVector(n, Math.max(0.004, len * 0.55));
+        } else if (this.tool === 'dye') {
+          // bristles down onto the hair, handle pointing away from the head
+          z.copy(n).multiplyScalar(-0.6).addScaledVector(towardCrown, 0.8).normalize();
+          yv.copy(n);
+          pos = hit.point.clone().addScaledVector(n, 0.01 + len * 0.4);
         } else if (this.tool === 'comb') {
           // teeth (-y) into the hair, spine along the stroke
           yv.copy(n);
@@ -403,6 +427,14 @@ export class BarberMode {
             this.markCombed(sys, hit);
             this.combSnd = (this.combSnd || 0) - dt;
             if (this.combSnd <= 0) { this.combSnd = 0.12; audio.noiseBurst(0.05, { vol: 0.05, freq: rand(2500, 3800), q: 2 }); }
+          }
+        } else if (this.tool === 'dye' && c.dyeReq) {
+          const mv = Math.hypot(p.dragDX, p.dragDY);
+          if (mv > 0.3 || p.touch) {
+            sys.paintDye(hit.phi, hit.theta, dt, beard ? 0.02 : 0.032);
+            this.dyeT = (this.dyeT || 0) - dt;
+            if (this.dyeT <= 0) { this.dyeT = 0.14; audio.noiseBurst(0.08, { vol: 0.04, freq: 1200, q: 1.4 }); }
+            this.cutDirty = true;
           }
         } else if (this.tool === 'spray') {
           this.sprayT = (this.sprayT || 0) - dt;
@@ -513,6 +545,13 @@ export class BarberMode {
     best.transformDirection(hairMesh.matrixWorld).multiplyScalar(bestLen * hairMesh.getWorldScale(_sc).x);
     obj.position.add(best);
     return best;
+  }
+
+  dyeCoverage() {
+    const c = this.c;
+    const h = c.hair.dyeShare();
+    if (c.beard && c.cut.beard) return (h + c.beard.dyeShare()) / 2;
+    return h;
   }
 
   // ---------------------------------------------------------------- views

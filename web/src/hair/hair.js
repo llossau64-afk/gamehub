@@ -105,6 +105,34 @@ export const hairLight = {
   time: { value: 0 },
 };
 
+// hair & beard dye: a one-channel map of how much colour each texel has taken
+export function addDye(sys, w, h) {
+  sys.dye = new Float32Array(w * h);
+  sys.dyeData = new Uint8Array(w * h);
+  sys.dyeTexture = new THREE.DataTexture(sys.dyeData, w, h, THREE.RedFormat);
+  sys.dyeTexture.magFilter = sys.dyeTexture.minFilter = THREE.LinearFilter;
+  sys.dyeTexture.wrapS = THREE.RepeatWrapping;
+  sys.dyeTexture.needsUpdate = true;
+  sys.dyeColor = new THREE.Color('#000000');
+  sys.setDyeColor = (c) => { sys.dyeColor.set(c); };
+  sys.uploadDye = () => {
+    if (!sys.dyeDirty) return;
+    for (let k = 0; k < sys.dye.length; k++) sys.dyeData[k] = Math.round(clamp(sys.dye[k], 0, 1) * 255);
+    sys.dyeTexture.needsUpdate = true;
+    sys.dyeDirty = false;
+  };
+  // share of hair-bearing texels that are fully coloured
+  sys.dyeShare = (minLen = 0.02) => {
+    let n = 0, d = 0;
+    for (let k = 0; k < sys.dye.length; k++) {
+      const r = sys.region[k];
+      if (!r || r === 6 || r === 10 || sys.len[k] < minLen) continue;    // skip bare skin, edges, neckline
+      n++; d += clamp(sys.dye[k] / 0.8, 0, 1);
+    }
+    return n ? d / n : 0;
+  };
+}
+
 export function makeMaterial(sys) {
   noiseTex ||= hairNoise();
   return new THREE.ShaderMaterial({
@@ -121,6 +149,7 @@ export function makeMaterial(sys) {
       uCurl: { value: sys.curl || 0 },
       uHeadC: { value: HEAD_C },
       uBaseCut: { value: sys.kind === 'beard' ? 0.16 : 0 },
+      uDyeTex: { value: sys.dyeTexture }, uDyeCol: { value: sys.dyeColor },
       uPart: { value: 9 },
       uDirA: { value: new THREE.Vector3(0, -0.6, -1).normalize() },
       uDirB: { value: new THREE.Vector3(0, -0.6, -1).normalize() },
@@ -159,6 +188,7 @@ export function makeMaterial(sys) {
       uniform sampler2D uLen; uniform sampler2D uNoise; uniform float uMaxLen;
       uniform vec3 uColor; uniform vec3 uTip; uniform vec3 uSkin;
       uniform float uHl; uniform float uHlRegion; uniform float uTime; uniform float uCurl; uniform float uBaseCut;
+      uniform sampler2D uDyeTex; uniform vec3 uDyeCol;
       uniform vec3 uKeyDir; uniform vec3 uKeyColor; uniform vec3 uAmbTop; uniform vec3 uAmbBot;
       varying vec2 vUv; varying float vH; varying vec3 vN; varying vec3 vT; varying vec3 vWPos; varying float vLen; varying float vPart; varying float vStyled;
       void main(){
@@ -176,6 +206,7 @@ export function makeMaterial(sys) {
           float cov = smoothstep(0.0, 0.06, L);
           float n = texture2D(uNoise, vUv * vec2(512.0, 256.0)).r;
           col = mix(uSkin * 0.86, uColor * 0.8, cov * (0.55 + 0.45 * n));
+          col = mix(col, uDyeCol * 0.75, texture2D(uDyeTex, vUv).r * cov * 0.85);
           ao = mix(1.0, 0.4, smoothstep(0.08, 0.5, L));
         } else {
           if (L * uMaxLen < 0.0022) discard;
@@ -190,6 +221,8 @@ export function makeMaterial(sys) {
           vec2 c = vec2(0.25 + 0.5 * nz.b, 0.25 + 0.5 * nz.a);
           if (length(f - c) > rad) discard;
           col = mix(uColor, uTip, vH * vH) * (0.82 + 0.36 * nz.g);
+          float dye = texture2D(uDyeTex, vUv).r;
+          col = mix(col, uDyeCol * (0.85 + 0.3 * nz.g) * (0.9 + 0.25 * vH), dye * 0.94);
           ao = mix(0.38, 1.0, pow(vH, 0.8));
           strandShade = 0.85 + 0.3 * nz.r;
         }
@@ -228,6 +261,7 @@ export class HairSystem {
     this.area = new Float32Array(TEX_W * TEX_H);
     this.data = new Uint8Array(TEX_W * TEX_H * 4);
     this.texture = new THREE.DataTexture(this.data, TEX_W, TEX_H, THREE.RGBAFormat);
+    addDye(this, TEX_W, TEX_H);
     this.texture.magFilter = THREE.LinearFilter;
     this.texture.minFilter = THREE.LinearFilter;
     this.texture.wrapS = THREE.RepeatWrapping;
@@ -313,6 +347,7 @@ export class HairSystem {
   }
 
   upload() {
+    this.uploadDye();
     if (!this.dirty) return;
     const d = this.data;
     for (let k = 0; k < this.len.length; k++) {
@@ -483,6 +518,11 @@ export class HairSystem {
       s += clamp(this.styled[k] / 0.7, 0, 1) * a; n += a;
     }
     return n ? s / n : 0;
+  }
+
+  paintDye(phi, theta, dt, radius = 0.03) {
+    this.brush(phi, theta, radius, (k, w) => { if (this.len[k] > 0.01) this.dye[k] = Math.min(1, this.dye[k] + dt * 2.2 * w); });
+    this.dyeDirty = true;
   }
 
   spray(phi, theta, radius = 0.05) {

@@ -2,7 +2,7 @@
 // Same shell renderer and length-map idea as the scalp, different parametrisation:
 // u = angle around the face (front = 0), v = height in head space.
 import * as THREE from 'three';
-import { makeMaterial, MAX_LEN } from './hair.js';
+import { makeMaterial, MAX_LEN, addDye } from './hair.js';
 import { clamp, lerp } from '../core/util.js';
 import { getTemplate } from '../chars/template.js';
 
@@ -157,6 +157,7 @@ export class BeardSystem {
     this.area = new Float32Array(BW * BH);
     this.data = new Uint8Array(BW * BH * 4);
     this.texture = new THREE.DataTexture(this.data, BW, BH, THREE.RGBAFormat);
+    addDye(this, BW, BH);
     this.texture.magFilter = this.texture.minFilter = THREE.LinearFilter;
     for (let j = 0; j < BH; j++) for (let i = 0; i < BW; i++) {
       const a = -A + 2 * A * (i + 0.5) / BW, y = Y0 + (Y1 - Y0) * (j + 0.5) / BH;
@@ -197,6 +198,7 @@ export class BeardSystem {
   }
 
   upload() {
+    this.uploadDye();
     if (!this.dirty) return;
     for (let k = 0; k < this.len.length; k++) {
       this.data[k * 4] = Math.round(clamp(this.len[k], 0, 1) * 255);
@@ -286,6 +288,11 @@ export class BeardSystem {
   trim(a, y, rate, dt, radius = 0.007) {
     return this.brush(a, y, radius, (k, w) => { this.len[k] = Math.max(0, this.len[k] - rate * dt * (0.5 + w)); });
   }
+  paintDye(a, y, dt, radius = 0.02) {
+    this.brush(a, y, radius, (k, w) => { if (this.len[k] > 0.01) this.dye[k] = Math.min(1, this.dye[k] + dt * 2.2 * w); });
+    this.dyeDirty = true;
+  }
+
   spray(a, y, radius = 0.03) { this.brush(a, y, radius, (k, w) => { this.wet[k] = Math.min(1, this.wet[k] + 0.5 * w); }); this.dirty = true; }
   comb(a, y, radius = 0.015) { return this.brush(a, y, radius, () => {}); }
 

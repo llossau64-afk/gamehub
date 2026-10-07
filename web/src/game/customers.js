@@ -10,6 +10,7 @@ import { pick, rand, chance, clamp } from '../core/util.js';
 import { audio } from '../audio/audio.js';
 import { spawnProp } from '../world/props.js';
 import { referenceImage, menuPicture } from './reference.js';
+import { availableDyes, DYES } from './items.js';
 
 const FIRST = ['Sam', 'Leo', 'Marco', 'Jonas', 'Theo', 'Malik', 'Finn', 'Omar', 'Luca', 'Ravi', 'Ben', 'Elias', 'Noah', 'Kai', 'Diego', 'Arthur', 'Milo', 'Yusuf', 'Hugo', 'Tariq', 'Felix', 'Dev', 'Oscar', 'Nico'];
 
@@ -35,6 +36,13 @@ export class Customer {
     this.hair = new HairSystem({ color: look.hairColor, skin: look.colors.Skin, curl: look.curl, layers: game.quality.hairLayers });
     this.hair.attach(this.ch.bones.Head);
     this.hair.setStyle(startStyle(this.cutId));
+    // with a Colour Bar, some customers want a colour on top of the cut (exclusive colours pay more)
+    const dyes = opts.tutorial || opts.noDye ? [] : availableDyes(game.save, game.save.owned);
+    if (opts.dye || (dyes.length && chance(0.3))) {
+      const id = opts.dye || pick(dyes);
+      const d = DYES[id];
+      this.dyeReq = { id, name: d.name, color: d.color, bonus: d.bonus };
+    }
     this.hair.setStyleDir(this.cut.style);
     this.ch.hair = this.hair;
     // beard: required by beard cuts, otherwise a matter of taste

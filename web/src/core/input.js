@@ -236,7 +236,7 @@ const ACTIONS = {
   right: ['KeyD', 'ArrowRight'],
   interact: ['KeyE', 'Enter'],
   pause: ['Escape', 'KeyP'],
-  tool1: ['Digit1'], tool2: ['Digit2'], tool3: ['Digit3'], tool4: ['Digit4'], tool5: ['Digit5'],
+  tool1: ['Digit1'], tool2: ['Digit2'], tool3: ['Digit3'], tool4: ['Digit4'], tool5: ['Digit5'], tool6: ['Digit6'], decline: ['KeyX'],
   guardDown: ['KeyQ'], guardUp: ['KeyE'],
   power: ['Space'],
   finish: ['KeyF'],

@@ -16,6 +16,8 @@ import { playIntro, introEndState } from '../cutscene/intro.js';
 import { ItemShowcase } from '../fx/itemGet.js';
 import { Exclaim } from '../fx/exclaim.js';
 import { DayClock } from './dayclock.js';
+import { Deliveries } from './delivery.js';
+import { CRATES, inventory, SKINS, DYES } from './items.js';
 import { Physics } from '../fx/physics.js';
 import { Reactions } from './reactions.js';
 import { playTutorial } from './tutorial.js';
@@ -49,6 +51,7 @@ export class Game {
     this.itemFx = new ItemShowcase(this);
     this.exclaim = new Exclaim(this.scene);
     this.clock = new DayClock(this);
+    this.deliveries = new Deliveries(this);
     this.physics = new Physics(this);
     this.reactions = new Reactions(this);
     this.dir = new Director(this);
@@ -84,7 +87,31 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ setup
+  // send a customer away without cutting: a little rep hit, a lot of attitude
+  declineCustomer(c) {
+    if (!c || c.tutorial || !this.customers.list.includes(c) || ['leaving', 'cutting', 'employeeCut', 'toEmployee'].includes(c.state)) return;
+    if (this.state === 'barber' && this.barber.c === c) return;
+    this.ui.hideRequest();
+    if (this.customers.inChair === c) { this.customers.inChair = null; c.seatedInChair = false; }
+    this.save.reputation = Math.max(0, this.save.reputation - 1);
+    this.save.stats.declined = (this.save.stats.declined || 0) + 1;
+    c.ch.lookAt(this.camera, 1);
+    c.ch.setEmotion(pick(['surprised', 'annoyed']), 2);
+    this.exclaim.show(c.ch, 1.4, pick(['?', 'anger']));
+    c.say(pick(['Seriously?! Fine.', 'Wow. Okay. Your loss.', 'I didn’t want a haircut anyway!', 'Rude. Just rude.', 'My mom says I look great!']), 'annoyed', 3);
+    this.ui.toast(`${c.name} was turned away`, 'Declined');
+    (async () => {
+      this.customers.stopIdle(c);
+      c.state = 'leaving';
+      if (c.ch.sitW > 0) await c.ch.standUp();
+      c.seat = null;
+      await this.dir.wait(0.8).catch(() => {});
+      this.customers.walkOut(c, pick(['storm', 'walk']));
+    })().catch((e) => console.error(e));
+  }
+
   bindUI() {
+    this.ui.onDecline = (c) => this.declineCustomer(c);
     this.ui.upBtn.addEventListener('click', () => this.openUpgrades());
     this.ui.pauseBtn.addEventListener('click', () => this.pause());
     this.ui.trophyBtn.addEventListener('click', () => { if (this.state === 'play') this.openAchievements(); });
@@ -240,6 +267,11 @@ export class Game {
       pos: () => V(1.9, 1.5, 2.45), radius: 3.4,
       action: () => { this.clock.openShop(); this.customers.enabled = true; this.customers.spawnT = 2.5; this.ui.objective('', ''); this.showEvent(); return 'opensign'; },
     });
+    I({
+      id: 'parcel', label: () => (this.state === 'play' && this.deliveries.nearest() ? 'Open parcel' : null),
+      pos: () => this.deliveries.nearest().obj.position.clone().add(V(0, 0.2, 0)), radius: 2.4,
+      action: () => { const p = this.deliveries.nearest(); if (p) this.deliveries.open(p).catch((e) => console.error(e)); return 'parcel'; },
+    });
     I({ id: 'catalog', label: () => 'Upgrades', pos: () => this.shop.slots.catalog.getWorldPosition(V()).add(V(0, 0.05, 0)), radius: 2.2, action: () => { this.openUpgrades(); return 'catalog'; } });
     I({
       id: 'broom', label: () => (this.clippings.floorCount > 15 ? 'Sweep the floor' : null),
@@ -269,7 +301,7 @@ export class Game {
       const score = ang * 2 + dist * 0.15;
       if (score < bestScore) { bestScore = score; best = { label, action, id, obj }; }
     };
-    for (const it of this.shop.interactables) consider(it.pos(), it.radius, it.label(), it.action, it.id);
+    for (const it of this.shop.interactables) { const l = it.label(); if (l) consider(it.pos(), it.radius, l, it.action, it.id); }
     for (const c of this.customers.list) {
       let label = null, action = null;
       if (c.state === 'waitingTalk' || (c.state === 'looking' && !c.tutorial) || (c.state === 'waiting' && !c.talked)) { label = 'Talk'; action = () => { if (!c.tutorial) this.customers.talk(c); return 'customer'; }; }
@@ -521,7 +553,7 @@ export class Game {
       hint: this.tutorialUpgrade ? 'bulb' : null,
       // after a purchase in the shop, close the catalogue and show the new thing off
       reveal: (id) => {
-        if (fromPause || this.state !== 'play' || this.tutorialUpgrade) return false;
+        if (fromPause || this.state !== 'play' || this.tutorialUpgrade || byId[id].cat === 'tools') return false;
         this.ui.openPanel?.el.remove(); this.ui.openPanel = null;
         this.revealUpgrade(id).catch((e) => { if (e !== SKIP) console.error(e); }).finally(() => { if (this.state === 'play') { this.player.control = true; this.enterFP(); } });
         return true;
@@ -617,8 +649,30 @@ export class Game {
     audio.purchase();
     this.persist();
     this.onUpgradeBought(id);
+    // equipment comes by courier
+    if (u.cat === 'tools' && !this.tutorialUpgrade) this.deliveries.order({ kind: 'tool', id });
     this.updateGoal();
     return true;
+  }
+
+  buyCrate(id) {
+    const c = CRATES[id];
+    if (!c || this.money < c.price) return false;
+    this.save.money -= c.price;
+    this.ui.setMoney(this.save.money);
+    audio.purchase();
+    this.save.stats.crates = (this.save.stats.crates || 0) + 1;
+    this.deliveries.order({ kind: 'crate', id });
+    this.persist();
+    this.updateGoal();
+    return true;
+  }
+
+  equipSkin(tool, id) {
+    const inv = inventory(this.save);
+    inv.equip[tool] = id;
+    this.persist();
+    this.barber.makeTools();
   }
 
   async onUpgradeBought(id) {
@@ -961,6 +1015,10 @@ export class Game {
     const floorPenalty = this.clippings.floorCount > 250 ? 0.04 : 0;
     result.overall = clamp(result.overall + this.fx.sat * 0.25 + groom * 0.035 - floorPenalty, 0, 1);
     result.groom = groom;
+    if (c.dyeReq) {
+      result.dye = this.barber.dyeCoverage();
+      result.overall = result.overall * 0.8 + result.dye * 0.2;
+    }
     result.stars = result.overall >= 0.88 ? 5 : result.overall >= 0.76 ? 4 : result.overall >= 0.6 ? 3 : result.overall >= 0.42 ? 2 : 1;
     if (window.__forceStars) result.stars = window.__forceStars;   // debug harness only
     if (c.tutorial) { result.stars = Math.max(result.stars, 3); }
@@ -971,6 +1029,7 @@ export class Game {
     // result screen
     const pay = payment(c.cutId, result, c.personality, { tips: this.fx.tips * (1 + Math.min(3, this.save.stats.streak) * 0.05) * (this.event?.id === 'doubleTips' ? 2 : 1) });
     if (this.event?.id === 'fadeChallenge' && c.cut.fade && result.stars >= 4) { pay.tip += 25; this.ui.toast('Fade Challenge bonus +$25', 'Event'); }
+    if (c.dyeReq) pay.pay += Math.round(c.dyeReq.bonus * result.dye);
     const s = this.save;
     const xpBefore = s.xp, needBefore = xpFor(s.level), lvlBefore = s.level;
     this.ui.showHud(true, { crosshair: false });
@@ -980,7 +1039,7 @@ export class Game {
     await this.ui.showResult({
       kicker: c.tutorial ? 'First cut complete' : `${c.name} · ${c.cut.name}`,
       title: ['Rough', 'Not great', 'Decent', 'Clean', 'Perfect'][result.stars - 1] + (result.stars >= 4 ? '!' : ''),
-      quote, stars: result.stars, accuracy: result.accuracy, symmetry: result.symmetry, edges: result.edges, fade: result.fade, style: result.style,
+      quote, stars: result.stars, accuracy: result.accuracy, symmetry: result.symmetry, edges: result.edges, fade: result.fade, style: result.style, dye: result.dye,
       speed: result.speed, groom: result.groom, pay: pay.pay, tip: pay.tip, xp: pay.xp, level: lvlBefore, levelUp: up,
       xpBefore, xpNeedBefore: needBefore, xpAfter: s.xp, xpNeedAfter: xpFor(s.level),
     });
@@ -1152,6 +1211,19 @@ export class Game {
     }
     if (this.paused) { input.endFrame(); return; }
     if (input.pressed('upgrades') && this.state === 'play' && !this.ui.openPanel) this.openUpgrades();
+    if (input.pressed('decline') && this.state === 'play' && !this.ui.openPanel) {
+      // the customer you are looking at, or the one whose request is on screen
+      const f = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+      let best = null, bs = 0.8;
+      for (const c of this.customers.list) {
+        if (!c.talked || c.tutorial) continue;
+        const d = c.headPos().sub(this.camera.position);
+        const dist = d.length(); d.normalize();
+        const sc = d.dot(f) - dist * 0.04;
+        if (dist < 5 && sc > bs) { bs = sc; best = c; }
+      }
+      if (best) this.declineCustomer(best);
+    }
     // ---- world
     this.dir.update(dt);
     if (this.state === 'menu') this.updateMenu(dt);
@@ -1201,6 +1273,7 @@ export class Game {
     this.exclaim.update(dt);
     this.physics.update(dt);
     if (this.state !== 'menu') this.clock.update(dt);
+    this.deliveries.update(dt);
     this.reactions.update(dt);
     input.endFrame();
   }

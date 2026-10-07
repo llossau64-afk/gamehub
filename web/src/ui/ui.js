@@ -12,6 +12,7 @@ import { UPGRADES, CATS, ACHIEVEMENTS, ACH_CATS, xpFor } from '../world/upgrades
 import { REGION_LABEL, EDGE_REGIONS } from '../hair/hair.js';
 import { GUARDS, mm } from '../hair/styles.js';
 import { formatMoney, clamp } from '../core/util.js';
+import { CRATES, RARITY, allItems, ownsItem, inventory, TOOL_LABEL } from '../game/items.js';
 
 const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -156,6 +157,7 @@ export class UI {
       decor: { label: 'Comfort', sub: 'Keep them waiting happily', icon: 'couch', color: '#3e6b4a' },
       tools: { label: 'Equipment', sub: 'Better tools, better cuts', icon: 'clipper', color: '#24344d' },
       staff: { label: 'Staff', sub: 'Grow the business', icon: 'users', color: '#8a5e14' },
+      crates: { label: 'Crates', sub: 'Exclusive colours & tool skins', icon: 'star', color: '#6a2c8a' },
     };
     const body = h('<div class="cat2"></div>');
     let cat = opts.cat || 'all';
@@ -174,6 +176,10 @@ export class UI {
         <aside class="c2-side">
           <div class="c2-wallet"><span>Cash on hand</span><b>${formatMoney(game.money)}</b><div class="c2-own"><i style="width:${Math.round(totalOwned / UPGRADES.length * 100)}%"></i></div><small>${totalOwned} / ${UPGRADES.length} upgrades owned</small></div>
           <nav>${[['all', { label: 'Everything', sub: 'All upgrades', icon: 'shop', color: '#4a3d33' }], ...Object.entries(CAT_INFO)].map(([id, c]) => {
+            if (id === 'crates') {
+              const n = allItems().filter((it) => ownsItem(game.save, it)).length;
+              return `<button data-c="${id}" class="${id === cat ? 'on' : ''}" style="--cc:${c.color}"><span class="ci">${ICON[c.icon] || ''}</span><span class="ct"><b>${c.label}</b><small>${n}/${allItems().length} collected</small></span>${game.money >= CRATES.basic.price ? '<i class="pip"></i>' : ''}</button>`;
+            }
             const list = id === 'all' ? UPGRADES : UPGRADES.filter((u) => u.cat === id);
             const own = list.filter((u) => game.owns(u.id)).length;
             const buyable = list.some((u) => { const st = state(u); return !st.owned && !st.locked && st.afford; });
@@ -191,6 +197,7 @@ export class UI {
         </section>`;
       body.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => { cat = b.dataset.c; audio.click(); render(); }));
       const grid = body.querySelector('.c2-grid');
+      if (cat === 'crates') { body.querySelector('.c2-hero')?.remove(); renderCrates(grid); return; }
       const list = UPGRADES.filter((u) => cat === 'all' || u.cat === cat)
         .map((u) => ({ u, st: state(u) }))
         .sort((x, y) => (x.st.owned - y.st.owned) || (x.st.locked - y.st.locked) || x.u.price - y.u.price);
@@ -206,6 +213,41 @@ export class UI {
         grid.append(el);
       }
       body.querySelectorAll('.buy').forEach((btn) => btn.addEventListener('click', (e) => buy(btn.dataset.id, btn.closest('.c2-card, .c2-hero'), e)));
+    };
+    const renderCrates = (grid) => {
+      grid.classList.add('crates');
+      for (const [id, c] of Object.entries(CRATES)) {
+        const can = game.money >= c.price;
+        const odds = Object.entries(c.odds).filter(([, v]) => v > 0).map(([r, v]) => `<span style="color:${RARITY[r].color}">${RARITY[r].label} ${v}%</span>`).join('');
+        const el = h(`<div class="crate-card ${can ? 'can' : ''}" style="--cc:${c.color}">
+          <div class="cr-box"><div class="cr-lid"></div><div class="cr-q">?</div></div>
+          <h4>${c.name}</h4><div class="cr-odds">${odds}</div>
+          <button class="buy ${can ? '' : 'cant'}">${formatMoney(c.price)}</button>
+          <small>Delivered by courier — open it in the shop</small>
+        </div>`);
+        el.querySelector('.buy').addEventListener('click', (e) => {
+          if (!game.buyCrate(id)) { audio.error(); el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); return; }
+          el.classList.add('sold'); const st = h('<div class="sold-stamp">Ordered!</div>'); el.append(st);
+          setTimeout(render, 700);
+        });
+        grid.append(el);
+      }
+      // collection: every collectible, owned ones lit, skins can be equipped
+      const inv = inventory(game.save);
+      const col = h('<div class="collection"><h4>Collection</h4><div class="col-grid"></div></div>');
+      const cg = col.querySelector('.col-grid');
+      for (const it of allItems()) {
+        const own = ownsItem(game.save, it);
+        const eq = it.kind === 'skin' && inv.equip[it.tool] === it.id;
+        const el = h(`<div class="col-item ${own ? 'own' : ''} ${eq ? 'eq' : ''}" style="--rc:${RARITY[it.rarity].color}">
+          <div class="ci-sw" style="background:${it.color}">${it.kind === 'skin' ? (ICON[it.tool === 'clipper' ? 'clipper' : it.tool === 'scissors' ? 'scissors' : 'spray'] || '') : ''}</div>
+          <b>${own ? it.name : '???'}</b><span>${it.kind === 'dye' ? 'Hair colour' : TOOL_LABEL[it.tool]} · ${RARITY[it.rarity].label}</span>
+          ${own && it.kind === 'skin' ? `<button class="eqb">${eq ? 'Equipped' : 'Equip'}</button>` : ''}
+        </div>`);
+        el.querySelector('.eqb')?.addEventListener('click', () => { game.equipSkin(it.tool, eq ? null : it.id); audio.click(); render(); });
+        cg.append(el);
+      }
+      grid.after(col);
     };
     const buy = (id, el, e) => {
       const u = UPGRADES.find((x) => x.id === id);
@@ -238,6 +280,54 @@ export class UI {
     const wrap = this.panel('Barber supply co.', 'Catalogue', body, opts.onClose);
     wrap.querySelector('.panel').classList.add('wide', 'catalogue');
     return wrap;
+  }
+
+  // crate opening: a reel of items scrolls past and stops on the prize
+  crateReel(crateId, prize) {
+    return new Promise((resolve) => {
+      const c = CRATES[crateId];
+      const pool = allItems();
+      const N = 46, WIN = 40;
+      const cards = [];
+      for (let i = 0; i < N; i++) {
+        let it = i === WIN ? prize : pool[Math.floor(Math.random() * pool.length)];
+        if (i !== WIN && Math.random() < 0.55) it = pool.filter((p) => p.rarity === 'common' || p.rarity === 'rare')[Math.floor(Math.random() * 10) % pool.filter((p) => p.rarity === 'common' || p.rarity === 'rare').length];
+        cards.push(`<div class="rl-card" style="--rc:${RARITY[it.rarity].color}"><div class="rl-sw" style="background:${it.color}"></div><b>${it.name}</b><span>${RARITY[it.rarity].label}</span></div>`);
+      }
+      const el = h(`<div class="crate-open">
+        <div class="co-title" style="--cc:${c.color}">${c.name}</div>
+        <div class="co-reel"><div class="co-strip">${cards.join('')}</div><div class="co-marker"></div></div>
+        <div class="co-prize"></div>
+      </div>`);
+      this.root.append(el);
+      const strip = el.querySelector('.co-strip');
+      const cardW = 138;
+      const reelW = el.querySelector('.co-reel').clientWidth || 700;
+      const target = WIN * cardW + cardW / 2 - reelW / 2 + (Math.random() - 0.5) * (cardW * 0.6);
+      const t0 = performance.now(), dur = 5200;
+      let lastIdx = -1;
+      const step = () => {
+        const k = Math.min(1, (performance.now() - t0) / dur);
+        const e = 1 - Math.pow(1 - k, 4);
+        const x = target * e;
+        strip.style.transform = `translateX(${-x}px)`;
+        const idx = Math.floor((x + reelW / 2) / cardW);
+        if (idx !== lastIdx) { lastIdx = idx; audio.tick(idx % 10); }
+        if (k < 1) requestAnimationFrame(step);
+        else {
+          const r = RARITY[prize.rarity];
+          audio.achievement?.(prize.rarity === 'legendary' ? 'gold' : prize.rarity === 'epic' ? 'silver' : 'bronze');
+          if (prize.rarity === 'legendary' || prize.rarity === 'epic') audio.itemGet?.();
+          el.querySelector('.co-prize').innerHTML = `<div class="cp-card" style="--rc:${r.color}"><div class="cp-glow"></div><div class="cp-sw" style="background:${prize.color}"></div>
+            <div class="cp-r">${r.label}</div><div class="cp-n">${prize.name}</div><div class="cp-k">${prize.kind === 'dye' ? 'Exclusive hair & beard colour' : 'Skin · ' + TOOL_LABEL[prize.tool]}</div><div class="cp-tap">Click to continue</div></div>`;
+          el.classList.add('done');
+          const close = () => { el.classList.add('out'); setTimeout(() => { el.remove(); resolve(); }, 400); };
+          setTimeout(() => el.addEventListener('pointerdown', close, { once: true }), 500);
+          setTimeout(close, 6000);
+        }
+      };
+      requestAnimationFrame(step);
+    });
   }
 
   // ------------------------------------------------------------------ achievements
@@ -471,9 +561,11 @@ export class UI {
   // ------------------------------------------------------------------ request card
   showRequest(cut, customer, big = false) {
     const el = this.reqEl;
-    el.innerHTML = `<div class="k">Request</div><div class="n">${cut.name}</div><ul>${cut.lines.map((l) => `<li>${l}</li>`).join('')}</ul>
+    el.innerHTML = `<div class="k">Request</div><div class="n">${cut.name}</div><ul>${cut.lines.map((l) => `<li>${l}</li>`).join('')}${customer.dyeReq ? `<li class="dye-li"><i style="background:${customer.dyeReq.color}"></i>Colour it ${customer.dyeReq.name}</li>` : ''}</ul>
       ${customer.refImg ? `<button class="ref-thumb" title="Show the reference"><img src="${customer.refImg}" alt=""><span>Reference</span></button>` : ''}
-      <div class="who"><span>${customer.name}</span><span>${customer.personality.label}</span></div>`;
+      <div class="who"><span>${customer.name}</span><span>${customer.personality.label}</span></div>
+      ${customer.tutorial ? '' : `<button class="decline">${this.touch ? '' : '<span class="key">X</span>'}Turn away</button>`}`;
+    el.querySelector('.decline')?.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.onDecline?.(customer); });
     el.querySelector('.ref-thumb')?.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.showReference(cut, customer.refImg); });
     el.classList.remove('off');
     el.classList.toggle('big', big);
@@ -556,6 +648,11 @@ export class UI {
       regions.append(row);
       this.regionEls[r] = row;
     }
+    this.dyeEl = null;
+    if (cfg.dye) {
+      this.dyeEl = h(`<div class="rg style dye"><div class="h"><span>Colour · ${cfg.dye.name}</span><b></b></div><div class="track"><div class="zone" style="left:85%;width:15%"></div><div class="cur" style="background:${cfg.dye.color}"></div></div></div>`);
+      regions.append(this.dyeEl);
+    }
     this.styleEl = null;
     if (cfg.style) {
       this.styleEl = h('<div class="rg style"><div class="h"><span>Combed into shape</span><b></b></div><div class="track"><div class="zone" style="left:85%;width:15%"></div><div class="cur"></div></div></div>');
@@ -623,6 +720,11 @@ export class UI {
       row.classList.toggle('focus', st.focus === r);
       row.querySelector('b').textContent = edge ? (ok ? 'clean' : 'messy') : `${mm(stat.mean)} / ${mm(tgt)} mm`;
     }
+    if (this.dyeEl && st.dyed !== null && st.dyed !== undefined) {
+      this.dyeEl.querySelector('.cur').style.width = st.dyed * 100 + '%';
+      this.dyeEl.querySelector('b').textContent = Math.round(st.dyed * 100) + '%';
+      this.dyeEl.classList.toggle('ok', st.dyed >= 0.85);
+    }
     if (this.styleEl && st.styled !== null && st.styled !== undefined) {
       this.styleEl.querySelector('.cur').style.width = st.styled * 100 + '%';
       this.styleEl.querySelector('b').textContent = Math.round(st.styled * 100) + '%';
@@ -652,6 +754,7 @@ export class UI {
       const rows = [['Accuracy', r.accuracy], ['Symmetry', r.symmetry], ['Edges', r.edges]];
       if (r.fade !== null && r.fade !== undefined) rows.push(['Fade', r.fade]);
       if (r.style !== null && r.style !== undefined) rows.push(['Styling', r.style]);
+      if (r.dye !== null && r.dye !== undefined) rows.push(['Colour', r.dye]);
       rows.push(['Speed', r.speed]);
       if (r.groom > 0.05) rows.push(['Grooming', r.groom]);
       const wrap = h(`<div class="panel-wrap"><div class="card result">
