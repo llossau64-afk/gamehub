@@ -68,23 +68,56 @@ export function effects(owned) {
 // XP needed to go from level n to n+1
 export const xpFor = (lvl) => Math.round(80 + (lvl - 1) * 70 + Math.pow(lvl - 1, 2) * 18);
 
-export const ACHIEVEMENTS = [
-  { id: 'firstCut', name: 'First Cut', desc: 'Finish your very first haircut.' },
-  { id: 'fiveStar', name: 'Five Stars', desc: 'Get a five-star rating.' },
-  { id: 'tenServed', name: 'Regulars', desc: 'Serve 10 customers.' },
-  { id: 'fiftyServed', name: 'Busy Chair', desc: 'Serve 50 customers.' },
-  { id: 'streak3', name: 'On a Roll', desc: 'Three cuts of 4+ stars in a row.' },
-  { id: 'rich', name: 'Cash Drawer', desc: 'Earn $500 in total.' },
-  { id: 'lights', name: 'Let There Be Light', desc: 'Replace the flickering bulb.' },
-  { id: 'makeover', name: 'Makeover', desc: 'Own 6 shop upgrades.' },
-  { id: 'level5', name: 'Local Legend', desc: 'Reach shop level 5.' },
-  { id: 'sweep', name: 'Tidy Barber', desc: 'Sweep the floor.' },
-  { id: 'vip', name: 'Celebrity Barber', desc: 'Give a VIP a 4-star cut or better.' },
-  { id: 'fadeMaster', name: 'Fade Master', desc: 'A five-star fade.' },
-  { id: 'beardBoss', name: 'Beard Boss', desc: 'A five-star beard cut.' },
-  { id: 'day10', name: 'Ten Days In', desc: 'Keep the shop open for ten days.' },
-  { id: 'hire', name: 'Boss', desc: 'Hire your first barber.' },
+// Achievements: each one reads its progress from the save, so the panel can show bars.
+// tier: bronze / silver / gold. reward is claimed from the achievements panel.
+const st = (k) => (s) => s.stats[k] || 0;
+const owns = (id) => (s) => (s.owned.includes(id) ? 1 : 0);
+export const ACH_CATS = [
+  { id: 'craft', label: 'Craft' },
+  { id: 'business', label: 'Business' },
+  { id: 'shop', label: 'Shop' },
+  { id: 'secret', label: 'Secret' },
 ];
+export const ACHIEVEMENTS = [
+  // ---- craft
+  { id: 'firstCut', cat: 'craft', tier: 'bronze', icon: 'scissors', name: 'First Cut', desc: 'Finish your very first haircut.', goal: 1, progress: st('served'), reward: { money: 10, xp: 20 } },
+  { id: 'fiveStar', cat: 'craft', tier: 'bronze', icon: 'star', name: 'Five Stars', desc: 'Get a five-star rating.', goal: 1, progress: st('fiveStars'), reward: { money: 20, xp: 30 } },
+  { id: 'streak3', cat: 'craft', tier: 'bronze', icon: 'fire', name: 'On a Roll', desc: 'Three cuts of 4+ stars in a row.', goal: 3, progress: st('bestStreak'), reward: { money: 25, xp: 40 } },
+  { id: 'perfect10', cat: 'craft', tier: 'silver', icon: 'star', name: 'Perfectionist', desc: 'Earn ten five-star ratings.', goal: 10, progress: st('fiveStars'), reward: { money: 80, xp: 120 } },
+  { id: 'fadeMaster', cat: 'craft', tier: 'silver', icon: 'clipper', name: 'Fade Master', desc: 'A five-star fade.', goal: 1, progress: st('fades5'), reward: { money: 60, xp: 80 } },
+  { id: 'beardBoss', cat: 'craft', tier: 'silver', icon: 'beard', name: 'Beard Boss', desc: 'A five-star beard cut.', goal: 1, progress: st('beards5'), reward: { money: 50, xp: 70 } },
+  { id: 'styleIcon', cat: 'craft', tier: 'silver', icon: 'comb', name: 'Style Icon', desc: 'Five stars on a Side Part or a Slick Back.', goal: 1, progress: st('styled5'), reward: { money: 70, xp: 90 } },
+  { id: 'speedDemon', cat: 'craft', tier: 'silver', icon: 'clock', name: 'Speed Demon', desc: 'Four stars or more in under 70% of the usual time.', goal: 1, progress: st('fast'), reward: { money: 60, xp: 80 } },
+  { id: 'streak10', cat: 'craft', tier: 'gold', icon: 'fire', name: 'Unstoppable', desc: 'Ten cuts of 4+ stars in a row.', goal: 10, progress: st('bestStreak'), reward: { money: 150, xp: 250 } },
+  { id: 'fadeLegend', cat: 'craft', tier: 'gold', icon: 'clipper', name: 'Fade Legend', desc: 'Ten five-star fades.', goal: 10, progress: st('fades5'), reward: { money: 200, xp: 300 } },
+  { id: 'repertoire', cat: 'craft', tier: 'gold', icon: 'scissors', name: 'Full Repertoire', desc: 'Do every haircut on the list at least once.', goal: 19, progress: (s) => Object.keys(s.stats.cuts || {}).length, reward: { money: 250, xp: 300 } },
+  { id: 'perfect50', cat: 'craft', tier: 'gold', icon: 'crown', name: 'Master Barber', desc: 'Earn fifty five-star ratings.', goal: 50, progress: st('fiveStars'), reward: { money: 300, xp: 400 } },
+  // ---- business
+  { id: 'tenServed', cat: 'business', tier: 'bronze', icon: 'users', name: 'Regulars', desc: 'Serve 10 customers.', goal: 10, progress: st('served'), reward: { money: 30, xp: 50 } },
+  { id: 'rich', cat: 'business', tier: 'bronze', icon: 'cash', name: 'Cash Drawer', desc: 'Earn $500 in total.', goal: 500, progress: st('earned'), reward: { money: 25, xp: 40 }, money: true },
+  { id: 'fiftyServed', cat: 'business', tier: 'silver', icon: 'users', name: 'Busy Chair', desc: 'Serve 50 customers.', goal: 50, progress: st('served'), reward: { money: 100, xp: 150 } },
+  { id: 'tipKing', cat: 'business', tier: 'silver', icon: 'coin', name: 'Tip Jar', desc: 'Collect $250 in tips.', goal: 250, progress: st('tips'), reward: { money: 60, xp: 80 }, money: true },
+  { id: 'vip', cat: 'business', tier: 'silver', icon: 'star', name: 'Celebrity Barber', desc: 'Give a VIP a 4-star cut or better.', goal: 1, progress: (s) => (s.stats.vips || []).length, reward: { money: 80, xp: 100 } },
+  { id: 'wealthy', cat: 'business', tier: 'silver', icon: 'cash', name: 'Small Fortune', desc: 'Earn $5,000 in total.', goal: 5000, progress: st('earned'), reward: { money: 150, xp: 200 }, money: true },
+  { id: 'hundredServed', cat: 'business', tier: 'gold', icon: 'users', name: 'Local Institution', desc: 'Serve 100 customers.', goal: 100, progress: st('served'), reward: { money: 250, xp: 350 } },
+  { id: 'vipAll', cat: 'business', tier: 'gold', icon: 'crown', name: 'Walk of Fame', desc: 'Make all six VIPs happy.', goal: 6, progress: (s) => (s.stats.vips || []).length, reward: { money: 300, xp: 400 } },
+  { id: 'tycoon', cat: 'business', tier: 'gold', icon: 'cash', name: 'Barber Tycoon', desc: 'Earn $25,000 in total.', goal: 25000, progress: st('earned'), reward: { money: 500, xp: 600 }, money: true },
+  // ---- shop
+  { id: 'lights', cat: 'shop', tier: 'bronze', icon: 'bulb', name: 'Let There Be Light', desc: 'Replace the flickering bulb.', goal: 1, progress: owns('bulb'), reward: { money: 10, xp: 15 } },
+  { id: 'sweep', cat: 'shop', tier: 'bronze', icon: 'broom', name: 'Tidy Barber', desc: 'Sweep the floor.', goal: 1, progress: st('sweeps'), reward: { money: 10, xp: 15 } },
+  { id: 'makeover', cat: 'shop', tier: 'silver', icon: 'paint', name: 'Makeover', desc: 'Own 6 shop or comfort upgrades.', goal: 6, progress: (s) => s.owned.filter((x) => byId[x] && ['shop', 'decor'].includes(byId[x].cat)).length, reward: { money: 60, xp: 80 } },
+  { id: 'level5', cat: 'shop', tier: 'silver', icon: 'star', name: 'Local Legend', desc: 'Reach shop level 5.', goal: 5, progress: (s) => s.level, reward: { money: 60, xp: 80 } },
+  { id: 'hire', cat: 'shop', tier: 'silver', icon: 'users', name: 'Boss', desc: 'Hire your first barber.', goal: 1, progress: owns('hireBarber'), reward: { money: 80, xp: 100 } },
+  { id: 'day10', cat: 'shop', tier: 'silver', icon: 'calendar', name: 'Ten Days In', desc: 'Keep the shop open for ten days.', goal: 10, progress: (s) => s.day, reward: { money: 70, xp: 90 } },
+  { id: 'level10', cat: 'shop', tier: 'gold', icon: 'crown', name: 'Famous', desc: 'Reach shop level 10.', goal: 10, progress: (s) => s.level, reward: { money: 250, xp: 300 } },
+  { id: 'day30', cat: 'shop', tier: 'gold', icon: 'calendar', name: 'Old Hand', desc: 'Keep the shop open for thirty days.', goal: 30, progress: (s) => s.day, reward: { money: 250, xp: 300 } },
+  { id: 'fullHouse', cat: 'shop', tier: 'gold', icon: 'key', name: 'Dream Shop', desc: 'Own every upgrade.', goal: UPGRADES.length, progress: (s) => s.owned.length, reward: { money: 500, xp: 500 } },
+  // ---- secret: no hint until they happen
+  { id: 'oops', cat: 'secret', tier: 'bronze', icon: 'mask', name: 'Oops.', desc: 'Leave a bald patch where nobody asked for one.', goal: 1, progress: st('oops'), reward: { money: 5, xp: 10 }, secret: true },
+  { id: 'toughCrowd', cat: 'secret', tier: 'bronze', icon: 'mask', name: 'Tough Crowd', desc: 'A customer gave up waiting and walked out.', goal: 1, progress: st('lost'), reward: { money: 5, xp: 10 }, secret: true },
+  { id: 'tidyFreak', cat: 'secret', tier: 'silver', icon: 'broom', name: 'Spotless', desc: 'Sweep the floor 25 times.', goal: 25, progress: st('sweeps'), reward: { money: 40, xp: 60 }, secret: true },
+];
+ACHIEVEMENTS.find((a) => a.id === 'repertoire').goal = 0;   // set from the haircut list (styles.js) at startup
 
 export const EVENTS = [
   { id: 'rush', name: 'Friday Rush', desc: 'Customers keep coming. Stay fast.' },

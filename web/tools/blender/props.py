@@ -738,14 +738,32 @@ def receipt():
 
 
 def key():
+    """The old shop key: a worn brass skeleton key on a rusty ring with a paper tag."""
     root = P('Key')
-    torus('ky_bow', 0.013, 0.004, (0, 0.03, 0), 'Brass', seg=16, tseg=6, axis='Z', parent=root, scale=(1.0, 1.15))
-    cyl('ky_shaft', 0.0035, 0.06, (0, -0.012, 0), 'Brass', axis='Y', seg=8, parent=root, bevel=0)
-    multibox('ky_bits', [((0.004, 0.006, 0.010), (0.0, -0.03, -0.006)), ((0.004, 0.005, 0.007), (0.0, -0.022, -0.005)),
-                         ((0.004, 0.007, 0.012), (0.0, -0.036, -0.007))], 'Brass', parent=root)
-    torus('ky_ring', 0.016, 0.0018, (0, 0.058, 0), 'Steel', seg=18, tseg=5, axis='X', parent=root)
-    box('ky_tag', (0.03, 0.05, 0.003), (0.0, 0.095, -0.0), 'LeatherBrown', parent=root, bevel=0.002,
-        xform=rot('Y', 20, (0, 0.09, 0)))
+    # trefoil bow: three loops around a small ring, one loop slightly squashed from years in a pocket
+    for i, (ang, sc) in enumerate(((90, 1.0), (210, 0.92), (330, 1.0))):
+        a = math.radians(ang)
+        torus('ky_loop%d' % i, 0.0085 * sc, 0.0026, (math.cos(a) * 0.0105, 0.042 + math.sin(a) * 0.0105, 0),
+              'BrassWorn', seg=14, tseg=6, axis='Z', parent=root)
+    torus('ky_hub', 0.0062, 0.0024, (0, 0.042, 0), 'BrassWorn', seg=14, tseg=6, axis='Z', parent=root)
+    # collar rings and a slightly bent shaft
+    cyl('ky_collar1', 0.0052, 0.004, (0, 0.027, 0), 'BrassWorn', axis='Y', seg=12, parent=root, bevel=0.0008)
+    cyl('ky_collar2', 0.0046, 0.003, (0, 0.021, 0), 'BrassWorn', axis='Y', seg=12, parent=root, bevel=0.0006)
+    sweep('ky_shaft', [(0, 0.022, 0), (0.0004, 0.0, 0.0002), (0.0011, -0.025, 0.0007), (0.0016, -0.046, 0.0012)],
+          [0.0034, 0.0033, 0.0032, 0.0031], 'BrassWorn', seg=10, parent=root)
+    sphere('ky_tip', 0.0034, (0.0016, -0.047, 0.0012), 'BrassWorn', seg=10, rings=6, parent=root)
+    # the bit: stepped wards, one corner chipped off
+    multibox('ky_bit', [((0.0032, 0.016, 0.006), (0.0014, -0.038, -0.006)),
+                        ((0.0032, 0.004, 0.005), (0.0014, -0.031, -0.0115)),
+                        ((0.0032, 0.004, 0.0035), (0.0014, -0.0405, -0.011)),
+                        ((0.0032, 0.0035, 0.0055), (0.0014, -0.044, -0.0115))], 'BrassWorn', parent=root, bevel=0.0005)
+    # split ring, tarnished
+    torus('ky_ring', 0.0155, 0.0015, (0, 0.066, 0), 'IronRust', seg=20, tseg=5, axis='X', parent=root)
+    # paper tag on a bit of twine
+    sweep('ky_twine', [(0, 0.08, 0.0), (0.004, 0.09, 0.002), (0.006, 0.1, 0.001)], 0.0007, 'Twine', seg=4, parent=root)
+    box('ky_tag', (0.026, 0.042, 0.0015), (0.008, 0.122, 0.0), 'PaperOld', parent=root, bevel=0.0006,
+        xform=rot('Z', -12, (0.006, 0.1, 0)))
+    torus('ky_eyelet', 0.0028, 0.0008, (0.0056, 0.1, 0.0), 'BrassWorn', seg=10, tseg=4, axis='Z', parent=root)
     return root
 
 

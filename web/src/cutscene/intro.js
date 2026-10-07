@@ -316,11 +316,19 @@ export async function playIntro(game) {
   await wait(0.4);
   o.release('R', 3);
   o.lookAt(game.camera, 1);
-  await say('She’s yours.', null, 1.4);
-  dir.fov(68);
-  R.set({ pos: V(0.14, -0.45, -0.35) });
-  dir.move(null, head().add(V(0, -0.12, 0)), 1.2);
+  await say('She’s yours.', null, 0.9);
+  // you look at it: up close, it is a lot older than the shop
+  R.set({ pos: V(0.05, -0.24, -0.45), speed: 5 });
   await wait(0.5);
+  R.drop();
+  const got = game.itemFx.show(key, { title: 'GOT KEY!', rot: [Math.PI / 2, 0, -2.3], name: 'Old Shop Key', desc: 'Worn brass, bent shaft, a paper tag that says “SHOP”. It sticks a little.' });
+  R.set({ pos: V(0.14, -0.55, -0.35), pose: 'relaxed', speed: 4 });
+  o.setEmotion('happy');
+  await dir.until(() => !game.itemFx.active, 8);
+  got.catch?.(() => {});
+  dir.fov(68);
+  dir.move(null, head().add(V(0, -0.12, 0)), 1.0);
+  await wait(0.3);
   R.set({ visible: false });
 
   // ---- and then he remembers the money

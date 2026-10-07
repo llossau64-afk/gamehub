@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { createRenderer, detectQuality } from './render/renderer.js';
 import { initMaterials } from './render/materials.js';
-import { registerProps } from './world/props.js';
+import { registerProps, spawnProp } from './world/props.js';
 import { buildTemplate } from './chars/template.js';
 import { Input } from './core/input.js';
 import { UI } from './ui/ui.js';
@@ -52,6 +52,7 @@ async function boot() {
   await new Promise((r) => setTimeout(r, 30));
   const game = new Game({ renderer, ui, input, qualityName });
   window.__game = game;
+  window.__spawnProp = spawnProp;
   // warm up shaders so the first frames do not hitch
   game.camera.position.set(1.6, 1.55, 1.7);
   game.camera.lookAt(-0.9, 1, -1.4);

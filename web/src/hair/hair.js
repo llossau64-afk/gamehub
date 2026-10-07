@@ -426,7 +426,7 @@ export class HairSystem {
   clip(phi, theta, guardLen, rate, dt, radius = 0.022) {
     return this.brush(phi, theta, radius, (k, w) => {
       const cur = this.len[k];
-      if (cur > guardLen) { this.len[k] = Math.max(guardLen, cur - rate * dt * w * (0.4 + cur)); this.styled[k] *= 1 - 0.08 * w; }
+      if (cur > guardLen) { this.len[k] = Math.max(guardLen, cur - rate * dt * (0.3 + 0.7 * w) * (0.4 + cur) * 3.6); this.styled[k] *= 1 - 0.08 * w; }
     });
   }
 

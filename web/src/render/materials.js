@@ -24,6 +24,10 @@ const DEFS = {
   Chrome:       { color: '#d8d8d4', rough: 0.18, metal: 1, detail: [0.15, 0, 0, 0.35], scale: 4 },
   ChromeWorn:   { color: '#a9a49a', rough: 0.42, metal: 0.85, detail: [0.45, 0, 0, 0.7], scale: 4, grime: 1 },
   Brass:        { color: '#b58a3c', rough: 0.32, metal: 1, detail: [0.25, 0, 0, 0.4], scale: 4 },
+  BrassWorn:    { color: '#9a7434', rough: 0.46, metal: 0.95, detail: [0.6, 0, 0, 0.9], scale: 22, grime: 1 },
+  IronRust:     { color: '#5e4636', rough: 0.75, metal: 0.5, detail: [0.6, 0, 0, 0.8], scale: 30, grime: 1 },
+  Twine:        { color: '#a08a62', rough: 0.95, detail: [0.4, 0, 0.3, 0], scale: 40 },
+  PaperOld:     { color: '#cdbb92', rough: 0.92, detail: [0.55, 0, 0, 0.7], scale: 26, grime: 1, side: THREE.DoubleSide },
   Metal:        { color: '#5b5f5e', rough: 0.5, metal: 0.6, detail: [0.3, 0, 0, 0.5], scale: 4 },
   MetalDark:    { color: '#2c2d2e', rough: 0.45, metal: 0.5, detail: [0.25, 0, 0, 0.4], scale: 4 },
   MetalPainted: { color: '#6f7a6c', rough: 0.6, metal: 0.2, detail: [0.35, 0, 0, 0.6], scale: 4, grime: 1 },
@@ -165,8 +169,10 @@ roughnessFactor = clamp(roughnessFactor + (dt.r-0.5)*0.25*(uDetailW.x+uDetailW.z
 // --------------------------------------------------------------- characters
 export const PAL_SLOTS = ['Skin', 'Top', 'Sleeve', 'Pants', 'Shoes', 'Hair', 'EyeWhite', 'Iris', 'Pupil',
   'Shirt', 'Tie', 'Lapel', 'Mouth', 'Teeth', 'Frame', 'Sole', 'Belt', 'Metal', 'Button', 'TopDark',
-  'MouthDark', 'Apron'];
+  'MouthDark', 'Apron', 'Nail'];
 export const PAL_SIZE = 32;
+
+const _nailTint = new THREE.Color('#f3d6cc');
 
 export function makePalette(colors) {
   const data = new Float32Array(PAL_SIZE * 2 * 4);
@@ -177,7 +183,7 @@ export function makePalette(colors) {
   return tex;
 }
 
-const DEFAULT_ROUGH = { Skin: 0.55, EyeWhite: 0.15, Iris: 0.2, Pupil: 0.1, Shoes: 0.35, Sole: 0.8, Metal: 0.3,
+const DEFAULT_ROUGH = { Skin: 0.55, Nail: 0.28, EyeWhite: 0.15, Iris: 0.2, Pupil: 0.1, Shoes: 0.35, Sole: 0.8, Metal: 0.3,
   Frame: 0.3, Tie: 0.45, Teeth: 0.3, Mouth: 0.4, Belt: 0.4, Button: 0.3, Hair: 0.7 };
 const DEFAULT_METAL = { Metal: 1, Frame: 0.6 };
 
@@ -185,7 +191,8 @@ export function setPalette(tex, colors) {
   const d = tex.image.data;
   const c = new THREE.Color();
   PAL_SLOTS.forEach((slot, i) => {
-    c.set(colors[slot] || '#ff00ff');
+    if (slot === 'Nail' && !colors.Nail) c.set(colors.Skin || '#c99a7c').lerp(_nailTint, 0.38);
+    else c.set(colors[slot] || '#ff00ff');
     d[i * 4] = c.r; d[i * 4 + 1] = c.g; d[i * 4 + 2] = c.b;
     d[i * 4 + 3] = colors[slot + 'Rough'] ?? DEFAULT_ROUGH[slot] ?? 0.8;
     const j = (PAL_SIZE + i) * 4;

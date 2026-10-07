@@ -23,6 +23,16 @@ export const ICON = {
   floor: '<svg viewBox="0 0 48 48"><path d="M4 36l10-20h20l10 20z"/><path d="M14 16l-4 20M24 16v20M34 16l4 20M8 28h32"/></svg>',
   lock: '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
   coin: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v10M9.5 9.5c0-1 1-1.6 2.5-1.6s2.5.7 2.5 1.7-1 1.4-2.5 1.6-2.5.7-2.5 1.8 1 1.8 2.5 1.8 2.5-.6 2.5-1.6"/></svg>',
+  trophy: '<svg viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5c0 3 1.5 4.5 3.2 4.8M16 6h3c0 3-1.5 4.5-3.2 4.8"/><path d="M12 13v4M8.5 20h7M9.5 17h5v3h-5z"/></svg>',
+  crown: '<svg viewBox="0 0 48 48"><path d="M8 36l-3-20 11 9 8-14 8 14 11-9-3 20z"/><path d="M8 41h32"/><circle cx="24" cy="28" r="2.5"/></svg>',
+  fire: '<svg viewBox="0 0 48 48"><path d="M24 44c-8 0-13-5-13-12 0-8 7-11 7-19 4 2 7 6 7 10 2-2 3-5 3-8 6 4 10 10 10 17 0 7-6 12-14 12z"/><path d="M24 44c-3 0-5-2-5-5 0-4 5-6 5-10 3 3 5 6 5 10 0 3-2 5-5 5z"/></svg>',
+  beard: '<svg viewBox="0 0 48 48"><path d="M10 14c0 18 6 28 14 28s14-10 14-28"/><path d="M10 14c4 6 8 8 14 8s10-2 14-8"/><path d="M17 28c3-2 5-2 7 0 2-2 4-2 7 0"/><path d="M20 35h8"/></svg>',
+  clock: '<svg viewBox="0 0 48 48"><circle cx="24" cy="26" r="16"/><path d="M24 16v10l7 5M20 5h8M24 5v5M37 11l3-3"/></svg>',
+  users: '<svg viewBox="0 0 48 48"><circle cx="18" cy="16" r="7"/><path d="M5 40c0-8 6-13 13-13s13 5 13 13"/><circle cx="34" cy="17" r="5"/><path d="M33 27c6 0 10 4 10 11"/></svg>',
+  cash: '<svg viewBox="0 0 48 48"><rect x="4" y="13" width="40" height="22" rx="2"/><circle cx="24" cy="24" r="6"/><path d="M10 18v12M38 18v12"/></svg>',
+  calendar: '<svg viewBox="0 0 48 48"><rect x="6" y="9" width="36" height="33" rx="3"/><path d="M6 19h36M15 5v8M33 5v8M15 27h6M27 27h6M15 34h6"/></svg>',
+  key: '<svg viewBox="0 0 48 48"><circle cx="14" cy="24" r="8"/><circle cx="14" cy="24" r="3"/><path d="M22 24h22M36 24v7M41 24v5"/></svg>',
+  mask: '<svg viewBox="0 0 48 48"><path d="M24 10C14 10 7 12 7 12s0 26 17 26 17-26 17-26-7-2-17-2z"/><path d="M14 22c2-2 5-2 7 0M27 22c2-2 5-2 7 0M18 30c4 3 8 3 12 0"/></svg>',
   sound: '<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9c1.5 1.5 1.5 4.5 0 6M19 6c3 3 3 9 0 12"/></svg>',
 };
 

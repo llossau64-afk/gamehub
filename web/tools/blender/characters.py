@@ -192,32 +192,59 @@ def build_person():
                               (0.88, 0.021, 0.031, x2, 0.0)], 'Skin', seg=12, parent=hd,
              caps=(False, False))
         # palm faces the body (-side * X); slightly oversized hands read better on screen
-        loft('M_Palm' + nm, [(0.905, 0.017, 0.032, x2, -0.002), (0.88, 0.019, 0.044, x2, -0.003),
-                             (0.85, 0.018, 0.049, x2, -0.002), (0.822, 0.016, 0.047, x2, -0.001),
-                             (0.808, 0.011, 0.040, x2, 0.0)], 'Skin', seg=12, parent=hd,
-             power=2.8)
-        fingers = [('Index', -0.032, 0.049, 0.036, 0.0098), ('Middle', -0.011, 0.054, 0.039, 0.0101),
-                   ('Ring', 0.010, 0.051, 0.036, 0.0095), ('Pinky', 0.029, 0.040, 0.029, 0.0085)]
-        for fname, fy, l1, l2, fr in fingers:
-            z0 = 0.814 + abs(fy) * 0.12
+        loft('M_Palm' + nm, [(0.905, 0.017, 0.031, x2, -0.002), (0.885, 0.019, 0.040, x2, -0.003),
+                             (0.86, 0.0185, 0.047, x2, -0.003), (0.835, 0.0175, 0.049, x2, -0.002),
+                             (0.818, 0.015, 0.047, x2, -0.001), (0.808, 0.011, 0.042, x2, 0.0)],
+             'Skin', seg=14, parent=hd, power=2.6)
+        # fleshy pads: thumb ball and the outer edge of the palm
+        sphere('M_Thenar' + nm, 0.016, (x2 - side * 0.008, -0.022, 0.868), 'Skin', seg=10, rings=7,
+               parent=hd, scale=(0.75, 0.8, 1.3))
+        sphere('M_Hypo' + nm, 0.013, (x2 - side * 0.008, 0.027, 0.85), 'Skin', seg=10, rings=6,
+               parent=hd, scale=(0.7, 0.75, 1.5))
+        # proximal, middle and distal phalanges; knuckles and nails
+        fingers = [('Index', -0.031, (0.036, 0.025, 0.021), 0.0094),
+                   ('Middle', -0.0105, (0.040, 0.028, 0.023), 0.0098),
+                   ('Ring', 0.0105, (0.037, 0.026, 0.022), 0.0092),
+                   ('Pinky', 0.029, (0.029, 0.020, 0.018), 0.0080)]
+        for fname, fy, (l1, l2, l3), fr in fingers:
+            z0 = 0.815 + abs(fy) * 0.14 - (0.004 if fname == 'Middle' else 0.0)
             fx = x2 - side * 0.002
+            za, zb, zc = z0 - l1, z0 - l1 - l2, z0 - l1 - l2 - l3
             f1 = joint(fname + nm + '1', hd, (fx, fy, z0))
-            f2 = joint(fname + nm + '2', f1, (fx, fy, z0 - l1))
-            limb('M_' + fname + nm + '1', fx, fy, [(z0, fr), (z0 - l1, fr * 0.95)], 'Skin', f1, seg=6)
-            limb('M_' + fname + nm + '2', fx, fy, [(z0 - l1, fr * 0.92), (z0 - l1 - l2 + fr * 0.6, fr * 0.78)],
-                 'Skin', f2, seg=6)
-        # thumb: sits on the front edge, angled toward the palm side
-        t0 = (x2 - side * 0.013, -0.033, 0.877)
+            f2 = joint(fname + nm + '2', f1, (fx, fy, za))
+            f3 = joint(fname + nm + '3', f2, (fx, fy, zb))
+            # knuckle on the back of the hand
+            sphere('M_Knuckle' + fname + nm, fr * 1.05, (fx + side * 0.004, fy, z0 + 0.002), 'Skin',
+                   seg=8, rings=6, parent=f1, scale=(0.9, 1.0, 1.0))
+            limb('M_' + fname + nm + '1', fx, fy, [(z0, fr * 1.04), (z0 - l1 * 0.5, fr * 0.93), (za, fr * 0.97)],
+                 'Skin', f1, seg=8)
+            limb('M_' + fname + nm + '2', fx, fy, [(za, fr * 0.95), (za - l2 * 0.5, fr * 0.86), (zb, fr * 0.9)],
+                 'Skin', f2, seg=8)
+            limb('M_' + fname + nm + '3', fx, fy, [(zb, fr * 0.86), (zb - l3 * 0.45, fr * 0.8), (zc + fr * 0.5, fr * 0.72)],
+                 'Skin', f3, seg=8)
+            sphere('M_Nail' + fname + nm, fr * 0.62, (fx + side * fr * 0.62, fy, zc + l3 * 0.42), 'Nail',
+                   seg=8, rings=5, parent=f3, scale=(0.35, 0.95, 1.35))
+        # thumb: sits on the front edge, angled toward the palm side, three segments
+        t0 = (x2 - side * 0.012, -0.031, 0.879)
         t1 = joint('Thumb' + nm + '1', hd, t0)
         tdir = Vector((-side * 0.35, -0.55, -0.76)).normalized()
         pA = Vector(t0)
-        pB = pA + tdir * 0.046
+        pB = pA + tdir * 0.036
         t2 = joint('Thumb' + nm + '2', t1, tuple(pB))
-        pC = pB + Vector((-side * 0.25, -0.35, -0.9)).normalized() * 0.034
-        sweep('M_Thumb' + nm + '1', [tuple(pA - tdir * 0.008), tuple(pA), tuple(pB + tdir * 0.004)],
-              [0.0108, 0.0118, 0.0106], 'Skin', seg=8, parent=t1)
-        sweep('M_Thumb' + nm + '2', [tuple(pB - tdir * 0.004), tuple((pB + pC) / 2), tuple(pC)],
-              [0.0102, 0.0096, 0.0068], 'Skin', seg=8, parent=t2)
+        d2 = Vector((-side * 0.28, -0.4, -0.87)).normalized()
+        pC = pB + d2 * 0.026
+        t3 = joint('Thumb' + nm + '3', t2, tuple(pC))
+        d3 = Vector((-side * 0.22, -0.32, -0.92)).normalized()
+        pD = pC + d3 * 0.022
+        sweep('M_Thumb' + nm + '1', [tuple(pA - tdir * 0.01), tuple(pA), tuple((pA + pB) / 2), tuple(pB + tdir * 0.004)],
+              [0.0105, 0.0125, 0.0118, 0.0104], 'Skin', seg=9, parent=t1)
+        sweep('M_Thumb' + nm + '2', [tuple(pB - d2 * 0.004), tuple((pB + pC) / 2), tuple(pC + d2 * 0.003)],
+              [0.0103, 0.0094, 0.0095], 'Skin', seg=9, parent=t2)
+        sweep('M_Thumb' + nm + '3', [tuple(pC - d3 * 0.003), tuple((pC + pD) / 2), tuple(pD)],
+              [0.0093, 0.0088, 0.0058], 'Skin', seg=9, parent=t3)
+        nail_n = Vector((side * 0.9, -0.35, 0.1)).normalized()
+        sphere('M_NailThumb' + nm, 0.0062, tuple(pC + d3 * 0.012 + nail_n * 0.0068), 'Nail', seg=8, rings=5,
+               parent=t3, scale=(0.5, 0.9, 1.3))
 
     # ------------------------------------------------------------ legs
     for side, nm in ((1, 'L'), (-1, 'R')):

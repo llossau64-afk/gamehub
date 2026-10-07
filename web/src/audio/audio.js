@@ -151,6 +151,7 @@ class AudioEngine {
   // inharmonic metallic partials (bells, keys, coins)
   metal(f0, dur, ratios, { vol = 0.2, when = 0, room = 0.25, bus = 'sfx', pan = 0 } = {}) {
     for (let i = 0; i < ratios.length; i++) {
+      if (f0 * ratios[i] > 16000) continue;
       this.tone(f0 * ratios[i], dur * (1 - i * 0.12), { vol: vol / (1 + i * 0.7), when, room, bus, pan, attack: 0.001 });
     }
   }
@@ -369,6 +370,25 @@ class AudioEngine {
   }
   levelUp() {
     [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone(f, 0.4, { type: 'triangle', vol: 0.09, bus: 'ui', room: 0.3, when: i * 0.07 }));
+  }
+  // "got item" fanfare: a bright arpeggio over a soft swell, with a metallic glint
+  itemGet() {
+    if (!this.ctx) return;
+    this.noiseBurst(0.9, { vol: 0.05, type: 'bandpass', freq: 900, q: 0.7, attack: 0.35, bus: 'ui', room: 0.4, sweep: 5 });
+    [587, 740, 880, 1175, 1480].forEach((f, i) => {
+      this.tone(f, 0.5 - i * 0.04, { type: 'triangle', vol: 0.085, bus: 'ui', room: 0.35, when: 0.05 + i * 0.075 });
+      this.tone(f * 2, 0.25, { type: 'sine', vol: 0.02, bus: 'ui', room: 0.3, when: 0.05 + i * 0.075 });
+    });
+    this.tone(1175, 1.3, { type: 'sine', vol: 0.05, bus: 'ui', room: 0.5, when: 0.45 });
+    this.tone(1760, 1.1, { type: 'sine', vol: 0.03, bus: 'ui', room: 0.5, when: 0.47, detune: 6 });
+    this.metal(2400, 0.7, [1, 2.76, 5.4], { vol: 0.05, when: 0.42, room: 0.4, bus: 'ui' });
+  }
+  achievement(tier = 'bronze') {
+    if (!this.ctx) return;
+    const base = { bronze: 523, silver: 659, gold: 784 }[tier] || 523;
+    [1, 1.25, 1.5, 2].forEach((m, i) => this.tone(base * m, 0.45, { type: 'triangle', vol: 0.08, bus: 'ui', room: 0.35, when: i * 0.09 }));
+    this.metal(base * 4, 0.9, [1, 2.76, 5.4], { vol: 0.04, when: 0.36, room: 0.4, bus: 'ui' });
+    if (tier === 'gold') this.tone(base * 3, 1.2, { type: 'sine', vol: 0.04, bus: 'ui', room: 0.5, when: 0.4, detune: 7 });
   }
   pop() { this.tone(500, 0.08, { type: 'sine', vol: 0.12, bus: 'ui', room: 0.05, slide: 2.2 }); }
   bulbPop() {

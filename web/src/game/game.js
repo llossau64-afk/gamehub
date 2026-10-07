@@ -13,6 +13,7 @@ import { CustomerManager } from './customers.js';
 import { BarberMode } from './barber.js';
 import { Director, SKIP } from '../cutscene/director.js';
 import { playIntro, introEndState } from '../cutscene/intro.js';
+import { ItemShowcase } from '../fx/itemGet.js';
 import { playTutorial } from './tutorial.js';
 import { UPGRADES, byId, effects, xpFor, ACHIEVEMENTS, EVENTS } from '../world/upgrades.js';
 import { Street } from './street.js';
@@ -41,6 +42,7 @@ export class Game {
     this.player = new Player(this.scene, this.camera, this.shop);
     this.clippings = new Clippings(this.scene);
     this.mist = new Mist(this.scene);
+    this.itemFx = new ItemShowcase(this);
     this.dir = new Director(this);
     this.customers = new CustomerManager(this);
     this.barber = new BarberMode(this);
@@ -77,6 +79,8 @@ export class Game {
   bindUI() {
     this.ui.upBtn.addEventListener('click', () => this.openUpgrades());
     this.ui.pauseBtn.addEventListener('click', () => this.pause());
+    this.ui.trophyBtn.addEventListener('click', () => { if (this.state === 'play') this.openAchievements(); });
+    ACHIEVEMENTS.find((a) => a.id === 'repertoire').goal = Object.keys(HAIRCUTS).length;
     const sk = this.ui.skipEl;
     sk.addEventListener('pointerdown', (e) => { e.preventDefault(); this.skipPointer = true; });
     addEventListener('pointerup', () => { this.skipPointer = false; });
@@ -313,7 +317,7 @@ export class Game {
       onContinue: () => this.continueGame(),
       onNew: () => this.newGame(),
       onUpgrades: () => this.ui.upgradesPanel(this, { readOnly: true }),
-      onAchievements: () => this.ui.achievementsPanel(this.save.achievements),
+      onAchievements: () => this.openAchievements(),
       onSettings: () => this.openSettings(),
     });
   }
@@ -400,6 +404,7 @@ export class Game {
       if (e === SKIP) { await this.ui.fade(true, 300); }
     }
     this.dir.reset();
+    this.itemFx.cancel();
     introEndState(this);
     this.ui.setSkip(false);
     this.canSkip = false;
@@ -423,6 +428,7 @@ export class Game {
   }
 
   beginPlay(resume = false) {
+    this.checkAchievements();
     this.state = 'play';
     this.enterFP();
     this.ui.showHud(true);
@@ -458,6 +464,7 @@ export class Game {
       resume: () => this.resume(),
       upgrades: () => { this.ui.closePanel(); this.openUpgrades(true); },
       settings: () => { this.ui.closePanel(); this.openSettings(true); },
+      achievements: () => { this.ui.closePanel(); this.openAchievements(true); },
       menu: () => { this.paused = false; this.ui.openPanel?.el.remove(); this.ui.openPanel = null; this.persist(); this.ui.fade(true, 500).then(() => this.toMenu()); },
     });
   }
@@ -527,14 +534,14 @@ export class Game {
       await wait(700);
       shop.applyState(new Set(this.save.owned));
       audio.lightOn();
-      this.unlock('lights');
+      this.checkAchievements();
     } else {
       shop.applyState(new Set(this.save.owned));
     }
     if (id === 'radio') this.setRadio(true);
     if (id === 'hireBarber') {
       this.syncEmployee();
-      this.unlock('hire');
+      this.checkAchievements();
       const m = this.employee.ch;
       m.lookAt(this.camera, 1);
       const d = m.say('Hey boss! Marco. I’ll take the next one in line.');
@@ -542,7 +549,7 @@ export class Game {
       m.gesture('wave');
     }
     if (id === 'clean') this.clippings.sweep();
-    if (this.save.owned.filter((x) => byId[x].cat !== 'tools').length >= 6) this.unlock('makeover');
+    this.checkAchievements();
     this.ui.toast(byId[id].name, 'New');
   }
 
@@ -550,7 +557,7 @@ export class Game {
     this.save.money += v;
     this.save.stats.earned += Math.max(0, v);
     this.ui.setMoney(this.save.money);
-    if (this.save.stats.earned >= 500) this.unlock('rich');
+    this.checkAchievements();
   }
 
   addXP(v) {
@@ -560,24 +567,74 @@ export class Game {
     while (s.xp >= xpFor(s.level)) { s.xp -= xpFor(s.level); s.level++; up = true; }
     this.ui.setLevel(s.level, s.xp);
     if (up) {
-      if (s.level >= 5) this.unlock('level5');
+      this.checkAchievements();
       setTimeout(() => { audio.levelUp(); this.ui.banner('Level up', `Level ${s.level}`, 'New upgrades and haircuts unlocked', 2000); }, 300);
     }
     return up;
   }
 
-  unlock(id) {
-    if (this.save.achievements.includes(id)) return;
-    this.save.achievements.push(id);
+  unlock(id, quiet = false) {
+    const s = this.save;
+    if (s.achievements.includes(id)) return;
     const a = ACHIEVEMENTS.find((x) => x.id === id);
-    if (a) this.ui.toast(a.name, 'Achievement');
+    if (!a) return;
+    s.achievements.push(id);
+    (s.achDays ||= {})[id] = s.day;
+    if (!quiet) this.ui.achievementPop(a);
+    this.ui.setTrophies(this.unclaimed());
     this.persist();
+  }
+
+  // every achievement reads its progress from the save; unlock whatever is reached
+  checkAchievements() {
+    const fresh = ACHIEVEMENTS.filter((a) => a.goal && !this.save.achievements.includes(a.id) && a.progress(this.save) >= a.goal);
+    // a pile at once (an old save, a big purchase): one summary instead of a queue of popups
+    const quiet = fresh.length > 2;
+    for (const a of fresh) this.unlock(a.id, quiet);
+    if (quiet) {
+      const best = fresh.reduce((m, a) => ({ bronze: 0, silver: 1, gold: 2 }[a.tier] > { bronze: 0, silver: 1, gold: 2 }[m.tier] ? a : m), fresh[0]);
+      this.ui.achievementPop({ ...best, name: `${fresh.length} achievements`, desc: fresh.map((a) => a.name).slice(0, 4).join(', ') + (fresh.length > 4 ? '…' : ''),
+        reward: fresh.reduce((r, a) => ({ money: r.money + a.reward.money, xp: r.xp + a.reward.xp }), { money: 0, xp: 0 }) });
+    }
+  }
+
+  unclaimed() {
+    const c = this.save.achClaimed || [];
+    return this.save.achievements.filter((id) => !c.includes(id)).length;
+  }
+
+  claimAchievement(id) {
+    const s = this.save;
+    s.achClaimed ||= [];
+    if (!s.achievements.includes(id) || s.achClaimed.includes(id)) return null;
+    const a = ACHIEVEMENTS.find((x) => x.id === id);
+    s.achClaimed.push(id);
+    s.money += a.reward.money;
+    this.ui.setMoney(s.money);
+    this.addXP(a.reward.xp);
+    this.ui.setTrophies(this.unclaimed());
+    this.persist();
+    this.updateGoal();
+    return a.reward;
+  }
+
+  openAchievements(fromPause = false) {
+    if (this.ui.openPanel) return;
+    const inPlay = this.state === 'play';
+    if (inPlay) { this.input.setMode('ui'); this.player.control = false; }
+    this.ui.achievementsPanel(this, {
+      onClose: () => {
+        if (fromPause) { this.pause(); return; }
+        if (inPlay && this.state === 'play') { this.player.control = true; this.enterFP(); }
+      },
+    });
   }
 
   persist() { store.data = this.save; store.save(); }
 
   updateGoal() {
     const s = this.save;
+    this.ui.setTrophies(this.unclaimed());
     const next = UPGRADES.filter((u) => !this.owns(u.id) && u.level <= s.level && (!u.req || this.owns(u.req))).sort((a, b) => a.price - b.price)[0];
     let text = '';
     if (next) {
@@ -631,6 +688,7 @@ export class Game {
 
   loseCustomer(c) {
     this.save.stats.lost++;
+    this.checkAchievements();
     this.save.stats.streak = 0;
     this.save.reputation = Math.max(0, this.save.reputation - 3);
     this.ui.toast(`${c.name} walked out`, 'Lost');
@@ -753,7 +811,8 @@ export class Game {
       R.set({ visible: false });
       this.player.control = true;
       this.sweeping = false;
-      this.unlock('sweep');
+      this.save.stats.sweeps = (this.save.stats.sweeps || 0) + 1;
+      this.checkAchievements();
       this.ui.toast('Floor swept');
     }, 1400);
   }
@@ -811,23 +870,25 @@ export class Game {
     await this.ui.showResult({
       kicker: c.tutorial ? 'First cut complete' : `${c.name} · ${c.cut.name}`,
       title: ['Rough', 'Not great', 'Decent', 'Clean', 'Perfect'][result.stars - 1] + (result.stars >= 4 ? '!' : ''),
-      quote, stars: result.stars, accuracy: result.accuracy, symmetry: result.symmetry, edges: result.edges, fade: result.fade,
+      quote, stars: result.stars, accuracy: result.accuracy, symmetry: result.symmetry, edges: result.edges, fade: result.fade, style: result.style,
       speed: result.speed, groom: result.groom, pay: pay.pay, tip: pay.tip, xp: pay.xp, level: lvlBefore, levelUp: up,
       xpBefore, xpNeedBefore: needBefore, xpAfter: s.xp, xpNeedAfter: xpFor(s.level),
     });
     // stats
     s.stats.served++;
     if (result.stars >= 4) { s.stats.streak++; s.stats.bestStreak = Math.max(s.stats.bestStreak, s.stats.streak); } else s.stats.streak = 0;
-    if (result.stars === 5) { s.stats.fiveStars++; this.unlock('fiveStar'); platform.happyTime(); }
-    if (s.stats.served === 1) this.unlock('firstCut');
-    if (s.stats.served >= 10) this.unlock('tenServed');
-    if (s.stats.served >= 50) this.unlock('fiftyServed');
-    if (s.stats.streak >= 3) this.unlock('streak3');
+    if (result.stars === 5) { s.stats.fiveStars++; platform.happyTime(); }
+    s.stats.cuts ||= {};
+    s.stats.cuts[c.cutId] = (s.stats.cuts[c.cutId] || 0) + 1;
+    if (result.stars === 5 && c.cut.fade) s.stats.fades5 = (s.stats.fades5 || 0) + 1;
+    if (result.stars === 5 && c.cut.beard) s.stats.beards5 = (s.stats.beards5 || 0) + 1;
+    if (result.stars === 5 && c.cut.style) s.stats.styled5 = (s.stats.styled5 || 0) + 1;
+    if (result.stars >= 4 && !c.tutorial && secs < c.cut.par * 0.7) s.stats.fast = (s.stats.fast || 0) + 1;
+    if (c.vip && result.stars >= 4) { s.stats.vips ||= []; if (!s.stats.vips.includes(c.vip.name)) s.stats.vips.push(c.vip.name); }
     s.reputation = clamp(s.reputation + (result.stars - 3) * 2, 0, 100);
-    if (result.stars === 5 && c.cut.fade) this.unlock('fadeMaster');
-    if (result.stars === 5 && c.cut.beard) this.unlock('beardBoss');
+    this.checkAchievements();
     if (c.vip) {
-      if (result.stars >= 4) { this.unlock('vip'); s.reputation = clamp(s.reputation + 5, 0, 100); this.ui.toast(`${c.vip.title} ${c.vip.name} loved it`, 'VIP'); platform.happyTime(); }
+      if (result.stars >= 4) { s.reputation = clamp(s.reputation + 5, 0, 100); this.ui.toast(`${c.vip.title} ${c.vip.name} loved it`, 'VIP'); platform.happyTime(); }
       else { s.reputation = clamp(s.reputation - 6, 0, 100); this.ui.toast('The VIP was not impressed', 'VIP'); }
     }
     this.persist();
@@ -967,7 +1028,7 @@ export class Game {
     const s = this.save;
     s.day++;
     this.persist();
-    if (s.day >= 10) this.unlock('day10');
+    this.checkAchievements();
     this.rollEvent();
     await this.ui.banner(`Day ${s.day - 1} complete`, `Day ${s.day}`, this.event ? `Today: ${this.event.name}` : `${s.stats.served} customers served so far`, 2200);
     this.showEvent();
@@ -1042,6 +1103,8 @@ export class Game {
     hairLight.keyColor.value.setRGB(0.95 * k + 0.25, 0.85 * k + 0.22, 0.7 * k + 0.18);
     this.ambience?.update(this.time);
     if (this.state === 'play' || this.state === 'barber') this.save.playTime += dt;
+    // last, after every camera move of the frame, so the showcased item sticks to the view
+    this.itemFx.update(dt);
     input.endFrame();
   }
 

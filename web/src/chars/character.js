@@ -550,11 +550,14 @@ export class Character {
       const sign = s === 'L' ? -1 : 1;
       for (let i = 0; i < 4; i++) {
         const f = FINGERS[i];
-        this.bones[f + s + '1'].rotation.set(0, 0, sign * h.curl[i] * 0.9);
-        this.bones[f + s + '2'].rotation.set(0, 0, sign * h.curl[i] * 1.0);
+        // a slight fan: the outer fingers spread a little when the hand opens
+        this.bones[f + s + '1'].rotation.set((i - 1.5) * 0.05 * (1 - Math.min(1, h.curl[i])), 0, sign * h.curl[i] * 0.8);
+        this.bones[f + s + '2'].rotation.set(0, 0, sign * h.curl[i] * 0.8);
+        this.bones[f + s + '3'].rotation.set(0, 0, sign * h.curl[i] * 0.52);
       }
-      this.bones['Thumb' + s + '1'].rotation.set(-h.thumb * 0.3, 0, sign * h.thumb * 0.5);
-      this.bones['Thumb' + s + '2'].rotation.set(0, 0, sign * h.thumb * 0.7);
+      this.bones['Thumb' + s + '1'].rotation.set(-h.thumb * 0.3, 0, sign * h.thumb * 0.45);
+      this.bones['Thumb' + s + '2'].rotation.set(0, 0, sign * h.thumb * 0.5);
+      this.bones['Thumb' + s + '3'].rotation.set(0, 0, sign * h.thumb * 0.4);
     }
   }
 

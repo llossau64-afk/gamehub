@@ -2,7 +2,7 @@
 import './ui.css';
 import { ICON, starSVG } from './icons.js';
 import { audio } from '../audio/audio.js';
-import { UPGRADES, CATS, ACHIEVEMENTS, xpFor } from '../world/upgrades.js';
+import { UPGRADES, CATS, ACHIEVEMENTS, ACH_CATS, xpFor } from '../world/upgrades.js';
 import { REGION_LABEL, EDGE_REGIONS } from '../hair/hair.js';
 import { GUARDS, mm } from '../hair/styles.js';
 import { formatMoney, clamp } from '../core/util.js';
@@ -187,13 +187,119 @@ export class UI {
     return wrap;
   }
 
-  achievementsPanel(unlocked) {
-    const body = h('<div></div>');
-    for (const a of ACHIEVEMENTS) {
-      const done = unlocked.includes(a.id);
-      body.append(h(`<div class="ach ${done ? 'done' : ''}"><div class="medal">${done ? '★' : '?'}</div><div><b>${a.name}</b><span>${a.desc}</span></div></div>`));
-    }
-    return this.panel(`${unlocked.length} / ${ACHIEVEMENTS.length}`, 'Achievements', body);
+  // ------------------------------------------------------------------ achievements
+  setTrophies(n) {
+    if (!this.trophyBtn) return;
+    const b = this.trophyBtn.querySelector('.badge');
+    b.textContent = n > 9 ? '9+' : n;
+    this.trophyBtn.classList.toggle('has', n > 0);
+  }
+
+  achievementsPanel(game, opts = {}) {
+    const s = game.save;
+    const claimed = () => s.achClaimed || [];
+    const body = h('<div class="achp"></div>');
+    let cat = opts.cat || 'all';
+    const tierOrder = { bronze: 0, silver: 1, gold: 2 };
+    const total = ACHIEVEMENTS.length;
+    const render = () => {
+      const got = ACHIEVEMENTS.filter((a) => s.achievements.includes(a.id));
+      const pct = got.length / total;
+      const tiers = ['bronze', 'silver', 'gold'].map((t) => [t, ACHIEVEMENTS.filter((a) => a.tier === t), got.filter((a) => a.tier === t)]);
+      const earned = got.filter((a) => claimed().includes(a.id)).reduce((m, a) => m + a.reward.money, 0);
+      const toClaim = got.filter((a) => !claimed().includes(a.id));
+      const R = 34, C = 2 * Math.PI * R;
+      body.innerHTML = `
+        <div class="ach-sum">
+          <div class="ring"><svg viewBox="0 0 84 84"><circle cx="42" cy="42" r="${R}" class="bg"/><circle cx="42" cy="42" r="${R}" class="fg" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - pct)}"/></svg><div class="pc"><b>${Math.round(pct * 100)}%</b><span>${got.length}/${total}</span></div></div>
+          <div class="tiers">${tiers.map(([t, all, g]) => `<div class="tier ${t}"><i class="mini ${t}">${ICON.star}</i><b>${g.length}</b><span>/ ${all.length}</span><em>${t}</em></div>`).join('')}</div>
+          <div class="earned"><span>Rewards collected</span><b>${formatMoney(earned)}</b>${toClaim.length ? `<button class="claim-all">Claim all (${toClaim.length})</button>` : ''}</div>
+        </div>
+        <div class="ach-tabs">${[{ id: 'all', label: 'All' }, ...ACH_CATS].map((c) => {
+          const list = c.id === 'all' ? ACHIEVEMENTS : ACHIEVEMENTS.filter((a) => a.cat === c.id);
+          const n = list.filter((a) => s.achievements.includes(a.id)).length;
+          const dot = list.some((a) => s.achievements.includes(a.id) && !claimed().includes(a.id));
+          return `<button data-c="${c.id}" class="${c.id === cat ? 'on' : ''}">${c.label}<small>${n}/${list.length}</small>${dot ? '<i class="pip"></i>' : ''}</button>`;
+        }).join('')}</div>
+        <div class="ach-grid"></div>`;
+      body.querySelectorAll('.ach-tabs button').forEach((b) => b.addEventListener('click', () => { cat = b.dataset.c; audio.click(); render(); }));
+      body.querySelector('.claim-all')?.addEventListener('click', (e) => {
+        let i = 0;
+        for (const a of toClaim) setTimeout(() => claim(a, null), i++ * 140);
+        setTimeout(render, i * 140 + 450);
+        e.currentTarget.disabled = true;
+      });
+      const grid = body.querySelector('.ach-grid');
+      const list = ACHIEVEMENTS.filter((a) => cat === 'all' || a.cat === cat).map((a) => {
+        const done = s.achievements.includes(a.id);
+        const cl = claimed().includes(a.id);
+        const p = Math.min(a.goal || 1, a.progress(s));
+        return { a, done, cl, p, k: done ? (cl ? 2 : 0) : 1, frac: p / (a.goal || 1) };
+      }).sort((x, y) => x.k - y.k || (x.k === 1 ? y.frac - x.frac : 0) || tierOrder[x.a.tier] - tierOrder[y.a.tier]);
+      for (const { a, done, cl, p, frac } of list) {
+        const hidden = a.secret && !done;
+        const fmt = (v) => (a.money ? formatMoney(v) : Math.floor(v).toLocaleString('en-US'));
+        const el = h(`<div class="achc ${a.tier} ${done ? 'done' : 'locked'} ${done && !cl ? 'claimable' : ''} ${cl ? 'claimed' : ''} ${hidden ? 'secret' : ''}">
+          <div class="medal ${a.tier}"><div class="rim"></div><div class="face">${hidden ? '<b>?</b>' : ICON[a.icon] || ICON.star}</div>${done ? '' : `<div class="lk">${ICON.lock}</div>`}<div class="ribbon"></div></div>
+          <div class="info">
+            <div class="row1"><b>${hidden ? 'Secret' : a.name}</b><span class="tier-tag">${a.tier}</span></div>
+            <p>${hidden ? 'Keep playing. Some things only happen once you stop being careful.' : a.desc}</p>
+            ${done ? `<div class="when">Unlocked${s.achDays?.[a.id] ? ' on day ' + s.achDays[a.id] : ''}</div>` : hidden ? '' : `<div class="prog"><div class="bar"><i style="width:${Math.round(frac * 100)}%"></i></div><span>${fmt(p)} / ${fmt(a.goal)}</span></div>`}
+          </div>
+          <div class="rew">
+            <div class="chip">${ICON.coin}<span>${formatMoney(a.reward.money)}</span></div><div class="chip xp"><span>+${a.reward.xp} XP</span></div>
+            ${done && !cl ? '<button class="claim">Claim</button>' : cl ? '<div class="ok">Collected</div>' : ''}
+          </div>
+        </div>`);
+        el.querySelector('.claim')?.addEventListener('click', () => { claim(a, el); });
+        grid.append(el);
+      }
+    };
+    const claim = (a, el) => {
+      const r = game.claimAchievement(a.id);
+      if (!r) return;
+      audio.purchase();
+      const src = (el?.querySelector('.claim') || body.querySelector('.earned')).getBoundingClientRect();
+      const rr = this.root.getBoundingClientRect();
+      for (let i = 0; i < 9; i++) {
+        const c = h(`<div class="coin-fly">${ICON.coin}</div>`);
+        c.style.left = src.left - rr.left + src.width / 2 + 'px';
+        c.style.top = src.top - rr.top + src.height / 2 + 'px';
+        c.style.setProperty('--dx', (Math.random() - 0.5) * 160 + 'px');
+        c.style.setProperty('--dy', -60 - Math.random() * 90 + 'px');
+        c.style.animationDelay = i * 0.03 + 's';
+        this.root.append(c);
+        setTimeout(() => c.remove(), 1100);
+      }
+      this.floatText(src.left - rr.left + src.width / 2, src.top - rr.top - 10, `+${formatMoney(r.money)}  +${r.xp} XP`);
+      if (el) { el.classList.add('pop'); setTimeout(render, 420); }
+    };
+    render();
+    const wrap = this.panel('Hall of fame', 'Achievements', body, opts.onClose);
+    wrap.querySelector('.panel').classList.add('wide');
+    return wrap;
+  }
+
+  // the unlock moment, in game: a medal drops in at the top of the screen
+  achievementPop(a) {
+    this._achQ ||= [];
+    this._achQ.push(a);
+    if (this._achBusy) return;
+    const next = () => {
+      const x = this._achQ.shift();
+      if (!x) { this._achBusy = false; return; }
+      this._achBusy = true;
+      const el = h(`<div class="ach-pop ${x.tier}">
+        <div class="medal ${x.tier}"><div class="rim"></div><div class="face">${ICON[x.icon] || ICON.star}</div><div class="ribbon"></div></div>
+        <div class="tx"><div class="k">Achievement unlocked · ${x.tier}</div><b>${x.name}</b><span>${x.desc}</span><div class="rw">Reward ${formatMoney(x.reward.money)} · ${x.reward.xp} XP <em>claim it in Achievements</em></div></div>
+        <div class="shine"></div>
+      </div>`);
+      this.root.append(el);
+      audio.achievement?.(x.tier);
+      setTimeout(() => el.classList.add('out'), 3600);
+      setTimeout(() => { el.remove(); next(); }, 4100);
+    };
+    next();
   }
 
   // ------------------------------------------------------------------ HUD
@@ -203,7 +309,7 @@ export class UI {
         <div class="lvl"><div class="l"><span>Shop level</span><b>1</b></div><div class="bar"><i></i></div></div></div>
       <div class="goal hidden"></div>
       <div class="objective off"><div class="k"></div><div class="t"></div></div>
-      <div class="hud-tr"><button class="ibtn up-btn" title="Upgrades (U)">${ICON.shop}<span class="dot"></span></button><button class="ibtn pause-btn" title="Pause (Esc)">${ICON.pause}</button></div>
+      <div class="hud-tr"><button class="ibtn trophy-btn" title="Achievements">${ICON.trophy}<span class="badge"></span></button><button class="ibtn up-btn" title="Upgrades (U)">${ICON.shop}<span class="dot"></span></button><button class="ibtn pause-btn" title="Pause (Esc)">${ICON.pause}</button></div>
       <div class="crosshair"></div>
       <div class="prompt off"></div>
       <div class="tip off"></div>
@@ -224,6 +330,7 @@ export class UI {
     this.reqEl = el.querySelector('.req');
     this.interactBtn = el.querySelector('.interact-btn');
     this.upBtn = el.querySelector('.up-btn');
+    this.trophyBtn = el.querySelector('.trophy-btn');
     this.pauseBtn = el.querySelector('.pause-btn');
     this.interactBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); this.input.press('interact'); });
     if (!this.touch) this.interactBtn.classList.add('hidden');
@@ -492,6 +599,26 @@ export class UI {
     await wait(600);
   }
 
+  // "GOT KEY!" style moment over the 3D item showcase; null hides it
+  itemGet(info) {
+    if (this.itemEl) {
+      const old = this.itemEl; this.itemEl = null;
+      old.classList.add('out');
+      setTimeout(() => old.remove(), 500);
+    }
+    if (!info) return;
+    const word = (info.title || 'GOT ITEM!');
+    const letters = [...word].map((ch, i) => `<span style="animation-delay:${0.18 + i * 0.045}s">${ch === ' ' ? '&nbsp;' : ch}</span>`).join('');
+    const el = h(`<div class="item-get">
+      <div class="ig-dim"></div>
+      <div class="ig-flash"></div>
+      <div class="ig-title"><div class="ig-word">${letters}</div><div class="ig-shine"></div></div>
+      <div class="ig-card"><div class="ig-name">${info.name || ''}</div><div class="ig-desc">${info.desc || ''}</div></div>
+    </div>`);
+    this.root.append(el);
+    this.itemEl = el;
+  }
+
   toast(text, badge = '') {
     // never stack more than three
     const live = [...this.toastsEl.children].filter((e) => !e.classList.contains('out'));
@@ -537,6 +664,7 @@ export class UI {
     const add = (label, f, cls = '') => { const b = h(`<button class="mbtn ${cls}" style="color:var(--ink)">${label}</button>`); b.addEventListener('click', f); col.append(b); };
     add('Resume', cb.resume);
     add('Upgrades', cb.upgrades);
+    add('Achievements', cb.achievements);
     add('Settings', cb.settings);
     add('Main menu', cb.menu);
     return this.panel('Paused', 'Take a break', body, cb.resume);

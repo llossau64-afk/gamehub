@@ -21,7 +21,7 @@ const _m = new THREE.Matrix4();
 class FPArm {
   constructor(side, parent) {
     this.side = side;
-    const joints = ['ForeArm', 'Hand', ...FINGERS.flatMap((f) => [f + '1', f + '2']), 'Thumb1', 'Thumb2'].map((n) => {
+    const joints = ['ForeArm', 'Hand', ...FINGERS.flatMap((f) => [f + '1', f + '2', f + '3']), 'Thumb1', 'Thumb2', 'Thumb3'].map((n) => {
       if (n === 'ForeArm' || n === 'Hand') return n + side;
       if (n.startsWith('Thumb')) return 'Thumb' + side + n.slice(-1);
       return n.slice(0, -1) + side + n.slice(-1);
@@ -122,11 +122,13 @@ class FPArm {
     const sign = this.side === 'L' ? -1 : 1;
     for (let i = 0; i < 4; i++) {
       const f = FINGERS[i];
-      this.bones[f + this.side + '1'].rotation.set(0, 0, sign * this.curl[i] * 0.9);
-      this.bones[f + this.side + '2'].rotation.set(0, 0, sign * this.curl[i]);
+      this.bones[f + this.side + '1'].rotation.set((i - 1.5) * 0.05 * (1 - Math.min(1, this.curl[i])), 0, sign * this.curl[i] * 0.8);
+      this.bones[f + this.side + '2'].rotation.set(0, 0, sign * this.curl[i] * 0.8);
+      this.bones[f + this.side + '3'].rotation.set(0, 0, sign * this.curl[i] * 0.52);
     }
-    this.bones['Thumb' + this.side + '1'].rotation.set(-this.thumb * 0.3, 0, sign * this.thumb * 0.5);
-    this.bones['Thumb' + this.side + '2'].rotation.set(0, 0, sign * this.thumb * 0.7);
+    this.bones['Thumb' + this.side + '1'].rotation.set(-this.thumb * 0.3, 0, sign * this.thumb * 0.45);
+    this.bones['Thumb' + this.side + '2'].rotation.set(0, 0, sign * this.thumb * 0.5);
+    this.bones['Thumb' + this.side + '3'].rotation.set(0, 0, sign * this.thumb * 0.4);
   }
 
   handWorld(out = new THREE.Vector3()) { return this.hand.localToWorld(out.set(0, -0.06, 0)); }

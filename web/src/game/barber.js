@@ -249,7 +249,11 @@ export class BarberMode {
     const bh = c.beard ? c.beard.pick(this.raycaster) : null;
     if (bh && (!hit || bh.distance < hit.distance + 0.004)) hit = bh;
     // dragging off the head turns the chair / tilts the view
+    if (p.justDown) this.pressMove = 0;
+    if (p.down) this.pressMove = (this.pressMove || 0) + Math.abs(p.dragDX) + Math.abs(p.dragDY);
     if (p.down && !hit && !this.cutting) this.dragging = true;
+    // pressed just beside the hair and slid onto it: that is a cut, not a chair turn
+    if (this.dragging && hit && this.pressMove < 40 && !p.right) this.dragging = false;
     if (!p.down) { this.dragging = false; this.cutting = false; }
     if ((this.dragging || p.right) && (p.dragDX || p.dragDY)) {
       g.chairAngleTarget -= p.dragDX * 0.008;
@@ -450,6 +454,8 @@ export class BarberMode {
         this.c.ch.gesture('flinch');
         this.c.say(pick(['Whoa, whoa! Careful up there!', 'Uh... is it supposed to be that short?', 'Easy! I need some of that!']), 'wince', 2.5);
         this.onEvent?.('tooShort', r);
+        const g = this.game;
+        if (!this.c.tutorial) { g.save.stats.oops = (g.save.stats.oops || 0) + 1; g.checkAchievements(); }
       }
     }
   }
