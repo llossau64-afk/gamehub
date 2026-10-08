@@ -114,3 +114,7 @@ node tools/stats-test.mjs            # stock vs. max stats for every car
 node tools/track-test.mjs            # generator statistics for both mountains
 node tools/play.mjs <outdir> --fresh # browser smoke test (needs a server on :8080 and Playwright)
 ```
+
+## Playable build in Claude
+
+`node tools/build-artifact.mjs <out.html>` writes the page for a Claude Artifact (index.html without the document skeleton) and prints the supporting-file map (css, fonts, vendor, src). Every update gets republished to the same artifact URL.

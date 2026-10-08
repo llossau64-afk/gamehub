@@ -7,6 +7,7 @@
 @font-face { font-family: 'Body'; src: url('../fonts/barlow-latin-600-normal.woff2') format('woff2'); font-weight: 600; font-display: swap; }
 
 :root {
+  color-scheme: dark;
   --ink: #ebe6da;
   --ink2: rgba(235, 230, 218, 0.62);
   --ink3: rgba(235, 230, 218, 0.36);
