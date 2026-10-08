@@ -430,6 +430,12 @@ export class Vehicle {
         Tx += W.x; Ty += W.y; Tz += W.z;
       }
     }
+    if (onGround >= 2) {
+      // chassis roll damping: keeps the car from snapping over on kerbs and embankments
+      const k = 3.2 * p.stability;
+      const W = qrot(q, 0, 0, -avB.z * this.I.z * k, T6);
+      Tx += W.x; Ty += W.y; Tz += W.z;
+    }
     if (onGround === 0) {
       this.air += dt;
       // a little air control: steer yaws, throttle/brake pitch
