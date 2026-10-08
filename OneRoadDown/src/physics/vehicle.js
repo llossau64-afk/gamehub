@@ -8,6 +8,8 @@ import { engineTorque, boostTarget, G } from '../game/stats.js';
 import { SURF, SURF_INFO, STEP } from '../world/track.js';
 
 const DT = 1 / 120;
+export const NITRO_TIME = 4, NITRO_RECHARGE = 20;
+const T7 = { x: 0, y: 0, z: 0 };
 const RHO = 1.2;
 const ETA = 0.86;
 
@@ -49,6 +51,7 @@ export class Vehicle {
 
   setStats(stats) {
     this.stats = stats;
+    this.vTop = (stats.top || 150) / 3.6;
     const p = (this.p = stats.phys);
     const m = this.car.model;
     this.m = p.mass;
@@ -114,6 +117,7 @@ export class Vehicle {
     for (const w of this.wheels) { w.comp = w.compPrev = w.sag; w.spin = 0; w.health = 1; w.toe = 0; }
     this.rpm = this.p.engine.idle; this.gear = 1; this.shiftT = 0; this.nextGear = 1; this.reverseT = 0;
     this.boost = 0; this.boostTank = this.p.boostCap; this.overboost = false;
+    this.nitro = 1; this.nitroT = 0; this.prevBoost = 0;
     this.fuel = this.p.fuel; this.heat = 0.4; this.brakeTemp = 0;
     this.engineOn = true; this.stalled = false;
     this.hp = this.p.hpPool;
@@ -201,9 +205,19 @@ export class Vehicle {
     }
     this.prevThrottle = throttle;
     this.overboost = false;
-    if (inp.boost && this.boostTank > 0 && engineAlive && throttle > 0.3 && p.boostCap > 0) {
-      this.overboost = true; this.boostTank = Math.max(0, this.boostTank - dt);
-    } else if (!inp.boost) this.boostTank = Math.min(p.boostCap, this.boostTank + dt * 0.12);
+    // nitro: press to fire 4 s of thrust (+40 % of top speed), then 20 s to recharge
+    if (this.nitroT > 0) {
+      this.nitroT = Math.max(0, this.nitroT - dt);
+      if (this.nitroT === 0) this.events.push({ type: 'nitroEnd' });
+    } else {
+      this.nitro = Math.min(1, this.nitro + dt / NITRO_RECHARGE);
+      if (inp.boost && !this.prevBoost && this.nitro >= 1 && engineAlive && !this.destroyed) {
+        this.nitro = 0; this.nitroT = NITRO_TIME;
+        this.events.push({ type: 'nitro' });
+      }
+    }
+    this.prevBoost = inp.boost;
+    this.overboost = this.nitroT > 0;
 
     // engine torque
     let Te = 0;
@@ -211,7 +225,7 @@ export class Vehicle {
     let redline = e.redline * (dmg.engine < 0.25 ? 0.72 : 1);
     if (engineAlive) {
       if (throttle > 0.01) {
-        Te = engineTorque(e, this.rpm) * (1 + e.turbo * this.boost) * throttle * engF * (this.overboost ? 1.3 : 1);
+        Te = engineTorque(e, this.rpm) * (1 + e.turbo * this.boost) * throttle * engF;
         if (dmg.engine < 0.3) { this.misfire -= dt; if (this.misfire < 0) { this.misfire = 0.05 + Math.random() * 0.6; if (Math.random() < 0.45) { Te *= 0.2; this.events.push({ type: 'misfire' }); } } }
       } else Te = -(0.05 + 0.12 * this.rpm / e.redline) * e.tpk;
       if (this.rpm >= redline) {
@@ -219,7 +233,8 @@ export class Vehicle {
       }
     } else Te = -0.02 * e.tpk * (this.rpm / e.redline);
     // over-rev engine braking (descending in too high a gear)
-    if (wheelRpm > redline) Te -= e.tpk * Math.min(2.2, (wheelRpm / redline - 1) * 9);
+    if (wheelRpm > redline && !(this.nitroT > 0)) Te -= e.tpk * Math.min(2.2, (wheelRpm / redline - 1) * 9);
+    if (this.nitroT > 0 && Te < 0) Te = 0; // the clutch slips: no engine braking while the nitro pushes
     if (this.limiter > 0) this.limiter -= dt;
 
     // gearbox
@@ -361,7 +376,7 @@ export class Vehicle {
       if (inp.handbrake && !w.front) { bF = Math.max(bF, maxF * 1.2); locked = speed > 1.5; }
       if (bF > 0) {
         if (Math.abs(vLong) > 0.6) {
-          if (p.abs && !locked) bF = Math.min(bF, maxF * 0.95);
+          if ((p.abs || this.assist > 0) && !locked) bF = Math.min(bF, maxF * 0.95);
           if (bF > maxF * 1.02 && speed > 2) locked = true;
           fLong -= Math.sign(vLong) * bF;
           brakePower += bF * Math.abs(vLong);
@@ -416,6 +431,16 @@ export class Vehicle {
     // ---------------------------------------------------------- aero
     const drag = 0.5 * RHO * p.cda * speed;
     Fx -= drag * vx; Fy -= drag * vy; Fz -= drag * vz;
+    if (this.nitroT > 0 && onGround >= 2) {
+      // thrust along the body: cancels drag and adds ~10 % of top speed per second,
+      // fading out at 1.4x top speed
+      const fw = qrot(q, 0, 0, 1, T7);
+      const vt = this.vTop || 50;
+      const fade = 1 - smoothstep(1.36, 1.46, speed / vt);
+      const ramp = Math.min(1, (NITRO_TIME - this.nitroT) * 4);
+      const F = (drag * speed * 1.12 + m * vt * 0.16) * fade * ramp;
+      Fx += fw.x * F; Fy += fw.y * F; Fz += fw.z * F;
+    }
     if (p.downforce) {
       const df = p.downforce * 0.5 * RHO * 1.2 * speed * speed;
       Fx -= ux * df; Fy -= uy * df; Fz -= uz * df;
@@ -562,6 +587,8 @@ export class Vehicle {
     for (let n = 0; n < this.dynamic.length; n++) this.collideShape(this.dynamic[n], dt);
     const an = this.animalCols;
     if (an) for (let n = 0; n < an.length; n++) this.collideShape(an[n], dt);
+    const cc = this.carCols;
+    if (cc) for (let n = 0; n < cc.length; n++) this.collideShape(cc[n], dt);
     // body sunk below terrain (safety)
     if (pos.y < this.groundY - 1.5 && c.dist < 30) { pos.y = this.groundY + 0.5; this.vel.y = Math.max(0, this.vel.y); }
   }

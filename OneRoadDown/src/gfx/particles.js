@@ -137,7 +137,7 @@ export class Particles {
 
 // Tyre marks: ring buffer of quads with per-vertex alpha in the colour channel.
 export class SkidMarks {
-  constructor(scene, max = 2400) {
+  constructor(scene, max = 6000) {
     this.max = max;
     this.pos = new Float32Array(max * 4 * 3);
     this.col = new Float32Array(max * 4 * 3);
@@ -167,7 +167,7 @@ export class SkidMarks {
         const o = c * 12;
         const hw = w / 2;
         this.pos.set([L[0] - L[3] * hw, L[1], L[2] - L[4] * hw, L[0] + L[3] * hw, L[1], L[2] + L[4] * hw, x - rx * hw, y, z - rz * hw, x + rx * hw, y, z + rz * hw], o);
-        const k0 = 1 - L[5] * 0.6, k1 = 1 - a * 0.6;
+        const k0 = 1 - L[5] * 0.78, k1 = 1 - a * 0.78;
         this.col.set([k0, k0, k0, k0, k0, k0, k1, k1, k1, k1, k1, k1], o);
         this.mesh.geometry.attributes.position.needsUpdate = true;
         this.mesh.geometry.attributes.color.needsUpdate = true;

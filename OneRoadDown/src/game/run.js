@@ -15,6 +15,9 @@ import { carState } from '../core/save.js';
 import { clamp, lerp, damp, fmtMoney, fmtKm, smoothstep } from '../core/util.js';
 
 const V = () => new THREE.Vector3();
+const FLAME_GEO = new THREE.ConeGeometry(0.075, 0.9, 10, 1, true).translate(0, -0.45, 0).rotateX(Math.PI);
+const FLAME_OUT = new THREE.MeshBasicMaterial({ color: 0xff7a24, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+const FLAME_IN = new THREE.MeshBasicMaterial({ color: 0x8fc4ff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
 const PICK_COLORS = { cash: 0x9fd07a, fuel: 0xe05a3a, repair: 0x5aa0e0, repairL: 0x5aa0e0, rare: 0xe2b04a, crate: 0xe2b04a };
 
 export class Run {
@@ -231,30 +234,8 @@ export class Run {
           this.checkDetach();
           m.syncDamage(v.dmg);
           break;
-        case 'smash': {
-          const o = e.o;
-          const parts = o.animal ? [] : g.world.smash(o);
-          if (o.animal) this.animals && this.animals.hit(o, e);
-          const sp = e.speed;
-          const dir = new THREE.Vector3(e.vx, 0, e.vz).normalize();
-          for (const grp of parts) {
-            grp.userData.groundOff = 0;
-            if (o.kind === 'sapling') {
-              // snaps and topples away from the car
-              const axis = new THREE.Vector3(dir.z, 0, -dir.x);
-              g.debris.add(grp, new THREE.Vector3(e.vx * 0.15, 1.5, e.vz * 0.15), axis.multiplyScalar(2.5 + Math.min(4, sp * 0.08)));
-            } else {
-              const up = 2 + Math.min(6, sp * 0.15);
-              g.debris.add(grp, new THREE.Vector3(e.vx * 0.55 + (Math.random() - 0.5) * 3, up, e.vz * 0.55 + (Math.random() - 0.5) * 3),
-                new THREE.Vector3((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 8));
-            }
-          }
-          const leaf = o.kind === 'fence' ? [0.42, 0.36, 0.28] : [0.3, 0.38, 0.18];
-          g.particles.debris(o.x, o.y, o.z, e.vx * 0.5, 2, e.vz * 0.5, o.kind === 'fence' ? 10 : 14, leaf);
-          if (a) { a.thump(clamp(sp / 30, 0.2, 0.8)); a.burst({ freq: o.kind === 'fence' ? 900 : 2400, q: 0.8, dur: 0.25, gain: 0.25, type: 'bandpass', buf: a.pink }); }
-          this.shake = Math.max(this.shake, 0.12 * this.g.save.data.settings.shake);
-          break;
-        }
+        case 'smash': this.smashEvent(e, true); break;
+        case 'nitro': this.nitroIgnite(m, v, true); break;
         case 'glass': a && a.glass(); { const p = this.model.group.position; g.particles.glass(p.x, p.y + 0.8, p.z, v.vel.x, 1, v.vel.z); } break;
         case 'bottom': a && a.thump(clamp(e.speed / 8, 0, 1)); this.shake = Math.max(this.shake, clamp(e.speed / 20, 0, 0.3) * this.g.save.data.settings.shake); break;
         case 'land':
@@ -281,6 +262,108 @@ export class Run {
       }
     }
     v.events.length = 0;
+  }
+
+  // something breakable was hit (by the player or any other car)
+  smashEvent(e, isPlayer) {
+    const g = this.g, a = audio(), o = e.o;
+    const sp = e.speed;
+    const near = isPlayer ? 1 : clamp(1 - Math.hypot(o.x - this.vehicle.pos.x, o.z - this.vehicle.pos.z) / 80, 0, 1);
+    if (o.animal) {
+      // a short, sharp explosion: flash, fireball, smoke, tufts -- and the animal is gone
+      this.animals && this.animals.explode(o);
+      this.explosion(o.x, o.y + 0.3, o.z, e.vx, e.vz, o.animal.kind === 'cow' ? 1.3 : o.animal.kind === 'fox' ? 0.6 : 1, near);
+      if (isPlayer) this.shake = Math.max(this.shake, 0.35 * g.save.data.settings.shake);
+      return;
+    }
+    const parts = g.world.smash(o);
+    const dir = new THREE.Vector3(e.vx, 0, e.vz).normalize();
+    for (const grp of parts) {
+      grp.userData.groundOff = 0;
+      if (o.kind === 'sapling') {
+        // snaps and topples away from the car
+        const axis = new THREE.Vector3(dir.z, 0, -dir.x);
+        g.debris.add(grp, new THREE.Vector3(e.vx * 0.15, 1.5, e.vz * 0.15), axis.multiplyScalar(2.5 + Math.min(4, sp * 0.08)));
+      } else {
+        const up = 2 + Math.min(6, sp * 0.15);
+        g.debris.add(grp, new THREE.Vector3(e.vx * 0.55 + (Math.random() - 0.5) * 3, up, e.vz * 0.55 + (Math.random() - 0.5) * 3),
+          new THREE.Vector3((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 8));
+      }
+    }
+    const leaf = o.kind === 'fence' ? [0.42, 0.36, 0.28] : [0.3, 0.38, 0.18];
+    g.particles.debris(o.x, o.y, o.z, e.vx * 0.5, 2, e.vz * 0.5, o.kind === 'fence' ? 10 : 14, leaf);
+    if (a && near > 0.05) { a.thump(clamp(sp / 30, 0.2, 0.8) * near); a.burst({ freq: o.kind === 'fence' ? 900 : 2400, q: 0.8, dur: 0.25, gain: 0.25 * near, type: 'bandpass', buf: a.pink }); }
+    if (isPlayer) this.shake = Math.max(this.shake, 0.12 * g.save.data.settings.shake);
+  }
+
+  explosion(x, y, z, vx, vz, size = 1, vol = 1) {
+    const g = this.g, P = g.particles, a = audio();
+    // flash
+    if (!this.flash) { this.flash = new THREE.PointLight(0xffa040, 0, 30, 1.6); g.worldScene.add(this.flash); }
+    this.flash.position.set(x, y + 1, z); this.flash.intensity = 900 * size; this.flashT = 0.25;
+    // fireball + sparks + smoke + tufts
+    for (let i = 0; i < 46 * size; i++) {
+      const r = Math.random(), th = Math.random() * 6.283, ph = Math.random() * 3.14;
+      const sp = (4 + Math.random() * 9) * size;
+      P.glow.emit(x, y, z, vx * 0.35 + Math.cos(th) * Math.sin(ph) * sp, Math.abs(Math.cos(ph)) * sp * 0.8 + 2, vz * 0.35 + Math.sin(th) * Math.sin(ph) * sp,
+        0.35 + r * 0.35, 0.9 * size, 0.2, 1, 1, 0.45 + r * 0.35, 0.08, -2, 3);
+    }
+    P.sparks(x, y, z, vx * 0.4, 3, vz * 0.4, Math.round(30 * size));
+    for (let i = 0; i < 10 * size; i++) P.smoke(x + (Math.random() - 0.5) * 2, y + Math.random(), z + (Math.random() - 0.5) * 2, vx * 0.2 + (Math.random() - 0.5) * 4, 2 + Math.random() * 3, vz * 0.2 + (Math.random() - 0.5) * 4, true, 1.6 * size);
+    P.debris(x, y, z, vx * 0.5, 4, vz * 0.5, Math.round(16 * size), [0.75, 0.7, 0.62]);
+    if (a && vol > 0.02) {
+      a.burst({ freq: 90, type: 'lowpass', dur: 0.9, gain: 0.55 * vol, buf: a.brown, attack: 0.002 });
+      a.burst({ freq: 1400, q: 0.5, type: 'bandpass', dur: 0.35, gain: 0.3 * vol, buf: a.white });
+      a.thump(0.9 * vol);
+    }
+  }
+
+  // nitro fired: kick, whoosh and a burst of flame
+  nitroIgnite(m, v, isPlayer) {
+    const a = audio(), P = this.g.particles;
+    const fw = v.getForward(this.tmp.f);
+    for (const tip of m.exhaustTips) {
+      const ep = m.group.localToWorld(this.tmp.p.copy(tip));
+      for (let i = 0; i < 18; i++) P.glow.emit(ep.x, ep.y, ep.z, v.vel.x - fw.x * (8 + Math.random() * 8), Math.random(), v.vel.z - fw.z * (8 + Math.random() * 8), 0.25, 0.8, 0.15, 1, 0.7, 0.35, 0.1, 0, 2);
+    }
+    if (isPlayer) {
+      this.fovKick = 1;
+      this.shake = Math.max(this.shake, 0.3 * this.g.save.data.settings.shake);
+      if (a) {
+        a.burst({ freq: 600, q: 0.4, type: 'bandpass', dur: 1.1, gain: 0.32, buf: a.white, attack: 0.03 });
+        a.burst({ freq: 70, type: 'lowpass', dur: 0.8, gain: 0.45, buf: a.brown });
+      }
+      this.g.ui.feed('TURBO', 0);
+    }
+  }
+
+  // flames out of the exhaust while the nitro burns
+  flames(m, v, dt, isPlayer) {
+    const P = this.g.particles;
+    const fw = v.getForward(this.tmp.f);
+    if (!m.flameMeshes) {
+      m.flameMeshes = m.exhaustTips.map((tip) => {
+        const grp = new THREE.Group();
+        const outer = new THREE.Mesh(FLAME_GEO, FLAME_OUT), inner = new THREE.Mesh(FLAME_GEO, FLAME_IN);
+        inner.scale.set(0.55, 0.7, 0.55);
+        grp.add(outer, inner);
+        grp.position.copy(tip); grp.position.z -= 0.08;
+        grp.rotation.x = -Math.PI / 2;
+        m.group.add(grp);
+        return grp;
+      });
+    }
+    const on = v.nitroT > 0;
+    for (const f of m.flameMeshes) {
+      f.visible = on;
+      if (on) { const k = 0.8 + Math.random() * 0.5; f.scale.set(1 + Math.random() * 0.2, k * (1.2 + Math.min(1, v.speed / 60)), 1 + Math.random() * 0.2); }
+    }
+    if (!on) return;
+    for (const tip of m.exhaustTips) {
+      const ep = m.group.localToWorld(this.tmp.p.copy(tip));
+      if (Math.random() < dt * 60) P.glow.emit(ep.x, ep.y, ep.z, v.vel.x - fw.x * 9, 0.4, v.vel.z - fw.z * 9, 0.14, 0.55, 0.1, 1, 0.55 + Math.random() * 0.3, 0.25, 0.08, 0, 2);
+    }
+    if (isPlayer && this.flash) { this.flash.position.copy(m.group.localToWorld(this.tmp.p.copy(m.exhaustTips[0]))); this.flash.intensity = Math.max(this.flash.intensity, 60 + Math.random() * 40); this.flashT = Math.max(this.flashT || 0, 0.05); }
   }
 
   checkDetach() {
@@ -351,6 +434,9 @@ export class Run {
         P.soft.emit(ep.x, ep.y, ep.z, v.vel.x * 0.9, 0.2, v.vel.z * 0.9, 0.9, 0.15, 0.9, 0.12 + (1 - eh) * 0.25, 0.5, 0.5, 0.5, -0.2, 2);
       }
     }
+    // nitro flames + explosion flash decay
+    this.flames(m, v, dt, true);
+    if (this.flash) { this.flashT = (this.flashT || 0) - dt; this.flash.intensity = this.flashT > 0 ? this.flash.intensity * 0.88 : 0; }
     // scraping sparks
     if (v.scrape > 0.3 && speed > 4) { const p = v.pos; P.sparks(p.x, p.y - v.p.cg * 0.6, p.z, v.vel.x, 0.5, v.vel.z, 2); }
     // falling rocks visuals
@@ -449,7 +535,9 @@ export class Run {
     // subtle high-speed vibration
     const hs = clamp((speed - 25) / 40, 0, 1) * 0.012 * this.g.save.data.settings.shake;
     cam.position.y += (Math.random() - 0.5) * hs;
-    cam.fov = damp(cam.fov, fov, 3, dt);
+    this.fovKick = Math.max(0, (this.fovKick || 0) - dt * 0.8);
+    if (v.nitroT > 0 && (this.camMode === 'chase' || this.camMode === 'far')) fov += 9 + this.fovKick * 8;
+    cam.fov = damp(cam.fov, fov, v.nitroT > 0 ? 5 : 3, dt);
     cam.near = this.camMode === 'cockpit' || this.camMode === 'hood' ? 0.05 : 0.15;
     cam.updateProjectionMatrix();
   }

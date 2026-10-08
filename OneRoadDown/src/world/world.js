@@ -53,14 +53,29 @@ export class World {
   // Load / unload around progress s; build at most `budget` chunks per call.
   update(s, budget = 1) {
     const t = this.track;
-    const first = Math.max(0, Math.floor((s - this.behind) / CHUNK));
-    const last = Math.min(Math.floor(t.total / CHUNK) - 1, Math.floor((s + this.ahead) / CHUNK));
-    for (const k of [...this.chunks.keys()]) if (k < first - 1 || k > last + 1) this.unload(k);
+    let order = [];
+    if (t.loop) {
+      // circuits: chunks wrap around the start / finish line
+      const nC = Math.ceil((t.N - 1) / NS);
+      const want = new Map();
+      const back = Math.min(this.behind + 100, t.length / 2), fwd = Math.min(this.ahead, t.length - back);
+      for (let c = Math.floor((s - back) / CHUNK); c <= Math.floor((s + fwd) / CHUNK); c++) {
+        const kk = ((c % nC) + nC) % nC;
+        const dist = Math.abs(c * CHUNK + 50 - s);
+        if (!want.has(kk) || want.get(kk) > dist) want.set(kk, dist);
+      }
+      for (const k of [...this.chunks.keys()]) if (!want.has(k)) this.unload(k);
+      for (const [kk, dist] of want) if (!this.chunks.has(kk)) order.push([kk, dist]);
+      order.sort((a, b) => a[1] - b[1]);
+      order = order.map((o) => o[0]);
+    } else {
+      const first = Math.max(0, Math.floor((s - this.behind) / CHUNK));
+      const last = Math.min(Math.floor(t.total / CHUNK) - 1, Math.floor((s + this.ahead) / CHUNK));
+      for (const k of [...this.chunks.keys()]) if (k < first - 1 || k > last + 1) this.unload(k);
+      for (let c = first; c <= last; c++) if (!this.chunks.has(c)) order.push(c);
+      order.sort((a, b) => Math.abs(a * CHUNK + 50 - s) - Math.abs(b * CHUNK + 50 - s));
+    }
     let built = 0;
-    // nearest first
-    const order = [];
-    for (let c = first; c <= last; c++) if (!this.chunks.has(c)) order.push(c);
-    order.sort((a, b) => Math.abs(a * CHUNK + 50 - s) - Math.abs(b * CHUNK + 50 - s));
     for (const c of order) {
       if (built >= budget) break;
       this.build(c);

@@ -40,6 +40,13 @@ const key = (cx, cz) => (cx + 4096) * 8192 + (cz + 4096);
 export class Track {
   constructor(mountain) {
     this.m = mountain;
+    this.loop = !!mountain.circuit;
+    if (this.loop) {
+      this.seed = mountain.seed;
+      this.noise = new Noise(this.seed * 7 + 3);
+      this.generate();
+      return;
+    }
     this.length = mountain.length;
     this.total = mountain.length + 700;
     this.N = Math.ceil(this.total / STEP) + 1;
@@ -92,6 +99,12 @@ export class Track {
 
   // -------------------------------------------------------------- generation
   generate() {
+    if (this.loop) {
+      const R = rng(this.seed);
+      this.rand = R;
+      const grid = this.planLoop(R);
+      return this.finishGenerate(R, grid);
+    }
     const N = this.N, R = rng(this.seed), noise = this.noise;
     this.rand = R;
     const k = (this.k = new Float32Array(N));
@@ -198,6 +211,11 @@ export class Track {
         }
       }
     }
+    this.finishGenerate(R, grid);
+  }
+
+  finishGenerate(R, grid) {
+    const N = this.N, noise = this.noise, k = this.k, py = this.py, hd = this.hd;
     // Dense spatial index used by the wall-side analysis.
     this._grid50 = grid;
 
@@ -219,8 +237,25 @@ export class Track {
     }
     smoothArr(width, 10);
     smoothArr(grade, 20);
-    py[0] = this.m.startAltitude;
-    for (let j = 1; j < N; j++) py[j] = py[j - 1] - grade[j] * STEP;
+    if (this.loop) {
+      // closed elevation profile: a few whole sine periods around the lap
+      const C = this.m.circuit;
+      const A = C.elev || 4;
+      const comps = [[1, A * 0.6, R() * 6.28], [2, A * 0.3, R() * 6.28], [3, A * 0.15, R() * 6.28]];
+      for (let j = 0; j < N; j++) {
+        const u = j / (N - 1);
+        let y = this.m.startAltitude;
+        for (const [f, a, ph] of comps) y += a * Math.sin(6.2832 * f * u + ph);
+        py[j] = y;
+      }
+      py[N - 1] = py[0];
+      for (let j = 1; j < N; j++) grade[j] = (py[j - 1] - py[j]) / STEP;
+      width.fill(this.m.biomes[0].width);
+      this.baseH = this.m.startAltitude;
+    } else {
+      py[0] = this.m.startAltitude;
+      for (let j = 1; j < N; j++) py[j] = py[j - 1] - grade[j] * STEP;
+    }
     this.grade = grade;
 
     // --- right vectors
@@ -240,6 +275,78 @@ export class Track {
     this.placeProps(R);
     this.railBroken = new Uint8Array(N * 2);
   }
+
+  // Closed circuit centreline from a control polygon (see data/maps.js `circuit`).
+  planLoop(R) {
+    const C = this.m.circuit;
+    const size = C.size || 380, rmin = C.rmin || 22;
+    let P = null;
+    for (let attempt = 0; attempt < 60 && !P; attempt++) {
+      const ctrl = loopShape(C.shape || 'gp', size, R);
+      let pts = catmullClosed(ctrl, 16);
+      pts = resampleClosed(pts, STEP);
+      // relax until no corner is tighter than rmin
+      for (let it = 0; it < 400; it++) {
+        const n = pts.length;
+        let worst = 0;
+        const out = pts.map((p, i) => {
+          const a = pts[(i - 1 + n) % n], c = pts[(i + 1) % n];
+          const kk = turnK(a, p, c);
+          worst = Math.max(worst, kk);
+          if (kk < 1 / rmin) return p;
+          return [p[0] * 0.5 + (a[0] + c[0]) * 0.25, p[1] * 0.5 + (a[1] + c[1]) * 0.25];
+        });
+        pts = out;
+        if (worst < 1 / rmin) break;
+        if (it % 20 === 19) pts = resampleClosed(pts, STEP);
+      }
+      pts = resampleClosed(pts, STEP);
+      if (pts.length * STEP < (C.minLen || 1800)) continue;
+      if (loopClear(pts, 34)) P = pts;
+    }
+    if (!P) throw new Error('could not build circuit ' + this.m.id);
+    // start / finish on the middle of the longest gentle stretch
+    const n = P.length;
+    const kAt = (i) => turnK(P[(i - 1 + n) % n], P[i], P[(i + 1) % n]);
+    let bestLen = 0, bestMid = 0, run = 0;
+    for (let i = 0; i < n * 2; i++) {
+      if (kAt(i % n) < 0.004) { run++; if (run > bestLen) { bestLen = run; bestMid = i - Math.floor(run / 2); } } else run = 0;
+      if (run >= n) break;
+    }
+    const s0 = ((bestMid - Math.floor(Math.min(bestLen, 80) * 0.25)) % n + n) % n;
+    const rot = P.slice(s0).concat(P.slice(0, s0));
+    rot.push(rot[0]);
+    const N = (this.N = rot.length);
+    this.length = this.total = (N - 1) * STEP;
+    const px = (this.px = new Float32Array(N)), pz = (this.pz = new Float32Array(N));
+    const hd = (this.hd = new Float32Array(N)), k = (this.k = new Float32Array(N));
+    this.py = new Float32Array(N);
+    this.isHairpin = new Uint8Array(N);
+    for (let i = 0; i < N; i++) { px[i] = rot[i][0]; pz[i] = rot[i][1]; }
+    for (let i = 0; i < N; i++) {
+      const a = Math.max(0, i - 1), c = Math.min(N - 1, i + 1);
+      const ia = i === 0 ? N - 2 : a, ic = i === N - 1 ? 1 : c;
+      hd[i] = Math.atan2(px[ic] - px[ia], pz[ic] - pz[ia]);
+    }
+    for (let i = 1; i < N; i++) { while (hd[i] - hd[i - 1] > Math.PI) hd[i] -= 6.2832; while (hd[i] - hd[i - 1] < -Math.PI) hd[i] += 6.2832; }
+    for (let i = 0; i < N; i++) {
+      const a = i === 0 ? N - 2 : i - 1, c = i === N - 1 ? 1 : i + 1;
+      let dh = Math.atan2(px[c] - px[i], pz[c] - pz[i]) - Math.atan2(px[i] - px[a], pz[i] - pz[a]);
+      while (dh > Math.PI) dh -= 6.2832; while (dh < -Math.PI) dh += 6.2832;
+      k[i] = dh / STEP;
+      if (Math.abs(k[i]) > 1 / 30) this.isHairpin[i] = 1;
+    }
+    smoothArr(k, 2);
+    const grid = new Map();
+    for (let j = 0; j < N; j++) {
+      const kk = key(Math.floor(px[j] / 50), Math.floor(pz[j] / 50));
+      let a2 = grid.get(kk); if (!a2) grid.set(kk, (a2 = [])); a2.push(j);
+    }
+    return grid;
+  }
+
+  // wrap a distance onto the lap (circuits) or clamp it (point to point)
+  wrapS(s) { return this.loop ? ((s % this.length) + this.length) % this.length : s; }
 
   buildCoarseIndex() {
     this.cells = new Map();
@@ -788,6 +895,7 @@ export class Track {
 
   // ------------------------------------------------------------------ queries
   posAt(s, d = 0) {
+    if (this.loop) s = this.wrapS(s);
     const f = clamp(s / STEP, 0, this.N - 1.001);
     const a = Math.floor(f), t = f - a;
     const x = lerp(this.px[a], this.px[a + 1], t), z = lerp(this.pz[a], this.pz[a + 1], t);
@@ -796,6 +904,7 @@ export class Track {
     return { x: wx, z: wz, y: this.height(wx, wz), ry: lerp(this.py[a], this.py[a + 1], t), hd: lerp(this.hd[a], this.hd[a + 1], t) };
   }
   roadY(s) {
+    if (this.loop) s = this.wrapS(s);
     const f = clamp(s / STEP, 0, this.N - 1.001);
     const a = Math.floor(f);
     return lerp(this.py[a], this.py[a + 1], f - a);
@@ -829,7 +938,7 @@ export class Track {
       }
     }
     if (nl === 0) {
-      out.h = this.py[this.N - 1] - 200; out.s = 0; out.d = 999; out.idx = 0; out.surf = SURF.GRASS; out.halfW = 4; out.dist = 999;
+      out.h = this.loop ? this.baseH - 1.5 + this.noise.fbm(x * 0.006, z * 0.006, 3) * 6 : this.py[this.N - 1] - 200; out.s = 0; out.d = 999; out.idx = 0; out.surf = SURF.GRASS; out.halfW = 4; out.dist = 999;
       return out;
     }
     let wsum = 0, hsum = 0, best = 1e18;
@@ -974,4 +1083,99 @@ function smoothArr(a, radius) {
     tmp[i] = acc / cnt;
   }
   a.set(tmp);
+}
+
+// ---------------------------------------------------------------- circuit helpers
+function turnK(a, b, c) {
+  const ax = b[0] - a[0], az = b[1] - a[1], cx = c[0] - b[0], cz = c[1] - b[1];
+  const la = Math.hypot(ax, az) || 1, lc = Math.hypot(cx, cz) || 1;
+  const cr = (ax * cz - az * cx) / (la * lc), dt = (ax * cx + az * cz) / (la * lc);
+  return Math.abs(Math.atan2(cr, dt)) / ((la + lc) / 2);
+}
+
+function catmullClosed(P, sub) {
+  const n = P.length, out = [];
+  for (let i = 0; i < n; i++) {
+    const p0 = P[(i - 1 + n) % n], p1 = P[i], p2 = P[(i + 1) % n], p3 = P[(i + 2) % n];
+    for (let k = 0; k < sub; k++) {
+      const t = k / sub, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1].map((c) => 0.5 * (2 * p1[c] + (-p0[c] + p2[c]) * t + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t2 + (-p0[c] + 3 * p1[c] - 3 * p2[c] + p3[c]) * t3)));
+    }
+  }
+  return out;
+}
+
+function resampleClosed(P, step) {
+  const n = P.length;
+  const cum = [0];
+  for (let i = 1; i <= n; i++) cum.push(cum[i - 1] + Math.hypot(P[i % n][0] - P[i - 1][0], P[i % n][1] - P[i - 1][1]));
+  const L = cum[n];
+  const m = Math.max(8, Math.round(L / step));
+  const out = [];
+  let j = 0;
+  for (let i = 0; i < m; i++) {
+    const s = (i / m) * L;
+    while (cum[j + 1] < s) j++;
+    const t = (s - cum[j]) / Math.max(1e-6, cum[j + 1] - cum[j]);
+    const a = P[j], b = P[(j + 1) % n];
+    out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+  }
+  return out;
+}
+
+function loopClear(P, minD) {
+  const n = P.length, cell = 40, g = new Map();
+  P.forEach((p, i) => { const kk = key(Math.floor(p[0] / cell), Math.floor(p[1] / cell)); let a = g.get(kk); if (!a) g.set(kk, (a = [])); a.push(i); });
+  for (let i = 0; i < n; i += 2) {
+    const p = P[i], cx = Math.floor(p[0] / cell), cz = Math.floor(p[1] / cell);
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+      const a = g.get(key(cx + dx, cz + dz)); if (!a) continue;
+      for (const j of a) {
+        const sep = Math.min(Math.abs(i - j), n - Math.abs(i - j));
+        if (sep < 45) continue;
+        if (Math.hypot(P[j][0] - p[0], P[j][1] - p[1]) < minD) return false;
+      }
+    }
+  }
+  return true;
+}
+
+// Control polygons for the different kinds of circuit.
+function loopShape(shape, size, R) {
+  const pts = [];
+  if (shape === 'oval') {
+    const n = 8;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * 6.2832;
+      pts.push([Math.sin(a) * size * 0.45 * (1 + 0.08 * (R() - 0.5)), Math.cos(a) * size * (1.15 + 0.1 * (R() - 0.5))]);
+    }
+    return pts;
+  }
+  if (shape === 'street') {
+    // city blocks: a rectilinear outline with a few notches
+    const w = size * (0.9 + R() * 0.4), h = size * (0.6 + R() * 0.4);
+    const raw = [[-w, -h], [w * (0.2 + R() * 0.3), -h], [w * (0.2 + R() * 0.3), -h * (0.4 + R() * 0.3)], [w, -h * (0.4 + R() * 0.3)], [w, h],
+      [w * (R() * 0.3), h], [w * (R() * 0.3), h * (0.3 + R() * 0.3)], [-w * (0.4 + R() * 0.3), h * (0.3 + R() * 0.3)], [-w * (0.4 + R() * 0.3), h], [-w, h]];
+    // densify the straight edges so the spline keeps them straight with sharp-ish corners
+    for (let i = 0; i < raw.length; i++) {
+      const a = raw[i], b = raw[(i + 1) % raw.length];
+      pts.push(a, [a[0] + (b[0] - a[0]) * 0.15, a[1] + (b[1] - a[1]) * 0.15], [a[0] + (b[0] - a[0]) * 0.85, a[1] + (b[1] - a[1]) * 0.85]);
+    }
+    return pts;
+  }
+  const n = shape === 'twisty' ? 16 + Math.floor(R() * 6) : 11 + Math.floor(R() * 5);
+  const ax = 1.4 + R() * 0.6;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * 6.2832 + (R() - 0.5) * (2.4 / n);
+    let r = size * (shape === 'twisty' ? 0.5 + R() * 0.5 : 0.62 + R() * 0.38);
+    if (shape === 'gp' && R() < 0.18) r *= 0.42;           // a hairpin pulled into the infield
+    pts.push([Math.sin(a) * r * ax, Math.cos(a) * r]);
+  }
+  if (shape === 'gp') {
+    // one long main straight: flatten the two points either side of the start
+    const i0 = Math.floor(R() * n), i1 = (i0 + 1) % n;
+    const m = [(pts[i0][0] + pts[i1][0]) / 2, (pts[i0][1] + pts[i1][1]) / 2];
+    pts.splice(i1, 0, m);
+  }
+  return pts;
 }

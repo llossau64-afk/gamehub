@@ -33,3 +33,26 @@ for (const id of ids) {
   }
   console.log(id.padEnd(8), 'top', top.toFixed(0), 'km/h  0-100', t100.toFixed(2), 's  0-300', t300.toFixed(1), 's', flips ? 'FLIPPED' : '', 'y', v.pos.y.toFixed(2));
 }
+// nitro check: from top speed, fire nitro and watch 4 s
+if (process.env.NITRO) {
+  const car = carById(process.env.NITRO);
+  const st = computeStats(car, defaultLevels(), 'race');
+  const v = new Vehicle(track, car, st);
+  v.reset(30, 0); v.pos.x = 0; v.pos.z = 0; v.pos.y = st.phys.cg + 0.05; v.q = { x: 0, y: 0, z: 0, w: 1 };
+  for (let t = 0; t < 120; t += 1 / 60) { v.input.throttle = 1; v.update(1 / 60); v.events.length = 0; }
+  const k0 = v.kmh;
+  let out = [];
+  for (let t = 0; t < 8; t += 1 / 60) { v.input.throttle = 1; v.input.boost = t < 0.1 ? 1 : 0; v.update(1 / 60); v.events.length = 0; if (Math.abs(t % 1) < 1 / 60) out.push(v.kmh.toFixed(0)); }
+  console.log(process.env.NITRO, 'top', k0.toFixed(0), 'nitro per second:', out.join(' '), 'target', (k0 * 1.4).toFixed(0), 'charge', v.nitro.toFixed(2));
+}
+if (process.env.BRAKE) {
+  const car = carById(process.env.BRAKE);
+  const st = computeStats(car, defaultLevels(), 'perf');
+  const v = new Vehicle(track, car, st);
+  v.assist = +(process.env.ASSIST ?? 1);
+  v.reset(30, 0); v.pos.x = 0; v.pos.z = 0; v.pos.y = st.phys.cg + 0.05; v.q = { x: 0, y: 0, z: 0, w: 1 };
+  for (let t = 0; t < 40 && v.kmh < 160; t += 1 / 60) { v.input.throttle = 1; v.update(1 / 60); v.events.length = 0; }
+  const k0 = v.kmh; let t = 0, z0 = v.pos.z; const log = [];
+  while (v.kmh > 20 && t < 20) { v.input.throttle = 0; v.input.brake = 1; v.update(1 / 60); v.events.length = 0; t += 1 / 60; if (Math.abs(t % 0.5) < 1 / 60) log.push(v.kmh.toFixed(0) + '/' + v.wheels.map((w) => (w.locked ? 'L' : '') + w.slip.toFixed(1)).join(',')); }
+  console.log(process.env.BRAKE, 'brake from', k0.toFixed(0), 'to 20 in', t.toFixed(2), 's, dist', (v.pos.z - z0).toFixed(0), 'm, avg decel', ((k0 - 20) / 3.6 / t).toFixed(1), 'm/s2 (nominal', st.phys.brakeDecel.toFixed(1), ')', log.join(' '));
+}

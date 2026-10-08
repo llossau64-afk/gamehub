@@ -11,6 +11,8 @@ import { Environment } from './world/env.js';
 import { Garage } from './scenes/garage.js';
 import { CarModel } from './models/carModel.js';
 import { Run } from './game/run.js';
+import { Race, fmtTime } from './game/race.js';
+import { MAPS, mapById, COUNTRY_CODES } from './data/maps.js';
 import { computeStats, maxStats, capOf, unlockedTires } from './game/stats.js';
 import { CARS, carById, STARTERS } from './data/cars.js';
 import { CATEGORIES, upgradeCost, TIRES, tireById, GARAGE_LEVELS, PAINTS, FINISHES, carDiscount, garageCapBonus } from './data/upgrades.js';
@@ -36,7 +38,7 @@ class Game {
     this.ui = new UI(document.getElementById('ui'));
     this.state = 'boot';
     const qp = new URLSearchParams(location.search);
-    this.debug = { bot: qp.has('bot'), fixed: qp.has('fixed'), startS: +(qp.get('s') || 0) };
+    this.debug = { bot: qp.has('bot'), fixed: qp.has('fixed'), startS: +(qp.get('s') || 0), race: qp.get('race'), opp: qp.has('opp') ? +qp.get('opp') : null };
     this.clock = new THREE.Clock();
     if (this.input.isTouch) document.body.classList.add('touch');
     this.input.bindTouch(this.ui.screens.touch);
@@ -112,6 +114,7 @@ class Game {
     await ui.fade(true);
     ui.endBoot();
     if (!sv.firstStartDone || !sv.owned.length) this.enterFirst();
+    else if (this.debug.race) { this.enterMenu(); this.startRace(this.debug.race, { opponents: this.debug.opp ?? 5 }); }
     else this.enterMenu();
     await wait(150);
     ui.fade(false);
@@ -143,8 +146,8 @@ class Game {
     this.ui.speedo.resize();
   }
 
-  loadMountain(id) {
-    const m = mountainById(id);
+  loadMountain(id) { return this.loadTrack(mountainById(id)); }
+  loadTrack(m) {
     if (this.world) { this.world.dispose(); }
     if (!this.worldScene) {
       this.worldScene = new THREE.Scene();
@@ -155,7 +158,92 @@ class Game {
     this.track = new Track(m);
     this.world = new World(this.worldScene, this.track, this.quality);
     this.debris = new Debris(this.worldScene, this.track);
-    this.mountainId = m.id;
+    this.mountainId = m.circuit || m.kind ? null : m.id;
+    this.mapId = m.kind ? m.id : null;
+    if (this.menuCar) { this.worldScene.remove(this.menuCar.group); this.menuCar.dispose(); this.menuCar = null; }
+  }
+
+  // ------------------------------------------------------------------ races
+  raceTiers() { return [0, 2, 5, 9, 14]; }
+  mapInfo() {
+    const sv = this.save.data;
+    const races = sv.races || 0;
+    this.outlines = this.outlines || {};
+    return MAPS.map((m) => {
+      const need = this.raceTiers()[(m.tier || 1) - 1] || 0;
+      const o = this.outlines[m.id];
+      return {
+        id: m.id, name: m.name, country: m.country, cc: COUNTRY_CODES[m.country] || '', region: m.region, desc: m.desc, kind: m.kind, laps: m.laps,
+        km: o ? o.km : (m.length || (m.circuit ? m.circuit.minLen : 3000)) / 1000, reward: m.reward, locked: races < need, need,
+        wins: (sv.wins || {})[m.id] || 0, bestLap: (sv.bestLaps || {})[m.id] ? fmtTime(sv.bestLaps[m.id]) : null,
+        outline: o ? o.pts : null, loop: m.kind === 'circuit',
+      };
+    });
+  }
+  // track outlines for the cards are built in the background, one per frame
+  buildOutlines() {
+    this.outlines = this.outlines || {};
+    const todo = MAPS.filter((m) => !this.outlines[m.id]);
+    if (!todo.length) return;
+    const m = todo[0];
+    try {
+      const t = new Track(m);
+      const pts = [];
+      const lim = m.kind === 'sprint' ? Math.round(t.length / 2) : t.N;
+      for (let j = 0; j < lim; j += 6) pts.push([t.px[j], t.pz[j]]);
+      this.outlines[m.id] = { pts, km: t.length / 1000 };
+    } catch (e) { this.outlines[m.id] = { pts: null, km: 3 }; }
+    if (this.state === 'racesel') this.renderRaceSelect();
+    setTimeout(() => this.buildOutlines(), 30);
+  }
+  openRaceSelect() {
+    const sv = this.save.data;
+    if (!sv.owned.length) return this.enterFirst();
+    this.stopRun();
+    this.state = 'racesel';
+    if (!this.menuCar) this.setupMenuScene();
+    if (!this.raceSel || !MAPS.some((m) => m.id === this.raceSel)) this.raceSel = sv.lastMap || MAPS[0].id;
+    if (this.raceOpp == null) this.raceOpp = 5;
+    this.ui.only('racesel');
+    this.renderRaceSelect();
+    this.buildOutlines();
+    audio()?.music?.setMode('menu');
+  }
+  renderRaceSelect() {
+    this.ui.raceSelect({ maps: this.mapInfo(), sel: this.raceSel, opponents: this.raceOpp, cash: this.save.data.cash });
+  }
+  async startRace(mapId, opts = {}) {
+    const sv = this.save.data;
+    const map = mapById(mapId);
+    sv.lastMap = map.id; this.save.save();
+    await this.ui.fade(true);
+    this.ui.only();
+    this.stopRun();
+    if (this.mapId !== map.id) this.loadTrack(map);
+    this.state = 'run';
+    this.paused = false;
+    if (this.menuCar) this.menuCar.group.visible = false;
+    if (this.run && !(this.run instanceof Race)) { this.run.stop && this.run.vehicle && this.run.stop(); }
+    if (!(this.run instanceof Race)) this.run = new Race(this);
+    this.run.camMode = sv.settings.camera;
+    this.run.startRace(this.selectedCar().id, { map, opponents: opts.opponents ?? this.raceOpp ?? 5, net: opts.net || null });
+    audio()?.ambience && audio().ambience.update(0, { room: 0 });
+    await new Promise((r) => setTimeout(r, 120));
+    this.ui.fade(false);
+  }
+  // the free car: five races of any kind earn a solid all-rounder
+  freeCarProgress() {
+    const sv = this.save.data;
+    const id = 'wasp';
+    if (sv.owned.includes(id)) return null;
+    return `${carById(id).name} · ${Math.min(5, sv.races || 0)}/5 RACES`;
+  }
+  checkFreeCar() {
+    const sv = this.save.data;
+    const id = 'wasp';
+    if (sv.owned.includes(id) || (sv.races || 0) < 5) return null;
+    sv.owned.push(id); carState(sv, id);
+    return `<b>FREE CAR UNLOCKED:</b> the ${carById(id).name} (${carById(id).cls.toLowerCase()}) is waiting in your garage.`;
   }
 
   // ------------------------------------------------------------------ helpers
@@ -217,7 +305,7 @@ class Game {
     this.menuCar.group.visible = true;
     this.world.update(30, 20);
     const done = ACHIEVEMENTS.filter((a) => sv.achievements[a.id]).length;
-    this.ui.setMenu({ best: sv.best[this.mountainId] || 0, car: sv.owned.length ? this.selectedCar().name : null, cash: sv.cash, hasCar: sv.owned.length > 0, ach: `${done}/${ACHIEVEMENTS.length}`, mountain: mountainById(this.mountainId).title, mountains: sv.unlocked.length, mountainTitle: mountainById(this.mountainId).name + ' · ' + mountainById(this.mountainId).title });
+    this.ui.setMenu({ races: sv.races || 0, gift: this.freeCarProgress(), best: sv.best[sv.mountain] || 0, car: sv.owned.length ? this.selectedCar().name : null, cash: sv.cash, hasCar: sv.owned.length > 0, ach: `${done}/${ACHIEVEMENTS.length}`, mountain: mountainById(sv.mountain).title, mountains: sv.unlocked.length, mountainTitle: 'RACING · 20 TRACKS · 8 COUNTRIES' });
     this.ui.only('menu');
     audio()?.music?.setMode('menu');
     this.platform.gameplayStop();
@@ -543,17 +631,17 @@ class Game {
     this.paused = false;
     if (this.menuCar) this.menuCar.group.visible = false;
     if (this.mountainId !== sv.mountain) this.loadMountain(sv.mountain);
-    if (!this.run) this.run = new Run(this);
+    if (!this.run || this.run instanceof Race) this.run = new Run(this);
     this.run.camMode = sv.settings.camera;
     this.run.start(this.selectedCar().id);
     audio()?.ambience && audio().ambience.update(0, { room: 0 });
   }
   stopRun() {
     if (this.run && this.run.vehicle) this.run.stop();
-    this.ui.show('hud', false); this.ui.show('touch', false); this.ui.show('summary', false); this.ui.show('pause', false); this.ui.show('count', false);
+    this.ui.show('hud', false); this.ui.show('touch', false); this.ui.show('summary', false); this.ui.show('pause', false); this.ui.show('count', false); this.ui.show('raceres', false);
   }
   retry() {
-    this.ui.show('summary', false);
+    this.ui.show('summary', false); this.ui.show('raceres', false);
     if (this.run.model) this.run.restart();
     else this.startRun();
   }
@@ -613,7 +701,9 @@ class Game {
     const ui = this.ui;
     ui.on('menu', (a) => {
       const sv = this.save.data;
-      if (a === 'continue') { if (!sv.owned.length) this.enterFirst(); else this.ui.fade(true).then(() => { this.startRun(); this.ui.fade(false); }); }
+      if (a === 'race') this.ui.fade(true).then(() => { this.openRaceSelect(); this.ui.fade(false); });
+      else if (a === 'online') this.openOnline ? this.openOnline() : ui.toast('ONLINE IS COMING IN THE NEXT UPDATE');
+      else if (a === 'continue') { if (!sv.owned.length) this.enterFirst(); else this.ui.fade(true).then(() => { this.startRun(); this.ui.fade(false); }); }
       else if (a === 'garage') this.ui.fade(true).then(() => { this.enterGarage('upgrades'); this.ui.fade(false); });
       else if (a === 'vehicles') this.ui.fade(true).then(() => { this.enterGarage('vehicles'); this.ui.fade(false); });
       else if (a === 'settings') this.openSettings();
@@ -625,6 +715,12 @@ class Game {
     ui.on('firstSelect', () => this.chooseFirst());
     ui.on('gtab', (t) => this.gtab(t));
     ui.on('retry', () => this.retry());
+    ui.on('raceSel', (id) => { this.raceSel = id; this.renderRaceSelect(); });
+    ui.on('raceOpp', (d) => { this.raceOpp = clamp((this.raceOpp ?? 5) + d, 0, 7); this.renderRaceSelect(); });
+    ui.on('raceGo', (id) => this.startRace(id));
+    ui.on('raceBack', () => this.ui.fade(true).then(() => { this.enterMenu(); this.ui.fade(false); }));
+    ui.on('raceAgain', () => { this.ui.show('raceres', false); if (this.run instanceof Race) this.run.restart(); });
+    ui.on('raceTracks', () => this.ui.fade(true).then(() => { this.ui.show('raceres', false); this.openRaceSelect(); this.ui.fade(false); }));
     ui.on('toGarage', () => this.ui.fade(true).then(() => { this.enterGarage(); this.ui.fade(false); }));
     ui.on('pause', () => this.pause(true));
     ui.on('pauseMenu', (a) => {
@@ -692,6 +788,7 @@ class Game {
       if (this.ui.modalOpen) this.ui.closeModal();
       else if (this.state === 'run' && !(this.run && this.run.ended)) this.pause(!this.paused);
       else if (this.state === 'garage' && !this.installingNow) { audio()?.ui('back'); this.gtab('menu'); }
+      else if (this.state === 'racesel') { audio()?.ui('back'); this.ui.emit('raceBack'); }
     }
     if (this.state === 'run' && this.run && this.run.ended && inp.wasPressed('KeyR')) this.retry();
     if (this.state === 'run' && this.run && this.run.ended && inp.wasPressed('KeyG')) this.ui.emit('toGarage');

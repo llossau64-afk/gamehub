@@ -97,7 +97,7 @@ export class Animals {
   spawnGroup(s) {
     const t = this.g.track;
     const b = t.biome(s);
-    const kind = this.pickSpecies(b.id, Math.random());
+    const kind = this.pickSpecies(b.animals ? b.animals.replace('race-', '') : b.id, Math.random());
     const sp = SPECIES[kind];
     const n = sp.herd[0] + Math.floor(Math.random() * (sp.herd[1] - sp.herd[0] + 1));
     const side = Math.random() < 0.5 ? -1 : 1;
@@ -105,7 +105,7 @@ export class Animals {
     const dist = farm ? 12 + Math.random() * 30 : 6 + Math.random() * 28;
     for (let i = 0; i < n; i++) {
       const ss = s + (Math.random() - 0.5) * (farm ? 30 : 14);
-      const j = Math.min(t.N - 1, Math.max(0, Math.round(ss / STEP)));
+      const j = Math.min(t.N - 1, Math.max(0, Math.round(t.wrapS(ss) / STEP)));
       if (t.tunnel[j] || t.bridge[j]) continue;
       const d = side * (t.width[j] / 2 + dist + (Math.random() - 0.5) * (farm ? 16 : 6));
       const p = t.posAt(ss, d);
@@ -125,6 +125,18 @@ export class Animals {
       this.list.push(a);
       this.cols.push(a.col);
     }
+  }
+
+  // Hit at speed: the animal goes up in a short explosion (no corpse left behind).
+  explode(o) {
+    const a = o.animal;
+    if (!a || a.dead) return;
+    a.dead = true;
+    const ci = this.cols.indexOf(a.col);
+    if (ci >= 0) this.cols.splice(ci, 1);
+    this.root.remove(a.obj);
+    const li = this.list.indexOf(a);
+    if (li >= 0) this.list.splice(li, 1);
   }
 
   // The car smashed into an animal: send it flying.

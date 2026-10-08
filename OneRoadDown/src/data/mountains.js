@@ -5,7 +5,7 @@
 export const BLEND = 350;
 
 // Look parameters are plain numbers / hex colours so they can be interpolated.
-const village = {
+export const village = {
   id: 'village', name: 'MOUNTAIN VILLAGE', start: 0, end: 1000,
   width: 7.2, grade: [0.025, 0.05], plan: { straight: 3, sweep: 4, tight: 1.2, hairpin: 0 },
   flat: 0.75, wallSlope: 0.45, dropSlope: 0.35, rails: 0.25, railType: 2,
@@ -21,7 +21,7 @@ const village = {
   },
 };
 
-const forest = {
+export const forest = {
   id: 'forest', name: 'FOREST ROAD', start: 1000, end: 3000,
   width: 6.8, grade: [0.045, 0.075], plan: { straight: 2, sweep: 4, tight: 3, hairpin: 0.4 },
   flat: 0.2, wallSlope: 0.75, dropSlope: 0.6, rails: 0.55, railType: 2,
@@ -37,7 +37,7 @@ const forest = {
   },
 };
 
-const rocky = {
+export const rocky = {
   id: 'rocky', name: 'ROCKY PASS', start: 3000, end: 6000,
   width: 6.4, grade: [0.06, 0.1], plan: { straight: 1.5, sweep: 2, tight: 4, hairpin: 2.2 },
   flat: 0.05, wallSlope: 1.6, dropSlope: 0.95, rails: 0.75, railType: 1,
@@ -53,7 +53,7 @@ const rocky = {
   },
 };
 
-const snow = {
+export const snow = {
   id: 'snow', name: 'SNOW LINE', start: 6000, end: 10000,
   width: 6.4, grade: [0.05, 0.09], plan: { straight: 1.5, sweep: 2.5, tight: 3, hairpin: 2.5 },
   flat: 0.1, wallSlope: 1.1, dropSlope: 0.85, rails: 0.7, railType: 1,
@@ -69,7 +69,7 @@ const snow = {
   },
 };
 
-const highway = {
+export const highway = {
   id: 'highway', name: 'ABANDONED HIGHWAY', start: 10000, end: 15000,
   width: 10.5, grade: [0.025, 0.06], plan: { straight: 4, sweep: 4, tight: 0.8, hairpin: 0 },
   flat: 0.35, wallSlope: 0.9, dropSlope: 0.55, rails: 0.9, railType: 3,
@@ -85,7 +85,7 @@ const highway = {
   },
 };
 
-const cliffs = {
+export const cliffs = {
   id: 'cliffs', name: 'THE CLIFFS', start: 15000, end: 20000,
   width: 6.0, grade: [0.06, 0.11], plan: { straight: 1.5, sweep: 3, tight: 3.5, hairpin: 1.6 },
   flat: 0.0, wallSlope: 2.6, dropSlope: 2.4, rails: 0.65, railType: 1,
@@ -101,7 +101,7 @@ const cliffs = {
   },
 };
 
-const lower = {
+export const lower = {
   id: 'lower', name: 'THE LOWER PASS', start: 20000, end: 25000,
   width: 7.0, grade: [0.035, 0.07], plan: { straight: 2.5, sweep: 4.5, tight: 2, hairpin: 0.3 },
   flat: 0.4, wallSlope: 0.7, dropSlope: 0.5, rails: 0.5, railType: 2,

@@ -114,9 +114,10 @@ export class UI {
         <div class="logotype">ONE ROAD <span class="thin">DOWN</span></div>
         <div class="sub">HOLLOW PEAK PASS ROAD</div>
         <div class="mlist">
-          <button class="mitem primary" data-a="continue">CONTINUE</button>
+          <button class="mitem primary" data-a="race">RACE <small>OFFLINE · VS BOTS</small></button>
+          <button class="mitem" data-a="online">ONLINE <small>FRIENDS · RANDOM LOBBIES</small></button>
           <button class="mitem" data-a="garage">GARAGE</button>
-          <button class="mitem" data-a="vehicles">VEHICLES</button>
+          <button class="mitem" data-a="continue">MOUNTAIN RUN <small></small></button>
           <button class="mitem" data-a="mountain">MOUNTAIN <small></small></button>
           <button class="mitem" data-a="settings">SETTINGS</button>
           <button class="mitem" data-a="achievements">ACHIEVEMENTS <small></small></button>
@@ -124,7 +125,8 @@ export class UI {
         </div>
       </div>
       <div class="infobar">
-        <div class="kv"><span>BEST DISTANCE</span><b class="i-best">0.00 KM</b></div>
+        <div class="kv"><span>RACES</span><b class="i-races">0</b></div>
+        <div class="kv i-giftkv"><span>FREE CAR</span><b class="i-gift">—</b></div>
         <div class="kv"><span>CURRENT CAR</span><b class="i-car">—</b></div>
         <div class="kv"><span>CASH</span><b class="i-cash">$0</b></div>
         <div class="ver">v1.0 · BROWSER EDITION</div>
@@ -184,6 +186,10 @@ export class UI {
         <div class="gauge g-hp"><div class="lab">CONDITION <b>100%</b></div><div class="track"><i></i></div><div class="dmg"><span data-k="susp">SUSP</span><span data-k="brakes">BRAKES</span></div></div>
       </div>
       <div class="fps"></div>
+      <div class="rh"><div class="rpos"><b>1</b><small>/8</small></div><div class="rinfo"><div class="rlap">LAP <b>1/3</b></div><div class="rtime">0:00.000</div><div class="rbest">BEST <b>—</b></div></div></div>
+      <div class="rboard"></div>
+      <canvas class="rmap" width="200" height="200"></canvas>
+      <div class="rnitro"><i></i><span>TURBO <kbd>SHIFT</kbd></span></div>
     </div>`);
     $(hud, '.pausebtn').addEventListener('click', () => this.emit('pause'));
     r.appendChild(hud);
@@ -205,6 +211,19 @@ export class UI {
     r.appendChild(count);
     this.screens.count = count;
     // summary
+    const rs = h(`<div id="racesel" class="screen live">
+      <div class="toptitle"><h2>CHOOSE A TRACK<small class="rs-sub">20 TRACKS · 8 COUNTRIES</small></h2><div class="cash"><span>CASH</span><b class="rs-cash">$0</b></div></div>
+      <div class="rs-filter"></div>
+      <div class="rs-grid"></div>
+      <div class="rs-detail panel"></div>
+      <button class="btn rs-back">‹ BACK</button>
+    </div>`);
+    $(rs, '.rs-back').addEventListener('click', () => { audio()?.ui('back'); this.emit('raceBack'); });
+    r.appendChild(rs);
+    this.screens.racesel = rs;
+    const rr = h('<div id="raceres" class="screen live"><div class="panel"></div></div>');
+    r.appendChild(rr);
+    this.screens.raceres = rr;
     const sum = h('<div id="summary" class="screen live"><div class="panel"></div></div>');
     r.appendChild(sum);
     this.screens.summary = sum;
@@ -321,10 +340,12 @@ export class UI {
   // ------------------------------------------------------------- menu
   setMenu(d) {
     const m = this.screens.menu;
-    $(m, '.i-best').textContent = fmtKm(d.best) + ' KM';
+    $(m, '.i-races').textContent = String(d.races || 0);
+    $(m, '.i-gift').innerHTML = d.gift || '—';
+    $(m, '.i-giftkv').style.display = d.gift ? '' : 'none';
+    $(m, '[data-a=continue] small').textContent = fmtKm(d.best) + ' KM BEST';
     $(m, '.i-car').textContent = d.car || '—';
     $(m, '.i-cash').textContent = fmtMoney(d.cash);
-    $(m, '[data-a=continue]').firstChild.textContent = d.hasCar ? 'CONTINUE' : 'START';
     $(m, '[data-a=achievements] small').textContent = d.ach;
     $(m, '[data-a=mountain] small').textContent = d.mountain;
     $(m, '[data-a=mountain]').style.display = d.mountains > 1 ? '' : 'none';
@@ -391,6 +412,129 @@ export class UI {
     E.fps.textContent = d.fps || '';
   }
   hudSpeedo(d) { this.speedo.draw(d); }
+
+  // ------------------------------------------------------------- race HUD
+  raceHudInit(n, laps, track) {
+    const H2 = this.screens.hud;
+    this._r = { pos: $(H2, '.rpos b'), n: $(H2, '.rpos small'), lap: $(H2, '.rlap'), time: $(H2, '.rtime'), best: $(H2, '.rbest b'), board: $(H2, '.rboard'), map: $(H2, '.rmap'), nitro: $(H2, '.rnitro'), nitroI: $(H2, '.rnitro i'), key: '' };
+    this._r.n.textContent = '/' + n;
+    $(H2, '.feed').innerHTML = '';
+    // minimap: the track outline, drawn once
+    const c = this._r.map, g = c.getContext('2d');
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+    for (let j = 0; j < track.N; j += 4) { x0 = Math.min(x0, track.px[j]); x1 = Math.max(x1, track.px[j]); z0 = Math.min(z0, track.pz[j]); z1 = Math.max(z1, track.pz[j]); }
+    const sc = 168 / Math.max(x1 - x0, z1 - z0, 1);
+    const ox = 100 - (x0 + x1) / 2 * sc, oz = 100 + (z0 + z1) / 2 * sc;
+    this._r.tf = (x, z) => [ox + x * sc, oz - z * sc];
+    const bg = document.createElement('canvas'); bg.width = bg.height = 200;
+    const b2 = bg.getContext('2d');
+    b2.lineJoin = 'round'; b2.lineCap = 'round';
+    for (const [w, col] of [[9, 'rgba(0,0,0,.55)'], [4.5, 'rgba(235,230,218,.85)']]) {
+      b2.strokeStyle = col; b2.lineWidth = w; b2.beginPath();
+      for (let j = 0; j < track.N; j += 3) { const [x, y] = this._r.tf(track.px[j], track.pz[j]); j ? b2.lineTo(x, y) : b2.moveTo(x, y); }
+      if (track.loop) b2.closePath();
+      b2.stroke();
+    }
+    const [sx, sy] = this._r.tf(track.px[0], track.pz[0]);
+    b2.fillStyle = '#e2a33b'; b2.fillRect(sx - 4, sy - 4, 8, 8);
+    this._r.bg = bg;
+    g.clearRect(0, 0, 200, 200); g.drawImage(bg, 0, 0);
+  }
+  raceHud(d) {
+    const E = this._r;
+    if (!E) return;
+    E.pos.textContent = d.pos;
+    E.lap.innerHTML = d.sprint ? `SPRINT <b>${Math.round((d.progress || 0) * 100)}%</b>` : `LAP <b>${d.lap}/${d.laps}</b>`;
+    E.time.textContent = d.time;
+    E.best.textContent = d.sprint ? '—' : d.best;
+    const key = d.board.map((b) => b.name + b.gap).join('|');
+    if (key !== E.key) {
+      E.key = key;
+      E.board.innerHTML = d.board.map((b) => `<div class="${b.me ? 'me' : ''}"><i>${b.pos}</i><s style="background:${b.color}"></s><span>${b.name}</span><em>${b.gap}</em></div>`).join('');
+    }
+    E.nitroI.style.width = (d.nitroOn ? 100 : d.nitro * 100).toFixed(0) + '%';
+    E.nitro.classList.toggle('ready', d.nitro >= 1 && !d.nitroOn);
+    E.nitro.classList.toggle('on', d.nitroOn);
+    const g = E.map.getContext('2d');
+    g.clearRect(0, 0, 200, 200); g.drawImage(E.bg, 0, 0);
+    for (const p of [...d.dots].sort((a, b) => a.me - b.me)) {
+      const [x, y] = E.tf(p.x, p.z);
+      g.fillStyle = p.me ? '#ffffff' : p.color; g.strokeStyle = '#000'; g.lineWidth = 2;
+      g.beginPath(); g.arc(x, y, p.me ? 6 : 4.5, 0, 6.283); g.fill(); g.stroke();
+    }
+  }
+
+  // ------------------------------------------------------------- track select
+  raceSelect(d) {
+    const s = this.screens.racesel;
+    $(s, '.rs-cash').textContent = fmtMoney(d.cash);
+    const countries = ['ALL', ...new Set(d.maps.map((m) => m.country))];
+    const f = $(s, '.rs-filter');
+    if (!this.rsFilter) this.rsFilter = 'ALL';
+    f.innerHTML = countries.map((c) => `<button class="gtab ${c === this.rsFilter ? 'on' : ''}" data-c="${c}">${c}</button>`).join('');
+    f.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { audio()?.ui('click'); this.rsFilter = b.dataset.c; this.raceSelect(d); }));
+    const list = d.maps.filter((m) => this.rsFilter === 'ALL' || m.country === this.rsFilter);
+    const grid = $(s, '.rs-grid');
+    grid.innerHTML = list.map((m) => `<button class="rcard ${m.locked ? 'locked' : ''} ${m.id === d.sel ? 'sel' : ''}" data-id="${m.id}">
+        <canvas width="120" height="80"></canvas>
+        <div class="rc-top"><span class="cc">${m.cc}</span><span class="kind">${m.kind === 'circuit' ? m.laps + ' LAPS' : 'SPRINT'}</span></div>
+        <div class="rc-name">${m.name}</div><div class="rc-sub">${m.locked ? 'Unlocks after ' + m.need + ' races' : (m.km.toFixed(1) + ' km · ' + fmtMoney(m.reward))}</div>
+        ${m.wins ? '<div class="rc-win">WON</div>' : ''}</button>`).join('');
+    grid.querySelectorAll('.rcard').forEach((b) => {
+      b.addEventListener('click', () => { audio()?.ui('click'); this.emit('raceSel', b.dataset.id); });
+      const m = list.find((x) => x.id === b.dataset.id);
+      if (m.outline) this.drawOutline(b.querySelector('canvas'), m.outline, m.loop);
+    });
+    const m = d.maps.find((x) => x.id === d.sel) || list[0];
+    const det = $(s, '.rs-detail');
+    if (m) {
+      det.innerHTML = `<div class="rd-top"><span class="cc">${m.cc}</span>${m.country} · ${m.region}</div><h3>${m.name}</h3>
+        <canvas class="rd-map" width="320" height="200"></canvas>
+        <p>${m.desc}</p>
+        <div class="rd-stats"><div><span>TYPE</span><b>${m.kind === 'circuit' ? 'CIRCUIT' : 'SPRINT'}</b></div><div><span>LENGTH</span><b>${m.km.toFixed(2)} KM</b></div>
+        <div><span>${m.kind === 'circuit' ? 'LAPS' : 'FINISH'}</span><b>${m.kind === 'circuit' ? m.laps : 'A → B'}</b></div><div><span>WIN</span><b>${fmtMoney(m.reward)}</b></div>
+        <div><span>BEST LAP</span><b>${m.bestLap || '—'}</b></div><div><span>WINS</span><b>${m.wins || 0}</b></div></div>
+        <div class="rd-opp"><span>OPPONENTS</span><button class="btn small o-m">−</button><b>${d.opponents}</b><button class="btn small o-p">+</button></div>
+        <button class="btn main amber rd-go" ${m.locked ? 'disabled' : ''}>${m.locked ? 'LOCKED · ' + m.need + ' RACES' : 'START RACE ›'}</button>`;
+      if (m.outline) this.drawOutline(det.querySelector('.rd-map'), m.outline, m.loop, true);
+      $(det, '.o-m').addEventListener('click', () => { audio()?.ui('click'); this.emit('raceOpp', -1); });
+      $(det, '.o-p').addEventListener('click', () => { audio()?.ui('click'); this.emit('raceOpp', 1); });
+      $(det, '.rd-go').addEventListener('click', () => { if (m.locked) return; audio()?.ui('buy'); this.emit('raceGo', m.id); });
+    }
+  }
+  drawOutline(c, pts, loop, big) {
+    const g = c.getContext('2d'), W = c.width, H = c.height;
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+    for (const [x, z] of pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+    const sc = Math.min((W - 16) / Math.max(1, x1 - x0), (H - 16) / Math.max(1, z1 - z0));
+    g.clearRect(0, 0, W, H);
+    g.lineJoin = g.lineCap = 'round';
+    for (const [w, col] of [[big ? 7 : 5, 'rgba(0,0,0,.5)'], [big ? 3 : 2.2, 'rgba(235,230,218,.9)']]) {
+      g.strokeStyle = col; g.lineWidth = w; g.beginPath();
+      pts.forEach(([x, z], i) => { const px = W / 2 + (x - (x0 + x1) / 2) * sc, py = H / 2 - (z - (z0 + z1) / 2) * sc; i ? g.lineTo(px, py) : g.moveTo(px, py); });
+      if (loop) g.closePath();
+      g.stroke();
+    }
+    const [x, z] = pts[0];
+    g.fillStyle = '#e2a33b'; g.fillRect(W / 2 + (x - (x0 + x1) / 2) * sc - 3, H / 2 - (z - (z0 + z1) / 2) * sc - 3, 6, 6);
+  }
+
+  // ------------------------------------------------------------- race result
+  raceResults(d) {
+    const s = this.screens.raceres, p = $(s, '.panel');
+    const rows = d.rows.map((r) => `<div class="rrow ${r.me ? 'me' : ''}"><i>${r.pos}</i><s style="background:${r.color}"></s><span>${r.name}<small>${r.car}</small></span><b>${r.time}</b></div>`).join('');
+    const lines = d.lines.map((l) => `<div class="line show"><span>${l[0]}</span><b>${l[1]}</b></div>`).join('');
+    p.innerHTML = `<div class="why">${d.map.name} · ${d.map.country}</div><h2>${d.title}</h2>
+      <div class="rtable">${rows}</div>
+      <div class="lines">${lines}<div class="line total show"><span>TOTAL</span><b>${fmtMoney(d.total)}</b></div></div>
+      ${d.gift ? `<div class="gift">${d.gift}</div>` : ''}
+      <div class="foot"><button class="btn rr-garage">GARAGE</button><button class="btn rr-tracks">TRACKS</button><button class="btn main rr-retry">RACE AGAIN <span style="opacity:.5;font-size:.8em">[R]</span></button></div>`;
+    $(p, '.rr-retry').addEventListener('click', () => { audio()?.ui('buy'); this.emit('raceAgain'); });
+    $(p, '.rr-tracks').addEventListener('click', () => { audio()?.ui('click'); this.emit('raceTracks'); });
+    $(p, '.rr-garage').addEventListener('click', () => { audio()?.ui('click'); this.emit('toGarage'); });
+    this.show('raceres', true);
+    this.autoFocus();
+  }
   notice(text, sub = '', amber = false, ms = 2200) {
     const n = $(this.screens.hud, '.notice .n');
     n.innerHTML = text + (sub ? `<small>${sub}</small>` : '');
