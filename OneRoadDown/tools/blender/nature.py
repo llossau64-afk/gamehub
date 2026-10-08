@@ -221,7 +221,7 @@ def conifer(kind, seed, lod):
     # trunk with root flare and slight lean
     lean = np.array([r.normal(0, 0.012), r.normal(0, 0.012), 0])
     pts, rad = [], []
-    steps = 10 if lod == 0 else 5
+    steps = 7 if lod == 0 else 5
     for i in range(steps + 1):
         t = i / steps
         z = H * t
@@ -248,7 +248,7 @@ def conifer(kind, seed, lod):
             droop = (0.28 if spruce else 0.12) * L
             p1 = root + d * L * 0.5 - np.array([0, 0, droop * 0.25])
             p2 = root + d * L - np.array([0, 0, droop])
-            if lod == 0 and (k % 2 == 0 or t < 0.3):
+            if lod == 0 and k % 2 == 0 and t < 0.55:
                 # mostly hidden by the needle cards: keep the branch cheap
                 tube(mb, [root, p1, p2], [0.045 * L / 2 + 0.015, 0.025 * L / 2 + 0.01, 0.008], 3, bark, (0.5, 0.5))
             # needle cards along the branch: one flat-ish, one tilted

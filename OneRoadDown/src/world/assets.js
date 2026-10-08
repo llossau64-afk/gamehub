@@ -219,8 +219,22 @@ export function makeTerrainMaterial(quality) {
         if (vSB.y > 0.01) { c += texture2D(t_snow, uv * 0.6).rgb * vSB.y; wsum += vSB.y; }
         if (vSB.z > 0.01) { c += twoScale(t_sand, uv * 0.7) * vSB.z; wsum += vSB.z; }
         c /= wsum;
+        // real slope: steep faces turn to rock whatever the painted weights say
+        float steepK = 0.0;
+        {
+          vec3 wn = normalize(vWN);
+          steepK = smoothstep(0.8, 0.56, wn.y);
+          ${tri ? `vec3 bw2 = pow(abs(wn), vec3(4.0)); bw2 /= (bw2.x + bw2.y + bw2.z);
+          vec3 rk2 = texture2D(t_rock, vWP.zy * 0.09).rgb * bw2.x + texture2D(t_rock, vWP.xz * 0.09).rgb * bw2.y + texture2D(t_rock, vWP.xy * 0.09).rgb * bw2.z;`
+          : 'vec3 rk2 = texture2D(t_rock, vWP.xz * 0.09).rgb;'}
+          c = mix(c, rk2 * 0.92, steepK * (1.0 - vSB.y * 0.6));
+        }
         diffuseColor.rgb *= c * 1.55;
         float terrLum = dot(c, vec3(0.333));`)
+      .replace('#include <color_fragment>', `
+        #if defined( USE_COLOR )
+        diffuseColor.rgb *= mix(vColor, vec3(0.95), steepK * 0.85);
+        #endif`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         {
           // cheap bump from the blended albedo luminance

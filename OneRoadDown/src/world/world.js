@@ -557,12 +557,26 @@ export class World {
     const wsum = weights.reduce((a, c) => a + c, 0) || 1;
     const snowy = b.look.snow > 0.5;
     const useAssets = AS.ready && assetParts('pine0_lod0');
-    ch.near = new THREE.Group(); ch.far = new THREE.Group(); ch.mid = new THREE.Group(); ch.cover = new THREE.Group();
-    ch.group.add(ch.near, ch.far, ch.mid, ch.cover);
+    ch.near = new THREE.Group(); ch.far = new THREE.Group(); ch.mid = new THREE.Group(); ch.cover = new THREE.Group(); ch.bg = new THREE.Group();
+    ch.group.add(ch.near, ch.far, ch.mid, ch.cover, ch.bg);
     const I = this.instancer();
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
     const qr = {};
     const cols = [];
+    // keep trees out of buildings and pastures
+    const blocks = [];
+    for (const pr of t.props) {
+      if (Math.abs(pr.s - (s0 + 50)) > 260) continue;
+      if (pr.type === 'farm') blocks.push({ x: pr.x, z: pr.z, fx: pr.fx, fz: pr.fz, rx: pr.rx, rz: pr.rz, a: pr.w / 2 + 3, b: pr.dpt / 2 + 16 });
+      else if (pr.col) blocks.push({ x: pr.col.x, z: pr.col.z, fx: Math.cos(pr.col.yaw), fz: -Math.sin(pr.col.yaw), rx: Math.sin(pr.col.yaw), rz: Math.cos(pr.col.yaw), a: pr.col.hx + 3, b: pr.col.hz + 3 });
+    }
+    const blocked = (x, z) => {
+      for (const k of blocks) {
+        const dx = x - k.x, dz = z - k.z;
+        if (Math.abs(dx * k.fx + dz * k.fz) < k.a && Math.abs(dx * k.rx + dz * k.rz) < k.b) return true;
+      }
+      return false;
+    };
     const spot = (umin, umax, pow) => {
       const s = s0 + R() * CHUNK;
       const j = Math.min(t.N - 1, Math.round(s / STEP));
@@ -573,11 +587,12 @@ export class World {
       const inner = (t.k[j] > 0 && !side) || (t.k[j] < 0 && side);
       if (inner && Math.abs(d) > 0.8 / Math.max(1e-4, Math.abs(t.k[j]))) return null;
       const x = t.px[j] + t.rx[j] * d, z = t.pz[j] + t.rz[j] * d;
+      if (blocks.length && blocked(x, z)) return null;
       t.query(x, z, qr);
       return { s, j, side, u, x, z, h: qr.h, d: qr.d, halfW: qr.halfW, o: (j * 2 + side) * 5 };
     };
     // trees
-    const nTrees = Math.round((useAssets ? 150 : 140) * density);
+    const nTrees = Math.round((useAssets ? 170 : 140) * density);
     for (let n = 0; n < nTrees; n++) {
       const sp = spot(3, 130, 1.5);
       if (!sp || Math.abs(sp.d) < sp.halfW + 3 || t.sw[sp.o + 4] > 0.3) continue;
@@ -612,6 +627,52 @@ export class World {
       if (Math.abs(t.height(sp.x + 1.2, sp.z) - sp.h) > 1.6) continue;
       this.addRock(I, sp.x, sp.h, sp.z, R, snowy, b, size, useAssets);
       if (sp.u < 40 && size > 0.7) cols.push({ t: 's', x: sp.x, y: sp.h + size * 0.3, z: sp.z, r: size * 0.75, s: sp.s });
+    }
+    // groves: clusters of trees standing close together
+    const placeTree = (x, z, h, s2, kind, uDist, sAlong) => {
+      if (!useAssets) return;
+      const [n0, n1] = this.treeNames(kind, Math.floor(R() * 3), b, tr, R);
+      const p0 = assetParts(n0), p1 = assetParts(n1) || p0;
+      if (!p0) return;
+      m4.compose(p.set(x, h - 0.3, z), q.setFromAxisAngle(up, R() * 6.28), sc.set(s2, s2 * (0.88 + R() * 0.24), s2));
+      if (uDist > 120) { I.push(n1, p1, m4, false, 'bg'); return; }
+      I.push(n0, p0, m4, this.castTrees && uDist < 45, 'near'); I.push(n1, p1, m4, false, 'far');
+      if (uDist < 80) cols.push({ t: 's', x, y: h + 0.8, z, r: 0.28 * s2 + 0.12, s: sAlong, tree: 1 });
+    };
+    const pickKind = () => {
+      let r = R() * wsum, ki = 0;
+      while (ki < kinds.length - 1 && (r -= weights[ki]) > 0) ki++;
+      return kinds[ki] || 'pine';
+    };
+    if (kinds.length && useAssets) {
+      const nGroves = Math.round((2 + density * 5) * (this.quality === 'low' ? 0.5 : 1));
+      for (let gI = 0; gI < nGroves; gI++) {
+        const c0 = spot(10, 110, 1.2);
+        if (!c0 || Math.abs(c0.d) < c0.halfW + 8) continue;
+        const kind = pickKind();
+        const nT = 8 + Math.floor(R() * 14);
+        const rad = 5 + R() * 9;
+        for (let k = 0; k < nT; k++) {
+          const a = R() * 6.283, rr = Math.sqrt(R()) * rad;
+          const x = c0.x + Math.cos(a) * rr, z = c0.z + Math.sin(a) * rr;
+          if (blocks.length && blocked(x, z)) continue;
+          t.query(x, z, qr);
+          if (Math.abs(qr.d) < qr.halfW + 4) continue;
+          if (Math.abs(t.height(x + 1.5, z) - qr.h) > 3.5) continue;
+          placeTree(x, z, qr.h, 0.7 + R() * 0.6, R() < 0.8 ? kind : pickKind(), Math.abs(qr.d) - qr.halfW, qr.s);
+        }
+      }
+      // background forest on the slopes further away (cheap card LOD only)
+      const nBg = Math.round((60 + 160 * density) * (this.quality === 'low' ? 0.4 : this.quality === 'high' ? 1.2 : 0.85));
+      for (let n = 0; n < nBg; n++) {
+        // the terrain mesh reaches ~140 m from the road
+        const sp = spot(55, 136, 1.0);
+        if (!sp || Math.abs(sp.d) < sp.halfW + 50) continue;
+        // clump them: skip a fraction based on noise so forests have edges and clearings
+        if (t.noise.n2(sp.x * 0.012, sp.z * 0.012) < -0.15) continue;
+        placeTree(sp.x, sp.z, sp.h, 0.8 + R() * 0.6, pickKind(), 200, sp.s);
+        if (sp.u < 80) cols.push({ t: 's', x: sp.x, y: sp.h + 0.8, z: sp.z, r: 0.4, s: sp.s, tree: 1 });
+      }
     }
     // young trees along the verges: these snap when you hit them
     if (useAssets) {
@@ -806,6 +867,35 @@ export class World {
       } else if (pr.type === 'logs') {
         m4.compose(p.set(pr.x, pr.y - 0.1, pr.z), q.setFromAxisAngle(up, pr.yaw), sc.set(1, 1, 1));
         push(PR.logsGeometry(), mats.foliage, m4);
+      } else if (pr.type === 'farm' && fenceParts) {
+        // pasture fence around the rectangle (segments follow the ground)
+        const { fx, fz, rx, rz, w, dpt } = pr;
+        const P = (a2, b2) => { const x = pr.x + fx * a2 + rx * b2, z = pr.z + fz * a2 + rz * b2; return { x, z, y: t.height(x, z) }; };
+        const edges = [[[-w / 2, -dpt / 2], [w / 2, -dpt / 2]], [[w / 2, -dpt / 2], [w / 2, dpt / 2]], [[w / 2, dpt / 2], [-w / 2, dpt / 2]], [[-w / 2, dpt / 2], [-w / 2, -dpt / 2]]];
+        for (const [A0, B0] of edges) {
+          const len = Math.hypot(B0[0] - A0[0], B0[1] - A0[1]);
+          const n = Math.max(1, Math.round(len / 2.6));
+          for (let k = 0; k < n; k++) {
+            if (k === Math.floor(n / 2) && A0[1] === -pr.dpt / 2 && A0[0] < 0) continue; // a gate gap facing the road
+            const a = P(lerp(A0[0], B0[0], k / n), lerp(A0[1], B0[1], k / n)), bq = P(lerp(A0[0], B0[0], (k + 1) / n), lerp(A0[1], B0[1], (k + 1) / n));
+            const yaw = Math.atan2(-(bq.z - a.z), bq.x - a.x);
+            const sl = Math.hypot(bq.x - a.x, bq.z - a.z) / 2.6;
+            m4.compose(p.set(a.x, Math.min(a.y, bq.y) - 0.08, a.z), q.setFromAxisAngle(up, yaw), sc.set(sl, 1, 1));
+            const h = pushParts('fence0', fenceParts, m4);
+            fenceCols.push({ t: 'b', x: (a.x + bq.x) / 2, y: a.y + 0.55, z: (a.z + bq.z) / 2, hx: 1.3 * sl, hy: 0.6, hz: 0.1, yaw, s: pr.s + lerp(A0[0], B0[0], k / n), brk: 0, slow: 0.015, vis: [h], kind: 'fence' });
+          }
+        }
+        // hay bales and a log pile by the barn
+        const hay = mats.hay || (mats.hay = new THREE.MeshStandardMaterial({ color: 0xc8a356, roughness: 1 }));
+        const bale = hayGeo || (hayGeo = new THREE.CylinderGeometry(0.75, 0.75, 1.2, 14));
+        for (let k = 0; k < 4; k++) {
+          const c = P(-w * 0.5 + 2 + k * 1.7, pr.dpt / 2 + 3.5);
+          const m = new THREE.Mesh(bale, hay); m.userData.sharedGeo = true;
+          m.position.set(c.x, c.y + 0.7, c.z); m.rotation.set(0, Math.atan2(fx, fz), Math.PI / 2); m.castShadow = true; m.receiveShadow = true;
+          ch.group.add(m);
+        }
+        const lp = useAssets && assetParts('logpile0');
+        if (lp) { const c = P(w * 0.5 - 3, pr.dpt / 2 + 4); m4.compose(p.set(c.x, c.y - 0.1, c.z), q.setFromAxisAngle(up, pr.hd), sc.set(1, 1, 1)); pushParts('logpile0', lp, m4); }
       } else if (pr.type === 'waterfall') {
         this.buildWaterfall(ch, pr);
       } else if (pr.type === 'finish') {
@@ -940,7 +1030,7 @@ export class World {
     }
     if (cam) {
       // full-detail trees only close by; card trees beyond; rocks/bushes fade out far away
-      const nearR = this.quality === 'high' ? 150 : this.quality === 'low' ? 70 : 110;
+      const nearR = this.quality === 'high' ? 120 : this.quality === 'low' ? 55 : 85;
       const midR = this.quality === 'low' ? 260 : 380;
       const coverR = this.quality === 'high' ? 170 : 120;
       for (const ch of this.chunks.values()) {
@@ -998,6 +1088,7 @@ export class World {
 }
 
 const ZERO_M4 = new THREE.Matrix4().makeScale(0, 0, 0);
+let hayGeo = null;
 const boxCache = new Map();
 // Fit a building's collision box (track collider) to the Blender model's real footprint.
 function fitBox(col, name, g, scl) {

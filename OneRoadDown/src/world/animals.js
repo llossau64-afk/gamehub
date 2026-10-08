@@ -46,6 +46,7 @@ export class Animals {
 
   reset(s0) {
     this.clear();
+    for (const f of this.g.track.farms || []) f.spawned = false;
     this.nextSpawn = s0 + 80;
   }
 
@@ -143,8 +144,31 @@ export class Animals {
     this.g.ui.feed(`${names[a.kind]} HIT`, 0);
   }
 
+  spawnFarm(f) {
+    const t = this.g.track;
+    const sp = SPECIES[f.animal];
+    const n = 4 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < n; i++) {
+      const a2 = (Math.random() - 0.5) * (f.w - 4), b2 = (Math.random() - 0.5) * (f.dpt - 4);
+      const x = f.x + f.fx * a2 + f.rx * b2, z = f.z + f.fz * a2 + f.rz * b2;
+      const obj = this.makeObject(f.animal);
+      if (!obj) continue;
+      const h = t.height(x, z);
+      const a = { kind: f.animal, sp: { ...sp, bolt: 0 }, obj, x, z, y: h, hd: Math.random() * 6.28, speed: 0, state: 'graze', t: Math.random() * 5, phase: Math.random() * 6, s: f.s, pen: f, dead: false };
+      a.col = { t: 's', x, y: h + sp.y, z, r: sp.r, s: f.s, brk: 1.2, slow: sp.slow, dmg: sp.dmg, animal: a, kind: 'animal' };
+      obj.position.set(x, h, z);
+      this.root.add(obj);
+      this.list.push(a);
+      this.cols.push(a.col);
+    }
+  }
+
   update(dt, v, sProg) {
     const t = this.g.track;
+    for (const f of t.farms || []) {
+      if (!f.spawned && f.s > sProg + 60 && f.s < sProg + 420) { f.spawned = true; this.spawnFarm(f); }
+      if (f.spawned && f.s < sProg - 200) f.spawned = false;
+    }
     // keep a few groups ahead of the player
     while (this.nextSpawn < sProg + 420) {
       if (this.nextSpawn > sProg + 120) this.spawnGroup(this.nextSpawn);
@@ -208,6 +232,15 @@ export class Animals {
       }
       a.speed += (want - a.speed) * Math.min(1, dt * 3);
       a.x += Math.sin(a.hd) * a.speed * dt; a.z += Math.cos(a.hd) * a.speed * dt;
+      if (a.pen) {
+        // stay inside the pasture: turn back at the fence
+        const f = a.pen, lx = (a.x - f.x) * f.fx + (a.z - f.z) * f.fz, lz = (a.x - f.x) * f.rx + (a.z - f.z) * f.rz;
+        if (Math.abs(lx) > f.w / 2 - 1.5 || Math.abs(lz) > f.dpt / 2 - 1.5) {
+          const cl = Math.max(-f.w / 2 + 1.5, Math.min(f.w / 2 - 1.5, lx)), cz2 = Math.max(-f.dpt / 2 + 1.5, Math.min(f.dpt / 2 - 1.5, lz));
+          a.x = f.x + f.fx * cl + f.rx * cz2; a.z = f.z + f.fz * cl + f.rz * cz2;
+          a.hd = Math.atan2(f.x - a.x, f.z - a.z) + (Math.random() - 0.5);
+        }
+      }
       a.y = t.height(a.x, a.z);
       a.obj.position.set(a.x, a.y, a.z);
       a.obj.rotation.y = a.hd;

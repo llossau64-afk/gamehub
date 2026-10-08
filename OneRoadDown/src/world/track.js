@@ -677,6 +677,7 @@ export class Track {
   placeProps(R) {
     // Large decorative structures positioned in world space.
     const pr = (this.props = []);
+    this.farms = [];
     const N = this.N;
     for (let j = 10; j < N - 10; j += 6) {
       const s = j * STEP, b = this.biome(s);
@@ -694,6 +695,34 @@ export class Track {
           const yaw = this.hd[j] + (sd > 0 ? -Math.PI / 2 : Math.PI / 2) + R.range(-0.15, 0.15);
           const kind = R() < 0.18 ? 'barn' : R() < 0.1 && !pr.some((q) => q.type === 'chapel') ? 'chapel' : 'house';
           pr.push({ type: kind, x: p.x, y: p.y, z: p.z, yaw, size, seed: R.int(0, 1e6), s, collider: true });
+        }
+      }
+      // farms: a fenced pasture with a barn and a farmhouse, set back from the road
+      if ((has('houses') || has('fences') || has('poles') || has('logs')) && R() < (has('houses') ? 0.07 : 0.03) && s > 120 && !pr.some((q) => q.type === 'farm' && Math.abs(q.s - s) < 700)) {
+        const sd = R() < 0.5 ? -1 : 1;
+        const side = sd > 0 ? 1 : 0;
+        if (this.sw[(j * 2 + side) * 5 + 2] > 0.3 && this.sw[(j * 2 + side) * 5] < 0.6) {
+          const w = R.range(26, 40), dpt = R.range(16, 24);
+          const dc = sd * (W / 2 + 10 + dpt / 2);
+          const c = this.posAt(s, dc);
+          // keep it reasonably flat
+          const corners = [[-w / 2, -dpt / 2], [w / 2, -dpt / 2], [w / 2, dpt / 2], [-w / 2, dpt / 2]];
+          const hd = this.hd[j];
+          const fx = Math.sin(hd), fz = Math.cos(hd), rx = this.rx[j] * sd, rz = this.rz[j] * sd;
+          let ok = true;
+          for (const [a2, b2] of corners) { const h = this.height(c.x + fx * a2 + rx * b2, c.z + fz * a2 + rz * b2); if (Math.abs(h - c.y) > 5.5) ok = false; }
+          if (ok) {
+            const farm = { type: 'farm', s, x: c.x, y: c.y, z: c.z, hd, sd, w, dpt, fx, fz, rx, rz, seed: R.int(0, 1e6), animal: R() < 0.55 ? 'cow' : 'sheep' };
+            pr.push(farm);
+            this.farms = this.farms || [];
+            this.farms.push(farm);
+            // barn + farmhouse just outside the far side of the pasture
+            for (const [k, kind] of [[-0.3, 'barn'], [0.32, 'house']]) {
+              const bx = c.x + fx * w * k + rx * (dpt / 2 + 9), bz = c.z + fz * w * k + rz * (dpt / 2 + 9);
+              pr.push({ type: kind, x: bx, y: this.height(bx, bz), z: bz, yaw: hd + (sd > 0 ? -Math.PI / 2 : Math.PI / 2), size: R.range(0.95, 1.2), seed: R.int(0, 1e6), s, collider: true });
+            }
+            j += 40;
+          }
         }
       }
       if ((has('poles')) && j % 18 === 0) {
