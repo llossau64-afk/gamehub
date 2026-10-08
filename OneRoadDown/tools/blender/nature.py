@@ -248,8 +248,9 @@ def conifer(kind, seed, lod):
             droop = (0.28 if spruce else 0.12) * L
             p1 = root + d * L * 0.5 - np.array([0, 0, droop * 0.25])
             p2 = root + d * L - np.array([0, 0, droop])
-            if lod == 0:
-                tube(mb, [root, p1, p2], [0.045 * L / 2 + 0.015, 0.025 * L / 2 + 0.01, 0.008], 4, bark, (0.5, 0.5))
+            if lod == 0 and (k % 2 == 0 or t < 0.3):
+                # mostly hidden by the needle cards: keep the branch cheap
+                tube(mb, [root, p1, p2], [0.045 * L / 2 + 0.015, 0.025 * L / 2 + 0.01, 0.008], 3, bark, (0.5, 0.5))
             # needle cards along the branch: one flat-ish, one tilted
             side = norm(np.cross(d, [0, 0, 1]))
             W = (0.38 if spruce else 0.5) * L + 0.28

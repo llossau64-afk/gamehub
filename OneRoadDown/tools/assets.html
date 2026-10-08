@@ -2,7 +2,7 @@
 <script type="importmap">{"imports":{"three":"../vendor/three.module.min.js"}}</script></head><body>
 <script type="module">
 import * as THREE from 'three';
-import { GLTFLoader } from '../vendor/GLTFLoader.js';
+import { loadAssets, cloneAsset } from '../src/world/assets.js';
 const q = new URLSearchParams(location.search);
 const W = 1200, H = 680;
 const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(W, H); document.body.appendChild(r.domElement);
@@ -14,18 +14,17 @@ Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30 })
 const g = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: 0x5a6438 })); g.rotation.x = -Math.PI / 2; g.receiveShadow = true; sc.add(g);
 const names = (q.get('n') || 'pine0_lod0,spruce0_lod0,oak0_lod0,birch0_lod0,oak0_autumn_lod0,rock0,bush0_oak,grass0').split(',');
 const file = q.get('f') || 'nature';
-new GLTFLoader().load(`../assets/models/${file}.glb`, (gl) => {
+loadAssets(r, undefined, '../assets/').then(() => {
   let x = -(names.length - 1) * (+(q.get('sp') || 6)) / 2;
   for (const n of names) {
-    const o = gl.scene.getObjectByName(n);
+    const o = cloneAsset(n);
     if (!o) { console.log('missing', n); continue; }
     o.position.set(x, 0, 0); x += +(q.get('sp') || 6);
-    o.traverse((m) => { if (m.isMesh) { m.castShadow = m.receiveShadow = true; if (m.material.map && m.material.alphaTest === 0 && m.material.transparent) { m.material.transparent = false; m.material.alphaTest = 0.5; } } });
     sc.add(o);
   }
   const cam = new THREE.PerspectiveCamera(40, W / H, 0.1, 500);
   cam.position.set(+(q.get('cx') || 0), +(q.get('cy') || 7), +(q.get('cz') || 40)); cam.lookAt(0, +(q.get('ly') || 6), 0);
   r.render(sc, cam);
-  console.log('rendered', gl.scene.children.length, r.info.render.triangles);
-}, undefined, (e) => console.log('ERR', e.message));
+  console.log('rendered', r.info.render.triangles);
+});
 </script></body></html>

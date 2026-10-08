@@ -22,6 +22,7 @@ import { Platform } from './core/platform.js';
 import { AudioSys, audio } from './audio/audio.js';
 import { UI } from './ui/ui.js';
 import { clamp, damp, fmtMoney, fmtKm, lerp } from './core/util.js';
+import { loadAssets } from './world/assets.js';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -81,6 +82,8 @@ class Game {
     ui.setLoad(0.08, 'LOADING VEHICLES…');
     await frame();
     initMaterials();
+    ui.setLoad(0.1, 'PLANTING FORESTS…');
+    await loadAssets(renderer, (p) => ui.setLoad(0.1 + p * 0.12, 'PLANTING FORESTS…'));
     ui.setLoad(0.22, 'BUILDING MOUNTAIN…');
     await frame();
     this.loadMountain(sv.mountain);
@@ -694,7 +697,7 @@ class Game {
       const q = v.lastQuery;
       const inTunnel = this.track.tunnel[q.idx] && Math.abs(q.d) < q.halfW + 2 ? 1 : 0;
       this.env.update(this.paused ? 0 : dt, this.track, Math.max(s, q.s), this.camera, this.run.model ? this.run.model.group.position : this.camera.position, inTunnel);
-      this.world.update2(dt);
+      this.world.update2(dt, this.camera.position, this.env.look);
       this.autoQuality(dt);
       r.render(this.worldScene, this.camera);
       return;
@@ -716,7 +719,7 @@ class Game {
       // cooling engine ticks
       if (audio() && Math.random() < dt * 0.25) audio().tone({ freq: 2800 + Math.random() * 1500, type: 'triangle', dur: 0.02, gain: 0.02 });
     }
-    this.world.update2(dt);
+    this.world.update2(dt, this.camera.position, this.env.look);
     r.render(this.worldScene, this.camera);
   }
 

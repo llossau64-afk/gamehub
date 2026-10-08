@@ -10,6 +10,7 @@ import * as PR from '../models/props.js';
 import { CarModel } from '../models/carModel.js';
 import { CARS } from '../data/cars.js';
 import { rng, clamp, lerp, smoothstep } from '../core/util.js';
+import { shared as AS, assetParts, cloneAsset, makeTerrainMaterial } from './assets.js';
 
 export const CHUNK = 100;
 const NS = CHUNK / STEP;
@@ -32,6 +33,8 @@ export class World {
     track.extraCol = new Map();
     this.animated = [];
     this.railMeshes = new Map();
+    this.splat = AS.ready ? makeTerrainMaterial(quality) : null;
+    this.camPos = new THREE.Vector3();
   }
 
   setQuality(q) {
@@ -87,7 +90,8 @@ export class World {
     const j0 = k * NS, j1 = Math.min(t.N - 1, j0 + NS);
     const group = new THREE.Group();
     group.name = 'chunk' + k;
-    const ch = { k, group, j0, j1, ownedMats: [], cars: [], railSegs: [] };
+    const jm = Math.min(t.N - 1, (j0 + j1) >> 1);
+    const ch = { k, group, j0, j1, ownedMats: [], cars: [], railSegs: [], cx: t.px[jm], cz: t.pz[jm] };
     const R = rng(t.m.seed * 1000 + k * 7919);
     this.buildTerrain(ch);
     this.buildRoad(ch);
@@ -111,7 +115,9 @@ export class World {
     const cols = OFFS.length * 2;
     const nv = rows.length * cols;
     const pos = new Float32Array(nv * 3), col = new Float32Array(nv * 3), uv = new Float32Array(nv * 2);
+    const spA = new Float32Array(nv * 4), spB = new Float32Array(nv * 4);
     const q = {};
+    const REF = [0.37, 0.46, 0.17];
     for (let ri = 0; ri < rows.length; ri++) {
       const j = rows[ri];
       const s = j * STEP;
@@ -155,7 +161,33 @@ export class World {
           const sn = snow * smoothstep(0.25, 0.6, n2 * 0.6 + (1 - steep) * 0.5);
           if (sn > 0) c.lerp(tmpC2.setHex(0xe9edf1), clamp(sn * (u < SHOULDER ? 0.6 : 1), 0, 0.95));
           c.multiplyScalar(0.85 + n2 * 0.25);
-          col[vi * 3] = c.r; col[vi * 3 + 1] = c.g; col[vi * 3 + 2] = c.b;
+          if (this.splat) {
+            // layer weights for the textured terrain material
+            const b = t.biome(s);
+            const sand = t.offSurf[j] === SURF.SAND ? 1 : 0;
+            const slopeRock = smoothstep(2.2, 3.5, Math.abs(h - t.roadY(s)) / Math.max(1, u)) * 0.85;
+            let wr = Math.max(steep, slopeRock, vd > 0.3 ? 0.6 : 0, t.offSurf[j] === SURF.ROCK ? 0.25 * smoothstep(3, 10, u) : 0);
+            let wgv = u < SHOULDER + 0.5 ? 1 : u < 2.2 ? 0.45 : 0;
+            let wd = Math.max(cut > 0.4 && u > 0.5 ? cut * 0.9 : 0, u < 3.5 ? 0.35 : 0, smoothstep(0.62, 0.85, n) * 0.5);
+            const forestK = (b.trees && b.trees.density || 0) > 0.7 ? 1 : (b.trees && b.trees.density || 0) > 0.45 ? 0.45 : 0;
+            let wf = forestK * smoothstep(3, 9, u) * (0.5 + 0.6 * n2);
+            const wsn = snow > 0 ? clamp(sn * 1.15, 0, 1) : 0;
+            let wg = 1;
+            const rem = (v) => { const k = Math.min(v, wg); wg -= k; return k; };
+            const R1 = rem(wgv), R2 = rem(wr), R3 = rem(wd), R4 = rem(wf);
+            let grassW = wg;
+            let sandW = grassW * sand; grassW -= sandW;
+            const k2 = 1 - wsn * 0.95;
+            spA[vi * 4] = grassW * k2; spA[vi * 4 + 1] = R4 * k2; spA[vi * 4 + 2] = R3 * k2; spA[vi * 4 + 3] = R1 * k2;
+            spB[vi * 4] = R2 * (1 - wsn * 0.6); spB[vi * 4 + 1] = wsn * 0.95 + (R2 * wsn * 0.6) * 0; spB[vi * 4 + 2] = sandW * k2;
+            // tint: biome grass colour relative to the texture's own colour, faded for other layers
+            const tg = grass;
+            const tr = lerp(1, clamp(tg.r / REF[0], 0.55, 1.8), grassW), tgg = lerp(1, clamp(tg.g / REF[1], 0.55, 1.6), grassW), tb = lerp(1, clamp(tg.b / REF[2], 0.55, 1.8), grassW);
+            const rt = rock;
+            const rk = R2 * (1 - wsn);
+            const vary = 0.9 + n2 * 0.2;
+            col[vi * 3] = lerp(tr, rt.r / 0.48, rk * 0.5) * vary; col[vi * 3 + 1] = lerp(tgg, rt.g / 0.47, rk * 0.5) * vary; col[vi * 3 + 2] = lerp(tb, rt.b / 0.44, rk * 0.5) * vary;
+          } else { col[vi * 3] = c.r; col[vi * 3 + 1] = c.g; col[vi * 3 + 2] = c.b; }
         }
       }
     }
@@ -169,9 +201,10 @@ export class World {
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    if (this.splat) { g.setAttribute('splatA', new THREE.BufferAttribute(spA, 4)); g.setAttribute('splatB', new THREE.BufferAttribute(spB, 4)); }
     g.setIndex(idx);
     g.computeVertexNormals();
-    const m = new THREE.Mesh(g, mats.terrain);
+    const m = new THREE.Mesh(g, this.splat || mats.terrain);
     m.receiveShadow = true;
     ch.group.add(m);
   }
@@ -475,6 +508,42 @@ export class World {
   }
 
   // ------------------------------------------------------------- vegetation
+  // Instanced Blender trees with two LODs (near/far groups switched by distance),
+  // bushes, rocks and ground cover (grass tufts, ferns, flowers) close to the road.
+  instancer() {
+    const inst = new Map();
+    return {
+      push(key, list, m4, cast, layer = 'near') {
+        const k = key + '|' + layer;
+        let e = inst.get(k);
+        if (!e) inst.set(k, (e = { list, mats: [], cast, layer }));
+        e.mats.push(m4.clone());
+      },
+      flush(ch) {
+        for (const e of inst.values()) {
+          for (const part of e.list) {
+            const im = new THREE.InstancedMesh(part.geometry, part.material, e.mats.length);
+            e.mats.forEach((mm, i) => im.setMatrixAt(i, mm));
+            im.castShadow = e.cast; im.receiveShadow = true;
+            im.userData.sharedGeo = true;
+            im.computeBoundingSphere();
+            (ch[e.layer] || ch.group).add(im);
+          }
+        }
+      },
+    };
+  }
+
+  treeNames(kind, v, b, tr, R) {
+    const dry = !!tr.dry, autumn = b.look.warmth > 0.3 && !dry;
+    if (dry && R() < 0.3) return ['dead' + (v % 2) + '_none_lod0', 'dead' + (v % 2) + '_none_lod0'];
+    let base;
+    if (kind === 'pine' || kind === 'spruce') base = kind + (v % 3);
+    else if (kind === 'birch') base = 'birch' + (v % 2) + (autumn && R() < 0.6 ? '_autumn' : '');
+    else base = 'oak' + (v % 2) + (dry ? '_dry' : autumn && R() < 0.7 ? '_autumn' : '');
+    return [base + '_lod0', base + '_lod1'];
+  }
+
   buildVegetation(ch, R) {
     const t = this.track;
     const s0 = ch.j0 * STEP;
@@ -485,100 +554,120 @@ export class World {
     const weights = kinds.map((k) => tr[k]);
     const wsum = weights.reduce((a, c) => a + c, 0) || 1;
     const snowy = b.look.snow > 0.5;
-    const autumn = b.look.warmth > 0.3 && !tr.dry;
-    const inst = new Map();
-    const push = (key, geo, mat, m4, cast) => {
-      let e = inst.get(key);
-      if (!e) inst.set(key, (e = { geo, mat, list: [], cast }));
-      e.list.push(m4.clone());
-    };
+    const useAssets = AS.ready && assetParts('pine0_lod0');
+    ch.near = new THREE.Group(); ch.far = new THREE.Group(); ch.mid = new THREE.Group(); ch.cover = new THREE.Group();
+    ch.group.add(ch.near, ch.far, ch.mid, ch.cover);
+    const I = this.instancer();
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
     const qr = {};
     const cols = [];
-    const nTrees = Math.round(140 * density);
-    for (let n = 0; n < nTrees; n++) {
+    const spot = (umin, umax, pow) => {
       const s = s0 + R() * CHUNK;
       const j = Math.min(t.N - 1, Math.round(s / STEP));
-      if (t.tunnel[j] || t.bridge[j]) continue;
+      if (t.tunnel[j] || t.bridge[j]) return null;
       const side = R() < 0.5 ? 0 : 1;
-      const o = (j * 2 + side) * 5;
-      const u = 3 + Math.pow(R(), 1.6) * 130;
+      const u = umin + Math.pow(R(), pow) * (umax - umin);
       const d = (side ? 1 : -1) * (t.width[j] / 2 + SHOULDER + u);
       const inner = (t.k[j] > 0 && !side) || (t.k[j] < 0 && side);
-      if (inner && Math.abs(d) > 0.8 / Math.max(1e-4, Math.abs(t.k[j]))) continue;
+      if (inner && Math.abs(d) > 0.8 / Math.max(1e-4, Math.abs(t.k[j]))) return null;
       const x = t.px[j] + t.rx[j] * d, z = t.pz[j] + t.rz[j] * d;
       t.query(x, z, qr);
-      if (Math.abs(qr.d) < qr.halfW + 3) continue; // on some other leg of the road
-      if (t.sw[o + 4] > 0.3) continue;
-      // avoid steep crags
-      const h2 = t.height(x + 1.5, z);
-      if (Math.abs(h2 - qr.h) > 2.2) continue;
+      return { s, j, side, u, x, z, h: qr.h, d: qr.d, halfW: qr.halfW, o: (j * 2 + side) * 5 };
+    };
+    // trees
+    const nTrees = Math.round((useAssets ? 150 : 140) * density);
+    for (let n = 0; n < nTrees; n++) {
+      const sp = spot(3, 130, 1.5);
+      if (!sp || Math.abs(sp.d) < sp.halfW + 3 || t.sw[sp.o + 4] > 0.3) continue;
+      const slope = Math.abs(t.height(sp.x + 1.5, sp.z) - sp.h);
+      if (slope > (useAssets ? 4.2 : 2.2)) continue;
       let r = R() * wsum, ki = 0;
       while (ki < kinds.length - 1 && (r -= weights[ki]) > 0) ki++;
       const kind = kinds[ki] || 'pine';
       const v = Math.floor(R() * 3);
-      const dry = !!tr.dry;
-      const geo = dry && R() < 0.3 ? PR.deadTreeGeometry(v) : PR.treeGeometry(kind, v, { snowy, autumn, dry });
-      const s2 = 0.7 + R() * 0.6;
-      p.set(x, qr.h - 0.3, z);
+      const s2 = 0.75 + R() * 0.55;
+      p.set(sp.x, sp.h - 0.25 - slope * 0.45, sp.z);
       q.setFromAxisAngle(up, R() * 6.28);
-      sc.set(s2, s2 * (0.85 + R() * 0.3), s2);
+      sc.set(s2, s2 * (0.88 + R() * 0.24), s2);
       m4.compose(p, q, sc);
-      push(geo.uuid, geo, mats.foliage, m4, this.castTrees && u < 40);
-      if (u < 9) cols.push({ t: 's', x, y: qr.h + 0.6, z, r: 0.35 * s2, s }, { t: 's', x, y: qr.h + 1.6, z, r: 0.3 * s2, s });
+      if (useAssets) {
+        const [n0, n1] = this.treeNames(kind, v, b, tr, R);
+        const p0 = assetParts(n0), p1 = assetParts(n1) || p0;
+        if (p0) { I.push(n0, p0, m4, this.castTrees && sp.u < 45, 'near'); I.push(n1, p1, m4, this.castTrees && sp.u < 30, 'far'); }
+      } else {
+        const geo = PR.treeGeometry(kind, v, { snowy, autumn: b.look.warmth > 0.3, dry: !!tr.dry });
+        I.push(geo.uuid, [{ geometry: geo, material: mats.foliage }], m4, this.castTrees && sp.u < 40, 'near');
+      }
+      if (sp.u < 9) cols.push({ t: 's', x: sp.x, y: sp.h + 0.6, z: sp.z, r: 0.35 * s2, s: sp.s }, { t: 's', x: sp.x, y: sp.h + 1.6, z: sp.z, r: 0.3 * s2, s: sp.s });
     }
-    // bushes and rocks
-    const nRocks = Math.round(40 * (b.rocks || 0.5) * (this.quality === 'low' ? 0.5 : 1));
+    // rocks
+    const nRocks = Math.round(44 * (b.rocks || 0.5) * (this.quality === 'low' ? 0.5 : 1));
     for (let n = 0; n < nRocks; n++) {
-      const s = s0 + R() * CHUNK;
-      const j = Math.min(t.N - 1, Math.round(s / STEP));
-      if (t.tunnel[j] || t.bridge[j]) continue;
-      const side = R() < 0.5 ? 0 : 1;
-      const u = 1.5 + Math.pow(R(), 2) * 70;
-      const d = (side ? 1 : -1) * (t.width[j] / 2 + SHOULDER + u);
-      const inner = (t.k[j] > 0 && !side) || (t.k[j] < 0 && side);
-      if (inner && Math.abs(d) > 0.8 / Math.max(1e-4, Math.abs(t.k[j]))) continue;
-      const x = t.px[j] + t.rx[j] * d, z = t.pz[j] + t.rz[j] * d;
-      t.query(x, z, qr);
-      if (Math.abs(qr.d) < qr.halfW + 1) continue;
-      const size = (0.3 + Math.pow(R(), 3) * 3.5) * Math.min(1, 0.25 + u / 14);
-      if (Math.abs(t.height(x + 1.2, z) - qr.h) > 1.6) continue;
-      this.addRock(push, x, qr.h, z, R, snowy, b, size);
-      if (u < 5 && size > 0.5) cols.push({ t: 's', x, y: qr.h + size * 0.3, z, r: size * 0.85, s });
+      const sp = spot(1.5, 70, 2);
+      if (!sp || Math.abs(sp.d) < sp.halfW + 1) continue;
+      const size = (0.3 + Math.pow(R(), 3) * 3.2) * Math.min(1, 0.25 + sp.u / 14);
+      if (Math.abs(t.height(sp.x + 1.2, sp.z) - sp.h) > 1.6) continue;
+      this.addRock(I, sp.x, sp.h, sp.z, R, snowy, b, size, useAssets);
+      if (sp.u < 5 && size > 0.5) cols.push({ t: 's', x: sp.x, y: sp.h + size * 0.3, z: sp.z, r: size * 0.85, s: sp.s });
     }
-    const nBush = Math.round(30 * density);
+    // bushes
+    const nBush = Math.round(36 * density + 6);
     for (let n = 0; n < nBush; n++) {
-      const s = s0 + R() * CHUNK;
-      const j = Math.min(t.N - 1, Math.round(s / STEP));
-      if (t.tunnel[j] || t.bridge[j]) continue;
-      const side = R() < 0.5 ? 0 : 1;
-      const d = (side ? 1 : -1) * (t.width[j] / 2 + SHOULDER + 1 + R() * 25);
-      const x = t.px[j] + t.rx[j] * d, z = t.pz[j] + t.rz[j] * d;
-      t.query(x, z, qr);
-      if (Math.abs(qr.d) < qr.halfW + 1) continue;
-      const geo = PR.bushGeometry(Math.floor(R() * 3), { snowy, dry: !!tr.dry });
-      const s2 = 0.5 + R() * 0.9;
-      m4.compose(p.set(x, qr.h - 0.1, z), q.setFromAxisAngle(up, R() * 6.28), sc.set(s2, s2, s2));
-      push(geo.uuid, geo, mats.foliage, m4, false);
+      const sp = spot(1, 30, 1.3);
+      if (!sp || Math.abs(sp.d) < sp.halfW + 1) continue;
+      const s2 = 0.6 + R() * 0.9;
+      m4.compose(p.set(sp.x, sp.h - 0.1, sp.z), q.setFromAxisAngle(up, R() * 6.28), sc.set(s2, s2 * 0.9, s2));
+      if (useAssets) {
+        const leaf = tr.dry ? 'dry' : b.look.warmth > 0.3 && R() < 0.5 ? 'autumn' : 'oak';
+        const name = 'bush' + Math.floor(R() * 2) + '_' + leaf;
+        I.push(name, assetParts(name), m4, false, 'mid');
+      } else {
+        const geo = PR.bushGeometry(Math.floor(R() * 3), { snowy, dry: !!tr.dry });
+        I.push(geo.uuid, [{ geometry: geo, material: mats.foliage }], m4, false, 'near');
+      }
     }
-    for (const e of inst.values()) {
-      const im = new THREE.InstancedMesh(e.geo, e.mat, e.list.length);
-      e.list.forEach((mm, i) => im.setMatrixAt(i, mm));
-      im.castShadow = e.cast; im.receiveShadow = true;
-      im.userData.sharedGeo = true;
-      im.computeBoundingSphere();
-      ch.group.add(im);
+    // ground cover: grass, flowers, ferns (not on snow, sparse on rock)
+    if (useAssets && !snowy && this.quality !== 'low') {
+      const forest = (tr.density || 0) > 0.7;
+      const nCover = Math.round((this.quality === 'high' ? 300 : 190) * (b.id === 'cliffs' || b.id === 'rocky' ? 0.45 : 1) * (tr.dry ? 0.6 : 1));
+      for (let n = 0; n < nCover; n++) {
+        const sp = spot(0.3, 55, 1.9);
+        if (!sp || Math.abs(sp.d) < sp.halfW + SHOULDER + 0.2) continue;
+        if (Math.abs(t.height(sp.x + 0.8, sp.z) - sp.h) > 2.2) continue;
+        let name = 'grass' + Math.floor(R() * 3);
+        if (forest && R() < 0.35) name = 'fern0';
+        else if ((b.id === 'village' || b.id === 'lower' || b.id === 'mesa') && R() < 0.25) name = 'grass1';
+        const parts = assetParts(name);
+        if (!parts) continue;
+        // small clumps read much better than evenly scattered tufts
+        const nk = 2 + Math.floor(R() * 4);
+        for (let c = 0; c < nk; c++) {
+          const cx = sp.x + (R() - 0.5) * 2.6, cz = sp.z + (R() - 0.5) * 2.6;
+          t.query(cx, cz, qr);
+          if (Math.abs(qr.d) < qr.halfW + SHOULDER) continue;
+          const s2 = (name === 'fern0' ? 0.9 : 1.4) + R() * 0.9;
+          m4.compose(p.set(cx, qr.h - 0.08, cz), q.setFromAxisAngle(up, R() * 6.28), sc.set(s2, s2 * (0.8 + R() * 0.5), s2));
+          I.push(name, parts, m4, false, 'cover');
+        }
+      }
     }
+    I.flush(ch);
     if (cols.length) this.addColliders(ch.k, cols);
   }
 
-  addRock(push, x, y, z, R, snowy, b, size) {
+  addRock(I, x, y, z, R, snowy, b, size, useAssets) {
     const v = Math.floor(R() * 6);
-    const geo = PR.rockGeometry(v, { snowy, tint: b.look.rock });
     const m4 = new THREE.Matrix4();
-    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(R() * 0.3, R() * 6.28, R() * 0.3));
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(R() * 0.25, R() * 6.28, R() * 0.25));
+    if (useAssets) {
+      const name = size > 2.4 && R() < 0.5 ? 'cliffrock' + (v % 2) : 'rock' + v;
+      m4.compose(new THREE.Vector3(x, y - size * 0.12, z), q, new THREE.Vector3(size * 0.55, size * (0.4 + R() * 0.3), size * 0.55));
+      I.push(name, assetParts(name), m4, size > 1, 'mid');
+      return;
+    }
+    const geo = PR.rockGeometry(v, { snowy, tint: b.look.rock });
     m4.compose(new THREE.Vector3(x, y - size * 0.15, z), q, new THREE.Vector3(size, size * (0.7 + R() * 0.5), size));
-    push(geo.uuid, geo, mats.rock, m4, size > 1);
+    I.push(geo.uuid, [{ geometry: geo, material: mats.rock }], m4, size > 1, 'near');
   }
 
   addColliders(k, cols) {
@@ -619,24 +708,51 @@ export class World {
     };
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(1, 1, 1), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
     const poleTops = [];
+    const useAssets = AS.ready;
+    const poleParts = useAssets ? assetParts('pole0') : null, fenceParts = useAssets ? assetParts('fence0') : null;
+    const pushParts = (key, list, mm) => {
+      list.forEach((part, i) => {
+        let e = inst.get(key + i);
+        if (!e) inst.set(key + i, (e = { geo: part.geometry, mat: part.material, list: [], cast: true }));
+        e.list.push(mm.clone());
+      });
+    };
     for (const pr of t.props) {
       if (pr.s < s0 || pr.s >= s1) continue;
-      if (pr.type === 'house' || pr.type === 'barn' || pr.type === 'chapel') {
-        const g = PR.buildHouse(pr.seed, pr.type);
-        g.position.set(pr.x, pr.y, pr.z); g.rotation.y = pr.yaw; g.scale.setScalar(pr.size);
+      if (pr.type === 'house' || pr.type === 'barn' || pr.type === 'chapel' || pr.type === 'shack' || pr.type === 'gasstation') {
+        const name = pr.type === 'house' ? 'chalet' + (pr.seed % 4) : pr.type + '0';
+        let g = useAssets ? placeAsset(name) : null;
+        if (g) {
+          // Blender assets face +X; the old procedural ones face +Z
+          g.position.set(pr.x, pr.y - 0.05, pr.z); g.rotation.y = pr.yaw - Math.PI / 2;
+          if (pr.type === 'house' || pr.type === 'barn' || pr.type === 'chapel') g.scale.setScalar(pr.size);
+        } else {
+          g = pr.type === 'shack' ? PR.buildShack(pr.seed) : pr.type === 'gasstation' ? PR.buildGasStation(pr.seed) : PR.buildHouse(pr.seed, pr.type);
+          g.position.set(pr.x, pr.y, pr.z); g.rotation.y = pr.yaw;
+          if (pr.type !== 'shack' && pr.type !== 'gasstation') g.scale.setScalar(pr.size);
+        }
         ch.group.add(g);
-      } else if (pr.type === 'shack') {
-        const g = PR.buildShack(pr.seed); g.position.set(pr.x, pr.y, pr.z); g.rotation.y = pr.yaw; ch.group.add(g);
-      } else if (pr.type === 'gasstation') {
-        const g = PR.buildGasStation(pr.seed); g.position.set(pr.x, pr.y, pr.z); g.rotation.y = pr.yaw; ch.group.add(g);
       } else if (pr.type === 'pole') {
-        m4.compose(p.set(pr.x, pr.y - 0.2, pr.z), q.setFromAxisAngle(up, pr.yaw), sc.set(1, 1, 1));
-        push(PR.poleGeometry(), mats.foliage, m4);
         const rx = Math.cos(pr.yaw), rz = -Math.sin(pr.yaw);
-        poleTops.push([pr.x, pr.y + 7.45, pr.z, rx, rz]);
+        if (poleParts) {
+          m4.compose(p.set(pr.x, pr.y - 0.2, pr.z), q.setFromAxisAngle(up, pr.yaw + Math.PI / 2), sc.set(1, 1, 1));
+          pushParts('pole0', poleParts, m4);
+          poleTops.push([pr.x, pr.y - 0.2 + 7.85, pr.z, rx, rz]);
+        } else {
+          m4.compose(p.set(pr.x, pr.y - 0.2, pr.z), q.setFromAxisAngle(up, pr.yaw), sc.set(1, 1, 1));
+          push(PR.poleGeometry(), mats.foliage, m4);
+          poleTops.push([pr.x, pr.y + 7.45, pr.z, rx, rz]);
+        }
       } else if (pr.type === 'snowpole') {
         m4.compose(p.set(pr.x, pr.y - 0.1, pr.z), q.identity(), sc.set(1, 1, 1));
         push(PR.snowPoleGeometry(), mats.foliage, m4, false);
+      } else if (pr.type === 'fence' && fenceParts) {
+        for (let u = 0; u + 2.6 <= pr.len + 0.5; u += 2.6) {
+          const a = t.posAt(pr.s + u, pr.d), bq = t.posAt(pr.s + u + 2.6, pr.d);
+          const yaw = Math.atan2(-(bq.z - a.z), bq.x - a.x);
+          m4.compose(p.set(a.x, Math.min(a.y, bq.y) - 0.08, a.z), q.setFromAxisAngle(up, yaw), sc.set(1, 1, 1));
+          pushParts('fence0', fenceParts, m4);
+        }
       } else if (pr.type === 'fence') {
         for (let u = 0; u < pr.len; u += 2.5) {
           const pp = t.posAt(pr.s + u, pr.d);
@@ -650,6 +766,9 @@ export class World {
           for (let i = 0; i < pts.length - 1; i++) rails.push(PR.beamGeo(pts[i], pts[i + 1], 0.035));
         }
         if (rails.length) { const rm = new THREE.Mesh(mergeGeometries(rails), mats.post); rm.castShadow = true; ch.group.add(rm); }
+      } else if (pr.type === 'logs' && useAssets && assetParts('logpile0')) {
+        m4.compose(p.set(pr.x, pr.y - 0.1, pr.z), q.setFromAxisAngle(up, pr.yaw), sc.set(1, 1, 1));
+        pushParts('logpile0', assetParts('logpile0'), m4);
       } else if (pr.type === 'logs') {
         m4.compose(p.set(pr.x, pr.y - 0.1, pr.z), q.setFromAxisAngle(up, pr.yaw), sc.set(1, 1, 1));
         push(PR.logsGeometry(), mats.foliage, m4);
@@ -665,7 +784,7 @@ export class World {
       for (let i = 0; i < poleTops.length - 1; i++) {
         const A = poleTops[i], B = poleTops[i + 1];
         if (Math.hypot(A[0] - B[0], A[2] - B[2]) > 60) continue;
-        for (const off of [-0.75, 0, 0.75]) {
+        for (const off of [-0.8, 0, 0.8]) {
           let prev = null;
           for (let k = 0; k <= 8; k++) {
             const f = k / 8;
@@ -726,7 +845,12 @@ export class World {
     const s0 = ch.j0 * STEP, s1 = ch.j1 * STEP;
     for (const o of t.obstacles) {
       if (o.s < s0 || o.s >= s1) continue;
-      if (o.type === 'rock') {
+      if (o.type === 'rock' && AS.ready && placeAsset('rock' + (Math.floor(o.s) % 6))) {
+        const g = placeAsset('rock' + (Math.floor(o.s) % 6));
+        g.position.set(o.x, o.y - o.r * 0.15, o.z); g.scale.set(o.r * 0.6, o.r * 0.5, o.r * 0.55);
+        g.rotation.y = o.s;
+        ch.group.add(g);
+      } else if (o.type === 'rock') {
         const g = PR.rockGeometry(Math.floor(o.s) % 6, { tint: t.biome(o.s).look.rock });
         const m = new THREE.Mesh(g, mats.rock); m.userData.sharedGeo = true;
         m.position.set(o.x, o.y - o.r * 0.1, o.z); m.scale.set(o.r * 1.05, o.r * 0.9, o.r);
@@ -770,8 +894,25 @@ export class World {
     }
   }
 
-  update2(dt) {
+  update2(dt, cam, look) {
     this.time += dt;
+    AS.time.value += dt;
+    if (look) {
+      AS.wind.value += ((look.wind ?? 0.4) - AS.wind.value) * Math.min(1, dt);
+      AS.snow.value += ((look.snow ?? 0) - AS.snow.value) * Math.min(1, dt);
+    }
+    if (cam) {
+      // full-detail trees only close by; card trees beyond; rocks/bushes fade out far away
+      const nearR = this.quality === 'high' ? 150 : this.quality === 'low' ? 70 : 110;
+      const midR = this.quality === 'low' ? 260 : 380;
+      const coverR = this.quality === 'high' ? 170 : 120;
+      for (const ch of this.chunks.values()) {
+        if (!ch.near) continue;
+        const d = Math.hypot(ch.cx - cam.x, ch.cz - cam.z) - 50;
+        const isNear = d < nearR;
+        ch.near.visible = isNear; ch.far.visible = !isNear; ch.mid.visible = d < midR; ch.cover.visible = d < coverR;
+      }
+    }
     for (const a of this.animated) if (a.type === 'water') a.mat.map.offset.y = -this.time * 0.9;
   }
 
@@ -781,6 +922,13 @@ export class World {
     for (const ch of this.chunks.values()) if (ch.stream) best = Math.min(best, ch.stream.distanceTo(pos) * 1.5);
     return best;
   }
+}
+
+function placeAsset(name) {
+  const g = cloneAsset(name);
+  if (!g) return null;
+  g.traverse((o) => { if (o.isMesh) o.userData.sharedGeo = true; });
+  return g;
 }
 
 function PR_colorAll(g, hex) {
