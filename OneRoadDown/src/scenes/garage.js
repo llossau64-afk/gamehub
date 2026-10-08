@@ -10,8 +10,10 @@ import { CarModel, roundedBox, beam, buildWheel } from '../models/carModel.js';
 import { clamp, lerp, damp, rng } from '../core/util.js';
 import { audio } from '../audio/audio.js';
 import { Particles } from '../gfx/particles.js';
+import { cloneAsset, hasAsset } from '../world/assets.js';
 
 const ROOM = { w: 13, d: 15, h: 5.2 };
+const SHOW = { w: 24, d: 18, h: 6.5 };
 
 export class Garage {
   constructor(renderer, quality) {
@@ -87,7 +89,7 @@ export class Garage {
     // walls
     const wallMat = L === 1 ? mats.woodDark : L === 2 ? new THREE.MeshStandardMaterial({ map: TX.blockWallTexture([132, 128, 118]), roughness: 0.95 })
       : L === 3 ? new THREE.MeshStandardMaterial({ map: TX.blockWallTexture([206, 204, 198]), roughness: 0.9 })
-        : L === 4 ? new THREE.MeshStandardMaterial({ color: 0x2e3135, roughness: 0.7, metalness: 0.2 }) : new THREE.MeshStandardMaterial({ color: 0x1b1c1e, roughness: 0.35, metalness: 0.3 });
+        : L === 4 ? new THREE.MeshStandardMaterial({ color: 0x4a4e54, roughness: 0.7, metalness: 0.2 }) : new THREE.MeshStandardMaterial({ color: 0x3a3d42, roughness: 0.45, metalness: 0.25 });
     if (wallMat.map) { wallMat.map = wallMat.map.clone(); wallMat.map.repeat.set(4, 1.6); wallMat.map.needsUpdate = true; }
     const wall = (W, H, x, z, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(W, H), wallMat); m.position.set(x, H / 2, z); m.rotation.y = ry; m.receiveShadow = true; g.add(m); return m; };
     wall(d, h, -w / 2, 0, Math.PI / 2);
@@ -131,7 +133,7 @@ export class Garage {
     }
     // lights
     this.lights = [];
-    const amb = new THREE.HemisphereLight(0xd8d4cc, 0x2a2622, L === 1 ? 0.55 : 0.9 + L * 0.12); g.add(amb);
+    const amb = new THREE.HemisphereLight(0xd8d4cc, 0x2a2622, L === 1 ? 0.6 : 1.0 + L * 0.22); g.add(amb);
     const key = new THREE.SpotLight(L >= 4 ? 0xf4f6ff : 0xffe2b8, L === 1 ? 70 : 110, 16, 0.85, 0.55, 1.4);
     key.position.set(0.5, h - 0.3, 0.8); key.target.position.set(0, 0, 0);
     key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -0.0005; key.shadow.normalBias = 0.02;
@@ -160,7 +162,51 @@ export class Garage {
     this.scene.add(g);
   }
 
+  // Blender-made workshop furniture (assets/models/garage.glb); grows with the level.
+  buildAssetProps(g, L) {
+    const { w, d, h } = ROOM;
+    const put = (name, x, z, ry = 0, y = 0, s = 1) => {
+      const o = cloneAsset(name);
+      if (!o) return null;
+      o.position.set(x, y, z); o.rotation.y = ry; o.scale.setScalar(s);
+      o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; m.userData.keep = true; } });
+      g.add(o);
+      return o;
+    };
+    const E = Math.PI / 2, W = -Math.PI / 2;
+    // left wall: bench with pegboard, tool chest
+    put('g_bench', -w / 2 + 0.45, -3.2, E);
+    put('g_drums', w / 2 - 1.2, -5.8, 0.3);
+    put('g_jack', 3.4, 4.2, 2.6);
+    if (L >= 2) { put('g_toolchest', -w / 2 + 0.45, 0.6, E); put('g_shelf', 2.6, -d / 2 + 0.4, 0); put('g_compressor', w / 2 - 0.6, 4.8, W); }
+    if (L >= 3) { put('g_lift', w / 2 - 1.3, 1.2, W); put('g_tirerack', -2.6, -d / 2 + 0.4, 0); put('g_engine', -4.5, 4.4, 2.2); put('g_hoist', -3.6, 5.3, 2.0); }
+    if (L >= 4) { put('fridge', -w / 2 + 0.55, 3.0, E); put('g_lounge', -0.3, -d / 2 + 2.0, 0); }
+    if (L >= 5) { put('g_bar', 4.6, -d / 2 + 0.5, 0); }
+    // pendant lamps (old shed) or fluorescent fixtures
+    if (L <= 2 && hasAsset('barnlamp')) {
+      for (const [x, z] of L === 1 ? [[0.5, 0.8], [-3.5, -3]] : [[-2, 0], [2, 0], [-3.5, -3]]) {
+        put('barnlamp', x, z, 0, h - 1.5, 2.6);
+        const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 1.2), mats.plastic); cord.position.set(x, h - 0.6, z); g.add(cord);
+      }
+    } else if (L >= 3) {
+      for (const [x, z] of [[-2.5, -3], [2.5, -3], [-2.5, 3], [2.5, 3]]) put('g_fixture', x, z, 0, h - 0.75);
+    }
+    // posters stay: they make it personal
+    for (const [k, x] of [['map', -0.6], ['oil', 4.6], ['race', -5.2]]) {
+      if (k === 'race' && L < 2) continue;
+      if (L >= 4 && k === 'map') continue;
+      const pm = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 1.05), new THREE.MeshStandardMaterial({ map: TX.posterTexture(k), roughness: 0.9 }));
+      pm.position.set(x, 2.7, -d / 2 + 0.02); g.add(pm);
+    }
+    if (L >= 4) { // covered project car in the corner
+      const cover = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 14), new THREE.MeshStandardMaterial({ color: 0x34363a, roughness: 0.95 }));
+      cover.scale.set(1.0, 0.62, 2.3); cover.position.set(4.6, 0.55, -3.6); cover.rotation.y = 0.15; cover.castShadow = true; g.add(cover);
+    }
+    this.motes = L <= 3;
+  }
+
   buildProps(g, L, R) {
+    if (hasAsset('g_bench')) return this.buildAssetProps(g, L);
     const { w, d, h } = ROOM;
     const add = (m, x, y, z, ry = 0) => { m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
     // workbench along the left wall
@@ -250,12 +296,99 @@ export class Garage {
     this.motes = L <= 3;
   }
 
+  // ------------------------------------------------------------- dealership
+  // 'workshop' (the player's garage) or 'dealer' (the exotic car showroom)
+  setMode(mode) {
+    if (mode === this.mode) return;
+    this.mode = mode;
+    if (mode === 'dealer' && !this.showroom) this.buildShowroom();
+    if (this.room) this.room.visible = mode !== 'dealer';
+    if (this.showroom) this.showroom.visible = mode === 'dealer';
+    this.scene.fog.near = mode === 'dealer' ? 30 : 18; this.scene.fog.far = mode === 'dealer' ? 70 : 40;
+    this.scene.background.setHex(mode === 'dealer' ? 0xd7dde2 : 0x0b0b0c);
+    this.orbit.r = mode === 'dealer' ? 7.4 : 6.6;
+    if (mode !== 'dealer') this.setSideCars([]);
+  }
+
+  buildShowroom() {
+    const g = (this.showroom = new THREE.Group());
+    const S = SHOW;
+    // polished floor, light walls, glass front
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(S.w, S.d), new THREE.MeshStandardMaterial({ color: 0x55585e, roughness: 0.14, metalness: 0.2 }));
+    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; g.add(floor);
+    const tiles = new THREE.Mesh(new THREE.PlaneGeometry(S.w, S.d), new THREE.MeshStandardMaterial({ map: TX.concreteTexture(7, 0.25), transparent: true, opacity: 0.25, roughness: 0.2, depthWrite: false }));
+    tiles.material.map = tiles.material.map.clone(); tiles.material.map.repeat.set(6, 5); tiles.material.map.needsUpdate = true;
+    tiles.rotation.x = -Math.PI / 2; tiles.position.y = 0.002; g.add(tiles);
+    const wallM = new THREE.MeshStandardMaterial({ color: 0xe6e3dd, roughness: 0.8 });
+    const darkM = new THREE.MeshStandardMaterial({ color: 0x1a1b1d, roughness: 0.5, metalness: 0.3 });
+    const wall = (W, H, x, z, ry, m = wallM) => { const o = new THREE.Mesh(new THREE.PlaneGeometry(W, H), m); o.position.set(x, H / 2, z); o.rotation.y = ry; o.receiveShadow = true; g.add(o); return o; };
+    wall(S.d, S.h, -S.w / 2, 0, Math.PI / 2);
+    wall(S.d, S.h, S.w / 2, 0, -Math.PI / 2);
+    wall(S.w, S.h, 0, -S.d / 2, 0, new THREE.MeshStandardMaterial({ color: 0x8c8b88, roughness: 0.85 }));
+    const signBack = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.8), darkM); signBack.position.set(0, 4.6, -S.d / 2 + 0.02); g.add(signBack);
+    // brand wall with backlit name (fictional dealer)
+    const c = document.createElement('canvas'); c.width = 1024; c.height = 160;
+    const x2 = c.getContext('2d'); x2.fillStyle = '#16171a'; x2.fillRect(0, 0, 1024, 160);
+    x2.fillStyle = '#f2ede2'; x2.font = '600 92px "Barlow Condensed", Arial'; x2.textAlign = 'center'; x2.textBaseline = 'middle';
+    x2.fillText('MONTAGNA  MOTORS', 512, 84);
+    const nameTex = new THREE.CanvasTexture(c); nameTex.colorSpace = THREE.SRGBColorSpace;
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(8, 1.25), new THREE.MeshStandardMaterial({ map: nameTex, emissiveMap: nameTex, emissive: 0xffffff, emissiveIntensity: 0.9 }));
+    sign.position.set(0, 4.6, -S.d / 2 + 0.03); g.add(sign);
+    // glass front with mullions and a bright outside
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(S.w, S.h), new THREE.MeshPhysicalMaterial({ color: 0xbfd0dc, roughness: 0.05, transparent: true, opacity: 0.18 }));
+    glass.position.set(0, S.h / 2, S.d / 2); glass.rotation.y = Math.PI; g.add(glass);
+    for (let k = -4; k <= 4; k++) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.12, S.h, 0.12), darkM); m.position.set(k * S.w / 9, S.h / 2, S.d / 2); g.add(m); }
+    const outside = new THREE.Mesh(new THREE.PlaneGeometry(60, 20), new THREE.MeshBasicMaterial({ color: 0xdfe8ee }));
+    outside.position.set(0, 6, S.d / 2 + 6); outside.rotation.y = Math.PI; g.add(outside);
+    // ceiling with light strips
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(S.w, S.d), new THREE.MeshStandardMaterial({ color: 0xb8b6b2, roughness: 0.9 }));
+    ceil.rotation.x = Math.PI / 2; ceil.position.y = S.h; g.add(ceil);
+    const stripM = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xf4f6ff, emissiveIntensity: 2.2 });
+    for (let k = -3; k <= 3; k++) { const st = new THREE.Mesh(new THREE.BoxGeometry(S.w * 0.85, 0.05, 0.16), stripM); st.position.set(0, S.h - 0.05, k * 2.2); g.add(st); }
+    g.add(new THREE.HemisphereLight(0xf2f4f8, 0x6a6662, 2.4));
+    for (const [x, z] of [[-6, -4], [6, -4], [-6, 4], [6, 4], [0, 5]]) { const pl = new THREE.PointLight(0xfff8ee, 30, 16, 1.4); pl.position.set(x, S.h - 0.6, z); g.add(pl); }
+    const key = new THREE.SpotLight(0xffffff, 260, 22, 0.55, 0.45, 1.3);
+    key.position.set(0, S.h - 0.3, 1.5); key.target.position.set(0, 0, 0);
+    key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -0.0005;
+    g.add(key, key.target);
+    for (const x of [-7, 7]) { const sp = new THREE.SpotLight(0xfff4e6, 120, 16, 0.5, 0.5, 1.4); sp.position.set(x, S.h - 0.3, -2); sp.target.position.set(x, 0, -3.5); g.add(sp, sp.target); }
+    // the turntable podium and two side plinths
+    const pod = cloneAsset('g_podium');
+    if (pod) {
+      const top = new THREE.MeshStandardMaterial({ color: 0x1d1f23, roughness: 0.16, metalness: 0.65 });
+      pod.traverse((m) => { if (m.isMesh) { m.receiveShadow = true; m.userData.keep = true; if (/checker/.test(m.material.name)) m.material = top; } });
+      g.add(pod); this.podium = pod;
+    }
+    const st = cloneAsset('g_stanchions'); if (st) g.add(st);
+    for (const x of [-7, 7]) {
+      const pl = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 0.12, 48), darkM); pl.position.set(x, 0.06, -3.5); pl.receiveShadow = true; g.add(pl);
+    }
+    // a lounge corner for the customers
+    const lounge = cloneAsset('g_lounge'); if (lounge) { lounge.position.set(-8.5, 0, 6); lounge.rotation.y = Math.PI * 0.75; g.add(lounge); }
+    const bar = cloneAsset('g_bar'); if (bar) { bar.position.set(8.8, 0, 6.5); bar.rotation.y = -Math.PI / 2; g.add(bar); }
+    g.visible = false;
+    this.scene.add(g);
+  }
+
+  // extra display cars on the side plinths of the showroom
+  setSideCars(list) {
+    for (const c of this.sideCars || []) { this.scene.remove(c.group); c.dispose(); }
+    this.sideCars = list.slice(0, 2).map((car, i) => {
+      const m = new CarModel(car, {});
+      m.setStaticWheels(0.3);
+      m.group.position.set(i ? 7 : -7, 0.12 - m.dims.yG, -3.5);
+      m.group.rotation.y = i ? -0.6 : 0.6;
+      this.scene.add(m.group);
+      return m;
+    });
+  }
+
   // ------------------------------------------------------------- cars
   showCar(car, opts) {
     this.clearCars();
     const m = new CarModel(car, opts);
     m.setStaticWheels(0);
-    m.group.position.set(0, -m.dims.yG, 0);
+    m.group.position.set(0, -m.dims.yG + (this.mode === 'dealer' ? 0.16 : 0), 0);
     m.group.rotation.y = 0.0;
     this.scene.add(m.group);
     this.car = m;
@@ -359,7 +492,8 @@ export class Garage {
       for (const c of this.lineup) c.group.rotation.y = damp(c.group.rotation.y, c === m ? -0.35 + Math.sin(this.time * 0.2) * 0.1 : c.group.rotation.y, 2, dt);
     } else if (this.car) {
       const c = this.car;
-      if (this.turntable && this.orbit.auto && !this.focus) { c.group.rotation.y += dt * 0.15; this.turntable.rotation.y = c.group.rotation.y; }
+      if (this.mode === 'dealer') { c.group.rotation.y += dt * 0.2; if (this.podium) this.podium.rotation.y = c.group.rotation.y; }
+      else if (this.turntable && this.orbit.auto && !this.focus) { c.group.rotation.y += dt * 0.15; this.turntable.rotation.y = c.group.rotation.y; }
       c.openHood(damp(c.hood || 0, this.hoodT || 0, 4, dt));
       const fc = this.focus ? this.focusCam(this.focus) : null;
       if (fc) {
@@ -381,9 +515,10 @@ export class Garage {
       this.camTarget.x = damp(this.camTarget.x, target.x, 3, dt); this.camTarget.y = damp(this.camTarget.y, target.y, 3, dt); this.camTarget.z = damp(this.camTarget.z, target.z, 3, dt);
     }
     // keep the camera inside the room
-    this.camPos.x = clamp(this.camPos.x, -ROOM.w / 2 + 0.6, ROOM.w / 2 - 0.6);
-    this.camPos.z = clamp(this.camPos.z, -ROOM.d / 2 + 0.6, ROOM.d / 2 - 0.6);
-    this.camPos.y = clamp(this.camPos.y, 0.3, ROOM.h - 0.4);
+    const RM = this.mode === 'dealer' ? SHOW : ROOM;
+    this.camPos.x = clamp(this.camPos.x, -RM.w / 2 + 0.6, RM.w / 2 - 0.6);
+    this.camPos.z = clamp(this.camPos.z, -RM.d / 2 + 0.6, RM.d / 2 - 0.6);
+    this.camPos.y = clamp(this.camPos.y, 0.3, RM.h - 0.4);
     camera.position.copy(this.camPos);
     if (this.shake > 0) { this.shake -= dt; camera.position.x += (Math.random() - 0.5) * this.shake * 0.15; camera.position.y += (Math.random() - 0.5) * this.shake * 0.15; }
     camera.lookAt(this.camTarget);

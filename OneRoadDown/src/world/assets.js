@@ -158,7 +158,7 @@ async function loadGLB(loader, path) {
 export async function loadAssets(renderer, onProgress = () => {}, base = './assets/') {
   const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   const loader = new GLTFLoader();
-  const files = ['nature', 'buildings', 'cars', 'animals', 'fox'];
+  const files = ['nature', 'buildings', 'cars', 'animals', 'fox', 'garage', 'props3p'];
   let done = 0;
   const steps = files.length + 1;
   for (const f of files) {
@@ -225,7 +225,8 @@ export function makeTerrainMaterial(quality) {
           vec3 wn = normalize(vWN);
           steepK = smoothstep(0.8, 0.56, wn.y);
           ${tri ? `vec3 bw2 = pow(abs(wn), vec3(4.0)); bw2 /= (bw2.x + bw2.y + bw2.z);
-          vec3 rk2 = texture2D(t_rock, vWP.zy * 0.09).rgb * bw2.x + texture2D(t_rock, vWP.xz * 0.09).rgb * bw2.y + texture2D(t_rock, vWP.xy * 0.09).rgb * bw2.z;`
+          vec3 rk2 = (texture2D(t_rock, vWP.zy * 0.21).rgb * bw2.x + texture2D(t_rock, vWP.xz * 0.21).rgb * bw2.y + texture2D(t_rock, vWP.xy * 0.21).rgb * bw2.z) * 0.6
+                   + (texture2D(t_rock, vWP.zy * 0.055 + 0.3).rgb * bw2.x + texture2D(t_rock, vWP.xz * 0.055 + 0.3).rgb * bw2.y + texture2D(t_rock, vWP.xy * 0.055 + 0.3).rgb * bw2.z) * 0.4;`
           : 'vec3 rk2 = texture2D(t_rock, vWP.xz * 0.09).rgb;'}
           c = mix(c, rk2 * 0.92, steepK * (1.0 - vSB.y * 0.6));
         }

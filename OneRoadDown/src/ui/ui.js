@@ -153,6 +153,7 @@ export class UI {
       <div class="gtabs live">
         <button class="gtab on" data-t="upgrades">UPGRADES</button>
         <button class="gtab" data-t="vehicles">VEHICLES</button>
+        <button class="gtab" data-t="dealer">DEALER</button>
         <button class="gtab" data-t="paint">PAINT</button>
         <button class="gtab" data-t="garage">GARAGE</button>
         <button class="gtab" data-t="menu">MENU</button>
@@ -497,11 +498,14 @@ export class UI {
 
   credits() {
     this.openModal('CREDITS', `<div class="credits">
-      <h4>ONE ROAD DOWN</h4><p>A downhill driving progression game. Every car, rock, tree, sound and note in it is generated in code at load time — there are no downloaded art or audio files.</p>
+      <h4>ONE ROAD DOWN</h4><p>A downhill driving progression game. Cars, trees, buildings, animals and the workshop were modelled with Blender scripts made for this game; sounds and music are synthesised live.</p>
       <h4>DESIGN, CODE, VEHICLES, WORLD</h4><p>Built for the browser with three.js (MIT licence).</p>
+      <h4>THIRD-PARTY MODELS</h4><p>Fox: model by PixelMannen (CC0), rigging and animation by tomkranis (CC-BY 4.0), glTF conversion by AsoboStudio and scurest (CC-BY 4.0).<br>
+      Drinks fridge: Eric Chadwick / Darmstadt Graphics Group, based on "Commercial Fridge" by Sean Thomas (CC-BY 4.0).<br>
+      Barn lamp: Eric Chadwick / Wayfair LLC (CC-BY 4.0). All from the Khronos glTF Sample Assets.</p>
       <h4>SOUND</h4><p>All engine notes, tyres, impacts, weather and music are synthesised live with the Web Audio API.</p>
       <h4>TYPE</h4><p>Barlow and Barlow Condensed by Jeremy Tribby (SIL Open Font Licence).</p>
-      <h4>VEHICLES</h4><p>All vehicles are fictional. Any resemblance to real models is the natural consequence of cars having four wheels.</p>
+      <h4>VEHICLES</h4><p>All vehicles and the Montagna Motors dealership are fictional and carry no real brands or logos.</p>
       <h4>THANKS</h4><p>To everyone who ever drove a bad car down a good road.</p></div>`);
   }
 }

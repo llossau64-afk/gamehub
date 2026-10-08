@@ -283,19 +283,28 @@ class Game {
     const ui = this.ui;
     if (t === 'drive') { this.driveFromGarage(); return; }
     if (t === 'menu') { this.ui.fade(true).then(() => { this.enterMenu(); this.ui.fade(false); }); return; }
+    const wasDealer = this.tab === 'dealer';
     this.tab = t;
     ui.setGarageTab(t);
     this.garage.setFocus(null);
-    if (t !== 'vehicles' && this.browse !== this.selectedCar().id) { this.browse = this.selectedCar().id; this.showGarageCar(this.browse); }
+    this.garage.setMode(t === 'dealer' ? 'dealer' : 'workshop');
+    if (t === 'dealer') {
+      const ex = CARS.filter((c) => c.exotic);
+      if (!carById(this.browse).exotic) { this.browse = ex[0].id; }
+      this.showGarageCar(this.browse);
+      this.garage.setSideCars(ex.filter((c) => c.id !== this.browse));
+    } else if ((t !== 'vehicles' || wasDealer) && this.browse !== this.selectedCar().id) { this.browse = this.selectedCar().id; this.showGarageCar(this.browse); }
     if (t === 'upgrades') this.renderUpgrades();
-    else if (t === 'vehicles') this.renderVehicles();
+    else if (t === 'vehicles' || t === 'dealer') this.renderVehicles();
     else if (t === 'paint') this.renderPaint();
     else if (t === 'garage') this.renderGarageLevels();
   }
   header() {
     const sv = this.save.data, car = carById(this.browse || sv.selected);
-    const titles = { upgrades: car.name, vehicles: 'SHOWROOM', paint: 'PAINT SHOP', garage: GARAGE_LEVELS[sv.garageLevel - 1].name };
-    const subs = { upgrades: car.cls + ' · ' + car.drive, vehicles: CARS.filter((c) => sv.owned.includes(c.id)).length + ' / ' + CARS.length + ' OWNED', paint: car.name, garage: 'LEVEL ' + sv.garageLevel + ' / 5' };
+    const exo = CARS.filter((c) => c.exotic);
+    const titles = { upgrades: car.name, vehicles: 'SHOWROOM', dealer: 'MONTAGNA MOTORS', paint: 'PAINT SHOP', garage: GARAGE_LEVELS[sv.garageLevel - 1].name };
+    const subs = { upgrades: car.cls + ' · ' + car.drive, vehicles: CARS.filter((c) => !c.exotic && sv.owned.includes(c.id)).length + ' / ' + (CARS.length - exo.length) + ' OWNED',
+      dealer: 'EXOTICS · ' + exo.filter((c) => sv.owned.includes(c.id)).length + ' / ' + exo.length + ' OWNED', paint: car.name, garage: 'LEVEL ' + sv.garageLevel + ' / 5' };
     this.ui.setGarageHeader(titles[this.tab] || 'GARAGE', subs[this.tab] || '', sv.cash);
   }
   gStats(prev) {
@@ -393,18 +402,20 @@ class Game {
     const sv = this.save.data;
     this.header();
     const p = this.ui.gpanel;
-    const order = CARS;
+    const dealer = this.tab === 'dealer';
+    const order = CARS.filter((c) => !!c.exotic === dealer);
     const rows = order.map((c) => {
       const own = sv.owned.includes(c.id), cur = sv.selected === c.id;
       const price = Math.round(c.price * carDiscount(sv.garageLevel));
       return `<div class="vrow ${c.id === this.browse ? 'sel' : ''}" data-id="${c.id}"><div class="n">${c.name}</div><div class="p ${cur ? 'cur' : own ? 'own' : price > sv.cash ? 'no' : ''}">${cur ? 'DRIVING' : own ? 'OWNED' : fmtMoney(price)}</div><div class="c">${c.cls}</div><div class="c" style="text-align:right">${c.drive}</div></div>`;
     }).join('');
-    p.innerHTML = `<div class="ptitle"><span>VEHICLES</span><span>DRAG TO ROTATE</span></div><div class="scroll vlist">${rows}</div><div class="detail"></div>`;
+    p.innerHTML = `<div class="ptitle"><span>${dealer ? 'EXOTIC CARS' : 'VEHICLES'}</span><span>${dealer ? 'NO TRADE-INS' : 'DRAG TO ROTATE'}</span></div><div class="scroll vlist">${rows}</div><div class="detail"></div>`;
     p.querySelectorAll('.vrow').forEach((el) => el.addEventListener('click', () => {
       audio()?.ui('click');
       this.browse = el.dataset.id;
       p.querySelectorAll('.vrow').forEach((x) => x.classList.toggle('sel', x === el));
       this.showGarageCar(this.browse);
+      if (dealer) this.garage.setSideCars(CARS.filter((c) => c.exotic && c.id !== this.browse));
       this.renderVehicleDetail();
       this.gStats();
     }));
@@ -436,6 +447,7 @@ class Game {
       this.save.save();
       this.checkAchievements(null);
       this.renderVehicles();
+      this.header();
     });
   }
 
@@ -509,6 +521,11 @@ class Game {
   async driveFromGarage() {
     if (!this.save.data.owned.length) return;
     this.garage.setFocus(null);
+    if (this.garage.mode === 'dealer' || this.browse !== this.selectedCar().id) {
+      this.tab = 'upgrades'; this.ui.setGarageTab('upgrades');
+      this.garage.setMode('workshop');
+      this.browse = this.selectedCar().id; this.showGarageCar(this.browse);
+    }
     this.garage.openDoor();
     audio()?.starter(this.selectedCar());
     await wait(1400);
@@ -650,7 +667,7 @@ class Game {
     return true;
   }
   cycleTab(d) {
-    const tabs = ['upgrades', 'vehicles', 'paint', 'garage'];
+    const tabs = ['upgrades', 'vehicles', 'dealer', 'paint', 'garage'];
     const i = Math.max(0, tabs.indexOf(this.tab));
     audio()?.ui('click');
     this.gtab(tabs[(i + d + tabs.length) % tabs.length]);
