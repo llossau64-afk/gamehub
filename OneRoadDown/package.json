@@ -1,0 +1,11 @@
+{
+  "name": "one-road-down",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ONE ROAD DOWN - a 3D downhill driving progression game for the browser",
+  "scripts": {
+    "start": "npx http-server . -p 8080 -c-1",
+    "test": "node tools/sim-test.mjs"
+  }
+}

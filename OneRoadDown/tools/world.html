@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"../vendor/three.module.min.js"}}</script></head><body>
+<script type="module">
+import * as THREE from 'three';
+import { initMaterials } from '../src/gfx/materials.js';
+import { Track } from '../src/world/track.js';
+import { World } from '../src/world/world.js';
+import { Environment } from '../src/world/env.js';
+import { MOUNTAINS } from '../src/data/mountains.js';
+import { CarModel } from '../src/models/carModel.js';
+import { CARS } from '../src/data/cars.js';
+window.onerror = (m,s,l)=>console.error('ERR', m, s, l);
+const q = new URLSearchParams(location.search);
+const W=1280,H=720;
+const r = new THREE.WebGLRenderer({antialias:true}); r.setSize(W,H); document.body.appendChild(r.domElement);
+r.toneMapping = THREE.ACESFilmicToneMapping; r.outputColorSpace = THREE.SRGBColorSpace; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+initMaterials();
+const sc = new THREE.Scene();
+const track = new Track(MOUNTAINS[+(q.get('m')||0)]);
+const world = new World(sc, track, 'medium');
+const env = new Environment(r, sc, 'medium');
+const s = +(q.get('s')||40);
+const t0=performance.now();
+for (let i=0;i<14;i++) world.update(s, 1);
+console.log('chunks build ms', (performance.now()-t0).toFixed(0));
+const cam = new THREE.PerspectiveCamera(60, W/H, 0.1, 5000);
+const p = track.posAt(s, +(q.get('d')||-1.5));
+const car = new CarModel(CARS[0]); car.setStaticWheels(0);
+car.group.position.set(p.x, p.y + car.ph.cg, p.z); car.group.rotation.y = p.hd; sc.add(car.group);
+const back = +(q.get('back')||7), up = +(q.get('up')||2.6);
+const fw = new THREE.Vector3(Math.sin(p.hd),0,Math.cos(p.hd));
+cam.position.set(p.x - fw.x*back, p.y + up, p.z - fw.z*back);
+const ahead = track.posAt(s + 20, 0);
+cam.lookAt(ahead.x, ahead.y + 1, ahead.z);
+env.update(0.016, track, s, cam, car.group.position, 0);
+if (q.get('noenv')) { sc.environment = null; }
+if (q.get('basic')) { sc.traverse(o=>{ if(o.isMesh && o.material && o.material.vertexColors && !o.isInstancedMesh) o.material = new THREE.MeshBasicMaterial({vertexColors:true}); }); }
+if (q.get('nofog')) sc.fog = null;
+console.log('fog', sc.fog && sc.fog.density, 'hemi', env.hemi.intensity, env.sun.intensity);
+if (q.get('noshadow')) { r.shadowMap.enabled=false; }
+r.render(sc, cam);
+console.log('draw calls', r.info.render.calls, 'tris', r.info.render.triangles);
+const ch = world.chunks.get(0); ch.group.children.slice(0,4).forEach(o=>{ o.geometry.computeBoundingSphere(); console.log(o.type, o.material.length||o.material.type, o.geometry.attributes.position.count, JSON.stringify(o.geometry.boundingSphere), o.visible); });
+console.log('car y', car.group.position.y, 'floor', env.floor.position.y, 'cam', cam.position.y);
+window.done=true;
+</script></body></html>

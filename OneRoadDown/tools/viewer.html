@@ -1,0 +1,25 @@
+<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#888}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"../vendor/three.module.min.js"}}</script></head><body>
+<script type="module">
+import * as THREE from 'three';
+import { initMaterials } from '../src/gfx/materials.js';
+import { CarModel } from '../src/models/carModel.js';
+import { CARS } from '../src/data/cars.js';
+const q = new URLSearchParams(location.search);
+const r = new THREE.WebGLRenderer({antialias:true}); r.setSize(1200,700); document.body.appendChild(r.domElement);
+r.toneMapping = THREE.ACESFilmicToneMapping; r.outputColorSpace = THREE.SRGBColorSpace; r.shadowMap.enabled = true;
+const sc = new THREE.Scene(); sc.background = new THREE.Color(0x9aa4ad);
+const pm = new THREE.PMREMGenerator(r);
+const envScene = new THREE.Scene(); envScene.background = new THREE.Color(0xb0bcc8);
+const hemi = new THREE.HemisphereLight(0xdde6f0, 0x504840, 1.2); sc.add(hemi);
+const sun = new THREE.DirectionalLight(0xffeedd, 2.5); sun.position.set(5,8,4); sun.castShadow = true; sc.add(sun);
+sc.environment = pm.fromScene(envScene).texture;
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(50,50), new THREE.MeshStandardMaterial({color:0x666660})); ground.rotation.x=-Math.PI/2; ground.receiveShadow = true; sc.add(ground);
+initMaterials();
+const ids = (q.get('cars')||'rusty,brick,dusty').split(',');
+const lv = q.get('max') ? {engine:20,turbo:15,armor:15,fuel:12,cooling:8,weight:12,brakes:16,suspension:12} : {};
+ids.forEach((id,i)=>{ const c = CARS.find(c=>c.id===id); const m = new CarModel(c,{levels:lv}); m.group.position.set((i-(ids.length-1)/2)*3.2, -m.dims.yG, 0); m.group.rotation.y = +(q.get('rot')||0.6); m.setStaticWheels(0.3); if(q.get('hood')) m.openHood(1); sc.add(m.group); window.m=m; if (q.get('dmg')) { m.dent(0.5, 0, m.dims.zF, 0.5); m.syncDamage({lightL:0,lightR:1,glass:2,front:0.2,rear:1,left:1,right:1,bumperF:0.3,bumperR:1}); }});
+const cam = new THREE.PerspectiveCamera(35, 1200/700, 0.1, 200);
+const d = +(q.get('d')||(ids.length*3.5+3)); cam.position.set(0, +(q.get('y')||2.2), d); cam.lookAt(0,0.6,0);
+r.render(sc,cam); window.done = true;
+</script></body></html>
