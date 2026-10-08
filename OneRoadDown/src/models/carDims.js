@@ -13,6 +13,8 @@ export const TYPE = {
   sports: { belt: 0.5, nose: 0.36, tail: 0.53, ws: 0.67, roofF: 0.51, roofR: 0.29, back: 0.1, tumble: 0.72, cr: 0.34 },
   baja: { belt: 0.55, nose: 0.5, tail: 0.5, ws: 0.73, roofF: 0.64, roofR: 0.5, back: 0.47, tumble: 0.84, cr: 0.25, bed: 1 },
   beast: { belt: 0.55, nose: 0.55, tail: 0.55, ws: 0.76, roofF: 0.68, roofR: 0.03, back: 0.01, tumble: 0.92, cr: 0.16 },
+  gt: { belt: 0.52, nose: 0.35, tail: 0.55, ws: 0.62, roofF: 0.49, roofR: 0.26, back: 0.07, tumble: 0.74, cr: 0.32 },
+  rear: { belt: 0.48, nose: 0.3, tail: 0.47, ws: 0.72, roofF: 0.6, roofR: 0.4, back: 0.03, tumble: 0.74, cr: 0.42 },
   super: { belt: 0.5, nose: 0.33, tail: 0.54, ws: 0.73, roofF: 0.57, roofR: 0.4, back: 0.15, tumble: 0.7, cr: 0.36 },
   hyper: { belt: 0.48, nose: 0.3, tail: 0.5, ws: 0.75, roofF: 0.59, roofR: 0.42, back: 0.18, tumble: 0.66, cr: 0.4 },
   wedge: { belt: 0.6, nose: 0.33, tail: 0.62, ws: 0.74, roofF: 0.52, roofR: 0.4, back: 0.12, tumble: 0.6, cr: 0.26 },

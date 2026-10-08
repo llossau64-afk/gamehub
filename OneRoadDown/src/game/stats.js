@@ -10,7 +10,7 @@ const RHO = 1.2;
 const ETA = 0.86; // drivetrain efficiency
 const CRR = 0.012;
 
-const BODY_CDA = { hatch: 0.66, wagon: 0.74, pickup: 0.95, sedan: 0.7, coupe: 0.62, suv: 0.98, muscle: 0.76, sports: 0.6, baja: 1.1, beast: 1.35, super: 0.6, monster: 1.9, hyper: 0.62, wedge: 0.56, berlinetta: 0.55, longtail: 0.5 };
+const BODY_CDA = { hatch: 0.66, wagon: 0.74, pickup: 0.95, sedan: 0.7, coupe: 0.62, suv: 0.98, muscle: 0.76, sports: 0.6, baja: 1.1, beast: 1.35, super: 0.6, monster: 1.9, hyper: 0.62, wedge: 0.56, berlinetta: 0.55, longtail: 0.5, gt: 0.6, rear: 0.58 };
 
 export const capOf = (car, cat, garageLevel = 1) => car.caps[cat] + garageCapBonus(garageLevel);
 const frac = (car, levels, cat) => Math.max(0, levels[cat] || 0) / car.caps[cat];

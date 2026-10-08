@@ -122,9 +122,9 @@ class Profile:
         self.tum = T['tumble']
         self.boxy = {'beast': 1.0, 'suv': 0.8, 'pickup': 0.7, 'monster': 0.7, 'baja': 0.6, 'wagon': 0.5, 'hatch': 0.35,
                      'sedan': 0.35, 'muscle': 0.3, 'coupe': 0.2, 'sports': 0.05, 'super': 0.0, 'hyper': 0.0,
-                     'wedge': 0.55, 'berlinetta': 0.0, 'longtail': 0.0}[self.type]
+                     'wedge': 0.55, 'berlinetta': 0.0, 'longtail': 0.0, 'gt': 0.08, 'rear': 0.0}[self.type]
         self.style = md.get('style', '')
-        self.sport = self.type in ('sports', 'super', 'hyper', 'wedge', 'berlinetta', 'longtail')
+        self.sport = self.type in ('sports', 'super', 'hyper', 'wedge', 'berlinetta', 'longtail', 'gt', 'rear')
         # door lines
         long_door = self.type in ('sedan', 'wagon', 'suv', 'beast')
         self.doorR = (self.back + 0.02) if self.bed else max(self.back + 0.12, self.ws - (0.42 if long_door else 0.3))
@@ -132,7 +132,7 @@ class Profile:
         self.ghBase = self.back
         self.uB = lerp(self.roofR, self.roofF, 0.42)
         self.has_b = (self.roofF - self.roofR) > 0.18
-        self.cpillar = self.type in ('sedan', 'coupe', 'muscle', 'sports', 'super', 'hyper', 'wedge', 'berlinetta', 'longtail') or self.bed
+        self.cpillar = self.type in ('sedan', 'coupe', 'muscle', 'sports', 'super', 'hyper', 'wedge', 'berlinetta', 'longtail', 'gt', 'rear') or self.bed
 
     def uz(self, u):
         return self.zR + u * self.L
@@ -971,7 +971,7 @@ def build_interior(pr, cid, surf):
     seat_y = floorY + 0.2 * ss
     rows = [zS]
     zRear = zS - 0.8
-    if pr.type not in ('sports', 'super', 'hyper', 'baja') and not pr.bed and zRear - 0.35 > pr.uz(pr.roofR) - 0.12:
+    if pr.type not in ('sports', 'super', 'hyper', 'baja', 'gt', 'rear') and not pr.bed and zRear - 0.35 > pr.uz(pr.roofR) - 0.12:
         rows.append(zRear)
     for ri, z in enumerate(rows):
         for sgn in (1, -1):

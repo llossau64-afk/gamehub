@@ -163,9 +163,12 @@ export class UI {
       </div>
       <div class="gpanel panel live"></div>
       <div class="gstats panel"></div>
+      <div class="crcard panel live"></div>
+      <div class="carousel live"><button class="cr-arrow l" data-d="-1">‹</button><div class="cr-cards"></div><button class="cr-arrow r" data-d="1">›</button></div>
       <div class="installing">INSTALLING<i></i></div>
       <div class="keyhints">↑↓←→ SELECT · ENTER BUY / CHOOSE · Q E SWITCH TAB · ESC MENU · DRAG TO ROTATE</div>
     </div>`);
+    gar.querySelectorAll('.cr-arrow').forEach((b) => b.addEventListener('click', () => { audio()?.ui('click'); this.emit('crStep', +b.dataset.d); }));
     gar.querySelectorAll('.gtab').forEach((b) => {
       b.addEventListener('click', () => { audio()?.ui(b.dataset.t === 'drive' ? 'buy' : 'click'); this.emit('gtab', b.dataset.t); });
       b.addEventListener('mouseenter', () => audio()?.ui('hover'));
@@ -543,6 +546,41 @@ export class UI {
     g.fillStyle = '#e2a33b'; g.fillRect(W / 2 + (x - (x0 + x1) / 2) * sc - 3, H / 2 - (z - (z0 + z1) / 2) * sc - 3, 6, 6);
   }
 
+  // ------------------------------------------------------------- car carousel (vehicles / dealer)
+  carMode(on) { this.screens.garage.classList.toggle('carmode', !!on); }
+  carousel(d) {
+    const g = this.screens.garage, row = $(g, '.cr-cards');
+    const key = d.cars.map((c) => c.id + c.state).join('|');
+    if (row.dataset.key !== key) {
+      row.dataset.key = key;
+      row.innerHTML = d.cars.map((c) => `<button class="crc" data-id="${c.id}">
+        <canvas width="220" height="84"></canvas>
+        <div class="crc-top"><span class="pi pi-${c.letter}">${c.letter}<b>${c.pi}</b></span><span class="crc-cls">${c.cls}</span></div>
+        <div class="crc-name">${c.name}</div>
+        <div class="crc-price ${c.state}">${c.state === 'driving' ? 'DRIVING' : c.state === 'owned' ? 'OWNED' : c.price}</div></button>`).join('');
+      row.querySelectorAll('.crc').forEach((b) => {
+        b.addEventListener('click', () => { audio()?.ui('click'); this.emit('crSel', b.dataset.id); });
+        const c = d.cars.find((x) => x.id === b.dataset.id);
+        drawSilhouette(b.querySelector('canvas'), c.sil, c.color);
+      });
+    }
+    row.querySelectorAll('.crc').forEach((b) => b.classList.toggle('sel', b.dataset.id === d.sel));
+    const selEl = row.querySelector('.crc.sel');
+    if (selEl) {
+      const r0 = row.getBoundingClientRect(), r1 = selEl.getBoundingClientRect();
+      if (r1.left < r0.left + 40 || r1.right > r0.right - 40) row.scrollTo({ left: row.scrollLeft + (r1.left - r0.left) - (r0.width - r1.width) / 2, behavior: 'smooth' });
+    }
+    const x = d.detail, card = $(g, '.crcard');
+    const bars = x.bars.map((b) => `<div class="crb"><label>${b.label}</label><div class="bar"><i style="width:${Math.round(b.v * 100)}%"></i>${b.max != null ? `<s style="left:${Math.round(b.max * 100)}%"></s>` : ''}</div><b>${b.txt}</b></div>`).join('');
+    card.innerHTML = `<div class="crh"><span class="pi big pi-${x.letter}">${x.letter}<b>${x.pi}</b></span><div><h3>${x.name}</h3><div class="pn">${x.cls} · ${x.drive}</div></div></div>
+      <div class="crbars">${bars}</div>
+      <p>${x.desc}</p>
+      <div class="crtraits">${x.traits.map((t) => `<span>${t}</span>`).join('')}</div>
+      <div class="crfoot">${x.action === 'current' ? '<button class="btn" disabled>CURRENT CAR</button>' : x.action === 'select' ? '<button class="btn main amber cr-act">DRIVE THIS ›</button>' : `<button class="btn ${x.action === 'buy' ? 'amber' : ''} main cr-act" ${x.action === 'nocash' ? 'disabled' : ''}>${x.action === 'nocash' ? 'NEED ' + x.need : 'BUY · ' + x.price}</button>`}</div>`;
+    const act = card.querySelector('.cr-act');
+    if (act) act.addEventListener('click', () => this.emit('crAct'));
+  }
+
   // ------------------------------------------------------------- online
   online(d) {
     const s = this.screens.online;
@@ -715,5 +753,35 @@ export class UI {
       <h4>TYPE</h4><p>Barlow and Barlow Condensed by Jeremy Tribby (SIL Open Font Licence).</p>
       <h4>VEHICLES</h4><p>All vehicles and the Montagna Motors dealership are fictional and carry no real brands or logos.</p>
       <h4>THANKS</h4><p>To everyone who ever drove a bad car down a good road.</p></div>`);
+  }
+}
+
+// Side-view silhouette of a car from its body dimensions (for the carousel cards).
+function drawSilhouette(c, sil, color) {
+  const g = c.getContext('2d'), W = c.width, H = c.height;
+  g.clearRect(0, 0, W, H);
+  if (!sil) return;
+  const { pts, wheels, z0, z1, y0, y1 } = sil;
+  const sc = Math.min((W - 20) / (z1 - z0), (H - 14) / (y1 - y0));
+  const X = (z) => W / 2 + (z - (z0 + z1) / 2) * sc, Y = (y) => H - 8 - (y - y0) * sc;
+  // shadow
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(W / 2, H - 7, (z1 - z0) * sc * 0.52, 4, 0, 0, Math.PI * 2); g.fill();
+  // body
+  const grd = g.createLinearGradient(0, Y(y1), 0, Y(y0));
+  grd.addColorStop(0, color); grd.addColorStop(0.55, color); grd.addColorStop(1, 'rgba(10,10,12,.9)');
+  g.fillStyle = grd; g.beginPath();
+  sil.body.forEach(([z, y], i) => (i ? g.lineTo(X(z), Y(y)) : g.moveTo(X(z), Y(y))));
+  g.closePath(); g.fill();
+  // glass
+  g.fillStyle = 'rgba(20,24,30,.85)'; g.beginPath();
+  pts.forEach(([z, y], i) => (i ? g.lineTo(X(z), Y(y)) : g.moveTo(X(z), Y(y))));
+  g.closePath(); g.fill();
+  // highlight along the shoulder
+  g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1.2; g.beginPath();
+  sil.shoulder.forEach(([z, y], i) => (i ? g.lineTo(X(z), Y(y)) : g.moveTo(X(z), Y(y)))); g.stroke();
+  for (const [z, y, r] of wheels) {
+    g.fillStyle = '#0d0d0f'; g.beginPath(); g.arc(X(z), Y(y), r * sc, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#8d9196'; g.beginPath(); g.arc(X(z), Y(y), r * sc * 0.62, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#2a2c30'; g.beginPath(); g.arc(X(z), Y(y), r * sc * 0.2, 0, Math.PI * 2); g.fill();
   }
 }

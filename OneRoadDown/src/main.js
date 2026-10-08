@@ -10,6 +10,7 @@ import { World } from './world/world.js';
 import { Environment } from './world/env.js';
 import { Garage } from './scenes/garage.js';
 import { CarModel } from './models/carModel.js';
+import { TYPE, carDims } from './models/carDims.js';
 import { Run } from './game/run.js';
 import { Race, fmtTime } from './game/race.js';
 import { Online } from './net/online.js';
@@ -47,6 +48,12 @@ class Game {
     // keyboard control of every menu (the run itself reads keys through Input)
     window.addEventListener('keydown', (e) => {
       if (!this.navActive()) return;
+      // typing in a text field (driver name, friend code) is not menu navigation
+      if (e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+      if (this.state === 'garage' && !this.ui.modalOpen && (this.tab === 'vehicles' || this.tab === 'dealer')) {
+        if (['ArrowLeft', 'KeyA', 'ArrowRight', 'KeyD'].includes(e.code)) { this.crStep(e.code === 'ArrowLeft' || e.code === 'KeyA' ? -1 : 1); e.preventDefault(); return; }
+        if (e.code === 'Enter') { this.crAct(); e.preventDefault(); return; }
+      }
       if (this.state === 'first' && !this.ui.modalOpen && ['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(e.code)) { e.preventDefault(); return; }
       if (this.state === 'garage' && !this.ui.modalOpen && (e.code === 'KeyQ' || e.code === 'KeyE')) { this.cycleTab(e.code === 'KeyE' ? 1 : -1); e.preventDefault(); return; }
       if (this.ui.navKey(e)) e.preventDefault();
@@ -415,6 +422,7 @@ class Game {
     const wasDealer = this.tab === 'dealer';
     this.tab = t;
     ui.setGarageTab(t);
+    ui.carMode(t === 'vehicles' || t === 'dealer');
     this.garage.setFocus(null);
     this.garage.setMode(t === 'dealer' ? 'dealer' : 'workshop');
     if (t === 'dealer') {
@@ -527,57 +535,99 @@ class Game {
     this.installingNow = false;
   }
 
+  // performance index and class letter (like a racing game's car classes)
+  perfIndex(st) {
+    const pi = Math.round(st.top * 0.8 + st.grip * 2 + (st.hp / st.kg) * 400 + (st.brakes || 60) * 0.6);
+    const letter = pi < 300 ? 'D' : pi < 400 ? 'C' : pi < 500 ? 'B' : pi < 620 ? 'A' : pi < 760 ? 'S1' : pi < 920 ? 'S2' : 'X';
+    return { pi, letter };
+  }
+  carSil(car) {
+    this.silCache = this.silCache || {};
+    if (this.silCache[car.id]) return this.silCache[car.id];
+    const ph = computeStats(car, {}, 'worn').phys;
+    const d = carDims(car, ph), T = TYPE[car.model.type] || TYPE.hatch;
+    const z = (u) => d.zR + u * d.L;
+    const back = T.bed ? T.back : Math.max(0.02, T.back);
+    const roofY = d.roof, belt = d.yBelt;
+    const body = [[d.zR + 0.05, d.bottom + 0.05], [d.zR, d.yTail - 0.05], [z(back), d.yTail], [z(T.roofR), roofY], [z(T.roofF), roofY], [z(T.ws), belt], [z(0.97), d.yNose], [d.zF, d.yNose - 0.1], [d.zF - 0.03, d.bottom + 0.06]];
+    const ins = 0.05;
+    const glass = [[z(back) + 0.12, d.yTail + 0.04], [z(T.roofR) + 0.04, roofY - ins], [z(T.roofF) - 0.03, roofY - ins], [z(T.ws) - 0.1, belt + 0.04]];
+    const shoulder = [[d.zR + 0.02, d.yTail - 0.12], [z(T.ws), belt - 0.06], [d.zF - 0.06, d.yNose - 0.14]];
+    const sil = { body, pts: glass, shoulder, wheels: [[d.a, d.wcY, d.r], [-d.b, d.wcY, d.r]], z0: d.zR, z1: d.zF, y0: d.wcY - d.r, y1: roofY };
+    this.silCache[car.id] = sil;
+    return sil;
+  }
+  carouselList() {
+    const dealer = this.tab === 'dealer';
+    return CARS.filter((c) => !!c.exotic === dealer).sort((a, b) => a.price - b.price);
+  }
   renderVehicles() {
     const sv = this.save.data;
     this.header();
-    const p = this.ui.gpanel;
-    const dealer = this.tab === 'dealer';
-    const order = CARS.filter((c) => !!c.exotic === dealer);
-    const rows = order.map((c) => {
+    const list = this.carouselList();
+    if (!list.some((c) => c.id === this.browse)) { this.browse = list[0].id; this.showGarageCar(this.browse); }
+    const cars = list.map((c) => {
       const own = sv.owned.includes(c.id), cur = sv.selected === c.id;
       const price = Math.round(c.price * carDiscount(sv.garageLevel));
-      return `<div class="vrow ${c.id === this.browse ? 'sel' : ''}" data-id="${c.id}"><div class="n">${c.name}</div><div class="p ${cur ? 'cur' : own ? 'own' : price > sv.cash ? 'no' : ''}">${cur ? 'DRIVING' : own ? 'OWNED' : fmtMoney(price)}</div><div class="c">${c.cls}</div><div class="c" style="text-align:right">${c.drive}</div></div>`;
-    }).join('');
-    p.innerHTML = `<div class="ptitle"><span>${dealer ? 'EXOTIC CARS' : 'VEHICLES'}</span><span>${dealer ? 'NO TRADE-INS' : 'DRAG TO ROTATE'}</span></div><div class="scroll vlist">${rows}</div><div class="detail"></div>`;
-    p.querySelectorAll('.vrow').forEach((el) => el.addEventListener('click', () => {
-      audio()?.ui('click');
-      this.browse = el.dataset.id;
-      p.querySelectorAll('.vrow').forEach((x) => x.classList.toggle('sel', x === el));
-      this.showGarageCar(this.browse);
-      if (dealer) this.garage.setSideCars(CARS.filter((c) => c.exotic && c.id !== this.browse));
-      this.renderVehicleDetail();
-      this.gStats();
-    }));
-    this.renderVehicleDetail();
+      const { pi, letter } = this.perfIndex(computeStats(c, {}, 'street'));
+      return { id: c.id, name: c.name, cls: c.cls, price: fmtMoney(price), state: cur ? 'driving' : own ? 'owned' : price > sv.cash ? 'nocash' : 'buy', pi, letter, sil: this.carSil(c), color: '#' + c.model.paint.toString(16).padStart(6, '0') };
+    });
+    const c = carById(this.browse);
+    const own = sv.owned.includes(c.id), cur = sv.selected === c.id;
+    const price = Math.round(c.price * carDiscount(sv.garageLevel));
+    const cs = own ? carState(sv, c.id) : null;
+    const st = own ? computeStats(c, cs.levels, cs.tire, sv.garageLevel) : computeStats(c, {}, 'street');
+    const mx = maxStats(c, sv.garageLevel);
+    const { pi, letter } = this.perfIndex(st);
+    // bars are scaled against the fastest car in the game
+    const R = { top: 650, acc: 2.2, grip: 100, brakes: 100, dur: 100 };
+    const acc = (s) => clamp((12 - (s.t100 || 12)) / (12 - R.acc), 0.03, 1);
+    const bars = [
+      { label: 'TOP SPEED', v: clamp(st.top / R.top, 0, 1), max: clamp(mx.top / R.top, 0, 1), txt: Math.round(st.top) + ' KM/H' },
+      { label: '0–100', v: acc(st), max: acc(mx), txt: st.t100 ? st.t100.toFixed(1) + ' S' : '—' },
+      { label: 'POWER', v: clamp(st.hp / 1600, 0, 1), max: clamp(mx.hp / 1600, 0, 1), txt: Math.round(st.hp) + ' HP' },
+      { label: 'HANDLING', v: clamp(st.grip / R.grip, 0, 1), max: clamp(mx.grip / R.grip, 0, 1), txt: String(Math.round(st.grip)) },
+      { label: 'BRAKING', v: clamp(st.brakes / R.brakes, 0, 1), max: clamp(mx.brakes / R.brakes, 0, 1), txt: String(Math.round(st.brakes)) },
+      { label: 'DURABILITY', v: clamp(st.dur / R.dur, 0, 1), max: clamp(mx.dur / R.dur, 0, 1), txt: String(Math.round(st.dur)) },
+    ];
+    this.ui.carousel({
+      cars, sel: c.id,
+      detail: { name: c.name, cls: c.cls, drive: c.drive + ' · ' + Math.round(st.kg) + ' KG', desc: c.desc, traits: c.traits || [], pi, letter, bars,
+        price: fmtMoney(price), need: fmtMoney(price - sv.cash), action: cur ? 'current' : own ? 'select' : price > sv.cash ? 'nocash' : 'buy' },
+    });
     this.gStats();
   }
-  renderVehicleDetail() {
+  crStep(dir) {
+    const list = this.carouselList();
+    const i = Math.max(0, list.findIndex((c) => c.id === this.browse));
+    const n = list[(i + dir + list.length) % list.length];
+    if (!n || n.id === this.browse) return;
+    audio()?.ui('hover');
+    this.crSel(n.id);
+  }
+  crSel(id) {
+    this.browse = id;
+    this.showGarageCar(id);
+    if (this.tab === 'dealer') this.garage.setSideCars(CARS.filter((c) => c.exotic && c.id !== id));
+    this.renderVehicles();
+  }
+  crAct() {
     const sv = this.save.data, c = carById(this.browse);
-    const own = sv.owned.includes(c.id), cur = sv.selected === c.id;
-    const base = computeStats(c, {}, 'street'), mx = maxStats(c, sv.garageLevel);
-    const price = Math.round(c.price * carDiscount(sv.garageLevel));
-    const cmp = (label, a, b) => `<div class="l">${label}</div><div>${a}</div><div>${b}</div>`;
-    const d = this.ui.gpanel.querySelector('.detail');
-    d.innerHTML = `<h3>${c.name}</h3><div class="pn">${c.cls} · ${c.drive}</div><p>${c.desc}</p>
-      <div class="cmp" style="padding:0 0 12px"><div class="h"></div><div class="h">BASE</div><div class="h">MAX</div>
-      ${cmp('POWER', Math.round(base.hp) + ' HP', Math.round(mx.hp) + ' HP')}${cmp('TOP SPEED', Math.round(base.top) + ' KM/H', Math.round(mx.top) + ' KM/H')}
-      ${cmp('GRIP', Math.round(base.grip), Math.round(mx.grip))}${cmp('DURABILITY', Math.round(base.dur), Math.round(mx.dur))}
-      ${cmp('WEIGHT', Math.round(base.kg) + ' KG', Math.round(mx.kg) + ' KG')}${cmp('0–100', base.t100 ? base.t100.toFixed(1) + ' S' : '—', mx.t100 ? mx.t100.toFixed(1) + ' S' : '—')}</div>
-      <div class="row">${cur ? '<button class="btn" disabled>CURRENT CAR</button>' : own ? '<button class="btn main act">SELECT</button>' : `<button class="btn ${price <= sv.cash ? 'amber' : ''} act" ${price > sv.cash ? 'disabled' : ''}>BUY · ${fmtMoney(price)}</button>`}</div>`;
-    const act = d.querySelector('.act');
-    if (act) act.addEventListener('click', () => {
-      if (!own) {
-        if (price > sv.cash) return;
-        sv.cash -= price; sv.owned.push(c.id); carState(sv, c.id);
-        audio()?.ui('buy'); audio()?.starter(c);
-        this.ui.toast(`<b>${c.name}</b> IS YOURS`);
-      } else audio()?.ui('click');
-      sv.selected = c.id;
-      this.save.save();
-      this.checkAchievements(null);
-      this.renderVehicles();
-      this.header();
-    });
+    if (!c) return;
+    const own = sv.owned.includes(c.id);
+    if (sv.selected === c.id) return;
+    if (!own) {
+      const price = Math.round(c.price * carDiscount(sv.garageLevel));
+      if (price > sv.cash) { audio()?.ui('back'); return; }
+      sv.cash -= price; sv.owned.push(c.id); carState(sv, c.id);
+      audio()?.ui('buy'); audio()?.starter(c);
+      this.ui.toast(`<b>${c.name}</b> IS YOURS`);
+    } else audio()?.ui('click');
+    sv.selected = c.id;
+    this.save.save();
+    this.checkAchievements(null);
+    this.renderVehicles();
+    this.header();
   }
 
   renderPaint() {
@@ -755,6 +805,9 @@ class Game {
     ui.on('firstNav', (d) => { this.firstIdx = (this.firstIdx + d + STARTERS.length) % STARTERS.length; this.updateFirst(); });
     ui.on('firstSelect', () => this.chooseFirst());
     ui.on('gtab', (t) => this.gtab(t));
+    ui.on('crSel', (id) => this.crSel(id));
+    ui.on('crStep', (d) => this.crStep(d));
+    ui.on('crAct', () => this.crAct());
     ui.on('retry', () => this.retry());
     ui.on('raceSel', (id) => { this.raceSel = id; this.renderRaceSelect(); });
     ui.on('raceOpp', (d) => { this.raceOpp = clamp((this.raceOpp ?? 5) + d, 0, 7); this.renderRaceSelect(); });
