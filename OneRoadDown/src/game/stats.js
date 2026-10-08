@@ -10,7 +10,7 @@ const RHO = 1.2;
 const ETA = 0.86; // drivetrain efficiency
 const CRR = 0.012;
 
-const BODY_CDA = { hatch: 0.66, wagon: 0.74, pickup: 0.95, sedan: 0.7, coupe: 0.62, suv: 0.98, muscle: 0.76, sports: 0.6, baja: 1.1, beast: 1.35, super: 0.6, monster: 1.9, hyper: 0.62 };
+const BODY_CDA = { hatch: 0.66, wagon: 0.74, pickup: 0.95, sedan: 0.7, coupe: 0.62, suv: 0.98, muscle: 0.76, sports: 0.6, baja: 1.1, beast: 1.35, super: 0.6, monster: 1.9, hyper: 0.62, wedge: 0.56, berlinetta: 0.55, longtail: 0.5 };
 
 export const capOf = (car, cat, garageLevel = 1) => car.caps[cat] + garageCapBonus(garageLevel);
 const frac = (car, levels, cat) => Math.max(0, levels[cat] || 0) / car.caps[cat];
@@ -112,7 +112,7 @@ export function computeStats(car, levels, tireId = 'worn', garageLevel = 1) {
     heat: 1 + 0.02 * L.engine + 0.035 * L.turbo, cooling,
     offroad: ph.offroad || 1, rearGrip: ph.rearGrip || 1, ground: ph.ground,
     downforce: ph.downforce || 0, boostCap: engine.boostCap,
-    armorLevel: L.armor, susLevel: L.suspension, abs: L.brakes >= 6,
+    armorLevel: L.armor, susLevel: L.suspension, abs: L.brakes >= 6, tcs: !!(car.exotic || car.model.sport),
   };
 
   const top = topSpeed(phys);
@@ -135,7 +135,7 @@ export function topSpeed(ph) {
       const rpm = (v / ph.r) * g * 60 / (2 * Math.PI);
       if (rpm > e.redline) break;
       const T = engineTorque(e, rpm) * (1 + e.turbo * boostTarget(e, rpm, 1));
-      const F = (T * g * ETA) / ph.r - ph.crr * ph.mass * G - 0.5 * RHO * ph.cda * v * v;
+      const F = (T * g * ETA) / ph.r - ph.crr * (ph.mass * G + (ph.downforce || 0) * 0.72 * v * v) - 0.5 * RHO * ph.cda * v * v;
       if (F > 0) vmax = Math.max(vmax, v);
     }
   }

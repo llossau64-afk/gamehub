@@ -516,8 +516,9 @@ export class World {
       push(key, list, m4, cast, layer = 'near') {
         const k = key + '|' + layer;
         let e = inst.get(k);
-        if (!e) inst.set(k, (e = { list, mats: [], cast, layer }));
+        if (!e) inst.set(k, (e = { list, mats: [], cast, layer, meshes: [] }));
         e.mats.push(m4.clone());
+        return { e, i: e.mats.length - 1 };
       },
       flush(ch) {
         for (const e of inst.values()) {
@@ -528,6 +529,7 @@ export class World {
             im.userData.sharedGeo = true;
             im.computeBoundingSphere();
             (ch[e.layer] || ch.group).add(im);
+            e.meshes.push(im);
           }
         }
       },
@@ -598,7 +600,8 @@ export class World {
         const geo = PR.treeGeometry(kind, v, { snowy, autumn: b.look.warmth > 0.3, dry: !!tr.dry });
         I.push(geo.uuid, [{ geometry: geo, material: mats.foliage }], m4, this.castTrees && sp.u < 40, 'near');
       }
-      if (sp.u < 9) cols.push({ t: 's', x: sp.x, y: sp.h + 0.6, z: sp.z, r: 0.35 * s2, s: sp.s }, { t: 's', x: sp.x, y: sp.h + 1.6, z: sp.z, r: 0.3 * s2, s: sp.s });
+      // grown trees are solid: you do not drive through a trunk
+      if (sp.u < 80) cols.push({ t: 's', x: sp.x, y: sp.h + 0.8, z: sp.z, r: 0.28 * s2 + 0.12, s: sp.s, tree: 1 });
     }
     // rocks
     const nRocks = Math.round(44 * (b.rocks || 0.5) * (this.quality === 'low' ? 0.5 : 1));
@@ -608,7 +611,25 @@ export class World {
       const size = (0.3 + Math.pow(R(), 3) * 3.2) * Math.min(1, 0.25 + sp.u / 14);
       if (Math.abs(t.height(sp.x + 1.2, sp.z) - sp.h) > 1.6) continue;
       this.addRock(I, sp.x, sp.h, sp.z, R, snowy, b, size, useAssets);
-      if (sp.u < 5 && size > 0.5) cols.push({ t: 's', x: sp.x, y: sp.h + size * 0.3, z: sp.z, r: size * 0.85, s: sp.s });
+      if (sp.u < 40 && size > 0.7) cols.push({ t: 's', x: sp.x, y: sp.h + size * 0.3, z: sp.z, r: size * 0.75, s: sp.s });
+    }
+    // young trees along the verges: these snap when you hit them
+    if (useAssets) {
+      const nSap = Math.round(26 * density + 4);
+      for (let n = 0; n < nSap; n++) {
+        const sp = spot(0.6, 28, 1.4);
+        if (!sp || Math.abs(sp.d) < sp.halfW + SHOULDER + 0.3 || t.sw[sp.o + 4] > 0.3) continue;
+        let r = R() * wsum, ki = 0;
+        while (ki < kinds.length - 1 && (r -= weights[ki]) > 0) ki++;
+        const kind = kinds[ki] || 'pine';
+        const [n0] = this.treeNames(kind, Math.floor(R() * 3), b, tr, R);
+        const p0 = assetParts(n0);
+        if (!p0) continue;
+        const s2 = 0.26 + R() * 0.24;
+        m4.compose(p.set(sp.x, sp.h - 0.1, sp.z), q.setFromAxisAngle(up, R() * 6.28), sc.set(s2, s2 * (0.9 + R() * 0.3), s2));
+        const hs = I.push(n0, p0, m4, false, 'mid');
+        cols.push({ t: 's', x: sp.x, y: sp.h + 0.6, z: sp.z, r: 0.35, s: sp.s, brk: 0, slow: 0.035, dmg: 0.08, vis: [hs], kind: 'sapling' });
+      }
     }
     // bushes
     const nBush = Math.round(36 * density + 6);
@@ -620,7 +641,8 @@ export class World {
       if (useAssets) {
         const leaf = tr.dry ? 'dry' : b.look.warmth > 0.3 && R() < 0.5 ? 'autumn' : 'oak';
         const name = 'bush' + Math.floor(R() * 2) + '_' + leaf;
-        I.push(name, assetParts(name), m4, false, 'mid');
+        const hb = I.push(name, assetParts(name), m4, false, 'mid');
+        cols.push({ t: 's', x: sp.x, y: sp.h + 0.4, z: sp.z, r: 0.55 * s2, s: sp.s, brk: 0, slow: 0.01, vis: [hb], kind: 'bush' });
       } else {
         const geo = PR.bushGeometry(Math.floor(R() * 3), { snowy, dry: !!tr.dry });
         I.push(geo.uuid, [{ geometry: geo, material: mats.foliage }], m4, false, 'near');
@@ -711,12 +733,20 @@ export class World {
     const useAssets = AS.ready;
     const poleParts = useAssets ? assetParts('pole0') : null, fenceParts = useAssets ? assetParts('fence0') : null;
     const pushParts = (key, list, mm) => {
+      const es = [];
+      let idx = 0;
       list.forEach((part, i) => {
         let e = inst.get(key + i);
         if (!e) inst.set(key + i, (e = { geo: part.geometry, mat: part.material, list: [], cast: true }));
         e.list.push(mm.clone());
+        idx = e.list.length - 1;
+        es.push(e);
       });
+      // handle in the same shape as the vegetation instancer: { e: { meshes, mats, list }, i }
+      const h = { e: { meshes: [], mats: es[0].list, list: list, parts: es }, i: idx };
+      return h;
     };
+    const fenceCols = [];
     for (const pr of t.props) {
       if (pr.s < s0 || pr.s >= s1) continue;
       if (pr.type === 'house' || pr.type === 'barn' || pr.type === 'chapel' || pr.type === 'shack' || pr.type === 'gasstation') {
@@ -725,7 +755,9 @@ export class World {
         if (g) {
           // Blender assets face +X; the old procedural ones face +Z
           g.position.set(pr.x, pr.y - 0.05, pr.z); g.rotation.y = pr.yaw - Math.PI / 2;
-          if (pr.type === 'house' || pr.type === 'barn' || pr.type === 'chapel') g.scale.setScalar(pr.size);
+          const scl = pr.type === 'house' || pr.type === 'barn' || pr.type === 'chapel' ? pr.size : 1;
+          g.scale.setScalar(scl);
+          if (pr.col) fitBox(pr.col, name, g, scl);
         } else {
           g = pr.type === 'shack' ? PR.buildShack(pr.seed) : pr.type === 'gasstation' ? PR.buildGasStation(pr.seed) : PR.buildHouse(pr.seed, pr.type);
           g.position.set(pr.x, pr.y, pr.z); g.rotation.y = pr.yaw;
@@ -751,7 +783,9 @@ export class World {
           const a = t.posAt(pr.s + u, pr.d), bq = t.posAt(pr.s + u + 2.6, pr.d);
           const yaw = Math.atan2(-(bq.z - a.z), bq.x - a.x);
           m4.compose(p.set(a.x, Math.min(a.y, bq.y) - 0.08, a.z), q.setFromAxisAngle(up, yaw), sc.set(1, 1, 1));
-          pushParts('fence0', fenceParts, m4);
+          const h = pushParts('fence0', fenceParts, m4);
+          const mx = (a.x + bq.x) / 2, mz = (a.z + bq.z) / 2;
+          fenceCols.push({ t: 'b', x: mx, y: a.y + 0.55, z: mz, hx: 1.3, hy: 0.6, hz: 0.1, yaw, s: pr.s + u, brk: 0, slow: 0.015, vis: [h], kind: 'fence' });
         }
       } else if (pr.type === 'fence') {
         for (let u = 0; u < pr.len; u += 2.5) {
@@ -804,7 +838,10 @@ export class World {
       im.castShadow = e.cast; im.receiveShadow = true; im.userData.sharedGeo = true;
       im.computeBoundingSphere();
       ch.group.add(im);
+      e.mesh = im;
     }
+    for (const c of fenceCols) c.vis[0].e.meshes = c.vis[0].e.parts.map((e) => e.mesh);
+    if (fenceCols.length) this.addColliders(ch.k, fenceCols);
   }
 
   buildWaterfall(ch, pr) {
@@ -916,12 +953,70 @@ export class World {
     for (const a of this.animated) if (a.type === 'water') a.mat.map.offset.y = -this.time * 0.9;
   }
 
+  // A breakable thing was hit: hide its instances and return loose debris meshes.
+  // Put everything that was knocked over back (new run).
+  resetBreakables() {
+    for (const { o, saved } of this.smashed || []) {
+      o.dead = false;
+      for (const { im, i, m } of saved) { im.setMatrixAt(i, m); im.instanceMatrix.needsUpdate = true; }
+    }
+    this.smashed = [];
+  }
+
+  smash(o) {
+    const out = [];
+    const saved = [];
+    (this.smashed || (this.smashed = [])).push({ o, saved });
+    const m4 = new THREE.Matrix4();
+    (o.vis || []).forEach((h, k) => {
+      if (!h || !h.e) return;
+      for (const im of h.e.meshes) {
+        const mm = new THREE.Matrix4(); im.getMatrixAt(h.i, mm); saved.push({ im, i: h.i, m: mm });
+        im.setMatrixAt(h.i, ZERO_M4); im.instanceMatrix.needsUpdate = true;
+      }
+      if (k > 0) return;
+      m4.copy(h.e.mats[h.i]);
+      const g = new THREE.Group();
+      m4.decompose(g.position, g.quaternion, g.scale);
+      for (const part of h.e.list) {
+        const mesh = new THREE.Mesh(part.geometry, part.material);
+        mesh.castShadow = true; mesh.userData.sharedGeo = true;
+        g.add(mesh);
+      }
+      this.root.add(g);
+      out.push(g);
+    });
+    return out;
+  }
+
   nearestWaterfall(pos) {
     let best = 1e9;
     for (const a of this.animated) if (a.type === 'water') best = Math.min(best, a.pos.distanceTo(pos));
     for (const ch of this.chunks.values()) if (ch.stream) best = Math.min(best, ch.stream.distanceTo(pos) * 1.5);
     return best;
   }
+}
+
+const ZERO_M4 = new THREE.Matrix4().makeScale(0, 0, 0);
+const boxCache = new Map();
+// Fit a building's collision box (track collider) to the Blender model's real footprint.
+function fitBox(col, name, g, scl) {
+  let bb = boxCache.get(name);
+  if (!bb) {
+    const tmp = cloneAsset(name);
+    bb = new THREE.Box3().setFromObject(tmp);
+    boxCache.set(name, bb);
+  }
+  const th = g.rotation.y, c = Math.cos(th), sn = Math.sin(th);
+  const cx = (bb.min.x + bb.max.x) / 2 * scl, cz = (bb.min.z + bb.max.z) / 2 * scl;
+  // local -> world offset for a rotation of th about +y
+  col.x = g.position.x + cx * c + cz * sn;
+  col.z = g.position.z - cx * sn + cz * c;
+  col.hy = (bb.max.y - bb.min.y) / 2 * scl;
+  col.y = g.position.y + (bb.min.y + bb.max.y) / 2 * scl;
+  // the collider frame uses the old yaw (model x = collider z)
+  col.hx = (bb.max.z - bb.min.z) / 2 * scl * 0.96;
+  col.hz = (bb.max.x - bb.min.x) / 2 * scl * 0.96;
 }
 
 function placeAsset(name) {

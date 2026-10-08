@@ -9,6 +9,7 @@ import { computeStats } from './stats.js';
 import { carById } from '../data/cars.js';
 import { CATEGORIES, garageEarnMult, repairBonus } from '../data/upgrades.js';
 import { SURF, SURF_INFO, STEP } from '../world/track.js';
+import { Animals } from '../world/animals.js';
 import { EngineVoice, RoadVoice, audio } from '../audio/audio.js';
 import { carState } from '../core/save.js';
 import { clamp, lerp, damp, fmtMoney, fmtKm, smoothstep } from '../core/util.js';
@@ -96,6 +97,10 @@ export class Run {
     this.rockfallsDone = new Set();
     this.dynamic = [];
     v.dynamic = this.dynamic;
+    g.world.resetBreakables();
+    if (!this.animals) this.animals = new Animals(g);
+    this.animals.reset(this.maxS);
+    v.animalCols = this.animals.cols;
     for (const m of this.pickMeshes.values()) g.worldScene.remove(m);
     this.pickMeshes.clear();
     // world streaming around the start
@@ -151,6 +156,7 @@ export class Run {
     if (!this.countdown || this.go) v.update(dt);
     else v.update(dt * 0.5);
     this.updateDynamic(dt);
+    if (this.animals) this.animals.update(dt, v, this.maxS);
     // progress
     const q = v.lastQuery;
     if (q.dist < q.halfW + 30 && q.s > this.maxS && Math.abs(v.pos.y - t.roadY(q.s)) < 12) {
@@ -225,6 +231,30 @@ export class Run {
           this.checkDetach();
           m.syncDamage(v.dmg);
           break;
+        case 'smash': {
+          const o = e.o;
+          const parts = o.animal ? [] : g.world.smash(o);
+          if (o.animal) this.animals && this.animals.hit(o, e);
+          const sp = e.speed;
+          const dir = new THREE.Vector3(e.vx, 0, e.vz).normalize();
+          for (const grp of parts) {
+            grp.userData.groundOff = 0;
+            if (o.kind === 'sapling') {
+              // snaps and topples away from the car
+              const axis = new THREE.Vector3(dir.z, 0, -dir.x);
+              g.debris.add(grp, new THREE.Vector3(e.vx * 0.15, 1.5, e.vz * 0.15), axis.multiplyScalar(2.5 + Math.min(4, sp * 0.08)));
+            } else {
+              const up = 2 + Math.min(6, sp * 0.15);
+              g.debris.add(grp, new THREE.Vector3(e.vx * 0.55 + (Math.random() - 0.5) * 3, up, e.vz * 0.55 + (Math.random() - 0.5) * 3),
+                new THREE.Vector3((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 8));
+            }
+          }
+          const leaf = o.kind === 'fence' ? [0.42, 0.36, 0.28] : [0.3, 0.38, 0.18];
+          g.particles.debris(o.x, o.y, o.z, e.vx * 0.5, 2, e.vz * 0.5, o.kind === 'fence' ? 10 : 14, leaf);
+          if (a) { a.thump(clamp(sp / 30, 0.2, 0.8)); a.burst({ freq: o.kind === 'fence' ? 900 : 2400, q: 0.8, dur: 0.25, gain: 0.25, type: 'bandpass', buf: a.pink }); }
+          this.shake = Math.max(this.shake, 0.12 * this.g.save.data.settings.shake);
+          break;
+        }
         case 'glass': a && a.glass(); { const p = this.model.group.position; g.particles.glass(p.x, p.y + 0.8, p.z, v.vel.x, 1, v.vel.z); } break;
         case 'bottom': a && a.thump(clamp(e.speed / 8, 0, 1)); this.shake = Math.max(this.shake, clamp(e.speed / 20, 0, 0.3) * this.g.save.data.settings.shake); break;
         case 'land':
@@ -751,6 +781,7 @@ export class Run {
     this.pickMeshes.clear();
     for (const r of this.dynamic) if (r.mesh) this.g.worldScene.remove(r.mesh);
     this.dynamic.length = 0;
+    if (this.animals) this.animals.clear();
     document.body.classList.remove('cockpit');
     if (this.model) { if (this.model.glassMat) this.model.glassMat.opacity = 0.72; this.g.worldScene.remove(this.model.group); this.model.dispose(); this.model = null; }
     if (this.engine) { this.engine.dispose(); this.engine = null; }

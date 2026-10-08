@@ -747,7 +747,8 @@ export class Track {
     for (const p of pr) if (p.collider) {
       const sz = (p.size || 1);
       const dims = p.type === 'barn' ? [4.5, 3.5, 6] : p.type === 'chapel' ? [3.5, 4, 6] : p.type === 'gasstation' ? [3.5, 2.2, 4.5] : p.type === 'shack' ? [2.5, 2, 3] : [3.5, 3, 4.5];
-      this.colliders.push({ t: 'b', x: p.x, y: p.y + dims[1] * sz, z: p.z, hx: dims[0] * sz, hy: dims[1] * sz, hz: dims[2] * sz, yaw: p.yaw, s: p.s, heavy: 1 });
+      p.col = { t: 'b', x: p.x, y: p.y + dims[1] * sz, z: p.z, hx: dims[0] * sz, hy: dims[1] * sz, hz: dims[2] * sz, yaw: p.yaw, s: p.s, heavy: 1 };
+      this.colliders.push(p.col);
     }
     this.colB = new Map();
     for (const c of this.colliders) {

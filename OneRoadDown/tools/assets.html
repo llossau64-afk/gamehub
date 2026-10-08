@@ -19,7 +19,7 @@ loadAssets(r, undefined, '../assets/').then(() => {
   for (const n of names) {
     const o = cloneAsset(n);
     if (!o) { console.log('missing', n); continue; }
-    o.position.set(x, 0, 0); x += +(q.get('sp') || 6);
+    o.position.set(x, 0, 0); o.rotation.y = +(q.get('rot') || 0); x += +(q.get('sp') || 6);
     sc.add(o);
   }
   const cam = new THREE.PerspectiveCamera(40, W / H, 0.1, 500);

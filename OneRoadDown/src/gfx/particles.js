@@ -184,9 +184,13 @@ export class Debris {
   add(mesh, vel, spin) {
     this.scene.add(mesh);
     this.items.push({ mesh, v: vel.clone(), w: spin.clone(), life: 12 });
-    if (this.items.length > 14) this.remove(this.items[0]);
+    if (this.items.length > 40) this.remove(this.items[0]);
   }
-  remove(it) { this.scene.remove(it.mesh); it.mesh.geometry.dispose(); this.items.splice(this.items.indexOf(it), 1); }
+  remove(it) {
+    this.scene.remove(it.mesh);
+    if (it.mesh.geometry && !it.mesh.userData.sharedGeo) it.mesh.geometry.dispose();
+    this.items.splice(this.items.indexOf(it), 1);
+  }
   update(dt) {
     for (const it of [...this.items]) {
       it.life -= dt;
@@ -194,7 +198,7 @@ export class Debris {
       it.v.y -= 9.8 * dt;
       it.mesh.position.addScaledVector(it.v, dt);
       it.mesh.rotation.x += it.w.x * dt; it.mesh.rotation.y += it.w.y * dt; it.mesh.rotation.z += it.w.z * dt;
-      const h = this.track.height(it.mesh.position.x, it.mesh.position.z) + 0.1;
+      const h = this.track.height(it.mesh.position.x, it.mesh.position.z) + (it.mesh.userData.groundOff ?? 0.1);
       if (it.mesh.position.y < h) {
         it.mesh.position.y = h;
         if (it.v.y < 0) it.v.y *= -0.3;

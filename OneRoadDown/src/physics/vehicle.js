@@ -376,6 +376,11 @@ export class Vehicle {
       const fDyn = -maxF * mf * latMu;
       const fStatic = clamp(-vLat * w.mc / dt * 0.5, -maxF, maxF);
       let fLat = lerp(fStatic, fDyn, smoothstep(0.8, 4, speed));
+      // traction control (sports cars, assist on): keep the driven tyre inside its grip circle
+      if (p.tcs && this.assist > 0 && drive * Math.sign(vLong || 1) > 0 && bF === 0) {
+        const room = Math.sqrt(Math.max(0, maxF * maxF * 0.96 - fLat * fLat));
+        if (Math.abs(fLong) > room) fLong = Math.sign(fLong) * room;
+      }
       // friction circle
       let spinning = 0;
       const tot = Math.sqrt(fLong * fLong + fLat * fLat);
@@ -555,8 +560,42 @@ export class Vehicle {
       }
     }
     for (let n = 0; n < this.dynamic.length; n++) this.collideShape(this.dynamic[n], dt);
+    const an = this.animalCols;
+    if (an) for (let n = 0; n < an.length; n++) this.collideShape(an[n], dt);
     // body sunk below terrain (safety)
     if (pos.y < this.groundY - 1.5 && c.dist < 30) { pos.y = this.groundY + 0.5; this.vel.y = Math.max(0, this.vel.y); }
+  }
+
+  // Breakable things (saplings, bushes, fences, animals): above `brk` m/s they give way
+  // instead of stopping the car. Returns true when the object was smashed.
+  smashCheck(o) {
+    const pos = this.pos, q = this.q;
+    let touch = false, lz = 0, lx = 0;
+    if (o.t === 's') {
+      const lc = qinvrot(q, o.x - pos.x, o.y - pos.y, o.z - pos.z, T5);
+      const cx = clamp(lc.x, -this.half.x, this.half.x), cy = clamp(lc.y, this.yb, this.yt), cz = clamp(lc.z, -this.half.z, this.half.z);
+      const ex = cx - lc.x, ey = cy - lc.y, ez = cz - lc.z;
+      touch = ex * ex + ey * ey + ez * ez < o.r * o.r;
+      lz = cz; lx = cx;
+    } else {
+      const cyaw = Math.cos(o.yaw), syaw = Math.sin(o.yaw);
+      for (let n = 0; n < this.pts.length && !touch; n++) {
+        const lp = this.pts[n];
+        const P = qrot(q, lp[0], lp[1], lp[2], T3);
+        const rx = P.x + pos.x - o.x, ry = P.y + pos.y - o.y, rz = P.z + pos.z - o.z;
+        const bx = rx * cyaw - rz * syaw, bz = rx * syaw + rz * cyaw;
+        if (Math.abs(bx) <= o.hx && Math.abs(ry) <= o.hy + 0.2 && Math.abs(bz) <= o.hz + 0.15) { touch = true; lz = lp[2]; lx = lp[0]; }
+      }
+    }
+    if (!touch) return false;
+    const sp = Math.hypot(this.vel.x, this.vel.y, this.vel.z);
+    if (sp < o.brk) return false;
+    o.dead = true;
+    const k = 1 - (o.slow || 0) * Math.min(1, 25 / Math.max(sp, 1));
+    this.vel.x *= k; this.vel.z *= k;
+    this.events.push({ type: 'smash', o, speed: sp, vx: this.vel.x, vy: this.vel.y, vz: this.vel.z });
+    if (o.dmg) this.hit([lx, 0, lz], sp * o.dmg, o.x, o.y, o.z, 0, 1, 0, 'light', o);
+    return true;
   }
 
   collideShape(o) {
@@ -564,6 +603,7 @@ export class Vehicle {
     const dx = o.x - pos.x, dy = o.y - pos.y, dz = o.z - pos.z;
     if (dx * dx + dz * dz > 100 + (o.hz || o.r || 1) * 10) return;
     if (o.dead) return;
+    if (o.brk !== undefined && this.smashCheck(o)) return;
     if (o.t === 's') {
       // sphere vs car box
       const lc = qinvrot(q, dx, dy, dz, T5);

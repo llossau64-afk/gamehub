@@ -15,6 +15,9 @@ export const TYPE = {
   beast: { belt: 0.55, nose: 0.55, tail: 0.55, ws: 0.76, roofF: 0.68, roofR: 0.03, back: 0.01, tumble: 0.92, cr: 0.16 },
   super: { belt: 0.5, nose: 0.33, tail: 0.54, ws: 0.73, roofF: 0.57, roofR: 0.4, back: 0.15, tumble: 0.7, cr: 0.36 },
   hyper: { belt: 0.48, nose: 0.3, tail: 0.5, ws: 0.75, roofF: 0.59, roofR: 0.42, back: 0.18, tumble: 0.66, cr: 0.4 },
+  wedge: { belt: 0.6, nose: 0.33, tail: 0.62, ws: 0.74, roofF: 0.52, roofR: 0.4, back: 0.12, tumble: 0.6, cr: 0.26 },
+  berlinetta: { belt: 0.6, nose: 0.38, tail: 0.64, ws: 0.67, roofF: 0.53, roofR: 0.36, back: 0.13, tumble: 0.66, cr: 0.38 },
+  longtail: { belt: 0.58, nose: 0.36, tail: 0.6, ws: 0.71, roofF: 0.585, roofR: 0.43, back: 0.2, tumble: 0.62, cr: 0.44 },
   monster: { belt: 0.55, nose: 0.5, tail: 0.55, ws: 0.73, roofF: 0.64, roofR: 0.47, back: 0.44, tumble: 0.86, cr: 0.22, bed: 1 },
 };
 
@@ -24,7 +27,7 @@ export function carDims(car, ph) {
   const L = md.len, W = md.wid;
   const a = ph.wb * (1 - ph.weightFront), b = ph.wb * ph.weightFront;
   const oh = L - ph.wb;
-  const ohF = oh * (car.drive === 'FWD' ? 0.56 : md.type === 'super' || md.type === 'hyper' ? 0.45 : 0.5);
+  const ohF = oh * (car.drive === 'FWD' ? 0.56 : ['super', 'hyper', 'wedge', 'berlinetta', 'longtail'].includes(md.type) ? 0.45 : 0.5);
   const zF = a + ohF, zR = zF - L;
   const yG = -ph.cg;
   const lift = md.lift || 0;

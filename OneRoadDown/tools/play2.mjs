@@ -8,7 +8,7 @@ p.on('console', (m) => logs.push(m.type() + ': ' + m.text()));
 p.on('pageerror', (e) => logs.push('PAGEERROR ' + e.message + ' ' + (e.stack || '').split('\n').slice(0, 3).join(' | ')));
 await p.goto('http://localhost:8080/index.html');
 await p.evaluate(() => { localStorage.setItem('oneroaddown.save.v1', JSON.stringify({ firstStartDone: true, owned: ['rusty', 'kestrel'], selected: process_sel, cash: 50000, cars: {} })); }).catch(() => {});
-await p.evaluate((sel) => localStorage.setItem('oneroaddown.save.v1', JSON.stringify({ firstStartDone: true, owned: ['rusty', 'kestrel', 'dusty'], selected: sel[0], cash: 50000, cars: {}, settings: sel[1] ? { camera: sel[1] } : {} })), [process.env.CAR || 'kestrel', process.env.CAM || '']);
+await p.evaluate((sel) => localStorage.setItem('oneroaddown.save.v1', JSON.stringify({ firstStartDone: true, owned: ['rusty', 'kestrel', 'dusty', sel[0]], selected: sel[0], cash: 50000, cars: {}, settings: sel[1] ? { camera: sel[1] } : {} })), [process.env.CAR || 'kestrel', process.env.CAM || '']);
 await p.goto(`http://localhost:8080/index.html?bot&fixed&s=${sArg}`);
 await p.waitForFunction(() => document.querySelector('#boot.ready'), null, { timeout: 90000 });
 await p.keyboard.press('Space');

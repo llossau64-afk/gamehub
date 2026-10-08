@@ -25,6 +25,10 @@ export function cloneAsset(n) {
 }
 export const groundTex = tex;
 
+// Fox (Khronos glTF sample: model CC0 PixelMannen, rig + animation CC-BY 4.0 tomkranis)
+let foxAsset = null;
+export const getFox = () => foxAsset;
+
 // cars.glb: one root per car id with children `${id}__${part}` (meshes + anchor empties)
 const cars = new Map();
 export const carAsset = (id) => cars.get(id) || null;
@@ -154,13 +158,14 @@ async function loadGLB(loader, path) {
 export async function loadAssets(renderer, onProgress = () => {}, base = './assets/') {
   const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   const loader = new GLTFLoader();
-  const files = ['nature', 'buildings', 'cars'];
+  const files = ['nature', 'buildings', 'cars', 'animals', 'fox'];
   let done = 0;
   const steps = files.length + 1;
   for (const f of files) {
     try {
       const gl = await loadGLB(loader, `${base}models/${f}`);
       if (f === 'cars') registerCars(gl.scene);
+      else if (f === 'fox') foxAsset = { scene: gl.scene, animations: gl.animations };
       else register(gl.scene, aniso);
     } catch (e) {
       console.warn('[assets] could not load', f, e && e.message);

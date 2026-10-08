@@ -121,8 +121,10 @@ class Profile:
         self.ws, self.roofF, self.roofR, self.back = T['ws'], T['roofF'], T['roofR'], T['back']
         self.tum = T['tumble']
         self.boxy = {'beast': 1.0, 'suv': 0.8, 'pickup': 0.7, 'monster': 0.7, 'baja': 0.6, 'wagon': 0.5, 'hatch': 0.35,
-                     'sedan': 0.35, 'muscle': 0.3, 'coupe': 0.2, 'sports': 0.05, 'super': 0.0, 'hyper': 0.0}[self.type]
-        self.sport = self.type in ('sports', 'super', 'hyper')
+                     'sedan': 0.35, 'muscle': 0.3, 'coupe': 0.2, 'sports': 0.05, 'super': 0.0, 'hyper': 0.0,
+                     'wedge': 0.55, 'berlinetta': 0.0, 'longtail': 0.0}[self.type]
+        self.style = md.get('style', '')
+        self.sport = self.type in ('sports', 'super', 'hyper', 'wedge', 'berlinetta', 'longtail')
         # door lines
         long_door = self.type in ('sedan', 'wagon', 'suv', 'beast')
         self.doorR = (self.back + 0.02) if self.bed else max(self.back + 0.12, self.ws - (0.42 if long_door else 0.3))
@@ -130,7 +132,7 @@ class Profile:
         self.ghBase = self.back
         self.uB = lerp(self.roofR, self.roofF, 0.42)
         self.has_b = (self.roofF - self.roofR) > 0.18
-        self.cpillar = self.type in ('sedan', 'coupe', 'muscle', 'sports', 'super', 'hyper') or self.bed
+        self.cpillar = self.type in ('sedan', 'coupe', 'muscle', 'sports', 'super', 'hyper', 'wedge', 'berlinetta', 'longtail') or self.bed
 
     def uz(self, u):
         return self.zR + u * self.L
@@ -147,7 +149,9 @@ class Profile:
         """Belt / deck line (JS topY)."""
         T = self.T
         if u > T['ws']:
-            y = lerp(self.yBelt, self.yNose, smooth(T['ws'], 1, u) ** 0.85)
+            t = (u - T['ws']) / (1 - T['ws'])
+            # the wedge runs dead straight from screen to nose
+            y = lerp(self.yBelt, self.yNose, t if self.style == 'wedge' else smooth(T['ws'], 1, u) ** 0.85)
         elif u < T['back'] and not self.bed:
             y = lerp(self.yTail, self.yBelt, smooth(0, T['back'] + 1e-4, u) * 0.15)
         else:
@@ -178,7 +182,7 @@ class Profile:
         for ax in (d['a'], -d['b']):
             dz = abs(z - ax)
             if dz < R:
-                h = d['wcY'] + math.sqrt(R * R - dz * dz) + 0.03
+                h = d['wcY'] + math.sqrt(R * R - dz * dz) + (0.06 if self.sport else 0.03)
             else:
                 # long, soft run-out in front of / behind the arch
                 h = lerp(d['wcY'] + 0.03, d['wcY'] + R * 0.35 + 0.03, smooth(R * 1.9, R, dz))
@@ -198,7 +202,7 @@ class Profile:
         g = self.gh(u)
         yt = lerp(yb, self.roof, g)
         bx = self.boxy
-        crown = 0.025 + 0.02 * (1 - bx)
+        crown = 0.025 + 0.02 * (1 - bx) if self.style != 'wedge' else 0.012
         tw = self.tum * w
         hs = h + bulge   # side height incl. fender bulge
         pts = [
@@ -625,7 +629,7 @@ class Surface:
         return p, n
 
 
-def patch(surf, acc, centre, size, axis, offset, round_=0.4, n=(10, 5), uv=True, rim=None, rim_depth=0.012):
+def patch(surf, acc, centre, size, axis, offset, round_=0.4, n=(10, 5), uv=True, rim=None, rim_depth=0.012, skew=0.0, taper=0.0):
     """Project a rounded-rectangle grid onto the body along `axis` (+z front, -z rear,
     +x / -x sides). Returns False if it misses the body."""
     cx, cy = centre
@@ -638,7 +642,11 @@ def patch(surf, acc, centre, size, axis, offset, round_=0.4, n=(10, 5), uv=True,
             s, t = -1 + 2 * ix / nx, -1 + 2 * iy / ny
             ds, dt = s * math.sqrt(max(0, 1 - t * t / 2)), t * math.sqrt(max(0, 1 - s * s / 2))
             s2, t2 = lerp(s, ds, round_), lerp(t, dt, round_)
-            if axis in ('+z', '-z'):
+            s2 = s2 * (1 + taper * t2) + skew * (t2 + 1) * 0.5
+            if axis == '+y':
+                o = (cx + s2 * w / 2, 3.0, cy + t2 * h / 2)
+                dvec = (0, -1, 0)
+            elif axis in ('+z', '-z'):
                 sg = 1 if axis == '+z' else -1
                 o = (cx + s2 * w / 2 * sg, cy + t2 * h / 2, 3.0 * sg)
                 dvec = (0, 0, -sg)
@@ -769,25 +777,30 @@ def build_car(c):
         lsize, lround = (0.34, 0.11), 0.45
     if pr.type == 'beast':
         lsize, lround = (0.2, 0.2), 1.0
-    for sgn, acc in ((1, lights_L), (-1, lights_R)):
+    vents = Acc()
+    if pr.style:
+        tly = style_details(pr, surf, lights_L, lights_R, tails, housing, amber, grille, vents, bumperH)
+    for sgn, acc in (() if pr.style else ((1, lights_L), (-1, lights_R))):
         patch(surf, acc, (sgn * lx, ly), lsize, '+z', 0.008, lround, (10, 6), True, housing)
         # indicator below / outside the lamp
         patch(surf, amber, (sgn * (lx + lsize[0] * 0.45), ly - lsize[1] * 0.55 - 0.03), (0.09, 0.04), '+z', 0.006, 0.5, (4, 2), False)
     # grille
-    gw = (lx - lsize[0] / 2 - 0.04) * 2 if not pr.sport else pr.W * 0.42
+    gw = 0 if pr.style else (lx - lsize[0] / 2 - 0.04) * 2 if not pr.sport else pr.W * 0.42
     gy = ly if not pr.sport else pr.sill(1) + bumperH * 0.55
     gh_ = min(face_h * 0.7, 0.24) if not pr.sport else bumperH * 0.6
     if gw > 0.2:
         patch(surf, grille, (0, gy), (gw, gh_), '+z', 0.006, 0.12, (10, 4), True, grille_frame)
     # lower intake in the bumper
-    patch(surf, grille, (0, pr.sill(1) + bumperH * 0.38), (pr.W * (0.5 if pr.sport else 0.36), bumperH * 0.32), '+z', 0.006, 0.3, (8, 2), True)
+    if not pr.style:
+      patch(surf, grille, (0, pr.sill(1) + bumperH * 0.38), (pr.W * (0.5 if pr.sport else 0.36), bumperH * 0.32), '+z', 0.006, 0.3, (8, 2), True)
     # tail lights
-    tly = pr.deck(0.005) - (pr.deck(0.005) - pr.sill(0) - bumperH) * 0.35
+    if not pr.style:
+        tly = pr.deck(0.005) - (pr.deck(0.005) - pr.sill(0) - bumperH) * 0.35
     tsize = (0.3, 0.14) if not pr.sport else (0.42, 0.08)
     if pr.type in ('suv', 'beast', 'wagon'):
         tsize = (0.14, 0.3)
     tlx = pr.half - pr.cr * 0.5 - tsize[0] / 2 - 0.02
-    for sgn in (1, -1):
+    for sgn in (() if pr.style else (1, -1)):
         patch(surf, tails, (sgn * tlx, tly), tsize, '-z', 0.008, 0.35, (8, 5), False, housing)
     # plates
     patch(surf, plateF, (0, pr.sill(1) + bumperH * 0.62), (0.44, 0.11), '+z', 0.012, 0.05, (4, 1), True)
@@ -795,7 +808,7 @@ def build_car(c):
     for nm, acc, mk in (('lightL', lights_L, 'headlight'), ('lightR', lights_R, 'headlight'), ('tail', tails, 'taillight'),
                         ('lamps', housing, 'chrome' if md.get('chrome') else 'trim'), ('amber', amber, 'amber'),
                         ('grille', grille, 'grille'), ('grilleFrame', grille_frame, 'chrome' if md.get('chrome') else 'trim'),
-                        ('plateF', plateF, 'plate'), ('plateR', plateR, 'plate')):
+                        ('plateF', plateF, 'plate'), ('plateR', plateR, 'plate'), ('vents', vents, 'trim')):
         if not acc.empty():
             objs.append(acc_object(cid + '__' + nm, acc, mk, 50))
 
@@ -832,6 +845,67 @@ def build_car(c):
     # ---------------------------------------------------------------- interior
     objs += build_interior(pr, cid, surf)
     return objs
+
+
+def style_details(pr, surf, LL, LR, tails, housing, amber, grille, vents, bumperH):
+    """Signature details for the exotic body styles. Returns the tail-light height."""
+    W, half = pr.W, pr.half
+    nose_y = pr.deck(0.99)
+    bot = pr.sill(1)
+    face = nose_y - bot
+    tail_top = pr.deck(0.01)
+    tbot = pr.sill(0)
+    if pr.style == 'wedge':
+        # slim slanted headlamps high on the wedge, Y-shaped running light inside
+        for sgn, acc in ((1, LL), (-1, LR)):
+            cx = sgn * (half - 0.36)
+            patch(surf, acc, (cx, bot + face * 0.78), (0.44, 0.075), '+z', 0.008, 0.15, (12, 3), True, housing, skew=sgn * 0.18, taper=-0.25)
+            for (dx, dy, w_, h_, sk) in ((0.0, 0.0, 0.16, 0.014, 0.0), (0.09, 0.022, 0.1, 0.012, sgn * 0.5), (0.09, -0.022, 0.1, 0.012, -sgn * 0.5)):
+                patch(surf, amber if False else acc, (cx + sgn * dx - sgn * 0.05, bot + face * 0.78 + dy), (w_, h_), '+z', 0.012, 0.0, (3, 1), False, skew=sk)
+            # big hexagonal corner intakes
+            patch(surf, grille, (sgn * (half - 0.36), bot + bumperH * 0.6), (0.5, bumperH * 0.85), '+z', 0.006, 0.0, (8, 3), True, housing, skew=-sgn * 0.12, taper=0.25)
+            # side intake behind the door
+            patch(surf, grille, (pr.uz(pr.roofR - 0.03), pr.yBelt - 0.12), (0.62, 0.2), '+x' if sgn > 0 else '-x', 0.006, 0.05, (8, 3), True, housing, skew=0.35, taper=-0.3)
+            # Y tail lights
+            tx = sgn * (half - 0.32)
+            ty = tail_top - (tail_top - tbot) * 0.22
+            for (dx, dy, w_, h_, sk) in ((0.0, 0.0, 0.4, 0.03, 0.0), (0.13, 0.05, 0.16, 0.025, sgn * 0.6), (0.13, -0.05, 0.16, 0.025, -sgn * 0.6)):
+                patch(surf, tails, (tx - sgn * dx, ty + dy), (w_, h_), '-z', 0.008, 0.0, (6, 1), False, skew=sk)
+        # engine cover slats seen from above
+        zc0, zc1 = pr.uz(0.05), pr.uz(pr.roofR - 0.02)
+        nsl = 7
+        for k in range(nsl):
+            z = lerp(zc0 + 0.1, zc1 - 0.05, (k + 0.5) / nsl)
+            patch(surf, vents, (0, z), (W * 0.5, 0.05), '+y', 0.01, 0.0, (8, 1), False)
+        # central hex exhaust + diffuser
+        patch(surf, vents, (0, tbot + bumperH * 0.55), (0.34, 0.16), '-z', 0.01, 0.0, (6, 3), False, taper=0.3)
+        patch(surf, grille, (0, tbot + bumperH * 0.25), (W * 0.7, bumperH * 0.4), '-z', 0.006, 0.0, (10, 2), True)
+        return ty
+    if pr.style == 'berlinetta':
+        for sgn, acc in ((1, LL), (-1, LR)):
+            # long swept lamps reaching back into the fender
+            patch(surf, acc, (sgn * (half - 0.38), bot + face * 0.82), (0.46, 0.085), '+z', 0.008, 0.45, (12, 4), True, housing, skew=sgn * 0.22)
+            # side scoop in the door's trailing edge
+            patch(surf, grille, (pr.uz(pr.roofR + 0.0), pr.yBelt - 0.14), (0.42, 0.17), '+x' if sgn > 0 else '-x', 0.006, 0.6, (8, 3), True, housing, skew=0.15)
+            # twin round tail lights per side
+            ty = tail_top - (tail_top - tbot) * 0.3
+            for k, dx in enumerate((0.0, 0.24)):
+                patch(surf, tails, (sgn * (half - 0.27 - dx), ty), (0.15, 0.15), '-z', 0.008, 1.0, (8, 8), False, housing)
+        # wide oval grille + splitter, rear diffuser
+        patch(surf, grille, (0, bot + bumperH * 0.75), (W * 0.62, bumperH * 0.75), '+z', 0.006, 0.7, (12, 3), True, housing)
+        patch(surf, grille, (0, tbot + bumperH * 0.3), (W * 0.62, bumperH * 0.45), '-z', 0.006, 0.2, (10, 2), True)
+        return ty
+    # longtail: full-width light bar, quad lamps, big low intake
+    for sgn, acc in ((1, LL), (-1, LR)):
+        for k in range(4):
+            patch(surf, acc, (sgn * (half - 0.25 - k * 0.075), bot + face * 0.72 + (k % 2) * 0.02), (0.055, 0.055), '+z', 0.008, 1.0, (6, 6), True, housing)
+        patch(surf, grille, (pr.uz(pr.roofR - 0.02), pr.yBelt - 0.1), (0.7, 0.18), '+x' if sgn > 0 else '-x', 0.006, 0.3, (8, 3), True, housing, skew=0.2)
+    ty = tail_top - (tail_top - tbot) * 0.18
+    patch(surf, tails, (0, ty), (W * 0.86, 0.04), '-z', 0.008, 0.1, (20, 1), False)
+    patch(surf, grille, (0, bot + bumperH * 0.7), (W * 0.55, bumperH * 0.9), '+z', 0.006, 0.55, (12, 3), True, housing)
+    patch(surf, grille, (0, tbot + bumperH * 0.35), (W * 0.75, bumperH * 0.55), '-z', 0.006, 0.1, (12, 2), True)
+    patch(surf, vents, (0, pr.uz(0.1)), (W * 0.4, 0.4), '+y', 0.008, 0.3, (6, 4), False)
+    return ty
 
 
 def build_interior(pr, cid, surf):

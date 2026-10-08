@@ -745,9 +745,9 @@ export class CarModel {
     // exhaust
     while (this.exhaustGroup.children.length) this.exhaustGroup.remove(this.exhaustGroup.children[0]);
     const exR = 0.03 + Math.min(0.03, eng * 0.002) + (md.sport ? 0.012 : 0);
-    const tips = eng >= 10 || md.type === 'muscle' || md.type === 'super' || md.type === 'hyper' ? [-1, 1] : [-1];
+    const tips = eng >= 10 || md.sport || md.type === 'muscle' ? [-1, 1] : [-1];
     for (const sgn of tips) {
-      const t = new THREE.Mesh(new THREE.CylinderGeometry(exR, exR * 0.9, 0.28, 12, 1, true), eng >= 4 ? mats.chrome : mats.rusty);
+      const t = new THREE.Mesh(new THREE.CylinderGeometry(exR, exR * 0.9, 0.28, 12, 1, true), eng >= 4 || md.sport ? mats.chrome : mats.rusty);
       t.rotation.x = Math.PI / 2; t.position.set(sgn * d.half * 0.55, d.bottom + 0.08, d.zR - 0.04);
       this.exhaustGroup.add(t);
     }
