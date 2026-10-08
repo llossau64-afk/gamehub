@@ -67,13 +67,14 @@ export class Run {
     for (const o of t.obstacles) for (const c of o.colliders) if (c.x0 !== undefined) { c.x = c.x0; c.y = c.y0; c.z = c.z0; c.vx = c.vy = c.vz = 0; c.hit = false; if (c.mesh) { c.mesh.position.set(c.x0, c.y0 - 0.45, c.z0); c.mesh.rotation.set(0, 0, 0); } }
     this.startS = 30;
     const v = this.vehicle;
-    v.reset(this.startS, 1.6);
+    const dbgS = g.debug && g.debug.startS;
+    v.reset(dbgS || this.startS, 1.6);
     this.model.resetDamage();
     if (this.model.parts.bumperF.parent !== this.model.group) this.model.group.add(this.model.parts.bumperF);
     if (this.model.parts.bumperR.parent !== this.model.group) this.model.group.add(this.model.parts.bumperR);
     this.mountain = sv.mountain;
     this.best = sv.best[this.mountain] || 0;
-    this.maxS = this.startS;
+    this.maxS = dbgS || this.startS;
     this.runCash = 0;
     this.items = [];
     this.bonus = { shortcuts: 0, stunts: 0, crates: 0 };
@@ -98,7 +99,7 @@ export class Run {
     for (const m of this.pickMeshes.values()) g.worldScene.remove(m);
     this.pickMeshes.clear();
     // world streaming around the start
-    g.world.update(this.startS, 30);
+    g.world.update(this.maxS, 30);
     this.active = false;
     this.countdown = true;
     this.camIntro = 0;
@@ -138,7 +139,8 @@ export class Run {
     this.time += dt;
     // input
     const inp = g.input.state;
-    if (this.active && !this.ended) {
+    if (this.active && !this.ended && g.debug && g.debug.bot) this.botDrive();
+    else if (this.active && !this.ended) {
       v.input.throttle = inp.throttle; v.input.brake = inp.brake; v.input.steer = inp.steer;
       v.input.handbrake = inp.handbrake; v.input.boost = inp.boost;
     } else {
@@ -176,6 +178,24 @@ export class Run {
     this.hud(rawDt);
     if (this.active && !this.ended) this.checkEnd(dt);
     g.world.update(this.maxS, 1);
+  }
+
+  // debug autopilot (?bot) used by the automated browser tests
+  botDrive() {
+    const v = this.vehicle, t = this.track, s = v.lastQuery.s;
+    let lane = 1.4;
+    for (const o of t.obstacles) if (o.s > s && o.s < s + 60 && Math.abs(o.d - lane) < 3.2) { const span = (o.len || o.r * 2) + 1.6; lane = o.d > 0 ? o.d - span : o.d + span; }
+    const tgt = t.posAt(s + 8 + v.speed * 0.6, lane);
+    const f = v.getForward({});
+    let a = Math.atan2(tgt.x - v.pos.x, tgt.z - v.pos.z) - Math.atan2(f.x, f.z);
+    while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI;
+    let kmax = 0;
+    for (let u = 0; u < 20 + v.speed * 3; u += 4) kmax = Math.max(kmax, Math.abs(t.k[Math.min(t.N - 1, Math.round((s + u) / STEP))]));
+    const vt = Math.min(38, Math.sqrt(0.7 * 9.81 * v.p.mu / Math.max(kmax, 1e-3)));
+    v.input.steer = clamp(a * 2.2, -1, 1);
+    v.input.throttle = v.speed < vt ? 1 : 0;
+    v.input.brake = v.speed > vt + 2 ? 1 : 0;
+    v.input.handbrake = 0; v.input.boost = 0;
   }
 
   cycleCamera() {

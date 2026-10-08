@@ -111,7 +111,7 @@ export class Environment {
       for (let i = 0; i <= seg; i++) {
         const a = (i / seg) * Math.PI * 2;
         const n = Math.abs(Math.sin(a * 3 + li) * 0.5 + Math.sin(a * 7.3 + li * 2) * 0.3 + Math.sin(a * 17.1 + li) * 0.15 + Math.sin(a * 41 + li) * 0.05);
-        const h = 80 + n * amp * (0.6 + r() * 0.4);
+        const h = 40 + n * amp * 0.62 * (0.6 + r() * 0.4);
         const x = Math.cos(a) * rad, z = Math.sin(a) * rad;
         pos.push(x, -700, z, x * 1.002, h, z * 1.002);
         aN.push(0, n);

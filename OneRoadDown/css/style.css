@@ -152,13 +152,14 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; background: var
 .bottombar { position: absolute; left: var(--pad); right: var(--pad); bottom: calc(var(--pad) + env(safe-area-inset-bottom)); display: flex; justify-content: center; gap: 12px; }
 
 /* garage */
-.gtabs { position: absolute; left: var(--pad); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 2px; }
-.gtab { font: 600 clamp(17px, 1.7vw, 21px) 'Cond'; letter-spacing: .24em; color: var(--ink3); padding: 10px 0 10px 24px; cursor: pointer; position: relative; background: none; border: 0; text-align: left; }
+.gtabs { position: absolute; left: var(--pad); top: calc(var(--pad) + 86px + env(safe-area-inset-top)); display: flex; flex-direction: column; gap: 0; }
+.gtab { font: 600 clamp(15px, 1.45vw, 18px) 'Cond'; letter-spacing: .24em; color: var(--ink3); padding: 7px 0 7px 22px; cursor: pointer; position: relative; background: none; border: 0; text-align: left; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
 .gtab::before { content: ''; position: absolute; left: 0; top: 50%; width: 10px; height: 1px; background: var(--ink3); transition: width .2s; }
 .gtab:hover { color: var(--ink2); }
-.gtab.on { color: var(--ink); } .gtab.on::before { width: 18px; background: var(--amber); }
-.gtab.drive { color: var(--amber); margin-top: 22px; }
-.gtab.drive::before { background: var(--amber); }
+.gtab.on { color: var(--ink); } .gtab.on::before { width: 16px; background: var(--amber); }
+.gtab.drive { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--pad) + env(safe-area-inset-bottom)); top: auto; color: #15120c; background: var(--amber); padding: 14px 44px; font-size: 19px; letter-spacing: .3em; text-shadow: none; }
+.gtab.drive::before { display: none; }
+.gtab.drive:hover { background: #f0b450; }
 .gpanel { position: absolute; right: var(--pad); top: calc(var(--pad) + 76px + env(safe-area-inset-top)); bottom: calc(var(--pad) + env(safe-area-inset-bottom)); width: min(400px, 92vw); display: flex; flex-direction: column; }
 .gpanel .scroll { overflow-y: auto; flex: 1; scrollbar-width: thin; scrollbar-color: var(--line2) transparent; }
 .upg { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 12px 20px; border-bottom: 1px solid var(--line); cursor: pointer; transition: background .15s; }
@@ -186,7 +187,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; background: var
 .tires button { font: 600 11.5px 'Cond'; letter-spacing: .12em; color: var(--ink2); background: none; border: 1px solid var(--line2); padding: 6px 9px; cursor: pointer; }
 .tires button.on { background: var(--ink); color: #111; border-color: var(--ink); }
 .tires button[disabled] { opacity: .3; cursor: default; }
-.gstats { position: absolute; left: var(--pad); bottom: calc(var(--pad) + env(safe-area-inset-bottom)); width: min(300px, 40vw); }
+.gstats { position: absolute; left: var(--pad); bottom: calc(var(--pad) + env(safe-area-inset-bottom)); width: min(290px, 30vw); }
 .gstats .stats { padding: 4px 16px 10px; }
 .gstats .st { padding: 4px 0; } .gstats .st b { font-size: 15px; } .gstats .st label { font-size: 11px; }
 .vlist .vrow { display: grid; grid-template-columns: 1fr auto; padding: 12px 20px; border-bottom: 1px solid var(--line); cursor: pointer; gap: 2px 10px; }
@@ -317,7 +318,7 @@ body.touch #hud .bottom { bottom: calc(14px + env(safe-area-inset-bottom)); tran
 @media (max-width: 760px) {
   #menu .col { top: auto; bottom: 120px; transform: none; }
   .gtabs { top: auto; bottom: 0; left: 0; right: 0; transform: none; flex-direction: row; justify-content: space-around; background: var(--bg); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
-  .gtab { padding: 14px 4px; font-size: 13px; letter-spacing: .12em; } .gtab::before { display: none; } .gtab.drive { margin: 0; }
+  .gtab { padding: 14px 4px; font-size: 13px; letter-spacing: .12em; } .gtab::before { display: none; } .gtab.drive { position: static; transform: none; padding: 14px 10px; font-size: 13px; }
   .gpanel { top: auto; height: 46vh; bottom: calc(52px + env(safe-area-inset-bottom)); right: 0; left: 0; width: auto; }
   .gstats { display: none; }
   .carcard { top: auto; bottom: calc(var(--pad) + 70px); transform: none; right: 4vw; }

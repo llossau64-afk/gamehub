@@ -817,5 +817,5 @@ function plateText(id) {
   let h = 0;
   for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   const L = 'ACDEFHKLMNPRSTVWX';
-  return `${L[h % 17]}${L[(h >> 5) % 17]} ${100 + (h % 900)}`;
+  return `${L[h % 17]}${L[(h >>> 5) % 17]} ${100 + (h % 900)}`;
 }

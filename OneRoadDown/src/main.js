@@ -34,6 +34,8 @@ class Game {
     this.sound = new AudioSys();
     this.ui = new UI(document.getElementById('ui'));
     this.state = 'boot';
+    const qp = new URLSearchParams(location.search);
+    this.debug = { bot: qp.has('bot'), fixed: qp.has('fixed'), startS: +(qp.get('s') || 0) };
     this.clock = new THREE.Clock();
     if (this.input.isTouch) document.body.classList.add('touch');
     this.input.bindTouch(this.ui.screens.touch);
@@ -633,7 +635,8 @@ class Game {
   loop() {
     const tick = () => {
       requestAnimationFrame(tick);
-      const dt = Math.min(0.05, this.clock.getDelta());
+      let dt = Math.min(0.05, this.clock.getDelta());
+      if (this.debug.fixed) dt = 1 / 30;
       this.input.update(dt);
       try { this.update(dt); } catch (e) { console.error(e); }
       this.input.endFrame();

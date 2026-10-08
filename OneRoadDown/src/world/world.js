@@ -512,7 +512,7 @@ export class World {
       if (t.sw[o + 4] > 0.3) continue;
       // avoid steep crags
       const h2 = t.height(x + 1.5, z);
-      if (Math.abs(h2 - qr.h) > 2.2) { if (R() < 0.5) this.addRock(push, x, qr.h, z, R, snowy, b, 1.5 + R() * 2.5); continue; }
+      if (Math.abs(h2 - qr.h) > 2.2) continue;
       let r = R() * wsum, ki = 0;
       while (ki < kinds.length - 1 && (r -= weights[ki]) > 0) ki++;
       const kind = kinds[ki] || 'pine';
@@ -542,6 +542,7 @@ export class World {
       t.query(x, z, qr);
       if (Math.abs(qr.d) < qr.halfW + 1) continue;
       const size = (0.3 + Math.pow(R(), 3) * 3.5) * Math.min(1, 0.25 + u / 14);
+      if (Math.abs(t.height(x + 1.2, z) - qr.h) > 1.6) continue;
       this.addRock(push, x, qr.h, z, R, snowy, b, size);
       if (u < 5 && size > 0.5) cols.push({ t: 's', x, y: qr.h + size * 0.3, z, r: size * 0.85, s });
     }

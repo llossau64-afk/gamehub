@@ -1,3 +1,12 @@
+# gamehub
+
+| Project | Folder | Tech |
+|---|---|---|
+| **ONE ROAD DOWN**: 3D downhill driving progression game | [`OneRoadDown/`](OneRoadDown/README.md) | three.js / WebGL, no build step |
+| **Barbershop Simulator** | repository root (`Assets/`, `Packages/`, `ProjectSettings/`) | Unity 6 WebGL |
+
+---
+
 # Barbershop Simulator
 
 First-person barbershop simulator for Unity WebGL (CrazyGames, GamePix, Playgama), playable on desktop and mobile browsers.

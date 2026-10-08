@@ -43,8 +43,29 @@ export class Track {
     this.length = mountain.length;
     this.total = mountain.length + 700;
     this.N = Math.ceil(this.total / STEP) + 1;
-    this.noise = new Noise(mountain.seed * 7 + 3);
-    this.generate();
+    // a few seeds may produce a road that crosses itself; walk forward deterministically
+    for (let k = 0; k < 12; k++) {
+      this.seed = mountain.seed + k * 101;
+      this.noise = new Noise(this.seed * 7 + 3);
+      this.generate();
+      if (this.minSeparation() > 34) break;
+    }
+  }
+
+  minSeparation() {
+    let min = 1e9;
+    for (let i = 0; i < this.N; i += 3) {
+      const cx = Math.floor(this.px[i] / CELL), cz = Math.floor(this.pz[i] / CELL);
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+        const a = this.cells.get(key(cx + dx, cz + dz)); if (!a) continue;
+        for (const q0 of a) for (let q = q0; q < Math.min(this.N, q0 + COARSE); q += 2) {
+          if (Math.abs(q - i) < 150) continue;
+          const d = Math.hypot(this.px[q] - this.px[i], this.pz[q] - this.pz[i]);
+          if (d < min) min = d;
+        }
+      }
+    }
+    return min;
   }
 
   // ---------------------------------------------------------------- biomes
@@ -71,7 +92,7 @@ export class Track {
 
   // -------------------------------------------------------------- generation
   generate() {
-    const N = this.N, R = rng(this.m.seed), noise = this.noise;
+    const N = this.N, R = rng(this.seed), noise = this.noise;
     this.rand = R;
     const k = (this.k = new Float32Array(N));
     const px = (this.px = new Float32Array(N));
@@ -153,7 +174,7 @@ export class Track {
         else if (type === 'sweep') curve(out, R.range(0.25, 0.95), R.range(b.id === 'highway' ? 180 : 90, b.id === 'highway' ? 420 : 260), dir);
         else if (type === 'tight') curve(out, R.range(0.7, 1.75), R.range(36, 70), dir);
         else {
-          if (Math.abs(th) > 0.5) { straight(out, 40); }
+          if (Math.abs(th) > 0.85) { curve(out, R.range(0.5, 1.0), R.range(40, 60), -Math.sign(th)); }
           else {
             hairpin = true;
             const d0 = R() < 0.5 ? 1 : -1;
@@ -247,9 +268,9 @@ export class Track {
       const b = this.biome(s);
       if (j < lastEnd + 200 / STEP) continue;
       if (s > this.length - 600) break;
-      if (b.tunnel && R() < b.tunnel * 0.22) {
+      if (b.tunnel && R() < b.tunnel * 0.4) {
         const len = R.range(110, 260);
-        if (this.straightAt(j, len, 0.012)) {
+        if (this.straightAt(j, len, 0.02)) {
           const n = Math.round(len / STEP);
           for (let q = j; q < j + n; q++) this.tunnel[q] = 1;
           this.tunnels.push({ a: j, b: j + n });
@@ -386,7 +407,7 @@ export class Track {
       if (best < 0) continue;
       const dist = Math.sqrt(bd), dy = this.py[a] - this.py[best];
       if (dist < 44 || dist > 75 || dy < 6 || dy > 28 || this.tunnel[a] || this.bridge[a] || this.tunnel[best]) continue;
-      if (R() > 0.55) { lastB = best; continue; }
+      if (R() > 0.75) { lastB = best; continue; }
       const sideA = (this.px[best] - this.px[a]) * this.rx[a] + (this.pz[best] - this.pz[a]) * this.rz[a] > 0 ? 1 : 0;
       const sideB = (this.px[a] - this.px[best]) * this.rx[best] + (this.pz[a] - this.pz[best]) * this.rz[best] > 0 ? 1 : 0;
       const slope = dy / Math.max(10, dist - this.width[a] / 2 - this.width[best] / 2 - 2);
