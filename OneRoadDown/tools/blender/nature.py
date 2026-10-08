@@ -28,6 +28,8 @@ def tex_needles(name, kind):
     r = np.random.default_rng(hash(name) % 2 ** 32)
     dark = np.array([0.13, 0.24, 0.13]) if kind == 'spruce' else np.array([0.2, 0.3, 0.13])
     light = np.array([0.3, 0.44, 0.22]) if kind == 'spruce' else np.array([0.42, 0.52, 0.24])
+    if kind == 'cypress':
+        dark, light, kind = np.array([0.09, 0.19, 0.1]), np.array([0.22, 0.34, 0.16]), 'spruce'
     stem = np.array([0.24, 0.16, 0.1])
     # side twigs first, then the main stem, then needles over everything
     twigs = []
@@ -82,6 +84,41 @@ def tex_leaves(name, base, var, twig=(0.3, 0.24, 0.17), count=420):
         col = np.array(base) + (np.array(var) - np.array(base)) * r.uniform(0, 1)
         col = col * (0.75 + 0.35 * (1 - d / (S * 0.46)))
         ellipse(c, px, py, r.uniform(13, 21), r.uniform(7, 11), r.uniform(0, math.pi), col)
+    return make_image(name, c)
+
+
+def tex_blossom(name, base, var, twig=(0.22, 0.15, 0.13), count=260):
+    S = 512
+    c = np.zeros((S, S, 4), np.float32)
+    r = np.random.default_rng(hash(name) % 2 ** 32)
+    cx = S / 2
+    tips = []
+    for k in range(7):
+        a = math.radians(-90 + r.uniform(-75, 75))
+        ln = r.uniform(170, 240)
+        x1, y1 = cx + math.cos(a) * ln, S - 30 + math.sin(a) * ln
+        stroke(c, cx, S - 30, x1, y1, 3.2, twig)
+        tips.append((cx, S - 30, x1, y1))
+    for i in range(count):
+        x0, y0, x1, y1 = tips[i % len(tips)]
+        t = r.uniform(0.2, 1.05)
+        bx = x0 + (x1 - x0) * t + r.normal(0, 26)
+        by = y0 + (y1 - y0) * t + r.normal(0, 26)
+        if math.hypot(bx - cx, by - S / 2) > S * 0.46:
+            continue
+        # one bloom: five petals around a darker centre
+        col = np.array(base) + (np.array(var) - np.array(base)) * r.uniform(0, 1)
+        rot = r.uniform(0, 2 * math.pi)
+        rad = r.uniform(7, 11)
+        for k in range(5):
+            a = rot + k * 2 * math.pi / 5
+            ellipse(c, bx + math.cos(a) * rad * 0.8, by + math.sin(a) * rad * 0.8, rad * 0.75, rad * 0.5, a, col * r.uniform(0.92, 1.05))
+        ellipse(c, bx, by, rad * 0.32, rad * 0.32, 0, np.array(base) * 0.72)
+    # a few young leaves
+    for i in range(70):
+        x0, y0, x1, y1 = tips[i % len(tips)]
+        t = r.uniform(0.3, 1.0)
+        ellipse(c, x0 + (x1 - x0) * t + r.normal(0, 20), y0 + (y1 - y0) * t + r.normal(0, 20), 10, 5, r.uniform(0, math.pi), np.array((0.42, 0.5, 0.2)))
     return make_image(name, c)
 
 
@@ -166,6 +203,10 @@ T['leaves_oak'] = tex_leaves('leaves_oak', (0.2, 0.33, 0.1), (0.42, 0.55, 0.2))
 T['leaves_autumn'] = tex_leaves('leaves_autumn', (0.62, 0.26, 0.07), (0.9, 0.62, 0.18))
 T['leaves_birch'] = tex_leaves('leaves_birch', (0.33, 0.47, 0.15), (0.6, 0.68, 0.26), count=460)
 T['leaves_dry'] = tex_leaves('leaves_dry', (0.48, 0.44, 0.2), (0.66, 0.6, 0.32))
+T['leaves_cherry'] = tex_blossom('leaves_cherry', (0.96, 0.66, 0.76), (1.0, 0.86, 0.9))
+T['leaves_maple'] = tex_leaves('leaves_maple', (0.62, 0.07, 0.04), (0.95, 0.36, 0.07), count=470)
+T['needles_cypress'] = tex_needles('needles_cypress', 'cypress')
+T['bark_cherry'] = tex_bark('bark_cherry', (0.3, 0.2, 0.18), (0.07, 0.05, 0.05))
 T['bark_pine'] = tex_bark('bark_pine', (0.42, 0.26, 0.16), (0.1, 0.07, 0.05))
 T['bark_oak'] = tex_bark('bark_oak', (0.36, 0.32, 0.27), (0.08, 0.07, 0.06))
 T['bark_birch'] = tex_bark('bark_birch', (0.86, 0.85, 0.8), (0, 0, 0), birch=True)
@@ -181,6 +222,10 @@ M = {
     'leaves_autumn': material('leaves_autumn', T['leaves_autumn'], rough=0.8, alpha_clip=True, double=True),
     'leaves_birch': material('leaves_birch', T['leaves_birch'], rough=0.8, alpha_clip=True, double=True),
     'leaves_dry': material('leaves_dry', T['leaves_dry'], rough=0.85, alpha_clip=True, double=True),
+    'leaves_cherry': material('leaves_cherry', T['leaves_cherry'], rough=0.75, alpha_clip=True, double=True),
+    'leaves_maple': material('leaves_maple', T['leaves_maple'], rough=0.8, alpha_clip=True, double=True),
+    'needles_cypress': material('needles_cypress', T['needles_cypress'], rough=0.85, alpha_clip=True, double=True),
+    'bark_cherry': material('bark_cherry', T['bark_cherry'], rough=0.9),
     'bark_pine': material('bark_pine', T['bark_pine'], rough=0.95),
     'bark_oak': material('bark_oak', T['bark_oak'], rough=0.95),
     'bark_birch': material('bark_birch', T['bark_birch'], rough=0.8),
@@ -275,14 +320,43 @@ def conifer(kind, seed, lod):
     return ob
 
 
+def cypress(seed, lod):
+    """Italian cypress: a tall dark spindle of short upturned sprays."""
+    r = np.random.default_rng(seed)
+    H = r.uniform(9, 13)
+    mb = MeshBuilder()
+    bark, needles = M['bark_pine'], M['needles_cypress']
+    tube(mb, [np.array([0, 0, 0]), np.array([0, 0, H * 0.5]), np.array([0, 0, H])], [0.22, 0.14, 0.03], 6 if lod == 0 else 4, bark, (1, 0.4))
+    R = r.uniform(0.95, 1.25)
+    step = 0.42 if lod == 0 else 1.0
+    centre = np.array([0, 0, H * 0.45])
+    for h in np.arange(0.6, H - 0.2, step):
+        t = h / H
+        rad = R * math.sin(math.pi * min(1, t ** 0.85 + 0.04)) ** 0.8 + 0.12
+        n = (6 if lod == 0 else 4)
+        a0 = r.uniform(0, 2 * math.pi)
+        for k in range(n):
+            az = a0 + 2 * math.pi * k / n
+            d = np.array([math.cos(az), math.sin(az), 0])
+            a = np.array([0, 0, h]) + d * rad * 0.15
+            b = np.array([0, 0, h + 1.5 * (1 if lod == 0 else 1.6)]) + d * rad
+            w = norm(np.cross(d, [0, 0, 1])) * (0.55 + rad * 0.4)
+            card(mb, a, b, w, needles, 0, 1, centre, up_bias=0.2)
+    top = np.array([0, 0, H])
+    card(mb, top - np.array([0, 0, 1.6]), top + np.array([0, 0, 0.4]), np.array([0.3, 0, 0]), needles, 0, 1, centre)
+    card(mb, top - np.array([0, 0, 1.6]), top + np.array([0, 0, 0.4]), np.array([0, 0.3, 0]), needles, 0, 1, centre)
+    return mb.build(f'cypress{seed % 10}_lod{lod}')
+
+
 # ================================================================== broadleaf
 def broadleaf(kind, seed, lod, leaves_key):
     r = np.random.default_rng(seed)
     birch = kind == 'birch'
+    cherry = kind == 'cherry'
     mb = MeshBuilder()
-    bark = M['bark_birch'] if birch else M['bark_oak']
+    bark = M['bark_birch'] if birch else M['bark_cherry'] if cherry else M['bark_oak']
     leaves = M.get(leaves_key)
-    H0 = r.uniform(4.5, 6.5) if birch else r.uniform(2.4, 3.4)
+    H0 = r.uniform(4.5, 6.5) if birch else r.uniform(1.7, 2.3) if cherry else r.uniform(2.4, 3.4)
     r0 = r.uniform(0.14, 0.2) if birch else r.uniform(0.32, 0.45)
     sides = 7 if lod == 0 else 5
     trunk = [np.array([0, 0, 0]), np.array([r.normal(0, 0.1), r.normal(0, 0.1), H0 * 0.5]), np.array([r.normal(0, 0.2), r.normal(0, 0.2), H0])]
@@ -291,9 +365,9 @@ def broadleaf(kind, seed, lod, leaves_key):
     limbs = r.integers(3, 5) if birch else r.integers(4, 6)
     for k in range(limbs):
         az = 2 * math.pi * k / limbs + r.normal(0, 0.3)
-        el = math.radians(r.uniform(55, 72) if birch else r.uniform(25, 48))
+        el = math.radians(r.uniform(55, 72) if birch else r.uniform(18, 34) if cherry else r.uniform(25, 48))
         d = norm([math.cos(az) * math.cos(el), math.sin(az) * math.cos(el), math.sin(el)])
-        L = r.uniform(3.5, 5.5) if birch else r.uniform(3.2, 4.6)
+        L = r.uniform(3.5, 5.5) if birch else r.uniform(4.2, 5.6) if cherry else r.uniform(3.2, 4.6)
         a = trunk[-1]
         b = a + d * L * 0.55 + np.array([0, 0, 0.3])
         c = a + d * L + np.array([0, 0, 0.5 if birch else -0.1])
@@ -311,9 +385,9 @@ def broadleaf(kind, seed, lod, leaves_key):
     if not leaves_key.startswith('none'):
         centre = np.mean(np.array(tips), axis=0) - np.array([0, 0, 0.6])
         spread = np.max(np.linalg.norm(np.array(tips)[:, :2] - centre[:2], axis=1)) + 0.6
-        for k in range(34 if lod == 0 else 12):
+        for k in range((48 if cherry else 34) if lod == 0 else (16 if cherry else 12)):
             u, v = r.uniform(0, 2 * math.pi), r.uniform(-0.35, 1.0)
-            p = centre + np.array([math.cos(u) * math.sqrt(1 - v * v) * spread, math.sin(u) * math.sqrt(1 - v * v) * spread, v * spread * (1.25 if birch else 0.8)]) * r.uniform(0.6, 1.0)
+            p = centre + np.array([math.cos(u) * math.sqrt(1 - v * v) * spread, math.sin(u) * math.sqrt(1 - v * v) * spread, v * spread * (1.25 if birch else 0.5 if cherry else 0.8)]) * r.uniform(0.6, 1.0)
             size = (r.uniform(1.6, 2.4) if not birch else r.uniform(1.3, 1.9)) * (1.7 if lod == 1 else 1)
             out = norm(p - centre)
             oh = norm([out[0] + 1e-3, out[1], 0])
@@ -330,7 +404,7 @@ def broadleaf(kind, seed, lod, leaves_key):
                 oh = norm([out[0] + 1e-3, out[1], 0])
                 for w in (norm(np.cross(oh, [0, 0, 1])), oh):
                     card(mb, p - np.array([0, 0, size * 0.55]), p + np.array([0, 0, size * 0.45]), w * size * 0.5, leaves, 0, 1, centre, up_bias=0.5)
-    name = f'{kind}{seed % 10}' + ('' if leaves_key in ('leaves_oak', 'leaves_birch') else '_' + leaves_key.split('_')[-1])
+    name = f'{kind}{seed % 10}' + ('' if leaves_key in ('leaves_oak', 'leaves_birch', 'leaves_cherry') else '_' + leaves_key.split('_')[-1])
     return mb.build(f'{name}_lod{lod}')
 
 
@@ -427,6 +501,13 @@ for i in range(2):
         objects.append(broadleaf('oak', 300 + i, lod, 'leaves_dry'))
         objects.append(broadleaf('birch', 400 + i, lod, 'leaves_birch'))
         objects.append(broadleaf('birch', 400 + i, lod, 'leaves_autumn'))
+for i in range(3):
+    for lod in (0, 1):
+        objects.append(broadleaf('cherry', 800 + i, lod, 'leaves_cherry'))
+for i in range(2):
+    for lod in (0, 1):
+        objects.append(broadleaf('maple', 820 + i, lod, 'leaves_maple'))
+        objects.append(cypress(840 + i, lod))
 for i in range(2):
     objects.append(broadleaf('dead', 500 + i, 0, 'none'))
 for i in range(2):

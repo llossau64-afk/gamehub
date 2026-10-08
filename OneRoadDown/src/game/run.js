@@ -119,11 +119,19 @@ export class Run {
     audio()?.setReverb(0);
     g.platform.gameplayStart();
     this.go = false;
-    g.ui.countdown(this.best, (n) => {
-      audio()?.countdown(n === 'GO');
-      if (n === '3' && this.engine) { audio()?.starter(this.car); setTimeout(() => this.engine && this.engine.setRunning(true), 520); }
-      if (n === 'GO') { this.go = true; this.active = true; this.countdown = false; this.showStartHints(); }
-    });
+    const tok = (this.cdToken = (this.cdToken || 0) + 1);
+    const startCd = () => {
+      if (tok !== this.cdToken) return;
+      g.ui.countdown(this.best, (n) => {
+        if (tok !== this.cdToken) return;
+        audio()?.countdown(n === 'GO');
+        if (n === '3' && this.engine) { audio()?.starter(this.car); setTimeout(() => this.engine && this.engine.setRunning(true), 520); }
+        if (n === 'GO') { this.go = true; this.active = true; this.countdown = false; this.showStartHints(); }
+      });
+    };
+    // online races line the countdown up with the host's start time
+    const delay = this.countdownDelay ? this.countdownDelay() : 0;
+    if (delay > 50) { g.ui.notice('GET READY', 'WAITING FOR THE GRID', false, Math.min(6000, delay)); setTimeout(startCd, delay); } else startCd();
     if (first) audio()?.ui('click');
   }
 
@@ -862,7 +870,7 @@ export class Run {
 
   // cleanup when leaving to the garage
   stop() {
-    this.active = false; this.ended = true;
+    this.active = false; this.ended = true; this.cdToken = (this.cdToken || 0) + 1;
     if (this.engine) { this.engine.setRunning(false); }
     this.road && this.road.stop();
     for (const m of this.pickMeshes.values()) this.g.worldScene.remove(m);

@@ -137,6 +137,43 @@ export function buildWheel(r, width, rimStyle, tireKind, sport) {
 }
 
 // ---------------------------------------------------------------- the car
+// Merge all visible meshes under `root` (except the `stops` subtrees) into one mesh per
+// material, in root space. Hidden meshes are dropped.
+function bakeInto(root, stops) {
+  root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  const buckets = new Map(), drop = [];
+  const walk = (o, hidden) => {
+    if (stops.has(o)) return;
+    hidden = hidden || !o.visible;
+    if (o.isMesh) {
+      if (!hidden) {
+        const g = o.geometry, keep = ['position', 'normal', 'uv'].filter((k) => g.attributes[k]);
+        const key = o.material.uuid + '|' + keep.join(',') + '|' + (o.castShadow ? 1 : 0);
+        let b = buckets.get(key);
+        if (!b) buckets.set(key, (b = { mat: o.material, shadow: o.castShadow, geos: [] }));
+        const c = new THREE.BufferGeometry();
+        for (const k of keep) c.setAttribute(k, g.attributes[k].clone());
+        c.setIndex(g.index ? g.index.clone() : [...Array(g.attributes.position.count).keys()]);
+        b.geos.push(c.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)));
+      }
+      drop.push(o);
+    }
+    for (const ch of [...o.children]) walk(ch, hidden);
+  };
+  for (const ch of [...root.children]) walk(ch, false);
+  // keep stop subtrees that hang under a dropped mesh
+  for (const o of drop) { for (const ch of [...o.children]) if (stops.has(ch)) root.attach(ch); }
+  for (const o of drop) { o.parent.remove(o); o.geometry.dispose(); }
+  for (const b of buckets.values()) {
+    const geo = b.geos.length === 1 ? b.geos[0] : mergeGeometries(b.geos);
+    if (!geo) continue;
+    const m = new THREE.Mesh(geo, b.mat);
+    m.castShadow = b.shadow; m.receiveShadow = true;
+    root.add(m);
+  }
+}
+
 export class CarModel {
   constructor(car, opts = {}) {
     this.car = car;
@@ -859,8 +896,29 @@ export class CarModel {
     }
   }
 
+  // Bots: fold every static body part into one mesh per material (≈70 → ≈20 draw calls),
+  // drop hidden parts and give up dents / falling parts, which only the player needs.
+  bake() {
+    if (this.baked) return;
+    this.baked = true;
+    this.group.updateMatrixWorld(true);
+    const lights = [this.parts.lightL, this.parts.lightR].filter(Boolean);
+    const stops = new Set([...this.wheels.map((w) => w.pivot), ...lights]);
+    bakeInto(this.group, stops);
+    for (const l of lights) if (l.parent !== this.group) this.group.attach(l);
+    for (const w of this.wheels) {
+      const spin = w.wg.userData.spin;
+      bakeInto(w.wg, new Set([spin]));
+      bakeInto(spin, new Set());
+      w.wg.traverse((o) => { if (o.isMesh) o.castShadow = false; });
+    }
+    this.deform = [];
+    this.engineBay.visible = false;
+  }
+
   // Dent the panels around a local impact point.
   dent(lx, ly, lz, amount) {
+    if (this.baked) return;
     const radius = 0.35 + Math.min(1.1, amount * 3);
     const depth = Math.min(0.2, amount * 0.55);
     const r2 = radius * radius;
@@ -894,6 +952,12 @@ export class CarModel {
 
   // Visual damage state from the physics damage model.
   syncDamage(dmg) {
+    if (this.baked) {
+      this.parts.lightL.material = dmg.lightL < 0.4 ? mats.headlightBroken : this.lightMatL;
+      this.parts.lightR.material = dmg.lightR < 0.4 ? mats.headlightBroken : this.lightMatR;
+      this.crackMat.opacity = [0, 0.45, 0.75, 1][Math.min(3, dmg.glass)];
+      return;
+    }
     this.parts.lightL.material = dmg.lightL < 0.4 ? mats.headlightBroken : this.lightMatL;
     this.parts.lightR.material = dmg.lightR < 0.4 ? mats.headlightBroken : this.lightMatR;
     this.crackMat.opacity = [0, 0.45, 0.75, 1][Math.min(3, dmg.glass)];
@@ -913,6 +977,7 @@ export class CarModel {
 
   // Detach a part and hand it to the caller (as a world-space mesh for debris physics).
   detach(name) {
+    if (this.baked) return null;
     const m = this.parts[name];
     if (!m || m.parent !== this.group) return null;
     m.updateMatrixWorld();

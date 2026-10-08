@@ -12,6 +12,7 @@ import { Garage } from './scenes/garage.js';
 import { CarModel } from './models/carModel.js';
 import { Run } from './game/run.js';
 import { Race, fmtTime } from './game/race.js';
+import { Online } from './net/online.js';
 import { MAPS, mapById, COUNTRY_CODES } from './data/maps.js';
 import { computeStats, maxStats, capOf, unlockedTires } from './game/stats.js';
 import { CARS, carById, STARTERS } from './data/cars.js';
@@ -211,6 +212,46 @@ class Game {
   }
   renderRaceSelect() {
     this.ui.raceSelect({ maps: this.mapInfo(), sel: this.raceSel, opponents: this.raceOpp, cash: this.save.data.cash });
+  }
+  // ------------------------------------------------------------------ online
+  openOnline() {
+    const sv = this.save.data;
+    if (!sv.owned.length) return this.enterFirst();
+    if (!this.online) {
+      this.online = new Online(this);
+      this.online.on(() => { if (this.state === 'online') this.renderOnline(); });
+    }
+    this.ui.fade(true).then(() => {
+      this.stopRun();
+      this.state = 'online';
+      if (!this.menuCar) this.setupMenuScene();
+      this.menuCar.group.visible = true;
+      this.ui.only('online');
+      this.olMsg = '';
+      this.renderOnline();
+      if (this.online.lobby) this.online.setCar(this.selectedCar().id);
+      audio()?.music?.setMode('menu');
+      this.ui.fade(false);
+    });
+  }
+  renderOnline() {
+    const o = this.online;
+    if (!o) return;
+    const mid = (o.view && o.view.map) || (o.cfg && o.cfg.map) || '';
+    this.ui.online({
+      avail: o.available(), connected: o.connected(), busy: !!this.olBusy, name: o.name(),
+      lobbies: o.lobbies.map((l) => ({ ...l, mapName: (mapById(l.map) && mapById(l.map).name) || '—' })),
+      inLobby: !!o.lobby, code: o.code || '', pub: o.pub !== false, isHost: !!o.isHost, ready: !!o.myReady, msg: this.olMsg,
+      members: o.members.map((m) => ({ ...m, carName: (carById(m.car) || {}).name || m.car })),
+      map: mid, mapName: (mapById(mid) && mapById(mid).name) || '—',
+      maps: MAPS.map((m) => ({ id: m.id, name: m.name, cc: COUNTRY_CODES[m.country] || '' })),
+    });
+  }
+  // a lobby race begins (host pressed start)
+  onlineStart(view) {
+    const map = mapById(view.map) || MAPS[0];
+    this.ui.show('raceres', false);
+    this.startRace(map.id, { net: this.online.raceIface(view) });
   }
   async startRace(mapId, opts = {}) {
     const sv = this.save.data;
@@ -702,7 +743,7 @@ class Game {
     ui.on('menu', (a) => {
       const sv = this.save.data;
       if (a === 'race') this.ui.fade(true).then(() => { this.openRaceSelect(); this.ui.fade(false); });
-      else if (a === 'online') this.openOnline ? this.openOnline() : ui.toast('ONLINE IS COMING IN THE NEXT UPDATE');
+      else if (a === 'online') this.openOnline();
       else if (a === 'continue') { if (!sv.owned.length) this.enterFirst(); else this.ui.fade(true).then(() => { this.startRun(); this.ui.fade(false); }); }
       else if (a === 'garage') this.ui.fade(true).then(() => { this.enterGarage('upgrades'); this.ui.fade(false); });
       else if (a === 'vehicles') this.ui.fade(true).then(() => { this.enterGarage('vehicles'); this.ui.fade(false); });
@@ -719,13 +760,30 @@ class Game {
     ui.on('raceOpp', (d) => { this.raceOpp = clamp((this.raceOpp ?? 5) + d, 0, 7); this.renderRaceSelect(); });
     ui.on('raceGo', (id) => this.startRace(id));
     ui.on('raceBack', () => this.ui.fade(true).then(() => { this.enterMenu(); this.ui.fade(false); }));
-    ui.on('raceAgain', () => { this.ui.show('raceres', false); if (this.run instanceof Race) this.run.restart(); });
+    ui.on('raceAgain', () => { if (this.run && this.run.cfg && this.run.cfg.net) return; this.ui.show('raceres', false); if (this.run instanceof Race) this.run.restart(); });
+    // online lobbies
+    const olTry = async (fn) => {
+      if (this.olBusy) return;
+      this.olBusy = true; this.olMsg = ''; this.renderOnline();
+      try { await fn(); } catch (e) { this.olMsg = String((e && e.message) || e).toUpperCase().slice(0, 80); }
+      this.olBusy = false; this.renderOnline();
+    };
+    ui.on('olName', (v) => { this.online.setName(v); });
+    ui.on('olQuick', () => olTry(() => this.online.quick(this.raceSel || this.save.data.lastMap || MAPS[0].id)));
+    ui.on('olHost', (pub) => olTry(() => this.online.host(this.raceSel || this.save.data.lastMap || MAPS[0].id, pub)));
+    ui.on('olJoin', (code) => olTry(() => this.online.join(code)));
+    ui.on('olLeave', () => olTry(() => this.online.leave()));
+    ui.on('olReady', () => this.online.setReady(!this.online.myReady));
+    ui.on('olMap', (id) => this.online.setMap(id));
+    ui.on('olStart', () => this.online.startRace());
+    ui.on('olBack', () => { if (this.online) this.online.leave(); this.ui.fade(true).then(() => { this.enterMenu(); this.ui.fade(false); }); });
+    ui.on('olLobby', () => { this.ui.show('raceres', false); this.openOnline(); });
     ui.on('raceTracks', () => this.ui.fade(true).then(() => { this.ui.show('raceres', false); this.openRaceSelect(); this.ui.fade(false); }));
     ui.on('toGarage', () => this.ui.fade(true).then(() => { this.enterGarage(); this.ui.fade(false); }));
     ui.on('pause', () => this.pause(true));
     ui.on('pauseMenu', (a) => {
       if (a === 'resume') this.pause(false);
-      else if (a === 'restart') { this.pause(false); this.run.restart(); }
+      else if (a === 'restart') { this.pause(false); if (!(this.run.cfg && this.run.cfg.net)) this.run.restart(); }
       else if (a === 'settings') this.openSettings();
       else if (a === 'garage') { this.pause(false); this.ui.fade(true).then(() => { this.enterGarage(); this.ui.fade(false); }); }
     });
@@ -789,8 +847,9 @@ class Game {
       else if (this.state === 'run' && !(this.run && this.run.ended)) this.pause(!this.paused);
       else if (this.state === 'garage' && !this.installingNow) { audio()?.ui('back'); this.gtab('menu'); }
       else if (this.state === 'racesel') { audio()?.ui('back'); this.ui.emit('raceBack'); }
+      else if (this.state === 'online' && !this.ui.modalOpen) { audio()?.ui('back'); this.ui.emit('olBack'); }
     }
-    if (this.state === 'run' && this.run && this.run.ended && inp.wasPressed('KeyR')) this.retry();
+    if (this.state === 'run' && this.run && this.run.ended && inp.wasPressed('KeyR') && !(this.run.cfg && this.run.cfg.net)) this.retry();
     if (this.state === 'run' && this.run && this.run.ended && inp.wasPressed('KeyG')) this.ui.emit('toGarage');
     if (this.state === 'first') {
       if (inp.wasPressed('ArrowLeft', 'KeyA')) { this.firstIdx = (this.firstIdx + 2) % 3; this.updateFirst(); audio()?.ui('click'); }

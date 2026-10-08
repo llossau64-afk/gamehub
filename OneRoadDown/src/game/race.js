@@ -95,6 +95,7 @@ export class Race extends Run {
     this.me = me;
     // bots
     const opp = this.pickOpponents(nOpp);
+    const names = [...BOT_NAMES].sort(() => Math.random() - 0.5);
     let slot = 0;
     opp.forEach((o, i) => {
       if (slot === mySlot) slot++;
@@ -102,13 +103,13 @@ export class Race extends Run {
       const st = computeStats(o.car, o.levels, 'perf');
       const model = new CarModel(o.car, { levels: o.levels, tire: 'perf', stats: st, paint: BOT_PAINTS[i % BOT_PAINTS.length] });
       for (const n of ['interior', 'dash', 'cabin', 'seats', 'steering', 'gauges']) if (model.parts[n]) model.parts[n].visible = false;
-      model.group.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+      model.bake();
       g.worldScene.add(model.group);
       const v = new Vehicle(t, o.car, st);
       v.assist = 1;
       v.reset(t.wrapS(p.s), p.d);
       v.p = { ...v.p, fuelUse: 0 };
-      const e = new Entrant({ isBot: true, name: BOT_NAMES[(i * 5 + Math.floor(Math.random() * 3)) % BOT_NAMES.length], vehicle: v, model, car: o.car, stats: st,
+      const e = new Entrant({ isBot: true, name: names[i % names.length], vehicle: v, model, car: o.car, stats: st,
         color: '#' + BOT_PAINTS[i % BOT_PAINTS.length].toString(16).padStart(6, '0'), skill: 0.9 + Math.random() * 0.12, lane: p.d, lastS: t.wrapS(p.s), lap: t.loop && p.s < 0 ? -1 : 0 });
       this.field.push(e);
     });
@@ -181,6 +182,23 @@ export class Race extends Run {
     g.world.update(this.track.loop ? v.lastQuery.s : Math.max(this.maxS, this.startS), 1);
   }
 
+  // ------------------------------------------------------------------ online
+  addRemote(o) {
+    const e = new Entrant(o);
+    this.field.push(e);
+    return e;
+  }
+  remoteFinished(e, time) {
+    e.finished = true; e.finishTime = time;
+    this.finishOrder.push(e);
+    this.finishOrder.sort((a, b) => a.finishTime - b.finishTime);
+  }
+  remoteLeft(e) { e.dnf = true; e.left = true; }
+  countdownDelay() {
+    const n = this.cfg && this.cfg.net;
+    return n && n.startAt ? Math.max(0, n.startAt - Date.now() - 2850) : 0;
+  }
+
   holdOnGrid(e) {
     const v = e.vehicle;
     v.input.throttle = 0; v.input.brake = 1; v.input.steer = 0; v.input.boost = 0;
@@ -190,6 +208,7 @@ export class Race extends Run {
   progressAll() {
     const t = this.track, L = t.length;
     for (const e of this.field) {
+      if (e.remote) { if (e.netProgress !== undefined) e.progress = e.netProgress; continue; }
       const s = e.vehicle.lastQuery.s;
       if (t.loop) {
         if (e.lastS > L * 0.7 && s < L * 0.3) {
@@ -386,7 +405,7 @@ export class Race extends Run {
       title: this.me.dnf ? 'DID NOT FINISH' : myPos === 1 ? 'VICTORY' : `P${myPos}`,
       map: this.map,
       rows: rows.map((r, i) => ({ pos: i + 1, name: r.e.name, car: r.e.car.name, me: r.e.isPlayer, color: r.e.color, time: r.t === Infinity ? 'DNF' : (r.est ? '~' : '') + fmtTime(r.t), best: fmtTime(r.e.bestLap) })),
-      lines, total, gift,
+      lines, total, gift, online: !!(this.cfg && this.cfg.net),
     });
     g.ui.show('hud', false); g.ui.show('touch', false);
   }

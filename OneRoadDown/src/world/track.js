@@ -435,11 +435,13 @@ export class Track {
     this.slD = new Float32Array(N * 2);
     this.cutSl = new Float32Array(N * 2);
     this.offSurf = new Uint8Array(N);
+    // proper circuits and street tracks sit on level ground
+    const flatAll = this.loop && this.m.biomes.some((b) => b.circuitDress || b.props.includes('grandstands') || b.props.includes('city'));
     for (let j = 0; j < N; j++) {
       const s = j * STEP;
       const wallR = smoothstep(-0.35, 0.35, score[j]);
       let flat = clamp(this.biomeNum(s, (b) => b.flat) + noise.n2(s * 0.003, 5.5) * 0.25, 0, 1);
-      if (s < 160) flat = 1;
+      if (s < 160 || flatAll) flat = 1;
       const wS = this.biomeNum(s, (b) => b.wallSlope) * (0.75 + 0.5 * (0.5 + 0.5 * noise.n2(s * 0.004, 2.2)));
       const dS = this.biomeNum(s, (b) => b.dropSlope) * (0.75 + 0.5 * (0.5 + 0.5 * noise.n2(s * 0.005, 8.8)));
       for (let side = 0; side < 2; side++) {
@@ -866,7 +868,65 @@ export class Track {
         j += 150;
       }
     }
-    if (this.m.biomes.some((b) => b.props.includes('finish'))) {
+    // circuit furniture: grandstands by the start, tyre walls on the outside of slow
+    // corners, a start/finish gantry; street circuits get city blocks
+    if (this.loop) {
+      const L = this.length, b0 = this.biome(0);
+      const dressed = this.m.biomes.some((b) => b.circuitDress || b.props.includes('grandstands'));
+      const city = this.m.biomes.some((b) => b.props.includes('city'));
+      pr.push({ type: 'gantry', x: this.px[0], y: this.py[0], z: this.pz[0], yaw: this.hd[0], s: 0, w: this.width[0], text: 'START · FINISH' });
+      if (dressed) {
+        // the outside of the lap (k > 0 turns towards -d)
+        let ks = 0; for (let j = 0; j < this.N; j++) ks += this.k[j];
+        const sd = ks > 0 ? 1 : -1;
+        for (let s = -90; s <= 150; s += 25) {
+          const ss = this.wrapS(s), j = Math.round(ss / STEP);
+          if (Math.abs(this.k[j]) > 1 / 300) continue;
+          for (const side of s > 40 && s < 110 ? [sd, -sd] : [sd]) {
+            const d = side * (this.width[j] / 2 + 9);
+            const p = this.posAt(ss, d);
+            const yaw = this.hd[j] + (side > 0 ? Math.PI : 0);
+            const c = this.posAt(ss, d + side * 4.6);
+            const st = { type: 'grandstand', x: p.x, y: Math.min(p.y, this.py[j]) - 0.2, z: p.z, yaw, s: ss };
+            st.col = { t: 'b', x: c.x, y: st.y + 3, z: c.z, hx: 4.8, hy: 3.4, hz: 12, yaw: this.hd[j], s: ss, heavy: 1 };
+            pr.push(st);
+          }
+        }
+      }
+      // tyre walls where a slow corner would throw you off
+      for (let j = 4; j < this.N - 4; j += 3) {
+        const k = this.k[j];
+        if (Math.abs(k) < 1 / 70 || !(dressed || city)) continue;
+        const sd = k > 0 ? 1 : -1; // outside of the corner
+        const W = this.width[j];
+        const d = sd * (W / 2 + (city ? 1.6 : 6.5));
+        const p = this.posAt(j * STEP, d);
+        pr.push({ type: 'tyres', x: p.x, y: p.y, z: p.z, yaw: this.hd[j], s: j * STEP, col2: { t: 'b', x: p.x, y: p.y + 0.4, z: p.z, hx: 0.5, hy: 0.45, hz: 1.6, yaw: this.hd[j], s: j * STEP, heavy: 1 } });
+      }
+      // city: blocks of flats along both sides, set back behind the pavement
+      if (city) {
+        for (let j = 6; j < this.N - 6; j += 9) {
+          for (const side of [-1, 1]) {
+            if (R() < 0.18) continue;
+            const W = this.width[j];
+            const dep = R.range(10, 18), wid = R.range(10, 17), hgt = R.range(9, 30) * (R() < 0.15 ? 2 : 1);
+            const d = side * (W / 2 + 5 + dep / 2);
+            const p = this.posAt(j * STEP, d);
+            const ok = this.blockFree(p.x, p.z, Math.max(dep, wid) * 0.5 + 2);
+            if (!ok) continue;
+            const blk = { type: 'block', x: p.x, y: Math.min(p.y, this.py[j]) - 0.5, z: p.z, yaw: this.hd[j], s: j * STEP, w: wid, dep, h: hgt, tint: R() };
+            blk.col = { t: 'b', x: p.x, y: blk.y + hgt / 2, z: p.z, hx: dep / 2, hy: hgt / 2, hz: wid / 2, yaw: this.hd[j], s: j * STEP, heavy: 1 };
+            pr.push(blk);
+          }
+        }
+      }
+    }
+    if (!this.loop && this.m.kind === 'sprint') {
+      for (const [ss, text] of [[60, 'START'], [this.length - 1, 'FINISH']]) {
+        const j = Math.min(this.N - 1, Math.round(ss / STEP));
+        pr.push({ type: 'gantry', x: this.px[j], y: this.py[j], z: this.pz[j], yaw: this.hd[j], s: ss, w: this.width[j], text });
+      }
+    } else if (this.m.biomes.some((b) => b.props.includes('finish'))) {
       const p = this.posAt(this.length, 0);
       pr.push({ type: 'finish', x: p.x, y: p.y, z: p.z, yaw: this.hd[Math.round(this.length / STEP)], s: this.length });
     }
@@ -880,6 +940,7 @@ export class Track {
     // static colliders: obstacles + buildings (box approximations)
     this.colliders = [];
     for (const o of this.obstacles) for (const c of o.colliders) this.colliders.push({ ...c, s: o.s, ref: o });
+    for (const p of pr) { if (p.type === 'grandstand' || p.type === 'block') this.colliders.push(p.col); else if (p.type === 'tyres') this.colliders.push(p.col2); }
     for (const p of pr) if (p.collider) {
       const sz = (p.size || 1);
       const dims = p.type === 'barn' ? [4.5, 3.5, 6] : p.type === 'chapel' ? [3.5, 4, 6] : p.type === 'gasstation' ? [3.5, 2.2, 4.5] : p.type === 'shack' ? [2.5, 2, 3] : [3.5, 3, 4.5];
@@ -891,6 +952,12 @@ export class Track {
       const q = Math.floor(c.s / 20);
       for (let e = q - 1; e <= q + 1; e++) { let l = this.colB.get(e); if (!l) this.colB.set(e, (l = [])); l.push(c); }
     }
+  }
+
+  // true when nothing of the road is within r of (x, z)
+  blockFree(x, z, r) {
+    const q = this.query(x, z, this._bf || (this._bf = {}));
+    return Math.abs(q.d) > q.halfW + r + 1.5;
   }
 
   // ------------------------------------------------------------------ queries

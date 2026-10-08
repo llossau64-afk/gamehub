@@ -7,6 +7,7 @@ import { mergeGeometries } from '../../vendor/BufferGeometryUtils.js';
 import { STEP, SHOULDER, SURF, RAIL } from './track.js';
 import { mats } from '../gfx/materials.js';
 import * as PR from '../models/props.js';
+import * as CIR from '../models/circuit.js';
 import { CarModel } from '../models/carModel.js';
 import { CARS } from '../data/cars.js';
 import { rng, clamp, lerp, smoothstep } from '../core/util.js';
@@ -557,6 +558,9 @@ export class World {
     let base;
     if (kind === 'pine' || kind === 'spruce') base = kind + (v % 3);
     else if (kind === 'birch') base = 'birch' + (v % 2) + (autumn && R() < 0.6 ? '_autumn' : '');
+    else if (kind === 'cherry') base = 'cherry' + (v % 3);
+    else if (kind === 'maple') base = 'maple' + (v % 2) + '_maple';
+    else if (kind === 'cypress') base = 'cypress' + (v % 2);
     else base = 'oak' + (v % 2) + (dry ? '_dry' : autumn && R() < 0.7 ? '_autumn' : '');
     return [base + '_lod0', base + '_lod1'];
   }
@@ -567,7 +571,7 @@ export class World {
     const b = t.biome(s0 + 50);
     const tr = b.trees || {};
     const density = (tr.density || 0) * this.treeMul;
-    const kinds = ['pine', 'spruce', 'birch', 'oak'].filter((k) => tr[k]);
+    const kinds = ['pine', 'spruce', 'birch', 'oak', 'cherry', 'maple', 'cypress'].filter((k) => tr[k]);
     const weights = kinds.map((k) => tr[k]);
     const wsum = weights.reduce((a, c) => a + c, 0) || 1;
     const snowy = b.look.snow > 0.5;
@@ -827,19 +831,22 @@ export class World {
       if (pr.s < s0 || pr.s >= s1) continue;
       if (pr.type === 'house' || pr.type === 'barn' || pr.type === 'chapel' || pr.type === 'shack' || pr.type === 'gasstation') {
         const name = pr.type === 'house' ? 'chalet' + (pr.seed % 4) : pr.type + '0';
-        let g = useAssets ? placeAsset(name) : null;
-        if (g) {
-          // Blender assets face +X; the old procedural ones face +Z
-          g.position.set(pr.x, pr.y - 0.05, pr.z); g.rotation.y = pr.yaw - Math.PI / 2;
+        const hp = useAssets ? assetParts(name) : null;
+        let g = null;
+        if (hp) {
+          // Blender assets face +X; the old procedural ones face +Z. Instanced per chunk.
+          const yaw = pr.yaw - Math.PI / 2;
           const scl = pr.type === 'house' || pr.type === 'barn' || pr.type === 'chapel' ? pr.size : 1;
-          g.scale.setScalar(scl);
-          if (pr.col) fitBox(pr.col, name, g, scl);
+          m4.compose(p.set(pr.x, pr.y - 0.05, pr.z), q.setFromAxisAngle(up, yaw), sc.set(scl, scl, scl));
+          pushParts(name, hp, m4);
+          sc.set(1, 1, 1);
+          if (pr.col) fitBox(pr.col, name, { position: p, rotation: { y: yaw } }, scl);
         } else {
           g = pr.type === 'shack' ? PR.buildShack(pr.seed) : pr.type === 'gasstation' ? PR.buildGasStation(pr.seed) : PR.buildHouse(pr.seed, pr.type);
           g.position.set(pr.x, pr.y, pr.z); g.rotation.y = pr.yaw;
           if (pr.type !== 'shack' && pr.type !== 'gasstation') g.scale.setScalar(pr.size);
         }
-        ch.group.add(g);
+        if (g) ch.group.add(g);
       } else if (pr.type === 'pole') {
         const rx = Math.cos(pr.yaw), rz = -Math.sin(pr.yaw);
         if (poleParts) {
@@ -915,6 +922,22 @@ export class World {
         this.buildWaterfall(ch, pr);
       } else if (pr.type === 'finish') {
         this.buildFinish(ch, pr);
+      } else if (pr.type === 'gantry') {
+        this.buildGantry(ch, pr);
+      } else if (pr.type === 'grandstand') {
+        m4.compose(p.set(pr.x, pr.y, pr.z), q.setFromAxisAngle(up, pr.yaw), sc.set(1, 1, 1));
+        pushParts('stand', CIR.grandstandParts(), m4);
+      } else if (pr.type === 'tyres') {
+        // a short row of tyre stacks along the corner
+        for (let k = -1; k <= 1; k++) {
+          const fx = Math.sin(pr.yaw), fz = Math.cos(pr.yaw);
+          m4.compose(p.set(pr.x + fx * k * 0.85, pr.y - 0.05, pr.z + fz * k * 0.85), q.setFromAxisAngle(up, k), sc.set(1, 1, 1));
+          pushParts('tyres', CIR.tyreParts(), m4);
+        }
+      } else if (pr.type === 'block') {
+        m4.compose(p.set(pr.x, pr.y, pr.z), q.setFromAxisAngle(up, pr.yaw), sc.set(pr.dep, pr.h, pr.w));
+        pushParts('block', CIR.blockParts(), m4);
+        sc.set(1, 1, 1);
       }
     }
     // wires between consecutive poles
@@ -936,6 +959,21 @@ export class World {
       }
       const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
       ch.group.add(new THREE.LineSegments(lg, mats.wire || (mats.wire = new THREE.LineBasicMaterial({ color: 0x1a1a1a, transparent: true, opacity: 0.7 }))));
+    }
+    // red and white kerbs through the corners of the circuits
+    if (t.loop && t.m.biomes.some((bb) => bb.circuitDress || bb.props.includes('grandstands') || bb.props.includes('city'))) {
+      const kr = CIR.kerbParts(1), kw = CIR.kerbParts(0);
+      for (let j = ch.j0; j < ch.j1; j++) {
+        if (Math.abs(t.k[j]) < 1 / 160) continue;
+        for (let s2 = j * STEP; s2 < (j + 1) * STEP; s2 += 1.6) {
+          for (const sd of [-1, 1]) {
+            const d = sd * (t.width[j] / 2 + 0.45);
+            const a = t.posAt(s2 + 0.8, d);
+            m4.compose(p.set(a.x, a.y + 0.02, a.z), q.setFromAxisAngle(up, a.hd), sc.set(1, 1, 1));
+            pushParts(Math.floor(s2 / 1.6) % 2 ? 'kerbR' : 'kerbW', Math.floor(s2 / 1.6) % 2 ? kr : kw, m4);
+          }
+        }
+      }
     }
     for (const e of inst.values()) {
       const im = new THREE.InstancedMesh(e.geo, e.mat, e.list.length);
@@ -977,6 +1015,38 @@ export class World {
     banner.position.set(0, 5.6, 0); banner.rotation.y = Math.PI;
     const bannerB = banner.clone(); bannerB.rotation.y = 0;
     g.add(postL, postR, banner, bannerB);
+    g.position.set(pr.x, pr.y, pr.z); g.rotation.y = pr.yaw;
+    ch.group.add(g);
+  }
+
+  // start / finish gantry over the grid, with a chequered line on the road
+  buildGantry(ch, pr) {
+    const g = new THREE.Group();
+    const W = pr.w + 3;
+    const steel = mats.gantry || (mats.gantry = new THREE.MeshStandardMaterial({ color: 0x3a3e44, roughness: 0.45, metalness: 0.7 }));
+    for (const sd of [-1, 1]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.7, 7.2, 0.7), steel);
+      post.position.set(sd * W / 2, 3.6, 0); post.castShadow = true; g.add(post);
+    }
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(W + 0.7, 1.9, 0.9), steel);
+    beam.position.set(0, 6.6, 0); beam.castShadow = true; g.add(beam);
+    for (const ry of [0, Math.PI]) {
+      const banner = new THREE.Mesh(new THREE.PlaneGeometry(W - 1, 1.5), signMaterialVillage(pr.text || 'FINISH'));
+      banner.position.set(0, 6.6, ry ? -0.46 : 0.46); banner.rotation.y = ry; g.add(banner);
+    }
+    // start lights
+    const lamp = mats.startLamp || (mats.startLamp = new THREE.MeshStandardMaterial({ color: 0x220806, emissive: 0xff2010, emissiveIntensity: 0.6, roughness: 0.4 }));
+    for (let k = 0; k < 5; k++) {
+      const l = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.12, 12), lamp);
+      l.rotation.x = Math.PI / 2; l.position.set((k - 2) * 0.7, 5.25, -0.4); g.add(l);
+    }
+    // chequered line
+    const c = document.createElement('canvas'); c.width = 256; c.height = 32;
+    const x = c.getContext('2d');
+    for (let i = 0; i < 16; i++) for (let jj = 0; jj < 2; jj++) { x.fillStyle = (i + jj) % 2 ? '#111' : '#eee'; x.fillRect(i * 16, jj * 16, 16, 16); }
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    const line = new THREE.Mesh(new THREE.PlaneGeometry(pr.w, 1.0), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -3 }));
+    line.rotation.x = -Math.PI / 2; line.position.y = 0.04; line.receiveShadow = true; g.add(line);
     g.position.set(pr.x, pr.y, pr.z); g.rotation.y = pr.yaw;
     ch.group.add(g);
   }
@@ -1048,11 +1118,12 @@ export class World {
       const nearR = this.quality === 'high' ? 120 : this.quality === 'low' ? 55 : 85;
       const midR = this.quality === 'low' ? 260 : 380;
       const coverR = this.quality === 'high' ? 170 : 120;
+      const farR = this.quality === 'high' ? 1400 : this.quality === 'low' ? 600 : 950;
       for (const ch of this.chunks.values()) {
         if (!ch.near) continue;
         const d = Math.hypot(ch.cx - cam.x, ch.cz - cam.z) - 50;
         const isNear = d < nearR;
-        ch.near.visible = isNear; ch.far.visible = !isNear; ch.mid.visible = d < midR; ch.cover.visible = d < coverR;
+        ch.near.visible = isNear; ch.far.visible = !isNear && d < farR; ch.mid.visible = d < midR; ch.cover.visible = d < coverR;
       }
     }
     for (const a of this.animated) if (a.type === 'water') a.mat.map.offset.y = -this.time * 0.9;

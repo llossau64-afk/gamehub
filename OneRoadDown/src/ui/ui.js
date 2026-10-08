@@ -221,6 +221,30 @@ export class UI {
     $(rs, '.rs-back').addEventListener('click', () => { audio()?.ui('back'); this.emit('raceBack'); });
     r.appendChild(rs);
     this.screens.racesel = rs;
+    const ol = h(`<div id="online" class="screen live">
+      <div class="toptitle"><h2>ONLINE<small class="ol-sub">UP TO 8 DRIVERS PER LOBBY</small></h2></div>
+      <div class="ol-main panel">
+        <label class="ol-lab">DRIVER NAME</label>
+        <input class="ol-name" maxlength="16" spellcheck="false" autocomplete="off">
+        <button class="btn main amber ol-quick">QUICK MATCH ›</button>
+        <div class="ol-row"><button class="btn ol-host">CREATE LOBBY</button><label class="ol-priv"><input type="checkbox" class="ol-pv"> PRIVATE</label></div>
+        <div class="ol-row"><input class="ol-code" maxlength="8" placeholder="FRIEND CODE" spellcheck="false" autocomplete="off"><button class="btn ol-join">JOIN</button></div>
+        <label class="ol-lab">OPEN LOBBIES</label>
+        <div class="ol-list"></div>
+        <div class="ol-msg"></div>
+      </div>
+      <div class="ol-lobby panel"></div>
+      <button class="btn ol-back">‹ BACK</button>
+    </div>`);
+    const stopKeys = (el) => el.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') el.blur(); });
+    stopKeys($(ol, '.ol-name')); stopKeys($(ol, '.ol-code'));
+    $(ol, '.ol-name').addEventListener('change', (e) => this.emit('olName', e.target.value));
+    $(ol, '.ol-quick').addEventListener('click', () => { audio()?.ui('buy'); this.emit('olQuick'); });
+    $(ol, '.ol-host').addEventListener('click', () => { audio()?.ui('click'); this.emit('olHost', !$(ol, '.ol-pv').checked); });
+    $(ol, '.ol-join').addEventListener('click', () => { audio()?.ui('click'); this.emit('olJoin', $(ol, '.ol-code').value); });
+    $(ol, '.ol-back').addEventListener('click', () => { audio()?.ui('back'); this.emit('olBack'); });
+    r.appendChild(ol);
+    this.screens.online = ol;
     const rr = h('<div id="raceres" class="screen live"><div class="panel"></div></div>');
     r.appendChild(rr);
     this.screens.raceres = rr;
@@ -519,6 +543,42 @@ export class UI {
     g.fillStyle = '#e2a33b'; g.fillRect(W / 2 + (x - (x0 + x1) / 2) * sc - 3, H / 2 - (z - (z0 + z1) / 2) * sc - 3, 6, 6);
   }
 
+  // ------------------------------------------------------------- online
+  online(d) {
+    const s = this.screens.online;
+    const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const nm = $(s, '.ol-name');
+    if (document.activeElement !== nm) nm.value = d.name;
+    $(s, '.ol-sub').textContent = !d.avail ? 'OFFLINE · BOTS ONLY' : d.connected ? 'CONNECTED · UP TO 8 DRIVERS PER LOBBY' : 'CONNECTING…';
+    for (const b of s.querySelectorAll('.ol-quick, .ol-host, .ol-join')) b.disabled = !d.avail || d.busy || d.inLobby;
+    const list = $(s, '.ol-list');
+    if (!d.avail) list.innerHTML = '<div class="ol-empty">Online races need the game opened inside Claude while signed in, or from an invite. Offline races against bots work everywhere.</div>';
+    else if (!d.lobbies.length) list.innerHTML = '<div class="ol-empty">No open lobbies right now. Quick Match opens one and waits for others.</div>';
+    else {
+      list.innerHTML = d.lobbies.map((l) => `<button class="ol-lob" data-c="${esc(l.code)}" ${l.st === 'race' || l.n >= 8 || d.inLobby ? 'disabled' : ''}><b>${esc(l.host)}</b><span>${esc(l.mapName)}</span><i>${l.st === 'race' ? 'RACING' : l.n + '/8'}</i></button>`).join('');
+      list.querySelectorAll('.ol-lob').forEach((b) => b.addEventListener('click', () => { audio()?.ui('click'); this.emit('olJoin', b.dataset.c); }));
+    }
+    $(s, '.ol-msg').textContent = d.msg || '';
+    const lob = $(s, '.ol-lobby');
+    lob.style.display = d.inLobby ? '' : 'none';
+    if (!d.inLobby) return;
+    const rows = d.members.map((m) => `<div class="ol-m ${m.me ? 'me' : ''}"><i>${m.host ? 'HOST' : m.rdy ? 'READY' : ''}</i><b>${esc(m.name)}${m.me ? ' <small>YOU</small>' : ''}</b><span>${esc(m.carName)}</span></div>`).join('');
+    const empty = Array.from({ length: Math.max(0, 8 - d.members.length) }, () => '<div class="ol-m empty"><i></i><b>OPEN SLOT</b><span></span></div>').join('');
+    const mapSel = d.isHost
+      ? `<select class="ol-map">${d.maps.map((m) => `<option value="${m.id}" ${m.id === d.map ? 'selected' : ''}>${esc(m.cc + ' · ' + m.name)}</option>`).join('')}</select>`
+      : `<b class="ol-mapname">${esc(d.mapName)}</b>`;
+    lob.innerHTML = `<div class="ol-code-big"><span>LOBBY CODE</span><b>${esc(d.code.toUpperCase())}</b><small>${d.pub ? 'PUBLIC' : 'PRIVATE'} · SHARE THE CODE WITH FRIENDS</small></div>
+      <div class="ol-track"><span>TRACK</span>${mapSel}</div>
+      <div class="ol-members">${rows}${empty}</div>
+      <div class="ol-foot"><button class="btn ol-leave">LEAVE</button>
+      ${d.isHost ? `<button class="btn main amber ol-start" ${d.members.length < 1 ? 'disabled' : ''}>START RACE ›</button>` : `<button class="btn main ${d.ready ? '' : 'amber'} ol-ready">${d.ready ? 'READY ✓' : 'READY?'}</button>`}</div>
+      <div class="ol-note">${d.isHost ? (d.members.length < 2 ? 'Waiting for drivers… you can also start alone.' : d.members.filter((m) => m.rdy || m.host).length + '/' + d.members.length + ' ready') : 'The host starts the race.'}</div>`;
+    $(lob, '.ol-leave').addEventListener('click', () => { audio()?.ui('back'); this.emit('olLeave'); });
+    const st = lob.querySelector('.ol-start'); if (st) st.addEventListener('click', () => { audio()?.ui('buy'); this.emit('olStart'); });
+    const rd = lob.querySelector('.ol-ready'); if (rd) rd.addEventListener('click', () => { audio()?.ui('click'); this.emit('olReady'); });
+    const ms = lob.querySelector('.ol-map'); if (ms) { ms.addEventListener('change', () => this.emit('olMap', ms.value)); ms.addEventListener('keydown', (e) => e.stopPropagation()); }
+  }
+
   // ------------------------------------------------------------- race result
   raceResults(d) {
     const s = this.screens.raceres, p = $(s, '.panel');
@@ -528,10 +588,14 @@ export class UI {
       <div class="rtable">${rows}</div>
       <div class="lines">${lines}<div class="line total show"><span>TOTAL</span><b>${fmtMoney(d.total)}</b></div></div>
       ${d.gift ? `<div class="gift">${d.gift}</div>` : ''}
-      <div class="foot"><button class="btn rr-garage">GARAGE</button><button class="btn rr-tracks">TRACKS</button><button class="btn main rr-retry">RACE AGAIN <span style="opacity:.5;font-size:.8em">[R]</span></button></div>`;
-    $(p, '.rr-retry').addEventListener('click', () => { audio()?.ui('buy'); this.emit('raceAgain'); });
-    $(p, '.rr-tracks').addEventListener('click', () => { audio()?.ui('click'); this.emit('raceTracks'); });
-    $(p, '.rr-garage').addEventListener('click', () => { audio()?.ui('click'); this.emit('toGarage'); });
+      ${d.online ? '<div class="foot"><button class="btn main amber rr-lobby">BACK TO LOBBY ›</button></div>'
+        : '<div class="foot"><button class="btn rr-garage">GARAGE</button><button class="btn rr-tracks">TRACKS</button><button class="btn main rr-retry">RACE AGAIN <span style="opacity:.5;font-size:.8em">[R]</span></button></div>'}`;
+    if (d.online) $(p, '.rr-lobby').addEventListener('click', () => { audio()?.ui('click'); this.emit('olLobby'); });
+    else {
+      $(p, '.rr-retry').addEventListener('click', () => { audio()?.ui('buy'); this.emit('raceAgain'); });
+      $(p, '.rr-tracks').addEventListener('click', () => { audio()?.ui('click'); this.emit('raceTracks'); });
+      $(p, '.rr-garage').addEventListener('click', () => { audio()?.ui('click'); this.emit('toGarage'); });
+    }
     this.show('raceres', true);
     this.autoFocus();
   }

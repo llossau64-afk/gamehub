@@ -431,7 +431,7 @@ export class Vehicle {
     // ---------------------------------------------------------- aero
     const drag = 0.5 * RHO * p.cda * speed;
     Fx -= drag * vx; Fy -= drag * vy; Fz -= drag * vz;
-    if (this.nitroT > 0 && onGround >= 2) {
+    if (this.nitroT > 0 && onGround >= 2 && inp.brake < 0.1) {
       // thrust along the body: cancels drag and adds ~10 % of top speed per second,
       // fading out at 1.4x top speed
       const fw = qrot(q, 0, 0, 1, T7);

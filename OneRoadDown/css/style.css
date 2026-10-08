@@ -393,7 +393,7 @@ body.cockpit #hud canvas.speedo { opacity: 0; }
 #hud .rh, #hud .rboard, #hud .rmap, #hud .rnitro { display: none; }
 body.race-mode #hud .rh, body.race-mode #hud .rboard, body.race-mode #hud .rmap, body.race-mode #hud .rnitro { display: flex; }
 body.race-mode #hud .rmap { display: block; }
-body.race-mode #hud .tl, body.race-mode #hud .tr, body.race-mode #hud .g-fuel { display: none; }
+body.race-mode #hud .tl, body.race-mode #hud .tr, body.race-mode #hud .g-fuel, body.race-mode #hud .g-hp { visibility: hidden; }
 #hud .rh { position: absolute; left: var(--pad); top: calc(var(--pad) + env(safe-area-inset-top)); align-items: stretch; gap: 12px; }
 #hud .rpos { font: 700 54px/1 'Cond', sans-serif; color: #fff; text-shadow: 0 2px 14px rgba(0,0,0,.6); display: flex; align-items: baseline; }
 #hud .rpos small { font-size: 22px; color: var(--ink2); margin-left: 2px; }
@@ -408,7 +408,7 @@ body.race-mode #hud .tl, body.race-mode #hud .tr, body.race-mode #hud .g-fuel { 
 #hud .rboard span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #hud .rboard em { font-style: normal; font-variant-numeric: tabular-nums; opacity: .8; }
 #hud .rmap { position: absolute; left: var(--pad); bottom: calc(var(--pad) + env(safe-area-inset-bottom)); width: 150px; height: 150px; opacity: .92; }
-#hud .rnitro { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--pad) + 182px + env(safe-area-inset-bottom)); width: 200px; height: 18px; align-items: center; justify-content: center; background: rgba(10,11,12,.6); border-radius: 2px; overflow: hidden; font: 600 11px 'Cond', sans-serif; color: var(--ink2); }
+#hud .rnitro { position: absolute; right: var(--pad); bottom: calc(var(--pad) + 30px + env(safe-area-inset-bottom)); width: 210px; height: 16px; align-items: center; justify-content: center; background: rgba(10,11,12,.6); border-radius: 2px; overflow: hidden; font: 600 11px 'Cond', sans-serif; color: var(--ink2); }
 #hud .rnitro i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #2a6ad0, #6ab8ff); width: 0; }
 #hud .rnitro.ready i { background: linear-gradient(90deg, #2a8ad0, #8fe0ff); }
 #hud .rnitro.ready { box-shadow: 0 0 14px rgba(120,200,255,.6); color: #fff; }
@@ -463,3 +463,40 @@ body.touch #hud .rnitro kbd { display: none; }
 .rrow b { font-variant-numeric: tabular-nums; }
 #raceres .gift { margin: 10px 0; padding: 10px 12px; border: 1px solid var(--amber); color: #f0c46a; border-radius: 2px; font-size: 14px; }
 #raceres .foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
+
+/* ---- online lobbies ---------------------------------------------------------------- */
+#online { background: linear-gradient(180deg, rgba(10,11,12,.55), rgba(10,11,12,.82)); }
+.ol-main { position: absolute; left: var(--pad); top: calc(var(--pad) + 74px); bottom: calc(var(--pad) + 52px); width: min(360px, 40vw); padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+.ol-lab { font: 600 11px 'Cond', sans-serif; letter-spacing: .14em; color: var(--ink2); margin-top: 4px; }
+.ol-main input:not([type]), .ol-code, .ol-name { background: rgba(0,0,0,.35); border: 1px solid var(--line); color: #fff; font: 600 16px 'Cond', sans-serif; letter-spacing: .08em; padding: 9px 11px; border-radius: 2px; text-transform: uppercase; outline: none; min-width: 0; }
+.ol-name:focus, .ol-code:focus { border-color: #e2a33b; }
+.ol-row { display: flex; gap: 8px; align-items: center; }
+.ol-row .ol-code { flex: 1; }
+.ol-priv { font: 600 12px 'Cond', sans-serif; letter-spacing: .1em; color: var(--ink2); display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.ol-list { display: flex; flex-direction: column; gap: 4px; min-height: 60px; }
+.ol-lob { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; text-align: left; background: rgba(255,255,255,.04); border: 1px solid var(--line); color: #fff; padding: 8px 10px; cursor: pointer; border-radius: 2px; font: inherit; }
+.ol-lob:hover:not(:disabled) { border-color: #e2a33b; }
+.ol-lob:disabled { opacity: .45; cursor: default; }
+.ol-lob b { font: 700 15px 'Cond', sans-serif; }
+.ol-lob span { grid-row: 2; font-size: 12px; color: var(--ink2); }
+.ol-lob i { grid-row: 1 / 3; grid-column: 2; align-self: center; font: 700 14px 'Cond', sans-serif; font-style: normal; color: #e2a33b; }
+.ol-empty { font-size: 13px; line-height: 1.45; color: var(--ink2); }
+.ol-msg { font: 600 13px 'Cond', sans-serif; letter-spacing: .06em; color: #ff8a6a; min-height: 16px; }
+.ol-lobby { position: absolute; right: var(--pad); top: calc(var(--pad) + 74px); bottom: calc(var(--pad) + 52px); width: min(440px, 50vw); padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+.ol-code-big span, .ol-track span { display: block; font: 600 11px 'Cond', sans-serif; letter-spacing: .14em; color: var(--ink2); }
+.ol-code-big b { display: block; font: 700 40px/1.05 'Cond', sans-serif; letter-spacing: .18em; color: #fff; user-select: all; }
+.ol-code-big small { font-size: 11px; color: var(--ink2); letter-spacing: .06em; }
+.ol-track select { width: 100%; margin-top: 4px; background: rgba(0,0,0,.35); color: #fff; border: 1px solid var(--line); font: 600 15px 'Cond', sans-serif; padding: 7px 8px; border-radius: 2px; }
+.ol-mapname { display: block; font: 700 18px 'Cond', sans-serif; color: #fff; margin-top: 2px; }
+.ol-members { display: flex; flex-direction: column; gap: 3px; }
+.ol-m { display: grid; grid-template-columns: 54px 1fr auto; align-items: center; gap: 8px; padding: 6px 10px; background: rgba(255,255,255,.04); border-left: 3px solid transparent; font-size: 13px; }
+.ol-m.me { border-left-color: #e2a33b; background: rgba(226,163,59,.1); }
+.ol-m.empty { opacity: .35; }
+.ol-m i { font: 700 10px 'Cond', sans-serif; font-style: normal; letter-spacing: .12em; color: #e2a33b; }
+.ol-m b { font: 700 15px 'Cond', sans-serif; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ol-m b small { font-size: 10px; color: var(--ink2); letter-spacing: .1em; }
+.ol-m span { font: 600 12px 'Cond', sans-serif; color: var(--ink2); letter-spacing: .06em; }
+.ol-foot { display: flex; gap: 8px; justify-content: space-between; margin-top: auto; }
+.ol-note { font-size: 12px; color: var(--ink2); }
+@media (max-width: 760px) { .ol-main { right: var(--pad); width: auto; bottom: 50%; } .ol-lobby { left: var(--pad); width: auto; top: 52%; } }
+.ol-back { position: absolute; left: var(--pad); bottom: calc(var(--pad) + env(safe-area-inset-bottom)); }

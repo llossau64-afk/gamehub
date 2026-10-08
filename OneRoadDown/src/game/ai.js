@@ -56,8 +56,10 @@ export function aiDrive(e, field, t, dt, o = {}) {
     v.input.brake = spd > vt * 1.03 ? clamp((spd - vt) / 5, 0.25, 1) : 0;
     v.input.handbrake = 0;
     // nitro on a long straight
-    let straight = true;
-    for (let u = 0; u < 140; u += 20) if (Math.abs(kAt(u)) > 1 / 300) { straight = false; break; }
+    // (only when the straight lasts the whole burn plus the braking for the next corner)
+    let straight = v.input.brake === 0;
+    const vb = spd * 1.4, need = vb * 4 + (vb * vb) / (2 * dec) * 0.6;
+    for (let u = 0; straight && u < need; u += 15) if (Math.abs(kAt(u)) > 1 / 350) straight = false;
     v.input.boost = e.isBot && straight && v.nitro >= 1 && spd > 20 && Math.random() < dt * 0.8 ? 1 : 0;
     // recover from crashes
     const up = v.getUp(TMP2);

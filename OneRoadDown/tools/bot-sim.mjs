@@ -50,7 +50,7 @@ while (time < +secArg && field.some((e) => !e.finished)) {
     e.lastS = s;
     if (!e.finished && e.progress >= goal) { e.finished = true; e.time = time; }
   }
-  if (process.env.TRACE && time > +process.env.TRACE - 6 && time < +process.env.TRACE && frames % 15 === 0) { const e = field[0], v = e.vehicle, q = v.lastQuery; console.log('t', time.toFixed(1), 's', q.s.toFixed(0), 'd', q.d.toFixed(1), 'lane', e.lane.toFixed(1), 'kmh', v.kmh.toFixed(0), 'steer', v.input.steer.toFixed(2), 'thr', v.input.throttle, 'brk', v.input.brake.toFixed(2), 'k', t.k[q.idx].toFixed(4), 'slip', v.wheels.map((w) => w.slip.toFixed(1)).join(','), 'ground', v.wheelsOnGround); }
+  if (process.env.TRACE && time > +process.env.TRACE - 6 && time < +process.env.TRACE && frames % 15 === 0) { const e = field[0], v = e.vehicle, q = v.lastQuery; console.log('t', time.toFixed(1), 's', q.s.toFixed(0), 'd', q.d.toFixed(1), 'lane', e.lane.toFixed(1), 'kmh', v.kmh.toFixed(0), 'steer', v.input.steer.toFixed(2), 'thr', v.input.throttle, 'brk', v.input.brake.toFixed(2), 'k', t.k[q.idx].toFixed(4), 'slip', v.wheels.map((w) => w.slip.toFixed(1)).join(','), 'ground', v.wheelsOnGround, 'bt', (v.brakeTemp / v.p.brakeFade).toFixed(2), 'vy', v.vel.y.toFixed(1), 'dmgB', v.dmg?.brakes); }
   cpu += performance.now() - t0; frames++; time += dt;
 }
 field.sort((a, b) => (a.finished && b.finished ? a.time - b.time : b.progress - a.progress));
