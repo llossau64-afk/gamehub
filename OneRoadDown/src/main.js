@@ -40,6 +40,16 @@ class Game {
     if (this.input.isTouch) document.body.classList.add('touch');
     this.input.bindTouch(this.ui.screens.touch);
     this.wireUI();
+    // keyboard control of every menu (the run itself reads keys through Input)
+    window.addEventListener('keydown', (e) => {
+      if (!this.navActive()) return;
+      if (this.state === 'first' && !this.ui.modalOpen && ['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(e.code)) { e.preventDefault(); return; }
+      if (this.state === 'garage' && !this.ui.modalOpen && (e.code === 'KeyQ' || e.code === 'KeyE')) { this.cycleTab(e.code === 'KeyE' ? 1 : -1); e.preventDefault(); return; }
+      if (this.ui.navKey(e)) e.preventDefault();
+    }, true);
+    window.focus();
+    window.addEventListener('pointerdown', () => window.focus());
+    window.addEventListener('blur', () => { if (this.state === 'run' && this.run && this.run.active && !this.paused) this.pause(true); });
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('error', (e) => console.error('[ORD]', e.message));
   }
@@ -631,6 +641,18 @@ class Game {
     });
   }
 
+  navActive() {
+    if (this.state === 'boot') return false;
+    if (this.state === 'run') return this.paused || this.ui.modalOpen || (this.run && this.run.ended);
+    return true;
+  }
+  cycleTab(d) {
+    const tabs = ['upgrades', 'vehicles', 'paint', 'garage'];
+    const i = Math.max(0, tabs.indexOf(this.tab));
+    audio()?.ui('click');
+    this.gtab(tabs[(i + d + tabs.length) % tabs.length]);
+  }
+
   // ------------------------------------------------------------------ loop
   loop() {
     const tick = () => {
@@ -648,9 +670,11 @@ class Game {
     const inp = this.input;
     if (inp.wasPressed('Escape')) {
       if (this.ui.modalOpen) this.ui.closeModal();
-      else if (this.state === 'run') this.pause(!this.paused);
+      else if (this.state === 'run' && !(this.run && this.run.ended)) this.pause(!this.paused);
+      else if (this.state === 'garage' && !this.installingNow) { audio()?.ui('back'); this.gtab('menu'); }
     }
-    if (this.state === 'run' && this.run && this.run.ended && inp.wasPressed('KeyR', 'Enter')) this.retry();
+    if (this.state === 'run' && this.run && this.run.ended && inp.wasPressed('KeyR')) this.retry();
+    if (this.state === 'run' && this.run && this.run.ended && inp.wasPressed('KeyG')) this.ui.emit('toGarage');
     if (this.state === 'first') {
       if (inp.wasPressed('ArrowLeft', 'KeyA')) { this.firstIdx = (this.firstIdx + 2) % 3; this.updateFirst(); audio()?.ui('click'); }
       if (inp.wasPressed('ArrowRight', 'KeyD')) { this.firstIdx = (this.firstIdx + 1) % 3; this.updateFirst(); audio()?.ui('click'); }

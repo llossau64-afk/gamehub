@@ -9,22 +9,32 @@ export class Input {
     this.steer = 0;
     this.state = { throttle: 0, brake: 0, steer: 0, handbrake: 0, boost: 0 };
     this.pressed = new Set();
-    this.isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+    // touch layout only when there is no fine pointer (touch laptops still get keyboard UI)
+    this.isTouch = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
     this.lastDevice = this.isTouch ? 'touch' : 'keyboard';
     window.addEventListener('keydown', (e) => {
       if (e.repeat) { if (['ArrowUp', 'ArrowDown', 'Space'].includes(e.code)) e.preventDefault(); return; }
-      this.keys.add(e.code); this.pressed.add(e.code); this.lastDevice = 'keyboard';
+      this.keys.add(e.code); this.pressed.add(e.code); this.setDevice('keyboard');
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code) && e.target === document.body) e.preventDefault();
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => { this.keys.clear(); for (const k in this.touch) this.touch[k] = 0; });
   }
 
+  setDevice(d) {
+    if (d === this.lastDevice) return;
+    this.lastDevice = d;
+    if (d === 'touch') { this.isTouch = true; document.body.classList.add('touch'); }
+    if (d === 'keyboard' || d === 'mouse') { this.isTouch = false; document.body.classList.remove('touch'); }
+  }
+
   bindTouch(root) {
+    window.addEventListener('touchstart', () => this.setDevice('touch'), { passive: true });
+    window.addEventListener('mousedown', () => { if (this.lastDevice === 'touch') this.setDevice('mouse'); });
     const map = { left: 'left', right: 'right', gas: 'gas', brake: 'brake', boost: 'boost', hand: 'hand' };
     root.querySelectorAll('[data-touch]').forEach((el) => {
       const k = map[el.dataset.touch];
-      const on = (e) => { e.preventDefault(); this.touch[k] = 1; el.classList.add('on'); this.lastDevice = 'touch'; if (navigator.vibrate && k !== 'gas') navigator.vibrate(8); };
+      const on = (e) => { e.preventDefault(); this.touch[k] = 1; el.classList.add('on'); this.setDevice('touch'); if (navigator.vibrate && k !== 'gas') navigator.vibrate(8); };
       const off = (e) => { e.preventDefault(); this.touch[k] = 0; el.classList.remove('on'); };
       el.addEventListener('pointerdown', on);
       el.addEventListener('pointerup', off);

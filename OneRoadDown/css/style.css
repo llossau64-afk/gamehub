@@ -354,3 +354,14 @@ body.touch #hud .bottom { bottom: calc(14px + env(safe-area-inset-bottom)); tran
   .line { padding: 3px 0; font-size: 12px; }
   .modal .panel { max-height: 94vh; }
 }
+
+/* keyboard focus */
+button:focus { outline: none; }
+.mitem:focus-visible, .gtab:focus-visible { color: var(--ink); padding-left: 34px; }
+.mitem:focus-visible::before, .gtab:focus-visible::before { width: 22px; background: var(--amber); }
+.btn:focus-visible, .arrow:focus-visible, .seg button:focus-visible, .sw:focus-visible, input[type=range]:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+.upg:focus-visible, .vrow:focus-visible { outline: none; background: rgba(226,163,59,.1); box-shadow: inset 3px 0 0 var(--amber); }
+.upg, .vrow, .sw { outline: none; }
+.keyhints { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--pad) + 62px + env(safe-area-inset-bottom)); font: 500 11px 'Cond'; letter-spacing: .26em; color: var(--ink3); white-space: nowrap; text-shadow: 0 1px 6px rgba(0,0,0,.8); }
+body.touch .keyhints { display: none; }
+@media (max-height: 560px), (max-width: 760px) { .keyhints { display: none; } }

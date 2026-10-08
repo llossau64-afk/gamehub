@@ -33,6 +33,59 @@ export class UI {
   }
 
   on(name, fn) { this.handlers[name] = fn; }
+
+  // ------------------------------------------------------------- keyboard navigation
+  // Arrow keys / WASD move focus spatially between controls of the visible screens,
+  // Enter or Space activates, left/right adjust sliders. Driving keys are untouched
+  // while a run is active (navEnabled = false).
+  focusables() {
+    const scopes = this.modalOpen ? [this.screens.modal] : Object.entries(this.screens).filter(([k, s]) => k !== 'modal' && s.classList.contains('show')).map(([, s]) => s);
+    const out = [];
+    for (const sc of scopes) sc.querySelectorAll('button:not([disabled]), .upg, .vrow, .sw:not(.lock), input[type=range]').forEach((el) => {
+      if (el.offsetParent === null) return;
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) return;
+      if (!el.hasAttribute('tabindex') && el.tagName !== 'BUTTON' && el.tagName !== 'INPUT') el.tabIndex = 0;
+      out.push(el);
+    });
+    return out;
+  }
+  navKey(e) {
+    const dirs = { ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1], ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0] };
+    const list = this.focusables();
+    if (!list.length) return false;
+    let cur = document.activeElement;
+    if (!list.includes(cur)) cur = null;
+    if (e.code === 'Enter' || e.code === 'NumpadEnter' || (e.code === 'Space' && cur)) {
+      if (!cur) { this.focusFirst(list); return true; }
+      if (cur.matches('.upg.sel')) { const b = this.gpanel.querySelector('.detail .buy:not([disabled])'); if (b) { b.click(); return true; } }
+      if (cur.matches('.vrow.sel, .sw.on')) { const b = this.gpanel.querySelector('.detail .act:not([disabled])'); if (b) { b.click(); return true; } }
+      cur.click();
+      return true;
+    }
+    const d = dirs[e.code];
+    if (!d) return false;
+    if (cur && cur.type === 'range' && d[0]) { cur.value = +cur.value + d[0] * 0.05; cur.dispatchEvent(new Event('input')); return true; }
+    if (!cur) { this.focusFirst(list); return true; }
+    const a = cur.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+    let best = null, bs = 1e9;
+    for (const el of list) {
+      if (el === cur) continue;
+      const b = el.getBoundingClientRect(), bx = b.left + b.width / 2, by = b.top + b.height / 2;
+      const dx = bx - ax, dy = by - ay;
+      const along = dx * d[0] + dy * d[1];
+      if (along <= 4) continue;
+      const across = Math.abs(dx * d[1]) + Math.abs(dy * d[0]);
+      const sc = along + across * 2.2;
+      if (sc < bs) { bs = sc; best = el; }
+    }
+    if (best) { best.focus({ preventScroll: false }); best.scrollIntoView({ block: 'nearest' }); audio()?.ui('hover'); }
+    return true;
+  }
+  focusFirst(list) {
+    const pref = list.find((el) => el.matches('.mitem.primary, .sel-btn, .s-retry, .upg.sel, .vrow.sel, .sw.on')) || list[0];
+    pref.focus(); pref.scrollIntoView({ block: 'nearest' });
+  }
   emit(name, ...a) { const f = this.handlers[name]; if (f) return f(...a); }
 
   build() {
@@ -49,7 +102,7 @@ export class UI {
     const boot = h(`<div id="boot" class="screen show live">
       <canvas class="art"></canvas>
       <div class="logo"><div class="logotype">ONE ROAD <span class="thin">DOWN</span></div><div class="tagline">HOLLOW PEAK · 25 KM · ONE WAY</div></div>
-      <div class="press">PRESS ANY KEY</div>
+      <div class="press">CLICK OR PRESS ANY KEY</div>
       <div class="foot"><div class="tip"><b>TIP</b><span></span></div>
       <div class="barrow"><div class="bar"><i></i></div><div class="status">STARTING ENGINE…</div></div></div>
     </div>`);
@@ -108,6 +161,7 @@ export class UI {
       <div class="gpanel panel live"></div>
       <div class="gstats panel"></div>
       <div class="installing">INSTALLING<i></i></div>
+      <div class="keyhints">↑↓←→ SELECT · ENTER BUY / CHOOSE · Q E SWITCH TAB · ESC MENU · DRAG TO ROTATE</div>
     </div>`);
     gar.querySelectorAll('.gtab').forEach((b) => {
       b.addEventListener('click', () => { audio()?.ui(b.dataset.t === 'drive' ? 'buy' : 'click'); this.emit('gtab', b.dataset.t); });
@@ -187,7 +241,17 @@ export class UI {
   }
 
   show(name, on = true) { const s = this.screens[name]; if (s) s.classList.toggle('show', on); }
-  only(...names) { for (const k of Object.keys(this.screens)) if (k !== 'modal') this.show(k, names.includes(k)); }
+  only(...names) {
+    for (const k of Object.keys(this.screens)) if (k !== 'modal') this.show(k, names.includes(k));
+    this.autoFocus();
+  }
+  autoFocus() {
+    setTimeout(() => {
+      if (document.body.classList.contains('touch')) return;
+      const l = this.focusables();
+      if (l.length && !l.includes(document.activeElement)) this.focusFirst(l);
+    }, 120);
+  }
   fade(on) { this.fadeEl.classList.toggle('on', on); return new Promise((res) => setTimeout(res, 620)); }
 
   toast(html, ms) {
@@ -379,6 +443,7 @@ export class UI {
     $(p, '.s-retry').addEventListener('click', () => { audio()?.ui('buy'); this.emit('retry'); });
     $(p, '.s-garage').addEventListener('click', () => { audio()?.ui('click'); this.emit('toGarage'); });
     this.show('summary', true);
+    this.autoFocus();
     const ls = p.querySelectorAll('.line');
     ls.forEach((l, i) => setTimeout(() => { l.classList.add('show'); audio()?.ui('hover'); }, 250 + i * 160));
   }
@@ -390,6 +455,7 @@ export class UI {
     $(m, '.body').innerHTML = html;
     m.classList.add('show');
     onMount && onMount($(m, '.body'));
+    this.autoFocus();
   }
   closeModal() { this.screens.modal.classList.remove('show'); this.emit('modalClosed'); }
   get modalOpen() { return this.screens.modal.classList.contains('show'); }
