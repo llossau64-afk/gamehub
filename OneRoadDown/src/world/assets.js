@@ -100,6 +100,22 @@ function register(scene, anisotropy) {
   }
 }
 
+// Hosts that do not serve .glb get a base64 JSON copy ({ glb: "<base64>" }) next to it.
+async function loadGLB(loader, path) {
+  let r = await fetch(path + '.glb').catch(() => null);
+  let buf;
+  if (r && r.ok && !/text\/html/.test(r.headers.get('content-type') || '')) buf = await r.arrayBuffer();
+  else {
+    r = await fetch(path + '.glb.json');
+    if (!r.ok) throw new Error('missing ' + path);
+    const bin = atob((await r.json()).glb);
+    const u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    buf = u8.buffer;
+  }
+  return loader.parseAsync(buf, '');
+}
+
 export async function loadAssets(renderer, onProgress = () => {}, base = './assets/') {
   const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   const loader = new GLTFLoader();
@@ -108,7 +124,7 @@ export async function loadAssets(renderer, onProgress = () => {}, base = './asse
   const steps = files.length + 1;
   for (const f of files) {
     try {
-      const gl = await loader.loadAsync(`${base}models/${f}.glb`);
+      const gl = await loadGLB(loader, `${base}models/${f}`);
       register(gl.scene, aniso);
     } catch (e) {
       console.warn('[assets] could not load', f, e && e.message);
