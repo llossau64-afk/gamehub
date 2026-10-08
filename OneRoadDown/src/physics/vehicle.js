@@ -119,7 +119,7 @@ export class Vehicle {
     this.hp = this.p.hpPool;
     this.dmg = { engine: 1, susp: 1, brakes: 1, glass: 0, lightL: 1, lightR: 1, bumperF: 1, bumperR: 1 };
     for (const z of ZONES) this.dmg[z] = 1;
-    this.air = 0; this.airTime = 0; this.drift = 0; this.groundY = pos.y;
+    this.air = 0; this.airTime = 0; this.landCool = 0; this.drift = 0; this.groundY = pos.y;
     this.lastQuery = { idx: Math.round(s / STEP), s, d: 0 };
     this.speed = 0; this.fwdSpeed = 0;
     this.wheelsOnGround = 4;
@@ -311,7 +311,7 @@ export class Vehicle {
       if (w.comp > w.rest * 0.92) {
         const over = w.comp - w.rest * 0.92;
         Fs += w.k * 9 * over + w.c * 2.5 * Math.max(0, compVel);
-        if (closing > p.landing * 0.6 && !w.bottomed) { this.landingHit(closing, w); w.bottomed = true; }
+        if (closing > p.landing * 0.6 && !w.bottomed && w.ny > 0.82 && this.landCool <= 0) { this.landingHit(Math.min(closing, 16), w); w.bottomed = true; this.landCool = 0.25; }
       } else w.bottomed = false;
       // anti-roll bar
       const other = this.wheels[w.i ^ 1];
@@ -403,6 +403,7 @@ export class Vehicle {
       }
     }
     this.wheelsOnGround = onGround;
+    if (this.landCool > 0) this.landCool -= dt;
     // brake heat
     this.brakeTemp += (brakePower / (m * 900) - this.brakeTemp * (0.04 + speed * 0.0015)) * dt;
     if (this.brakeTemp < 0) this.brakeTemp = 0;
@@ -714,7 +715,7 @@ export class Vehicle {
     const over = compVel - p.landing;
     this.events.push({ type: 'bottom', speed: compVel, wheel: w.i });
     if (over <= 0) return;
-    const dmg = Math.pow(over, 1.5) * 2.2 * p.dmgMult;
+    const dmg = Math.pow(over, 1.4) * 1.6 * p.dmgMult;
     const f = dmg / p.hpPool;
     this.hp -= dmg * 0.5;
     this.dmg.susp = Math.max(0, this.dmg.susp - f * 1.4);

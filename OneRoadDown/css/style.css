@@ -157,7 +157,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 14px; background: var
 .gtab::before { content: ''; position: absolute; left: 0; top: 50%; width: 10px; height: 1px; background: var(--ink3); transition: width .2s; }
 .gtab:hover { color: var(--ink2); }
 .gtab.on { color: var(--ink); } .gtab.on::before { width: 16px; background: var(--amber); }
-.gtab.drive { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--pad) + env(safe-area-inset-bottom)); top: auto; color: #15120c; background: var(--amber); padding: 14px 44px; font-size: 19px; letter-spacing: .3em; text-shadow: none; }
+.gtab.drive { white-space: nowrap; position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--pad) + env(safe-area-inset-bottom)); top: auto; color: #15120c; background: var(--amber); padding: 14px 44px; font-size: 19px; letter-spacing: .3em; text-shadow: none; }
 .gtab.drive::before { display: none; }
 .gtab.drive:hover { background: #f0b450; }
 .gpanel { position: absolute; right: var(--pad); top: calc(var(--pad) + 76px + env(safe-area-inset-top)); bottom: calc(var(--pad) + env(safe-area-inset-bottom)); width: min(400px, 92vw); display: flex; flex-direction: column; }
@@ -326,4 +326,30 @@ body.touch #hud .bottom { bottom: calc(14px + env(safe-area-inset-bottom)); tran
   .nav-arrows { bottom: auto; top: 110px; }
   #hud canvas.speedo { width: 190px; height: 124px; }
   .gauge { width: 110px; }
+}
+
+/* short landscape screens (phones) */
+@media (max-height: 560px) {
+  :root { --pad: 12px; }
+  .toptitle h2 { font-size: 22px; } .toptitle h2 small { margin-top: 4px; font-size: 10px; }
+  .gstats { display: none; }
+  .gtabs { top: calc(var(--pad) + 44px); }
+  .gtab { padding: 5px 0 5px 18px; font-size: 13px; }
+  .gtab.drive { padding: 10px 26px; font-size: 14px; transform: none; position: fixed; top: auto; bottom: var(--pad); left: var(--pad); white-space: nowrap; }
+  .gpanel { top: calc(var(--pad) + 44px); width: min(380px, 52vw); }
+  .gpanel .ptitle { padding: 8px 14px; }
+  .upg { padding: 7px 14px; } .upg .part { display: none; }
+  .detail { padding: 10px 14px; } .detail p { display: none; } .detail h3 { font-size: 17px; } .effects { margin-bottom: 8px; font-size: 12px; }
+  .carcard { width: min(320px, 46vw); top: calc(var(--pad) + 50px); bottom: var(--pad); transform: none; overflow: auto; }
+  .carcard .desc, .traits { display: none; }
+  .nav-arrows { left: 28%; bottom: calc(var(--pad) + 56px); }
+  .bottombar { justify-content: flex-start; left: calc(var(--pad) + 6%); }
+  #menu .col { top: 50%; bottom: auto; transform: translateY(-55%); }
+  #menu .sub { margin: 4px 0 12px; }
+  .mitem { padding: 6px 0 6px 22px; font-size: 16px; }
+  .infobar .kv b { font-size: 15px; }
+  #summary .panel { max-height: 96vh; overflow: auto; }
+  #summary h2 { font-size: 28px; } #summary .bigd b { font-size: 38px; }
+  .line { padding: 3px 0; font-size: 12px; }
+  .modal .panel { max-height: 94vh; }
 }

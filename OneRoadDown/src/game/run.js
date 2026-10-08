@@ -84,7 +84,7 @@ export class Run {
     this.time = 0;
     this.timeScale = 1;
     this.region = -1;
-    this.stuckT = 0; this.flipT = 0; this.stopT = 0;
+    this.stuckT = 0; this.flipT = 0; this.stopT = 0; this.recoveries = 2;
     this.criticalDistance = 0; this.fumes = false; this.maxAir = 0; this.maxDrift = 0; this.recoveredRoll = false; this.rolled = false;
     this.offRoad = null;
     this.lastS = this.startS;
@@ -630,10 +630,30 @@ export class Run {
     if (v.pos.y < t.roadY(q.s) - 22 || (q.dist > 70 && v.pos.y < q.h + 0.5 && v.pos.y < t.roadY(q.s) - 8)) return this.finish('OVER THE EDGE', 'GONE');
     if (this.maxS >= t.length) return this.finish('BOTTOM OF THE MOUNTAIN', 'MOUNTAIN COMPLETE', true);
     const up = v.getUp(this.tmp.u);
-    if (up.y < 0.25 && v.speed < 2) { this.flipT += dt; if (this.flipT > 2.5) return this.finish('OVERTURNED', 'RUN OVER'); } else this.flipT = 0;
+    if (up.y < 0.25 && v.speed < 2) {
+      this.flipT += dt;
+      if (this.flipT > 2.2) {
+        if (this.recoveries > 0) { this.recoveries--; this.flipT = 0; this.recover(); }
+        else return this.finish('OVERTURNED', 'RUN OVER');
+      }
+    } else this.flipT = 0;
     const noPower = v.fuel <= 0 || v.dmg.engine <= 0;
     if (noPower && v.speed < 0.6) { this.stopT += dt; if (this.stopT > 2.2) return this.finish(v.fuel <= 0 ? 'OUT OF FUEL' : 'ENGINE FAILURE', 'RUN OVER'); } else this.stopT = 0;
     if (this.maxS > this.lastS + 3) { this.lastS = this.maxS; this.stuckT = 0; } else { this.stuckT += dt; if (this.stuckT > 25) return this.finish('STUCK', 'RUN OVER'); }
+  }
+
+  // right the car on the road where it stopped (costs some condition)
+  recover() {
+    const v = this.vehicle, q = v.lastQuery;
+    const hp = v.hp, fuel = v.fuel, dmg = { ...v.dmg }, wh = v.wheels.map((w) => [w.health, w.toe]);
+    const d = Math.max(-q.halfW + 1.2, Math.min(q.halfW - 1.2, q.d));
+    v.reset(Math.max(this.startS, q.s), d);
+    Object.assign(v.dmg, dmg); v.fuel = fuel; v.hp = hp - v.p.hpPool * 0.08;
+    v.wheels.forEach((w, i) => { w.health = wh[i][0]; w.toe = wh[i][1]; });
+    if (v.fuel > 0 && v.dmg.engine > 0) this.engine && this.engine.setRunning(true);
+    this.rolled = false;
+    this.g.ui.notice('BACK ON YOUR WHEELS', this.recoveries === 1 ? '1 RECOVERY LEFT' : 'LAST RECOVERY USED', true, 2000);
+    audio()?.metal(0.4, 240);
   }
 
   finish(reason, title, complete = false) {
