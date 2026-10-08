@@ -28,6 +28,8 @@ export class World {
     scene.add(this.root);
     this.chunks = new Map();
     this.queue = [];
+    this.job = null;      // chunk being built in stages
+    this.sliceMs = 4;     // per-frame build budget while driving
     this.setQuality(quality);
     this.time = 0;
     this.extra = new Map(); // per chunk colliders (trees, rocks near the road)
@@ -47,6 +49,7 @@ export class World {
   }
 
   dispose() {
+    this.job = null;
     for (const k of [...this.chunks.keys()]) this.unload(k);
     this.scene.remove(this.root);
   }
@@ -76,16 +79,38 @@ export class World {
       for (let c = first; c <= last; c++) if (!this.chunks.has(c)) order.push(c);
       order.sort((a, b) => Math.abs(a * CHUNK + 50 - s) - Math.abs(b * CHUNK + 50 - s));
     }
-    let built = 0;
-    for (const c of order) {
-      if (built >= budget) break;
-      this.build(c);
-      built++;
+    if (budget > 1) {
+      // loading screen: build everything wanted right away
+      if (this.job) this.finishJob();
+      let built = 0;
+      for (const c of order) {
+        if (built >= budget) break;
+        this.build(c);
+        built++;
+      }
+      return order.length - built;
     }
-    return order.length - built;
+    // while driving: build chunks in stages under a small per-frame time budget, so a
+    // new stretch of road never costs one long frame (that was the periodic stutter)
+    const t0 = performance.now();
+    while (performance.now() - t0 < this.sliceMs) {
+      if (!this.job) {
+        const next = order.find((c) => !this.chunks.has(c));
+        if (next === undefined) break;
+        this.job = { k: next, it: this.buildStages(next) };
+      }
+      if (this.job.it.next().done) this.job = null;
+    }
+    return order.length;
+  }
+
+  finishJob() {
+    while (this.job && !this.job.it.next().done);
+    this.job = null;
   }
 
   unload(k) {
+    if (this.job && this.job.k === k) this.finishJob();
     const ch = this.chunks.get(k);
     if (!ch) return;
     this.root.remove(ch.group);
@@ -102,6 +127,12 @@ export class World {
   }
 
   build(k) {
+    if (this.job && this.job.k === k) { this.finishJob(); return; }
+    const it = this.buildStages(k);
+    while (!it.next().done);
+  }
+
+  *buildStages(k) {
     const t = this.track;
     const j0 = k * NS, j1 = Math.min(t.N - 1, j0 + NS);
     const group = new THREE.Group();
@@ -109,15 +140,13 @@ export class World {
     const jm = Math.min(t.N - 1, (j0 + j1) >> 1);
     const ch = { k, group, j0, j1, ownedMats: [], cars: [], railSegs: [], cx: t.px[jm], cz: t.pz[jm] };
     const R = rng(t.m.seed * 1000 + k * 7919);
-    this.buildTerrain(ch);
-    this.buildRoad(ch);
-    this.buildDecals(ch);
-    this.buildRails(ch);
-    this.buildStructures(ch);
-    this.buildVegetation(ch, R);
-    this.buildSigns(ch);
-    this.buildProps(ch, R);
-    this.buildObstacles(ch, R);
+    this.building = ch;
+    this.buildTerrain(ch); yield;
+    this.buildRoad(ch); this.buildDecals(ch); yield;
+    this.buildRails(ch); this.buildStructures(ch); yield;
+    this.buildVegetation(ch, R); yield;
+    this.buildSigns(ch); this.buildProps(ch, R); this.buildObstacles(ch, R);
+    this.building = null;
     this.root.add(group);
     this.chunks.set(k, ch);
   }
@@ -614,7 +643,8 @@ export class World {
     const nTrees = Math.round((useAssets ? 170 : 140) * density);
     for (let n = 0; n < nTrees; n++) {
       const sp = spot(3, 130, 1.5);
-      if (!sp || Math.abs(sp.d) < sp.halfW + 3 || t.sw[sp.o + 4] > 0.3) continue;
+      // crowns stay clear of the carriageway (the camera must not drive through branches)
+      if (!sp || Math.abs(sp.d) < sp.halfW + SHOULDER + 4.2 || t.sw[sp.o + 4] > 0.3) continue;
       const slope = Math.abs(t.height(sp.x + 1.5, sp.z) - sp.h);
       if (slope > (useAssets ? 4.2 : 2.2)) continue;
       let r = R() * wsum, ki = 0;
@@ -676,7 +706,7 @@ export class World {
           const x = c0.x + Math.cos(a) * rr, z = c0.z + Math.sin(a) * rr;
           if (blocks.length && blocked(x, z)) continue;
           t.query(x, z, qr);
-          if (Math.abs(qr.d) < qr.halfW + 4) continue;
+          if (Math.abs(qr.d) < qr.halfW + SHOULDER + 5) continue;
           if (Math.abs(t.height(x + 1.5, z) - qr.h) > 3.5) continue;
           placeTree(x, z, qr.h, 0.7 + R() * 0.6, R() < 0.8 ? kind : pickKind(), Math.abs(qr.d) - qr.halfW, qr.s);
         }
@@ -1155,7 +1185,9 @@ export class World {
       const g = new THREE.Group();
       m4.decompose(g.position, g.quaternion, g.scale);
       for (const part of h.e.list) {
-        const mesh = new THREE.Mesh(part.geometry, part.material);
+        // a one-instance InstancedMesh shares the compiled instanced shader (no hitch on impact)
+        const mesh = new THREE.InstancedMesh(part.geometry, part.material, 1);
+        mesh.setMatrixAt(0, IDENT_M4); mesh.frustumCulled = false;
         mesh.castShadow = true; mesh.userData.sharedGeo = true;
         g.add(mesh);
       }
@@ -1174,6 +1206,7 @@ export class World {
 }
 
 const ZERO_M4 = new THREE.Matrix4().makeScale(0, 0, 0);
+const IDENT_M4 = new THREE.Matrix4();
 let hayGeo = null;
 const boxCache = new Map();
 // Fit a building's collision box (track collider) to the Blender model's real footprint.

@@ -107,6 +107,12 @@ class Game {
     ui.setLoad(0.9, 'STARTING ENGINE…');
     this.setupMenuScene();
     this.env.update(0.016, this.track, 30, this.camera, this.menuCar.group.position, 0);
+    // lights that come and go during play exist from the start: adding a light later
+    // changes every shader's light count and recompiles them all mid-race (a freeze)
+    this.headlight = new THREE.SpotLight(0xfff0d8, 0, 60, 0.5, 0.5, 1.2);
+    this.headlight.target = new THREE.Object3D();
+    this.flashLight = new THREE.PointLight(0xffa040, 0, 30, 1.6);
+    this.worldScene.add(this.headlight, this.headlight.target, this.flashLight);
     renderer.compile(this.worldScene, this.camera);
     renderer.compile(this.garage.scene, this.camera);
     await frame();
@@ -806,6 +812,7 @@ class Game {
     ui.on('firstSelect', () => this.chooseFirst());
     ui.on('gtab', (t) => this.gtab(t));
     ui.on('crSel', (id) => this.crSel(id));
+    ui.on('podiumSkip', () => { if (this.run && this.run.pres) this.run.pres.endPodium(); });
     ui.on('crStep', (d) => this.crStep(d));
     ui.on('crAct', () => this.crAct());
     ui.on('retry', () => this.retry());

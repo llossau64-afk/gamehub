@@ -14,6 +14,7 @@ import { EngineVoice, audio } from '../audio/audio.js';
 import { carState } from '../core/save.js';
 import { clamp, lerp, damp, fmtMoney } from '../core/util.js';
 import { aiDrive } from './ai.js';
+import { Presentation, INTRO_SECONDS } from './presentation.js';
 
 const BOT_NAMES = ['K. TAKAHASHI', 'M. SCHNEIDER', 'L. MOREAU', 'R. OKADA', 'J. BAUER', 'C. LEFEVRE', 'S. ROSSI', 'T. NAKAMURA', 'F. WEBER', 'A. DUBOIS', 'H. MORI', 'E. KLEIN', 'N. GIRARD', 'D. FISCHER'];
 const BOT_PAINTS = [0xc81e1e, 0x1e5ac8, 0xf0c020, 0x1a1a1a, 0xe8e8e8, 0x2a8a3a, 0xe86a10, 0x7a2ac8, 0x18a0b8, 0x9a9da2];
@@ -34,6 +35,7 @@ export class Race extends Run {
   constructor(game) {
     super(game);
     this.field = [];
+    this.pres = new Presentation(this);
   }
 
   // cfg: { map, opponents, net }
@@ -75,6 +77,8 @@ export class Race extends Run {
   restart(first = false) {
     const t = this.track;
     t.pickups = []; t.rockfalls = [];
+    if (this.pres) this.pres.dispose();
+    if (this.model) this.model.group.visible = true;
     super.restart(first);
     const g = this.g;
     document.body.classList.add('race-mode');
@@ -130,11 +134,22 @@ export class Race extends Run {
     this.syncBots(0);
     this.syncModel(0.016);
     this.placeIntroCamera();
+    // the event intro: establishing shots, the hero car, the grid -- then the countdown
+    const online = !!(this.cfg && this.cfg.net);
+    const left = online ? this.countdownDelay() / 1000 : this.introDone ? 3.2 : INTRO_SECONDS;
+    if (left > 2) this.pres.startIntro(left);
+    else if (!online) this.startCountdownNow();
   }
 
   // ------------------------------------------------------------------ loop
   update(rawDt) {
     const g = this.g, v = this.vehicle;
+    if (this.pres.mode === 'podium' || this.pres.mode === 'after') {
+      if (this.pres.mode === 'podium' && g.input.wasPressed('Enter', 'Space')) this.pres.endPodium();
+      else this.pres.update(rawDt);
+      return;
+    }
+    if (this.pres.mode === 'intro' && g.input.wasPressed('Enter', 'Space')) { this.pres.skip(); this.introDone = true; }
     const dt = rawDt * this.timeScale;
     this.time += dt;
     const inp = g.input.state;
@@ -196,7 +211,13 @@ export class Race extends Run {
   remoteLeft(e) { e.dnf = true; e.left = true; }
   countdownDelay() {
     const n = this.cfg && this.cfg.net;
-    return n && n.startAt ? Math.max(0, n.startAt - Date.now() - 2850) : 0;
+    if (n && n.startAt) return Math.max(0, n.startAt - Date.now() - 2850);
+    // offline the intro itself starts the countdown when it ends (game clock, not wall clock)
+    return 600000;
+  }
+  updateCamera(dt) {
+    if (this.pres.update(dt)) return;
+    super.updateCamera(dt);
   }
 
   holdOnGrid(e) {
@@ -361,7 +382,9 @@ export class Race extends Run {
     if (complete) {
       this.g.ui.notice(this.me.pos === 1 ? 'YOU WIN' : `P${this.me.pos}`, fmtTime(this.me.finishTime), this.me.pos <= 3, 3000);
       if (this.me.pos === 1) a?.record();
+      this.pres.startFinish();
     }
+    this.introDone = true;
     this.g.platform.gameplayStop();
     // keep driving the cool-down lap; show the result once the others are in (or after a few seconds)
     setTimeout(() => this.showResult(), complete ? 3500 : 1500);
@@ -401,13 +424,15 @@ export class Race extends Run {
     if (this.me.bestLap < (sv.bestLaps[this.map.id] || Infinity)) sv.bestLaps[this.map.id] = this.me.bestLap;
     const gift = g.checkFreeCar ? g.checkFreeCar() : null;
     g.save.save(); g.save.flush();
-    g.ui.raceResults({
+    const panel = () => g.ui.raceResults({
       title: this.me.dnf ? 'DID NOT FINISH' : myPos === 1 ? 'VICTORY' : `P${myPos}`,
       map: this.map,
       rows: rows.map((r, i) => ({ pos: i + 1, name: r.e.name, car: r.e.car.name, me: r.e.isPlayer, color: r.e.color, time: r.t === Infinity ? 'DNF' : (r.est ? '~' : '') + fmtTime(r.t), best: fmtTime(r.e.bestLap) })),
       lines, total, gift, online: !!(this.cfg && this.cfg.net),
     });
     g.ui.show('hud', false); g.ui.show('touch', false);
+    // podium for the top three, then the result panel
+    this.pres.startPodium(rows.map((r) => ({ e: r.e, label: r.t === Infinity ? 'DNF' : (r.est ? '~' : '') + fmtTime(r.t) })), panel);
   }
 
   // ------------------------------------------------------------------ no mountain-run extras
@@ -417,6 +442,7 @@ export class Race extends Run {
   bonuses() {}
 
   stop() {
+    this.pres.dispose();
     this.clearField();
     document.body.classList.remove('race-mode');
     if (this.cfg && this.cfg.net) this.cfg.net.detach();

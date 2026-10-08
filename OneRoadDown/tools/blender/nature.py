@@ -45,7 +45,7 @@ def tex_needles(name, kind):
     segs = twigs + [(S / 2, S - 4, S / 2, 8)]
     for (x0, y0, x1, y1) in segs:
         L = math.hypot(x1 - x0, y1 - y0)
-        n = int(L / (1.6 if kind == 'spruce' else 2.4))
+        n = int(L / (1.4 if kind == 'spruce' else 1.7))
         dx, dy = (x1 - x0) / L, (y1 - y0) / L
         for i in range(n):
             t = i / max(1, n - 1)
@@ -56,7 +56,7 @@ def tex_needles(name, kind):
                 nx, ny = dx * ca - dy * sa, dx * sa + dy * ca
                 ln = (r.uniform(18, 30) if kind == 'spruce' else r.uniform(30, 50)) * (1 - 0.3 * t)
                 col = dark + (light - dark) * r.uniform(0.0, 1.0) * (0.6 + 0.4 * t)
-                stroke(c, px, py, px + nx * ln, py + ny * ln, 2.3 if kind == 'spruce' else 2.0, col)
+                stroke(c, px, py, px + nx * ln, py + ny * ln, 2.6 if kind == 'spruce' else 2.5, col)
     return make_image(name, c)
 
 
@@ -207,7 +207,7 @@ T['leaves_cherry'] = tex_blossom('leaves_cherry', (0.96, 0.66, 0.76), (1.0, 0.86
 T['leaves_maple'] = tex_leaves('leaves_maple', (0.62, 0.07, 0.04), (0.95, 0.36, 0.07), count=470)
 T['needles_cypress'] = tex_needles('needles_cypress', 'cypress')
 T['bark_cherry'] = tex_bark('bark_cherry', (0.3, 0.2, 0.18), (0.07, 0.05, 0.05))
-T['bark_pine'] = tex_bark('bark_pine', (0.42, 0.26, 0.16), (0.1, 0.07, 0.05))
+T['bark_pine'] = tex_bark('bark_pine', (0.33, 0.25, 0.19), (0.09, 0.07, 0.05))
 T['bark_oak'] = tex_bark('bark_oak', (0.36, 0.32, 0.27), (0.08, 0.07, 0.06))
 T['bark_birch'] = tex_bark('bark_birch', (0.86, 0.85, 0.8), (0, 0, 0), birch=True)
 T['grass'] = tex_grass('grass')
@@ -279,7 +279,7 @@ def conifer(kind, seed, lod):
     whorl = 0
     for h in np.arange(start, H - 0.5, step):
         t = (h - start) / (H - start)
-        nb = (r.integers(5, 7) if spruce else r.integers(5, 8)) if lod == 0 else r.integers(3, 5)
+        nb = (r.integers(5, 7) if spruce else r.integers(5, 8)) if lod == 0 else r.integers(4, 6)
         L = (2.7 if spruce else 3.3) * (1 - t) ** 0.85 + 0.45
         if not spruce and t < 0.15:
             L *= 0.8
@@ -298,7 +298,7 @@ def conifer(kind, seed, lod):
                 tube(mb, [root, p1, p2], [0.045 * L / 2 + 0.015, 0.025 * L / 2 + 0.01, 0.008], 3, bark, (0.5, 0.5))
             # needle cards along the branch: one flat-ish, one tilted
             side = norm(np.cross(d, [0, 0, 1]))
-            W = (0.38 if spruce else 0.5) * L + 0.28
+            W = ((0.38 if spruce else 0.5) * L + 0.28) * 1.15 * (1.55 if lod == 1 else 1)
             segs = [(root, p1, 0.0, 0.5), (p1, p2, 0.5, 1.0)] if lod == 0 else [(root, p2, 0.0, 1.0)]
             centre = np.array([0, 0, centre_z])
             for (a, b, v0, v1) in segs:
@@ -309,6 +309,9 @@ def conifer(kind, seed, lod):
                 w2 = (side * math.cos(tilt) + up * math.sin(tilt)) * ww * 0.42
                 card(mb, a, b, w1, needles, v0, v1, centre)
                 card(mb, a, b, w2, needles, v0, v1, centre)
+                # a near-vertical card so the branch still reads from road level (no see-through sticks)
+                w3 = (side * math.cos(tilt + 0.9) + up * math.sin(tilt + 0.9)) * ww * 0.4
+                card(mb, a, b, w3, needles, v0, v1, centre)
         whorl += 1
     # leader
     top = pts[-1]

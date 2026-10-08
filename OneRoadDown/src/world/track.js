@@ -788,6 +788,13 @@ export class Track {
     const pr = (this.props = []);
     this.farms = [];
     const N = this.N;
+    // every building claims a footprint: nothing may overlap another building or any road leg
+    const bld = [];
+    const room = (x, z, r) => {
+      for (const b of bld) if (Math.hypot(b.x - x, b.z - z) < b.r + r + 2.5) return false;
+      return this.blockFree(x, z, r * 0.75);
+    };
+    const claim = (x, z, r) => bld.push({ x, z, r });
     for (let j = 10; j < N - 10; j += 6) {
       const s = j * STEP, b = this.biome(s);
       if (s > this.length + 400) break;
@@ -803,6 +810,9 @@ export class Track {
           const size = R.range(0.85, 1.3);
           const yaw = this.hd[j] + (sd > 0 ? -Math.PI / 2 : Math.PI / 2) + R.range(-0.15, 0.15);
           const kind = R() < 0.18 ? 'barn' : R() < 0.1 && !pr.some((q) => q.type === 'chapel') ? 'chapel' : 'house';
+          const fr = (kind === 'barn' ? 7.5 : 6) * size;
+          if (!room(p.x, p.z, fr)) continue;
+          claim(p.x, p.z, fr);
           pr.push({ type: kind, x: p.x, y: p.y, z: p.z, yaw, size, seed: R.int(0, 1e6), s, collider: true });
         }
       }
@@ -820,7 +830,9 @@ export class Track {
           const fx = Math.sin(hd), fz = Math.cos(hd), rx = this.rx[j] * sd, rz = this.rz[j] * sd;
           let ok = true;
           for (const [a2, b2] of corners) { const h = this.height(c.x + fx * a2 + rx * b2, c.z + fz * a2 + rz * b2); if (Math.abs(h - c.y) > 5.5) ok = false; }
+          if (ok && !room(c.x, c.z, Math.max(w, dpt) * 0.5 + 12)) ok = false;
           if (ok) {
+            claim(c.x, c.z, Math.max(w, dpt) * 0.5 + 12);
             const farm = { type: 'farm', s, x: c.x, y: c.y, z: c.z, hd, sd, w, dpt, fx, fz, rx, rz, seed: R.int(0, 1e6), animal: R() < 0.55 ? 'cow' : 'sheep' };
             pr.push(farm);
             this.farms = this.farms || [];
@@ -858,6 +870,8 @@ export class Track {
         const sd = R() < 0.5 ? -1 : 1;
         if (this.sw[(j * 2 + (sd > 0 ? 1 : 0)) * 5 + 1] < 0.6) {
           const p = this.posAt(s, sd * (W / 2 + R.range(8, 14)));
+          if (!room(p.x, p.z, 6)) continue;
+          claim(p.x, p.z, 6);
           pr.push({ type: R() < 0.35 ? 'gasstation' : 'shack', x: p.x, y: p.y, z: p.z, yaw: this.hd[j] + (sd > 0 ? -Math.PI / 2 : Math.PI / 2), s, collider: true, seed: R.int(0, 1e6) });
           j += 60;
         }
@@ -912,8 +926,9 @@ export class Track {
             const dep = R.range(10, 18), wid = R.range(10, 17), hgt = R.range(9, 30) * (R() < 0.15 ? 2 : 1);
             const d = side * (W / 2 + 5 + dep / 2);
             const p = this.posAt(j * STEP, d);
-            const ok = this.blockFree(p.x, p.z, Math.max(dep, wid) * 0.5 + 2);
-            if (!ok) continue;
+            const fr = Math.hypot(dep, wid) * 0.5;
+            if (!this.blockFree(p.x, p.z, Math.max(dep, wid) * 0.5 + 2) || !room(p.x, p.z, fr * 0.8)) continue;
+            claim(p.x, p.z, fr * 0.8);
             const blk = { type: 'block', x: p.x, y: Math.min(p.y, this.py[j]) - 0.5, z: p.z, yaw: this.hd[j], s: j * STEP, w: wid, dep, h: hgt, tint: R() };
             blk.col = { t: 'b', x: p.x, y: blk.y + hgt / 2, z: p.z, hx: dep / 2, hy: hgt / 2, hz: wid / 2, yaw: this.hd[j], s: j * STEP, heavy: 1 };
             pr.push(blk);

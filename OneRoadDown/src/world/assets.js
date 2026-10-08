@@ -98,12 +98,32 @@ function patchFoliage(m, kind) {
         ${kind === 'grass' ? 'diffuseColor.rgb *= mix(0.45, 0.95, smoothstep(0.0, 0.45, vHgt));' : ''}
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.93, 0.97), snowK * 0.9);`);
     if (card) {
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying float vCamD;')
+        .replace('#include <project_vertex>', '#include <project_vertex>\n vCamD = -mvPosition.z;');
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying float vCamD;')
+        .replace('#include <alphatest_fragment>', `
+          #ifdef USE_MAP
+          {
+            // mipmapped alpha shrinks with distance and canopies turn into see-through
+            // sheets; scale it back up per mip level so coverage stays constant
+            vec2 tsz = vec2(textureSize(map, 0));
+            vec2 ddx = dFdx(vMapUv * tsz), ddy = dFdy(vMapUv * tsz);
+            float mip = max(0.0, 0.5 * log2(max(dot(ddx, ddx), dot(ddy, ddy))));
+            diffuseColor.a *= 1.0 + mip * 0.3;
+          }
+          #endif
+          // screen-door fade right in front of the camera instead of slicing through cards
+          float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+          if (ign > smoothstep(0.9, 3.4, vCamD)) discard;
+          if (diffuseColor.a < alphaTest) discard;`);
       // cards: keep the authored (canopy / up) normal on both sides instead of flipping it
       sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>',
         '#include <normal_fragment_begin>\n normal = normalize(vNormal); nonPerturbedNormal = normal;');
     }
   };
-  m.customProgramCacheKey = () => 'fol_' + kind;
+  m.customProgramCacheKey = () => 'fol2_' + kind;
 }
 
 function classify(name) {
@@ -228,13 +248,19 @@ export function makeTerrainMaterial(quality) {
           vec3 rk2 = (texture2D(t_rock, vWP.zy * 0.21).rgb * bw2.x + texture2D(t_rock, vWP.xz * 0.21).rgb * bw2.y + texture2D(t_rock, vWP.xy * 0.21).rgb * bw2.z) * 0.6
                    + (texture2D(t_rock, vWP.zy * 0.055 + 0.3).rgb * bw2.x + texture2D(t_rock, vWP.xz * 0.055 + 0.3).rgb * bw2.y + texture2D(t_rock, vWP.xy * 0.055 + 0.3).rgb * bw2.z) * 0.4;`
           : 'vec3 rk2 = texture2D(t_rock, vWP.xz * 0.09).rgb;'}
+          // more contrast, darker cracks and faint strata so cliff faces read as rock, not flat planes
+          float rl = dot(rk2, vec3(0.333));
+          rk2 = mix(rk2, rk2 * rl * 1.9, 0.55);
+          float strata = 0.86 + 0.14 * sin(vWP.y * 0.85 + sin(vWP.x * 0.043 + vWP.z * 0.031) * 3.0);
+          float big = 0.82 + 0.18 * texture2D(t_rock, vWP.xz * 0.011 + vWP.y * 0.004).r;
+          rk2 *= strata * big;
           c = mix(c, rk2 * 0.92, steepK * (1.0 - vSB.y * 0.6));
         }
         diffuseColor.rgb *= c * 1.55;
         float terrLum = dot(c, vec3(0.333));`)
       .replace('#include <color_fragment>', `
         #if defined( USE_COLOR )
-        diffuseColor.rgb *= mix(vColor, vec3(0.95), steepK * 0.85);
+        diffuseColor.rgb *= mix(vColor, vec3(0.86), steepK * 0.85);
         #endif`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         {
@@ -247,6 +273,6 @@ export function makeTerrainMaterial(quality) {
           normal = normalize(abs(det) * normal - grad);
         }`);
   };
-  m.customProgramCacheKey = () => 'terrain' + (tri ? 3 : 1);
+  m.customProgramCacheKey = () => 'terrain2' + (tri ? 3 : 1);
   return m;
 }

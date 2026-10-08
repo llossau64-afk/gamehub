@@ -48,11 +48,8 @@ export class Run {
     this.vehicle = new Vehicle(this.track, car, this.stats);
     this.vehicle.assist = sv.settings.assist ? 1 : 0;
     // headlight for tunnels
-    if (!this.headlight) {
-      this.headlight = new THREE.SpotLight(0xfff0d8, 0, 60, 0.5, 0.5, 1.2);
-      this.headlight.target = new THREE.Object3D();
-      g.worldScene.add(this.headlight, this.headlight.target);
-    }
+    this.headlight = g.headlight;
+    this.flash = g.flashLight;
     if (this.engine) this.engine.dispose();
     this.engine = null;
     if (audio() && audio().ctx) {
@@ -131,7 +128,13 @@ export class Run {
     };
     // online races line the countdown up with the host's start time
     const delay = this.countdownDelay ? this.countdownDelay() : 0;
-    if (delay > 50) { g.ui.notice('GET READY', 'WAITING FOR THE GRID', false, Math.min(6000, delay)); setTimeout(startCd, delay); } else startCd();
+    clearTimeout(this.cdTimer);
+    let cdStarted = false;
+    const startOnce = () => { if (cdStarted) return; cdStarted = true; clearTimeout(this.cdTimer); this.countdownStarted = true; startCd(); };
+    this.countdownStarted = false;
+    // a race intro may start the countdown early (skip)
+    this.startCountdownNow = startOnce;
+    if (delay > 50) this.cdTimer = setTimeout(startOnce, delay); else startOnce();
     if (first) audio()?.ui('click');
   }
 
@@ -307,7 +310,7 @@ export class Run {
   explosion(x, y, z, vx, vz, size = 1, vol = 1) {
     const g = this.g, P = g.particles, a = audio();
     // flash
-    if (!this.flash) { this.flash = new THREE.PointLight(0xffa040, 0, 30, 1.6); g.worldScene.add(this.flash); }
+    if (!this.flash) this.flash = g.flashLight;
     this.flash.position.set(x, y + 1, z); this.flash.intensity = 900 * size; this.flashT = 0.25;
     // fireball + sparks + smoke + tufts
     for (let i = 0; i < 46 * size; i++) {

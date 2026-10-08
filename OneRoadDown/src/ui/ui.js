@@ -248,6 +248,16 @@ export class UI {
     $(ol, '.ol-back').addEventListener('click', () => { audio()?.ui('back'); this.emit('olBack'); });
     r.appendChild(ol);
     this.screens.online = ol;
+    // race presentation: letterbox + event card, podium overlay
+    const cine = h(`<div id="cine"><div class="lb top"></div><div class="lb bot"></div><div class="flash"></div>
+      <div class="evcard"><div class="ev-top"><span class="cc"></span><span class="ev-place"></span></div><h1 class="ev-name"></h1><div class="ev-line"></div></div>
+      <div class="evgrid"></div><div class="evskip">SPACE · SKIP</div></div>`);
+    r.appendChild(cine);
+    this.cine = cine;
+    const pod = h(`<div id="podium"><div class="pd-title">PODIUM</div><div class="pd-places"></div><button class="btn main amber pd-go">RESULTS ›</button></div>`);
+    $(pod, '.pd-go').addEventListener('click', () => { audio()?.ui('click'); this.emit('podiumSkip'); });
+    r.appendChild(pod);
+    this.pod = pod;
     const rr = h('<div id="raceres" class="screen live"><div class="panel"></div></div>');
     r.appendChild(rr);
     this.screens.raceres = rr;
@@ -580,6 +590,37 @@ export class UI {
     const act = card.querySelector('.cr-act');
     if (act) act.addEventListener('click', () => this.emit('crAct'));
   }
+
+  // ------------------------------------------------------------- race presentation
+  raceIntro(d) {
+    const c = this.cine;
+    $(c, '.cc').textContent = d.cc;
+    $(c, '.ev-place').textContent = (d.country + (d.region ? ' · ' + d.region : '')).toUpperCase();
+    $(c, '.ev-name').textContent = d.name;
+    $(c, '.ev-line').textContent = d.line;
+    $(c, '.evgrid').innerHTML = '<div class="eg-h">STARTING GRID</div>' + d.grid.map((g) => `<div class="eg ${g.me ? 'me' : ''}"><i>${g.pos}</i><s style="background:${g.color}"></s><b></b><span></span></div>`).join('');
+    // names may come from other players: set them as text
+    c.querySelectorAll('.eg').forEach((el, i) => { el.querySelector('b').textContent = d.grid[i].name; el.querySelector('span').textContent = d.grid[i].car; });
+    $(c, '.evskip').style.display = d.skippable ? '' : 'none';
+    document.body.classList.add('cine-on');
+    c.classList.remove('out'); void c.offsetWidth; c.classList.add('on');
+  }
+  introCut() {
+    const f = $(this.cine, '.flash');
+    f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+  }
+  raceIntroHide() {
+    this.cine.classList.remove('on'); this.cine.classList.add('out');
+    document.body.classList.remove('cine-on');
+  }
+  podium(d) {
+    const p = this.pod;
+    $(p, '.pd-places').innerHTML = d.places.map((x) => `<div class="pd p${x.place} ${x.me ? 'me' : ''}"><i>${x.place}</i><b></b><span></span><em>${x.time || ''}</em></div>`).join('');
+    p.querySelectorAll('.pd').forEach((el, i) => { el.querySelector('b').textContent = d.places[i].name; el.querySelector('span').textContent = d.places[i].car; });
+    document.body.classList.add('cine-on');
+    p.classList.add('on');
+  }
+  podiumHide() { this.pod.classList.remove('on'); document.body.classList.remove('cine-on'); }
 
   // ------------------------------------------------------------- online
   online(d) {
