@@ -1,7 +1,9 @@
 // Game orchestration: states, interactions, economy, saving and the scripted moments
 // that connect cutscene, tutorial and the endless "one more customer" loop.
 import * as THREE from 'three';
-import { Shop, SPOTS, ROOM } from '../world/shop.js';
+import { Shop, SPOTS, ROOM, DOOR } from '../world/shop.js';
+import { cloud } from '../core/cloud.js';
+import { Online, randomCode } from '../net/online.js';
 import { spawnProp, part } from '../world/props.js';
 import { Player } from './player.js';
 import { Character } from '../chars/character.js';
@@ -58,6 +60,7 @@ export class Game {
     this.customers = new CustomerManager(this);
     this.barber = new BarberMode(this);
     this.street = new Street(this);
+    this.online = new Online(this);
     this.save = store.data;
     this.settings = store.settings;
     this.state = 'boot';
@@ -124,7 +127,7 @@ export class Game {
     addEventListener('ad-start', () => { this.adPlaying = true; audio.setMuted(true); });
     addEventListener('ad-end', () => { this.adPlaying = false; audio.setMuted(false); });
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) { audio.suspend(); if (this.state === 'play') this.pause(); } else audio.resume();
+      if (document.hidden) { audio.suspend(); if (['play', 'barber', 'reaction'].includes(this.state)) { this.persist(); cloud.push(this.save, this.settings, true); } if (this.state === 'play') this.pause(); } else audio.resume();
     });
     // pointer lock lost while playing -> pause (desktop)
     document.addEventListener('pointerlockchange', () => {
@@ -273,6 +276,10 @@ export class Game {
       pos: () => this.deliveries.nearest().obj.position.clone().add(V(0, 0.2, 0)), radius: 2.4,
       action: () => { const p = this.deliveries.nearest(); if (p) this.deliveries.open(p).catch((e) => console.error(e)); return 'parcel'; },
     });
+    I({
+      id: 'bouncer', label: () => this.reactions.bouncerLabel(), pos: () => this.reactions.bouncerPos(), radius: 2.6,
+      action: () => { this.reactions.bouncerAction(); return 'bouncer'; },
+    });
     I({ id: 'catalog', label: () => 'Upgrades', pos: () => this.shop.slots.catalog.getWorldPosition(V()).add(V(0, 0.05, 0)), radius: 2.2, action: () => { this.openUpgrades(); return 'catalog'; } });
     I({
       id: 'broom', label: () => (this.clippings.floorCount > 15 ? 'Sweep the floor' : null),
@@ -356,6 +363,64 @@ export class Game {
     audio.startMusic('menu');
     this.ambience?.setOutside(0.25);
     if (!first) await this.ui.fade(false, 700); else this.ui.fade(false, 1200);
+    this.showMainMenu();
+    if (first) this.syncCloud();
+  }
+
+  // the cloud save for this link: newer than what this browser has -> take it
+  async syncCloud() {
+    const remote = await cloud.init();
+    if (!remote?.save) { if (cloud.ready && store.hasProgress) cloud.push(this.save, this.settings, true); return; }
+    const localAt = this.save.savedAt || 0;
+    if ((remote.save.savedAt || remote.at) > localAt + 1000 && this.state === 'menu') {
+      store.adopt(remote.save, remote.settings);
+      this.save = store.data;
+      this.settings = store.settings;
+      this.applySettings?.();
+      this.fx = effects(this.save.owned);
+      this.shop.applyState(new Set(this.save.owned));
+      this.showMainMenu();
+      this.ui.toast(`Progress loaded — Day ${this.save.day}`, 'Saved on this link');
+    } else if (store.hasProgress) cloud.push(this.save, this.settings, true);
+  }
+
+  // ---------------------------------------------------------------- online co-op
+  openOnline() {
+    const ui = this.ui;
+    ui.onlinePanel({
+      active: this.online.active, code: this.online.code,
+      nick: this.settings.nick || '', suggest: randomCode(),
+      onJoin: async (code, nick) => {
+        this.settings.nick = nick;
+        store.saveSettings();
+        try {
+          await this.online.join(code, nick);
+        } catch (e) {
+          return e?.message || (e?.code === 'not_permitted' ? 'Online play isn’t available on this view.' : 'Couldn’t connect. Try again.');
+        }
+        this.setOnlineShop(true);
+        ui.closePanel();
+        ui.toast(`Shop code ${this.online.code} — give it to your colleagues`, 'Online');
+        this.showMainMenu();
+        return null;
+      },
+      onLeave: async () => {
+        await this.online.leave();
+        this.setOnlineShop(false);
+        ui.closePanel();
+        ui.toast('You left the online shop', 'Online');
+        this.showMainMenu();
+      },
+    });
+  }
+
+  setOnlineShop(on) {
+    this.shop.forced = on ? ['station2', 'extension'] : [];
+    this.shop.applyState(new Set(this.save.owned));
+    this.syncEmployee();
+  }
+
+  showMainMenu() {
     const s = this.save;
     this.ui.showMenu({
       hasSave: store.hasProgress,
@@ -367,6 +432,8 @@ export class Game {
       onUpgrades: () => this.ui.upgradesPanel(this, { readOnly: true }),
       onAchievements: () => this.openAchievements(),
       onSettings: () => this.openSettings(),
+      onOnline: () => this.openOnline(),
+      online: this.online.active ? this.online.code : null,
     });
   }
 
@@ -488,6 +555,15 @@ export class Game {
     this.shop.setOpenSign(false);
     this.customers.enabled = false;
     this.customers.spawnT = 3;
+    const C = this.save.clock;
+    if (resume && C && C.day === this.save.day && C.open && C.hour > 8) {
+      // back to where you left the day
+      this.clock.open = true;
+      this.clock.hour = Math.min(C.hour, 21.2);
+      this.clock.shownHour = -1;
+      this.shop.setOpenSign(this.clock.hour < 21);
+      this.customers.enabled = this.clock.hour < 21;
+    }
     setTimeout(() => { if (!this.clock.open && this.state === 'play') this.ui.objective('Morning', 'Flip the door sign to OPEN'); }, 2600);
     platform.gameplayStart();
     this.updateGoal();
@@ -791,7 +867,13 @@ export class Game {
     });
   }
 
-  persist() { store.data = this.save; store.save(); }
+  persist() {
+    // the time of day goes into the save too, so a reload puts you back in the same afternoon
+    if (this.clock && ['play', 'barber', 'reaction'].includes(this.state)) this.save.clock = { day: this.save.day, hour: this.clock.hour, open: this.clock.open };
+    store.data = this.save;
+    store.save();
+    cloud.push(this.save, this.settings);
+  }
 
   updateGoal() {
     const s = this.save;
@@ -829,6 +911,12 @@ export class Game {
   get staff() { return [this.employee, this.employee2].filter(Boolean); }
 
   syncEmployee() {
+    // online, the extra chairs belong to the other barbers: staff take the day off
+    if (this.online?.active) {
+      if (this.employee) { this.employee.dispose(); this.employee = null; }
+      if (this.employee2) { this.employee2.dispose(); this.employee2 = null; }
+      return;
+    }
     if (this.owns('hireBarber') && !this.employee) this.employee = new Employee(this);
     if (!this.owns('hireBarber') && this.employee) { this.employee.dispose(); this.employee = null; }
     if (this.owns('hireBarber2') && !this.employee2) this.employee2 = new Employee(this, 'luca');
@@ -1178,6 +1266,7 @@ export class Game {
     this.servedToday = 0;
     const s = this.save;
     s.day++;
+    s.clock = null;
     this.persist();
     this.checkAchievements();
     this.rollEvent();
@@ -1245,7 +1334,16 @@ export class Game {
     this.updateCape(dt);
     // ---- player
     if (this.state === 'barber') this.barber.update(dt);
-    this.player.obstacles = this.customers.list.filter((c) => c.ch.sitW < 0.5).map((c) => c.ch.root.position);
+    this.player.obstacles = this.customers.list.filter((c) => c.ch.sitW < 0.5 && !(c.state === 'ejecting' && this.reactions.eject?.phase !== 'walk')).map((c) => c.ch.root.position)
+      .concat(this.street?.walkers?.map((w) => w.ch.root.position) || []);
+    // the front door opens for you when you walk up to it, from either side
+    {
+      const P = this.player.pos, dz = P.z - ROOM.z1;
+      if (this.state === 'play' && Math.abs(P.x - DOOR.x) < 0.75 && Math.abs(dz) < 0.9 && this.shop.doorSpring.target === 0) this.shop.openDoor(false, 1.0);
+      if (this.state === 'play' && Math.abs(P.x - DOOR.x) < 0.75 && Math.abs(dz) < 0.9) this.shop.doorCloseTimer = Math.max(this.shop.doorCloseTimer || 0, 0.6);
+      const out = dz > 0.35;
+      if (out !== this.playerOutside) { this.playerOutside = out; this.ambience?.setOutside(out ? 1 : 0.25); }
+    }
     if (!this.dir.cam.active && this.state !== 'barber') this.player.update(dt, input);
     else { this.player.arms.R.update(dt, new THREE.Vector3()); this.player.arms.L.update(dt, new THREE.Vector3()); }
     // ---- interaction
@@ -1273,6 +1371,7 @@ export class Game {
     const k = L.intensity / 26;
     hairLight.keyColor.value.setRGB(0.95 * k + 0.25, 0.85 * k + 0.22, 0.7 * k + 0.18);
     this.ambience?.update(this.time);
+    this.online.update(dt);
     if (this.state === 'play' || this.state === 'barber') this.save.playTime += dt;
     // last, after every camera move of the frame, so the showcased item sticks to the view
     this.itemFx.update(dt);

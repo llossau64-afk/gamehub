@@ -157,6 +157,7 @@ export class Player {
     this.sensitivity = 1;
     this.invertY = false;
     this.shake = 0;
+    this.kick = 0;      // a quick downward dip when you put the boot in
   }
 
   place(pos, yaw = 0, pitch = 0) {
@@ -196,7 +197,7 @@ export class Player {
     this.bobAmt = damp(this.bobAmt, clamp(speed / 2, 0, 1), 8, dt);
     this.bobT += dt * (5 + speed * 2.2);
     this.stepAcc += speed * dt;
-    if (this.stepAcc > 0.72) { this.stepAcc = 0; audio.footstep(this.shop.has('floorWood') ? 'wood' : 'tile', 0.7); }
+    if (this.stepAcc > 0.72) { this.stepAcc = 0; audio.footstep(this.pos.z > 2.95 ? 'stone' : this.shop.has('floorWood') ? 'wood' : 'tile', 0.7); }
     this.applyCamera(dt);
     const b = this.bobAmt;
     this.bobVec.set(Math.cos(this.bobT * 0.5) * 0.008 * b, -Math.abs(Math.sin(this.bobT * 0.5)) * 0.01 * b, 0);
@@ -210,9 +211,11 @@ export class Player {
     const bobY = Math.sin(this.bobT) * 0.022 * b;
     const bobX = Math.cos(this.bobT * 0.5) * 0.015 * b;
     this.shake = Math.max(0, this.shake - dt * 2);
+    this.kick = Math.max(0, this.kick - dt);
+    const kd = Math.sin(Math.min(1, this.kick / 0.35) * Math.PI) * 0.12;
     const sh = this.shake * this.shake;
     this.camera.position.set(this.pos.x + Math.cos(this.yaw) * bobX, this.eye + bobY + noise1(performance.now() * 0.03) * sh * 0.02, this.pos.z - Math.sin(this.yaw) * bobX);
-    this.camera.rotation.set(this.pitch + noise1(performance.now() * 0.02 + 5) * sh * 0.02, this.yaw, Math.sin(this.bobT * 0.5) * 0.004 * b, 'YXZ');
+    this.camera.rotation.set(this.pitch - kd + noise1(performance.now() * 0.02 + 5) * sh * 0.02, this.yaw, Math.sin(this.bobT * 0.5) * 0.004 * b, 'YXZ');
   }
 
   // camera points at a world position (used for focus moments)

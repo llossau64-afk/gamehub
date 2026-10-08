@@ -7,6 +7,7 @@ import { HEAD_C, REGIONS, REGION_ID, EDGE_REGIONS } from '../hair/hair.js';
 import { BEARD_ID } from '../hair/beard.js';
 import { GUARDS, stats as cutStats } from '../hair/styles.js';
 import { audio } from '../audio/audio.js';
+import { store } from '../core/save.js';
 import { inventory, applySkin } from './items.js';
 import { clamp, damp, dampAngle, rand, pick, chance, lerp, smooth } from '../core/util.js';
 
@@ -130,6 +131,8 @@ export class BarberMode {
       onGuard: (i) => this.setGuard(i),
       onFinish: () => this.requestFinish(),
       onMode: (m) => this.setMode(m),
+      clipSpeed: this.game.settings.clipSpeed ?? 0.45,
+      onSpeed: (v) => this.setSpeed(v),
       refImg: customer.refImg,
       onRef: () => this.game.ui.showReference(customer.cut, customer.refImg),
       onClose: () => this.toggleClose(),
@@ -332,7 +335,10 @@ export class BarberMode {
       let pos;
       if (hit) {
         const len = hit.sys.lengthAt(hit.phi, hit.theta) * 0.06;
-        n.copy(hit.normal);
+        // a smoothed surface normal: the tool rides over the head instead of snapping between texels
+        this.nSm ||= hit.normal.clone();
+        this.nSm.lerp(hit.normal, 1 - Math.exp(-10 * dt)).normalize();
+        n.copy(this.nSm);
         const towardCrown = head.clone().add(new THREE.Vector3(0, 0.15, 0)).sub(hit.point);
         towardCrown.addScaledVector(n, -towardCrown.dot(n)).normalize();
         const side = new THREE.Vector3().crossVectors(n, towardCrown).normalize();
@@ -376,19 +382,22 @@ export class BarberMode {
       const x = new THREE.Vector3().crossVectors(yv, z).normalize();
       yv.crossVectors(z, x);
       const q = new THREE.Quaternion().setFromRotationMatrix(_m.makeBasis(x, yv, z));
+      // resolve the head collision on the TARGET pose, then glide there (no push/pull fight)
+      toolObj.position.copy(pos);
+      toolObj.quaternion.copy(q);
+      const push = this.depenetrate(toolObj);
+      if (push) pos.add(push);
       if (!this.toolInit || this.swapT > 0.3) { this.toolPos.copy(pos); this.toolQuat.copy(q); this.toolInit = true; }
-      this.toolPos.lerp(pos, 1 - Math.exp(-28 * dt));
-      this.toolQuat.slerp(q, 1 - Math.exp(-16 * dt));
+      this.toolPos.lerp(pos, 1 - Math.exp(-18 * dt));
+      this.toolQuat.slerp(q, 1 - Math.exp(-10 * dt));
       toolObj.position.copy(this.toolPos);
       toolObj.quaternion.copy(this.toolQuat);
-      // never through the head: push the whole tool out of the skull (and jaw) if any part pokes in
-      const push = this.depenetrate(toolObj);
-      if (push) this.toolPos.add(push);
       const pop = 1 - this.swapT / 0.35;
       toolObj.scale.setScalar(0.6 + 0.4 * Math.min(1, pop * 1.2));
       if (this.power) {
-        toolObj.position.x += (Math.random() - 0.5) * 0.0012;
-        toolObj.position.y += (Math.random() - 0.5) * 0.0012;
+        // a fine motor hum, not a shake
+        const tt = performance.now() * 0.001;
+        toolObj.position.addScaledVector(n, Math.sin(tt * 190) * 0.00025);
       }
       if (this.tool === 'clipper') this.guardObj.visible = this.guard >= 2;
       // the barber's hand follows the tool
@@ -407,9 +416,9 @@ export class BarberMode {
         let removed = 0;
         const sys = hit.sys, beard = sys !== c.hair;
         if (this.tool === 'clipper' && this.power) {
-          removed = sys.clip(hit.phi, hit.theta, GUARDS[this.guard].len, fx.clipperRate, dt, beard ? undefined : 0.021);
+          removed = sys.clip(hit.phi, hit.theta, GUARDS[this.guard].len, fx.clipperRate * this.speedK(), dt, beard ? undefined : 0.021);
         } else if (this.tool === 'trimmer' && this.power) {
-          removed = sys.trim(hit.phi, hit.theta, 3.2, dt, beard ? undefined : 0.009);
+          removed = sys.trim(hit.phi, hit.theta, 3.2 * this.speedK(), dt, beard ? undefined : 0.009);
         } else if (this.tool === 'scissors') {
           this.snipT -= dt;
           if (this.snipT <= 0) {
@@ -552,6 +561,15 @@ export class BarberMode {
     const h = c.hair.dyeShare();
     if (c.beard && c.cut.beard) return (h + c.beard.dyeShare()) / 2;
     return h;
+  }
+
+  // clipper/trimmer speed from the settings (0.2 .. 1), remembered between sessions
+  speedK() { return 0.3 + (this.game.settings.clipSpeed ?? 0.45) * 1.4; }
+
+  setSpeed(v) {
+    this.game.settings.clipSpeed = clamp(v, 0, 1);
+    store.saveSettings();
+    this.game.ui.setClipSpeed?.(this.game.settings.clipSpeed);
   }
 
   // ---------------------------------------------------------------- views

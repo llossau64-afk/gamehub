@@ -688,3 +688,28 @@
 .title-card.out { animation: igOut .8s forwards; }
 @keyframes tcIn { from { opacity: 0; filter: blur(8px); transform: translateY(12px); letter-spacing: .2em; } }
 @keyframes tcLine { to { width: min(520px, 70vw); } }
+
+.speed { position: absolute; right: 0; bottom: calc(100% + 8px); display: flex; flex-direction: row; align-items: center; gap: 8px; padding: 6px 12px; background: var(--paper); border-radius: 6px; box-shadow: var(--shadow); pointer-events: auto; }
+.speed .gl { font-family: var(--cond); font-weight: 700; font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--ink-2); }
+.speed input { width: 96px; accent-color: var(--red); }
+.speed .sv { font-family: var(--cond); font-weight: 800; font-size: 12px; min-width: 52px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink); }
+
+/* online co-op */
+.mbtn.online { background: rgba(74,163,223,.16); }
+.mbtn.online.on { background: rgba(74,163,223,.32); }
+.online-p { display: flex; flex-direction: column; gap: 12px; max-width: 460px; }
+.online-p .op-lead { margin: 0; opacity: .85; line-height: 1.45; }
+.online-p .op-f { display: flex; flex-direction: column; gap: 4px; font-family: var(--cond); letter-spacing: .1em; text-transform: uppercase; font-size: 13px; opacity: .9; }
+.online-p input { font: 600 20px var(--cond); letter-spacing: .08em; padding: 10px 12px; border-radius: 6px; border: 1px solid rgba(34,26,21,.25); background: #fffaf0; color: var(--ink); }
+.online-p .mbtn { color: var(--paper); background: var(--ink); }
+.online-p .mbtn.primary { background: #8f2f2a; }
+.online-badge.hide { display: none; }
+.online-p .op-code-in { text-transform: uppercase; letter-spacing: .3em; }
+.online-p .op-hint { font-size: 14px; opacity: .7; line-height: 1.4; }
+.online-p .op-err { color: #b8302b; min-height: 1em; font-size: 14px; }
+.online-p .op-code { display: flex; align-items: baseline; gap: 14px; }
+.online-p .op-code b { font: 700 40px var(--cond); letter-spacing: .3em; color: var(--gold, #d1a956); }
+.online-badge { position: absolute; left: calc(18px + var(--safe-l)); top: calc(104px + var(--safe-t)); background: rgba(20,16,12,.62); border-radius: 8px; padding: 8px 12px; font-family: var(--cond); color: var(--paper); z-index: 12; pointer-events: none; }
+.online-badge .ob-k { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; opacity: .7; margin-bottom: 4px; }
+.online-badge .ob-p { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
+.online-badge .ob-p i { width: 9px; height: 9px; border-radius: 50%; }

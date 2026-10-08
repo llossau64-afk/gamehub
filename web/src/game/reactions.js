@@ -197,19 +197,280 @@ export class Reactions {
     await dir.wait(Math.max(0.6, d - 0.4));
     g.enterFP();
     g.ui.toast(`${c.name} threw ${'$' + money} on the floor`, 'Rage');
-    // storms out, kicking the bin on the way when it is near the path
-    c.state = 'leaving';
+    // now he stomps slowly towards the door, muttering. This is your moment.
+    this.startEject(c);
+  }
+
+  // ---------------------------------------------------------------- the bouncer
+  // phases: walk (slowly to the door, can be hit) -> fly (knocked through the air)
+  // -> down (lying there, can be grabbed) -> held (in your hands) -> fly ... -> flee
+  startEject(c) {
+    const g = this.game, ch = c.ch;
+    c.state = 'ejecting';
     ch.lookAt(null);
     ch.onStomp = (who) => g.physics.impulse(who.root.position, 0.8, 1.2, 0.8);
-    ch.gesture('rage', { dur: 1.2 });
-    await dir.wait(0.6);
-    await ch.walkTo([SPOTS.hub], 'storm');
-    // passing by the window: one more glare at the barber
-    await ch.walkTo([SPOTS.doorIn], 'storm');
+    this.eject = { c, phase: 'walk', t: 0, mutterT: 1.2, hits: 0 };
+    ch.walkTo([SPOTS.hub, SPOTS.doorIn], 'stomp');
+    g.ui.tip(g.input.touch ? 'Throw him out: walk up and tap' : 'Want them gone faster? Walk up — kick or punch (E)', 'E');
+    this.later(4, () => g.ui.tip(null));
+  }
+
+  // what the bouncer prompt says right now (null = nothing to do)
+  bouncerLabel() {
+    const E = this.eject;
+    if (!E || this.game.state !== 'play') return null;
+    const g = this.game, ch = E.c.ch;
+    const d = (E.center ? E.center.clone().setY(0) : ch.root.position).distanceTo(g.player.pos);
+    if (E.phase === 'walk' && d < 1.7) {
+      const f = V(Math.sin(ch.yaw), 0, Math.cos(ch.yaw));
+      const toMe = g.player.pos.clone().sub(ch.root.position).setY(0).normalize();
+      return f.dot(toMe) < 0 ? 'Kick in the butt' : 'Punch in the face';
+    }
+    if (E.phase === 'down' && d < 1.6) return 'Grab';
+    if (E.phase === 'held') return 'Throw out!';
+    return null;
+  }
+
+  bouncerPos() {
+    const E = this.eject;
+    if (!E) return V(0, -9, 0);
+    return (E.center || E.c.ch.root.position).clone().setY(E.phase === 'down' ? 0.25 : 1.0);
+  }
+
+  bouncerAction() {
+    const E = this.eject;
+    if (!E) return;
+    const g = this.game, ch = E.c.ch;
+    if (E.phase === 'walk') {
+      const f = V(Math.sin(ch.yaw), 0, Math.cos(ch.yaw));
+      const away = ch.root.position.clone().sub(g.player.pos).setY(0).normalize();
+      const behind = f.dot(away) > 0;
+      const R = g.player.arms.R;
+      if (behind) {
+        // the boot: camera dips, a whoosh, and he flies face-first
+        g.player.shake = 0.5;
+        g.player.kick = 0.35;
+        audio.whoosh(1);
+        this.later(0.12, () => {
+          audio.thud(1); audio.tone(180, 0.25, { type: 'square', vol: 0.06, slide: 2.6 });
+          E.c.say(pick(['OWWW! MY BEHIND!', 'HEY! That’s assault!', 'You can’t kick customers!!', 'AAAAAH!']), null, 0, { pitch: ch.voice.pitch * 1.5, rate: 1.5, vol: 0.14 });
+          this.launch(E, away.multiplyScalar(4.6).add(V(0, 3.6, 0)), 'faceplant');
+          g.save.stats.kicks = (g.save.stats.kicks || 0) + 1;
+        });
+      } else {
+        // the fist
+        R.set({ visible: true, pos: V(0.12, -0.25, -0.3), fingers: V(0, 0.1, -1), palm: V(-1, 0, 0), pose: 'fist', speed: 40 });
+        this.later(0.08, () => R.set({ pos: V(0.05, -0.12, -0.62) }));
+        this.later(0.16, () => {
+          audio.thud(1); audio.noiseBurst(0.08, { vol: 0.25, freq: 900, q: 1 });
+          g.player.shake = 0.45;
+          E.c.say(pick(['OOF!', 'My NOSE!', 'You punched me?!', 'Ow ow ow ow!']), null, 0, { pitch: ch.voice.pitch * 1.4, rate: 1.4, vol: 0.14 });
+          this.game.exclaim.show(ch, 2.6, 'sparkle');
+          this.launch(E, away.multiplyScalar(3.4).add(V(0, 2.6, 0)), 'backflop');
+          g.save.stats.punches = (g.save.stats.punches || 0) + 1;
+        });
+        this.later(0.42, () => R.set({ pos: V(0.2, -0.6, -0.25), speed: 10 }));
+        this.later(0.8, () => R.set({ visible: false }));
+      }
+      E.phase = 'windup';
+      g.checkAchievements();
+    } else if (E.phase === 'down') {
+      E.phase = 'held';
+      E.t = 0;
+      audio.cloth(0.9, 0.3);
+      E.c.say(pick(['Put me down!', 'Hey hey hey!', 'Don’t you dare!', 'MOMMY!']), null, 0, { pitch: ch.voice.pitch * 1.45, rate: 1.4, vol: 0.13 });
+      const L = g.player.arms.L, R = g.player.arms.R;
+      L.set({ visible: true, pos: V(-0.18, -0.2, -0.45), fingers: V(0.3, 0, -1), palm: V(1, 0, 0), pose: 'grip', speed: 12 });
+      R.set({ visible: true, pos: V(0.18, -0.2, -0.45), fingers: V(-0.3, 0, -1), palm: V(-1, 0, 0), pose: 'grip', speed: 12 });
+    } else if (E.phase === 'held') {
+      // throw along the view
+      g.camera.updateMatrixWorld();
+      const fwd = V(0, 0, -1).applyQuaternion(g.camera.getWorldQuaternion(new THREE.Quaternion()));
+      fwd.y = Math.max(0.15, fwd.y + 0.35);
+      fwd.normalize();
+      audio.whoosh(1.2);
+      g.player.shake = 0.3;
+      g.player.arms.L.set({ pos: V(-0.12, -0.05, -0.7), speed: 30 });
+      g.player.arms.R.set({ pos: V(0.12, -0.05, -0.7), speed: 30 });
+      this.later(0.35, () => { g.player.arms.L.set({ visible: false }); g.player.arms.R.set({ visible: false }); });
+      E.c.say('WAAAAAAAH!', null, 0, { pitch: ch.voice.pitch * 1.6, rate: 1.1, vol: 0.14 });
+      this.launch(E, fwd.multiplyScalar(7.5), 'tumble');
+    }
+  }
+
+  launch(E, vel, style) {
+    const ch = E.c.ch;
+    ch.stop();
+    ch.path = [];
+    ch.faceYaw = null;
+    if (!E.center) this.bodyInit(E);
+    E.phase = 'fly';
+    E.vel = vel.clone();
+    E.style = style;
+    E.out = E.out || false;
+    E.hits++;
+    ch.setEmotion(style === 'tumble' ? 'horrified' : 'wince', 6);
+    // he flies in the direction of the hit; backflop = facing the hit
+    if (style !== 'tumble') {
+      const yaw = Math.atan2(vel.x, vel.z);
+      ch.yaw = style === 'backflop' ? yaw + Math.PI : yaw;
+    }
+    const g = this.game;
+    if (E.center.z > 0.8 && vel.z > 0) g.shop.openDoor(true, 2.2);
+  }
+
+  // the body is simulated as one point at the hips; the feet (= the rig's root) follow
+  bodyInit(E) {
+    const ch = E.c.ch;
+    ch.root.rotation.order = 'YXZ';
+    E.rx = 0; E.rz = 0;
+    E.center = ch.root.position.clone().setY(ch.hipsY || 0.9);
+  }
+
+  bodyApply(E) {
+    const ch = E.c.ch, h = ch.hipsY || 0.9;
+    const off = V(0, h, 0).applyEuler(new THREE.Euler(E.rx, ch.yaw, E.rz, 'YXZ'));
+    ch.root.position.x = E.center.x - off.x;
+    ch.root.position.z = E.center.z - off.z;
+    ch.bounce = E.center.y - off.y;
+    ch.root.rotation.set(E.rx, ch.yaw, E.rz, 'YXZ');
+  }
+
+  updateEject(dt) {
+    const E = this.eject;
+    if (!E) return;
+    const g = this.game, c = E.c, ch = c.ch, p = ch.root.position;
+    E.t += dt;
+    const k = (l) => 1 - Math.exp(-l * dt);
+    const flail = (f) => {
+      const t = ch.t * 16;
+      ch.extra.UpperArmL = [-1.6 + Math.sin(t) * 0.8 * f, 0, 0.6 * f]; ch.extra.UpperArmR = [-1.6 + Math.sin(t + 2) * 0.8 * f, 0, -0.6 * f];
+      ch.extra.ThighL = [-0.6 + Math.sin(t * 1.1) * 0.7 * f, 0, 0]; ch.extra.ThighR = [-0.6 + Math.sin(t * 1.1 + 3) * 0.7 * f, 0, 0];
+      ch.extra.ShinL = [0.8, 0, 0]; ch.extra.ShinR = [0.8, 0, 0];
+    };
+    if (E.phase === 'walk') {
+      E.mutterT -= dt;
+      if (E.mutterT < 0) { E.mutterT = rand(2.2, 3.5); c.say(pick(['Unbelievable...', 'Worst. Barber. Ever.', 'I’m posting a review...', 'One star. ONE.', 'My poor head...']), null, 0, { rate: 1.2 }); }
+      // reached the door without being touched: the classic exit
+      if (!ch.path.length && p.distanceTo(SPOTS.doorIn) < 0.4) { this.eject = null; this.slamExit(c).catch((e) => console.error(e)); }
+      return;
+    }
+    if (E.phase === 'windup') return;
+    const C = E.center;
+    if (E.phase === 'fly') {
+      E.vel.y -= 9.8 * dt;
+      C.addScaledVector(E.vel, dt);
+      // body attitude: head first, or cartwheeling when thrown
+      if (E.style === 'tumble') E.rx += 7 * dt;
+      else E.rx += ((E.style === 'faceplant' ? 1.2 : -1.2) - E.rx) * k(4);
+      E.rz += (0 - E.rz) * k(5);
+      flail(1);
+      // walls, except the open doorway
+      const R = ROOM, m = 0.35;
+      const outside = C.z > R.z1 + 0.15;
+      const inDoor = Math.abs(C.x - 1.9) < 0.5;
+      if (!outside) {
+        if (C.x < R.x0 + m) { C.x = R.x0 + m; E.vel.x *= -0.35; this.bonk(E); }
+        if (C.x > R.x1 - m && !(g.owns('extension') && C.z > 1.05 && C.z < 2.3)) { C.x = R.x1 - m; E.vel.x *= -0.35; this.bonk(E); }
+        if (C.z < R.z0 + m) { C.z = R.z0 + m; E.vel.z *= -0.35; this.bonk(E); }
+        if (C.z > R.z1 - m && !inDoor) { C.z = R.z1 - m; E.vel.z *= -0.35; this.bonk(E); }
+        if (C.z > R.z1 - 1.2 && inDoor) g.shop.openDoor(true, 2);
+        // through the doorway: squeeze towards its middle
+        if (C.z > R.z1 - 0.4 && inDoor) C.x += (1.9 - C.x) * k(10);
+      } else {
+        C.z = Math.min(C.z, R.z1 + 5);
+        if (!E.out) { E.out = true; g.save.stats.bounced = (g.save.stats.bounced || 0) + 1; g.ui.toast('Thrown out!', 'Bouncer'); g.checkAchievements(); audio.cheer?.(); }
+      }
+      if (C.y <= 0.16 && E.vel.y < 0) {
+        C.y = 0.14;
+        audio.thud(1); audio.cloth(1, 0.3);
+        g.physics.impulse(C, 1.0, 1.4, 0.6);
+        g.player.shake = Math.max(g.player.shake, 0.25);
+        E.phase = 'down';
+        E.t = 0;
+        // lie on the side he's closest to
+        const r = ((E.rx % (Math.PI * 2)) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+        E.rx = r;
+        E.rxT = r >= 0 ? Math.PI / 2 : -Math.PI / 2;
+        ch.setEmotion('devastated', 4);
+        g.exclaim.show(ch, 2.4, 'sparkle');
+      }
+    } else if (E.phase === 'down') {
+      // lying there, legs twitching; gets up on his own after a while
+      E.rx += (E.rxT - E.rx) * k(10);
+      E.rz += (0 - E.rz) * k(10);
+      C.y = 0.14;
+      const t = ch.t * 7;
+      ch.extra = { ThighL: [Math.sin(t) * 0.2, 0, 0], ThighR: [Math.sin(t + 1) * 0.2, 0, 0], UpperArmL: [-0.3, 0, 1.2], UpperArmR: [-0.3, 0, -1.2] };
+      if (E.t > (E.out ? 1.6 : 3.4)) this.getUp(E);
+    } else if (E.phase === 'held') {
+      // carried in front of you, across your arms, kicking and screaming
+      const cam = g.camera;
+      cam.updateMatrixWorld();
+      const tgt = V(0, -0.42, -0.85).applyMatrix4(cam.matrixWorld);
+      tgt.y = Math.max(0.5, tgt.y);
+      C.lerp(tgt, k(12));
+      const camYaw = Math.atan2(-cam.matrixWorld.elements[8], -cam.matrixWorld.elements[10]);
+      ch.yaw = camYaw;
+      E.rx += (0 - E.rx) * k(10);
+      E.rz += (Math.PI / 2 - E.rz) * k(10);
+      flail(1.2);
+      E.yell = (E.yell ?? 1.5) - dt;
+      if (E.yell < 0) { E.yell = rand(1.4, 2.4); c.say(pick(['LET ME GO!', 'I’ll sue!', 'This is a hair salon, not a wrestling ring!', 'HELP!']), null, 0, { pitch: ch.voice.pitch * 1.5, rate: 1.4, vol: 0.12 }); }
+    } else if (E.phase === 'rise') {
+      const u = Math.min(1, E.t / 0.7);
+      E.rx *= 1 - k(8); E.rz *= 1 - k(8);
+      C.y += ((ch.hipsY || 0.9) - C.y) * k(8);
+      if (u >= 1) {
+        E.rx = 0; E.rz = 0; C.y = ch.hipsY || 0.9;
+        this.bodyApply(E);
+        ch.root.rotation.set(0, ch.yaw, 0, 'XYZ');
+        ch.bounce = 0;
+        ch.extra = {};
+        E.phase = 'flee';
+        c.say(pick(['I’M LEAVING! I’M LEAVING!', 'You’re CRAZY!', 'Never coming back! NEVER!']), 'horrified', 2, { pitch: ch.voice.pitch * 1.4, rate: 1.5, vol: 0.14 });
+        const outside = p.z > ROOM.z1 + 0.2;
+        const route = outside ? [V(p.x - 3, 0, 4.0), V(-12, 0, 4.1)] : [SPOTS.doorIn, SPOTS.doorStep, V(0, 0, 4.0), V(-12, 0, 4.1)];
+        if (!outside) g.shop.openDoor(true, 2.5);
+        ch.walkTo(route, 'run').then(() => this.finishEject(c));
+        return;
+      }
+    } else return;
+    this.bodyApply(E);
+  }
+
+  getUp(E) {
+    E.phase = 'rise';
+    E.t = 0;
+    audio.cloth(0.7, 0.4);
+  }
+
+  bonk(E) {
+    if (E.bonked && E.t - E.bonked < 0.3) return;
+    E.bonked = E.t;
+    audio.thud(1);
+    audio.tone(320, 0.2, { type: 'sine', vol: 0.08, slide: 0.5 });
+    this.game.player.shake = 0.3;
+  }
+
+  finishEject(c) {
+    const g = this.game;
+    this.eject = null;
+    c.ch.extra = {};
+    c.ch.root.rotation.order = 'XYZ';
+    g.customers.remove(c);
+    this.later(1.5, () => {
+      const n = g.customers.nextWaiting();
+      if (n && !g.customers.inChair && g.state === 'play') g.customers.toChair(n);
+    });
+  }
+
+  // nobody stopped him: bin, door slam, a fist through the window
+  async slamExit(c) {
+    const g = this.game, dir = g.dir, ch = c.ch;
     this.kickBin(ch);
     g.shop.openDoor(true, 0.6);
     await ch.walkTo([SPOTS.doorStep], 'storm');
-    // slam!
     this.later(0.35, () => {
       g.shop.slamDoor?.();
       audio.doorSlam();
@@ -217,18 +478,12 @@ export class Reactions {
       g.physics.impulse(V(1.9, 0, 2.4), 2.2, 1.6, 0.6);
     });
     await ch.walkTo([V(1.2, 0, 3.7)], 'storm');
-    // outside the window: shakes his fist one last time
     await ch.faceTo(V(0.6, 0, 0));
     ch.gesture('rage', { dur: 1.6 });
     c.say('NEVER!', null, 0, { pitch: ch.voice.pitch * 1.35, rate: 1.4, vol: 0.12 });
     await dir.wait(1.5).catch(() => {});
     await ch.walkTo([V(-8, 0, 4.1)], 'storm');
-    g.customers.remove(c);
-    // call the next one
-    setTimeout(() => {
-      const n = g.customers.nextWaiting();
-      if (n && !g.customers.inChair && g.state === 'play') g.customers.toChair(n);
-    }, 1500);
+    this.finishEject(c);
   }
 
   // how the others leave after paying
@@ -298,6 +553,7 @@ export class Reactions {
 
   update(dt) {
     const g = this.game;
+    this.updateEject(dt);
     for (let i = this.timers.length - 1; i >= 0; i--) {
       const T = this.timers[i];
       T.t -= dt;

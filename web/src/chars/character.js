@@ -302,7 +302,7 @@ export class Character {
     const spd = this.speed;
     const walkW = clamp(spd / 1.2, 0, 1) * (1 - this.sitW);
     const runW = clamp((spd - 2.2) / 1.2, 0, 1);
-    const fast = this.gait === 'speedwalk' || this.gait === 'storm';
+    const fast = this.gait === 'speedwalk' || this.gait === 'storm' || this.gait === 'stomp';
     const gait = this.gait;
 
     // --- idle (always, faded under walking)
@@ -348,7 +348,7 @@ export class Character {
         add('ThighL', -Math.max(0, s) * 0.5 * walkW, 0, 0); add('ThighR', -Math.max(0, -s) * 0.5 * walkW, 0, 0);
         add('UpperArmL', -Math.max(0, -s) * 0.7 * walkW, 0, 0.15 * walkW); add('UpperArmR', -Math.max(0, s) * 0.7 * walkW, 0, -0.15 * walkW);
         add('Head', -0.1 * walkW, 0, Math.sin(ph) * 0.1 * walkW);
-      } else if (gait === 'storm') {
+      } else if ((gait === 'storm' || gait === 'stomp')) {
         // angry stomp: stiff arms, chest forward, head down
         add('Spine', 0.12 * walkW, 0, 0); add('Head', 0.12 * walkW, 0, 0);
         add('UpperArmL', 0, 0, 0.12 * walkW); add('UpperArmR', 0, 0, -0.12 * walkW);
@@ -501,7 +501,7 @@ export class Character {
       const dx = tgt.x - pos.x, dz = tgt.z - pos.z;
       const d = Math.hypot(dx, dz);
       const last = this.path.length === 1;
-      const gs = { walk: 1.2, speedwalk: 2.1, run: 3.6, stroll: 0.85, skip: 1.6, storm: 1.9, sulk: 0.6 }[this.gait] || 1.2;
+      const gs = { walk: 1.2, speedwalk: 2.1, run: 3.6, stroll: 0.85, skip: 1.6, storm: 1.9, sulk: 0.6, stomp: 0.75 }[this.gait] || 1.2;
       want = last ? Math.min(gs, d * 2.2 + 0.25) : gs;
       if (d < (last ? 0.05 : 0.3)) {
         this.path.shift();
@@ -521,7 +521,7 @@ export class Character {
     this.speed = damp(this.speed, want, this.gait === 'run' ? 4 : 6, dt);
     if (this.speed < 0.01) this.speed = 0;
     // gait phase
-    const stride = { walk: 0.62, speedwalk: 0.42, run: 0.95, stroll: 0.55, skip: 0.55, storm: 0.45, sulk: 0.42 }[this.gait] || 0.62;
+    const stride = { walk: 0.62, speedwalk: 0.42, run: 0.95, stroll: 0.55, skip: 0.55, storm: 0.45, sulk: 0.42, stomp: 0.4 }[this.gait] || 0.62;
     const prev = this.phase;
     this.phase += dt * this.speed / stride * Math.PI;
     if (this.speed > 0.2 && Math.floor(prev / Math.PI) !== Math.floor(this.phase / Math.PI)) {

@@ -27,7 +27,7 @@ export function defaultSave() {
 export function defaultSettings() {
   return {
     master: 0.9, music: 0.6, sfx: 0.9, amb: 0.7, voice: 0.85,
-    quality: 'auto', sensitivity: 1, invertY: false, subtitles: true, reduceMotion: false,
+    quality: 'auto', sensitivity: 1, invertY: false, subtitles: true, reduceMotion: false, clipSpeed: 0.45,
   };
 }
 
@@ -53,6 +53,7 @@ export const store = {
   },
 
   save() {
+    this.data.savedAt = Date.now();
     try { platform.save(KEY, JSON.stringify(this.data)); } catch (e) { /* storage blocked: keep playing */ }
   },
 
@@ -73,6 +74,15 @@ export const store = {
   },
 
   get hasProgress() { return this.data.started; },
+
+  // adopt a save that came from the cloud (newer than ours)
+  adopt(d, settings) {
+    this.data = migrate(Object.assign(defaultSave(), d));
+    this.data.stats = Object.assign(defaultSave().stats, d.stats || {});
+    this.data.equipped = Object.assign(defaultSave().equipped, d.equipped || {});
+    if (settings) this.settings = Object.assign(defaultSettings(), settings);
+    try { platform.save(KEY, JSON.stringify(this.data)); platform.save(SETTINGS_KEY, JSON.stringify(this.settings)); } catch (e) { /* */ }
+  },
 };
 
 function migrate(d) {

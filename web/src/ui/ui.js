@@ -98,6 +98,7 @@ export class UI {
     };
     if (opts.hasSave) add('Continue', opts.onContinue, 'primary', opts.saveInfo);
     add('New Game', opts.onNew, opts.hasSave ? '' : 'primary');
+    if (opts.onOnline) add(opts.online ? `Online · ${opts.online}` : 'Play Online', opts.onOnline, opts.online ? 'online on' : 'online', opts.online ? 'connected' : 'co-op · 3 barbers');
     add('Upgrades', opts.onUpgrades);
     add('Achievements', opts.onAchievements);
     add('Settings', opts.onSettings);
@@ -105,6 +106,51 @@ export class UI {
     this.menuEl = el;
     el.style.opacity = 0;
     requestAnimationFrame(() => { el.style.transition = 'opacity .8s'; el.style.opacity = 1; });
+  }
+
+  onlinePanel(o) {
+    const body = h(`<div class="online-p">
+      <p class="op-lead">Cut hair together: up to <b>3 barbers</b> in one shop. Everyone keeps their own customers, money and day — you'll see each other working at the extra chairs.</p>
+      ${o.active ? `<div class="op-code"><span>Your shop code</span><b>${o.code}</b></div>
+        <button class="mbtn op-leave">Leave the online shop</button>` : `
+      <label class="op-f"><span>Your name</span><input class="op-nick" maxlength="16" placeholder="Barber"></label>
+      <label class="op-f"><span>Shop code</span><input class="op-code-in" maxlength="8" placeholder="ABCD"></label>
+      <div class="op-hint">Make up a code and tell it to your colleagues — they open the same link, press <b>Play Online</b> and type the same code.</div>
+      <div class="op-err"></div>
+      <button class="mbtn primary op-join">Open / join shop</button>`}
+    </div>`);
+    const nick = body.querySelector('.op-nick'), code = body.querySelector('.op-code-in');
+    if (nick) { nick.value = o.nick; code.value = o.suggest; }
+    body.querySelector('.op-join')?.addEventListener('click', async (e) => {
+      const b = e.currentTarget;
+      const c = code.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const n = nick.value.trim().replace(/[^\p{L}\p{N} _.\-!?']/gu, '').slice(0, 16) || 'Barber';
+      if (c.length < 3) { body.querySelector('.op-err').textContent = 'The code needs at least 3 letters or numbers.'; return; }
+      b.disabled = true; b.textContent = 'Connecting…';
+      const err = await o.onJoin(c, n);
+      if (err) { body.querySelector('.op-err').textContent = err; b.disabled = false; b.textContent = 'Open / join shop'; }
+    });
+    body.querySelector('.op-leave')?.addEventListener('click', () => o.onLeave());
+    // typing in the inputs must not move the player / trigger shortcuts
+    body.addEventListener('keydown', (e) => e.stopPropagation());
+    this.panel('Co-op', 'Online shop', body);
+  }
+
+  // small badge with who's in the shop
+  setOnline(info) {
+    this.onlineEl?.remove();
+    this.onlineEl = null;
+    if (!info) return;
+    const el = h(`<div class="online-badge"><div class="ob-k">Online · ${info.code}</div></div>`);
+    for (const p of info.players) {
+      const row = h('<div class="ob-p"><i></i><span></span></div>');
+      row.querySelector('i').style.background = p.col;
+      row.querySelector('span').textContent = p.nick + (p.me ? ' (you)' : '');
+      el.append(row);
+    }
+    if (this.hud.classList.contains('off')) el.classList.add('hide');
+    this.root.append(el);
+    this.onlineEl = el;
   }
 
   hideMenu() { if (this.menuEl) { this.menuEl.remove(); this.menuEl = null; } }
@@ -499,6 +545,7 @@ export class UI {
 
   showHud(on, opts = {}) {
     this.hud.classList.toggle('off', !on);
+    this.onlineEl?.classList.toggle('hide', !on);
     this.hud.querySelector('.hud-tr').style.display = opts.buttons === false ? 'none' : '';
     this.crossEl.style.display = opts.crosshair === false ? 'none' : '';
   }
@@ -648,6 +695,15 @@ export class UI {
     });
     tools.append(guards);
     this.guardsEl = guards;
+    // motor speed: how fast the clipper and trimmer take hair off (saved)
+    const sp = h(`<div class="speed"><div class="gl">Speed</div><input type="range" min="0" max="1" step="0.05" value="${cfg.clipSpeed ?? 0.45}"><div class="sv"></div></div>`);
+    const spIn = sp.querySelector('input');
+    const lbl = (v) => { sp.querySelector('.sv').textContent = v < 0.25 ? 'Slow' : v < 0.6 ? 'Normal' : v < 0.85 ? 'Fast' : 'Turbo'; };
+    lbl(+spIn.value);
+    spIn.addEventListener('input', () => { lbl(+spIn.value); cfg.onSpeed?.(+spIn.value); });
+    spIn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    tools.append(sp);
+    this.speedEl = sp;
     el.querySelector('.finish').addEventListener('click', cfg.onFinish);
     this.finishBtn = el.querySelector('.finish');
     if (this.touch) this.finishBtn.querySelector('small').remove();
@@ -723,6 +779,7 @@ export class UI {
     this.powerBtn.classList.toggle('on', !!st.power);
     this.powerBtn.style.display = st.electric ? '' : 'none';
     this.guardsEl.style.display = st.tool === 'clipper' ? '' : 'none';
+    if (this.speedEl) this.speedEl.style.display = st.tool === 'clipper' || st.tool === 'trimmer' ? '' : 'none';
     this.guardsEl.querySelectorAll('button').forEach((b) => b.classList.toggle('on', +b.dataset.i === st.guard));
     const cut = st.cut;
     for (const [r, row] of Object.entries(this.regionEls)) {

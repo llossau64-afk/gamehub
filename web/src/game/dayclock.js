@@ -71,6 +71,8 @@ export class DayClock {
         g.endOfDay();
       }
     }
+    // every full game hour the day is saved (local + this link's cloud save)
+    if (this.open && Math.floor(this.hour) !== this.savedHour) { if (this.savedHour !== undefined) g.persist(); this.savedHour = Math.floor(this.hour); }
     if (Math.floor(this.hour * 4) !== this.shownHour) {
       this.shownHour = Math.floor(this.hour * 4);
       this.applyLight();

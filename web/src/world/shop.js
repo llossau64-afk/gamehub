@@ -6,6 +6,7 @@ import { spawnProp, part, setSpecialMaterial, meshesByMaterial } from './props.j
 import { propMaterial, addDetail, shared } from '../render/materials.js';
 const propColor = (n) => propMaterial(n).color;
 import * as T from '../render/textures.js';
+import { SHOPS, shopWindowTexture, shopSignTexture } from '../render/shopfronts.js';
 import { Spring, clamp, rand, damp, noise1 } from '../core/util.js';
 import { audio } from '../audio/audio.js';
 import menuPosterUrl from '../assets/menu-poster.jpg?inline';
@@ -309,15 +310,31 @@ export class Shop {
     // colliders (player)
     const annexOwned = () => this.has('extension');
     this.colliders.push(
-      { x0: -99, x1: R.x0 + 0.25, z0: -99, z1: 99 },
+      { x0: -99, x1: R.x0 + 0.25, z0: -99, z1: R.z1 },
       // right wall: solid, except through the archway once the extension is open
-      { x0: R.x1 - 0.25, x1: 99, z0: -99, z1: ANNEX.arch0 + 0.2 }, { x0: R.x1 - 0.25, x1: 99, z0: ANNEX.arch1 - 0.2, z1: 99 },
+      { x0: R.x1 - 0.25, x1: 99, z0: -99, z1: ANNEX.arch0 + 0.2 }, { x0: R.x1 - 0.25, x1: 99, z0: ANNEX.arch1 - 0.2, z1: R.z1 },
       { x0: R.x1 - 0.25, x1: 99, z0: ANNEX.arch0, z1: ANNEX.arch1, active: () => !annexOwned() },
       // extension room bounds
-      { x0: ANNEX.x1 - 0.25, x1: 99, z0: -99, z1: 99, active: annexOwned },
+      { x0: ANNEX.x1 - 0.25, x1: 99, z0: -99, z1: R.z1, active: annexOwned },
       { x0: R.x1, x1: 99, z0: -99, z1: ANNEX.z0 + 0.25, active: annexOwned },
-      { x0: -99, x1: 99, z0: -99, z1: R.z0 + 0.25 }, { x0: -99, x1: 99, z0: R.z1 - 0.25, z1: 99 },
+      { x0: -99, x1: 99, z0: -99, z1: R.z0 + 0.25 },
+      // the front wall, with the doorway: you can walk out onto the street
+      { x0: -99, x1: DOOR.x - DOOR.w / 2 + 0.02, z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
+      { x0: DOOR.x + DOOR.w / 2 - 0.02, x1: 99, z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
+      // the door itself, while it's shut
+      { x0: DOOR.x - DOOR.w / 2, x1: DOOR.x + DOOR.w / 2, z0: R.z1 - 0.12, z1: R.z1 + 0.2, active: () => this.doorSpring.value < 0.55 },
+      // the street: pavement, road, the far pavement; the other shops are closed to you
+      { x0: -99, x1: -15, z0: -99, z1: 99 }, { x0: 15, x1: 99, z0: -99, z1: 99 },
+      { x0: -99, x1: 99, z0: R.z1 + 13.8, z1: 99 },
     );
+  }
+
+  // a lit shop window material for one of the neighbours
+  shopWindowMat(shop, aspect, seed) {
+    const t = shopWindowTexture(shop, aspect, seed);
+    const m = new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.1, roughness: 0.3, metalness: 0.05 });
+    (this.shopWinMats ||= []).push(m);
+    return m;
   }
 
   buildExterior() {
@@ -374,7 +391,8 @@ export class Shop {
       g.add(box);
       // shopfront at street level: framed window with a warm glow, a sign and an awning
       const w = x1 - x0, cx = (x0 + x1) / 2;
-      const sf = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.9, 2.0), this.nightWindowMat ||= new THREE.MeshStandardMaterial({ color: '#2c3540', roughness: 0.15, metalness: 0.4, emissive: new THREE.Color('#ffb46a'), emissiveIntensity: 0.05 }));
+      const shop = SHOPS[(seed >> 2) % SHOPS.length];
+      const sf = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.9, 2.0), this.shopWindowMat(shop, (w - 0.9) / 2.0, seed));
       sf.position.set(cx, 1.45, fz + 0.03);
       g.add(sf);
       const frame = propMaterial('PaintedWood');
@@ -385,6 +403,10 @@ export class Shop {
       const sign = new THREE.Mesh(new THREE.BoxGeometry(Math.min(3.2, w - 1.2), 0.42, 0.08), new THREE.MeshStandardMaterial({ color: signCol, roughness: 0.6 }));
       sign.position.set(cx, 2.95, fz + 0.06);
       g.add(sign);
+      const sw = Math.min(3.2, w - 1.2);
+      const st = new THREE.Mesh(new THREE.PlaneGeometry(sw - 0.06, 0.38), new THREE.MeshStandardMaterial({ map: shopSignTexture(shop), roughness: 0.6 }));
+      st.position.set(cx, 2.95, fz + 0.105);
+      g.add(st);
       const aw = new THREE.Mesh(new THREE.BoxGeometry(w - 0.8, 0.05, 0.9), new THREE.MeshStandardMaterial({ color: ['#b8302b', '#3e6b4a', '#c9922e', '#24344d'][seed % 4], roughness: 0.8 }));
       aw.position.set(cx, 2.68, fz + 0.45); aw.rotation.x = 0.3;
       g.add(aw);
@@ -437,6 +459,17 @@ export class Shop {
     const lamp2 = spawnProp('StreetLamp'); lamp2.position.set(6.5, 0, fz + 2.6); g.add(lamp2);
     const tree = this.makeTree(); tree.position.set(-6.2, 0, fz + 2.2); g.add(tree);
     const tree2 = this.makeTree(); tree2.position.set(9.5, 0, fz + 2.3); tree2.scale.setScalar(0.85); g.add(tree2);
+    // things on the street you bump into
+    const solid = (x, z, hw, hd) => this.colliders.push({ x0: x - hw, x1: x + hw, z0: z - hd, z1: z + hd, outside: true });
+    solid(-1.4, fz + 1.0, 0.8, 0.28);          // bench
+    solid(0.55, fz + 0.45, 0.3, 0.3);          // planter
+    solid(3.0, fz + 2.5, 0.22, 0.22);          // bin
+    for (const x of [-3.9, 6.5]) solid(x, fz + 2.6, 0.1, 0.1);       // lamps
+    for (const x of [-6.2, 9.5, -12, 14, -16]) solid(x, fz + 2.25, 0.15, 0.15);  // trees
+    for (const x of [-9, -1, 7, 15]) solid(x, fz + 12.4, 0.15, 0.15);
+    solid(-8.5, fz + 4.2, 2.1, 0.92); solid(10.5, fz + 10.9, 2.1, 0.92); solid(16, fz + 4.2, 2.1, 0.92);  // parked cars
+    solid(WINDOW.x, fz + 0.24, 1.35, 0.16);    // flower box
+    for (let i = -4; i <= 6; i++) if (Math.abs(i * 1.6 - 1.9) >= 0.8) solid(i * 1.6, fz + 2.8, 0.07, 0.07);  // bollards
     // sign + awning + pole on our facade
     this.signTex = { on: T.signTexture(-1), off: T.signTexture(3) };
     this.signEm = { on: T.signEmissive(-1), off: T.signEmissive(3) };
@@ -471,8 +504,11 @@ export class Shop {
       box(6.2, 0.18, 0.3, 'Concrete', x, 3.15, z - 0.15);                                  // shop band
       const aw = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.06, 1.1), new THREE.MeshStandardMaterial({ color: awnCols[i % 4], roughness: 0.8 }));
       aw.position.set(x, 2.85, z - 0.55); aw.rotation.x = -0.32; g.add(aw);
-      const win = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 1.7), this.nightWindowMat ||= new THREE.MeshStandardMaterial({ color: '#2c3540', roughness: 0.15, metalness: 0.4, emissive: new THREE.Color('#ffb46a'), emissiveIntensity: 0.05 }));
+      const shop = SHOPS[[1, 2, 4, 7][i % 4]];
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 1.7), this.shopWindowMat(shop, 3.6 / 1.7, 90 + i));
       win.position.set(x, 1.45, z - 0.02); win.rotation.y = Math.PI; g.add(win);
+      const sgn = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 0.5), new THREE.MeshStandardMaterial({ map: shopSignTexture(shop), roughness: 0.6 }));
+      sgn.position.set(x, 3.5, z - 0.32); sgn.rotation.y = Math.PI; g.add(sgn);
       // rooftop boxes
       box(1.4, 0.8, 1.2, 'MetalPainted', x - 1.5, hgt + 0.4, z + 1);
       box(0.4, 1.2, 0.4, 'Concrete', x + 2, hgt + 0.6, z + 0.6);
@@ -526,6 +562,7 @@ export class Shop {
   setDusk(k) {
     for (const L of this.streetLights || []) L.intensity = k * 6;
     if (this.nightWindowMat) this.nightWindowMat.emissiveIntensity = 0.05 + k * 0.9;
+    for (const m of this.shopWinMats || []) m.emissiveIntensity = 0.1 + k * 0.7;
     const lamps = this.exterior ? [] : [];
     if (this.signMat) this.signMat.emissiveIntensity = 0.6 + k * 1.2;
   }
@@ -957,6 +994,8 @@ export class Shop {
 
   applyState(owned) {
     this.state = new Set(owned);
+    // online co-op: the extra chairs are always there for the other barbers
+    for (const id of this.forced || []) this.state.add(id);
     const S = this.slots, h = (id) => this.state.has(id);
     const goodLight = h('bulb');
     S.lampOld.visible = !goodLight; S.lampPendant.visible = goodLight;

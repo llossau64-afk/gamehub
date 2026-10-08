@@ -33,6 +33,7 @@ export const ICON = {
   calendar: '<svg viewBox="0 0 48 48"><rect x="6" y="9" width="36" height="33" rx="3"/><path d="M6 19h36M15 5v8M33 5v8M15 27h6M27 27h6M15 34h6"/></svg>',
   key: '<svg viewBox="0 0 48 48"><circle cx="14" cy="24" r="8"/><circle cx="14" cy="24" r="3"/><path d="M22 24h22M36 24v7M41 24v5"/></svg>',
   mask: '<svg viewBox="0 0 48 48"><path d="M24 10C14 10 7 12 7 12s0 26 17 26 17-26 17-26-7-2-17-2z"/><path d="M14 22c2-2 5-2 7 0M27 22c2-2 5-2 7 0M18 30c4 3 8 3 12 0"/></svg>',
+  fist: '<svg viewBox="0 0 48 48"><path d="M12 20c0-3 2-5 5-5h16c3 0 5 2 5 5v8c0 6-5 11-11 11h-4c-6 0-11-5-11-11z"/><path d="M19 15v8M26 15v8M33 16v7M12 26h9"/></svg>',
   sound: '<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9c1.5 1.5 1.5 4.5 0 6M19 6c3 3 3 9 0 12"/></svg>',
 };
 

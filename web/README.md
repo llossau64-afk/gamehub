@@ -25,7 +25,8 @@ npm run preview    # serve dist/ locally
 | Skip intro | hold Space / Enter / Esc, or hold the skip ring | hold the skip ring |
 | **Barber mode** | | |
 | Cut | hold the left mouse button on the hair | drag on the hair |
-| Camera (locked while cutting) | ← → turn the chair to the next side, ↑ ↓ view height, B front/back, Z / X zoom | view pad arrows |
+| Camera (locked while cutting) | Rotate mode (R) or hold the right mouse button to turn the head; C close-up | Cut / Rotate switch |
+| Clipper / trimmer speed | Speed slider above the guards (saved) | slider |
 | Tools | 1 clipper, 2 scissors, 3 trimmer, 4 comb, 5 spray | tool bar |
 | Power (clipper, trimmer) | Space | power button |
 | Clipper guard | Q / E | guard chips |
@@ -39,8 +40,9 @@ npm run preview    # serve dist/ locally
 - **Haircut system** (`src/hair/`): each customer's hair is a 128×64 length map on the scalp, rendered with up to 22 shells in a single draw call. Tools write into the map, and clippings fall as instanced particles and stay on the floor until you sweep. Scoring covers per-region accuracy against the request, uniformity, bald patches, symmetry, edge cleanup and speed.
 - **Beards** (`src/hair/beard.js`): a second cuttable surface along the jaw with chin, cheek, moustache and neckline zones. Customers grow random beards; beard cuts score them.
 - **Haircuts** (19): Simple Trim, Buzz Cut, Beard Trim, Short Back & Sides, Clean Shave, Crew Cut, Trim & Beard, Taper Fade, Basic Fade, Side Part, Low Fade, Textured Crop, French Crop, Mid Fade, Slick Back, Skin Fade, High Fade, Mullet and Curly Fade, unlocked by level. Fades are scored texel by texel against the requested gradient. Combing lays the hair down along the style direction (visible, with a pomade sheen and a real parting line), and Side Part and Slick Back score how much of the top is combed into shape. Spray-damp hair cuts more evenly with scissors.
-- **Reactions**: one star is a full meltdown (horror double take, red face, anger vein and steam, cape flung, "I'm NEVER coming back!", money thrown on the floor, bin kicked over, door slammed, a last fist shake through the window). Two stars sulk under a rain cloud, three shrug, four give a thumbs up, five go starstruck with hearts, a fist pump, a selfie and a hop-skip out of the door.
+- **Reactions**: one star is a full meltdown (horror double take, red face, anger vein and steam, cape flung, "I'm NEVER coming back!", money thrown on the floor). Then they stomp slowly towards the door, and you choose: walk up behind them and **kick them in the butt**, or from the front **punch them in the face** — they fly, land, and you can **grab** them, carry them across your arms and **throw them out** through the door (secret achievements Bouncer, Boot Camp, Knuckle Sandwich). Leave them alone and they kick the bin over, slam the door and shake a fist through the window. Two stars sulk under a rain cloud, three shrug, four give a thumbs up, five go starstruck with hearts, a fist pump, a selfie and a hop-skip out of the door.
 - **Physics** (`src/fx/physics.js`): coins, notes, paper and the thrown cape bounce, roll, tip over and settle against the floor, walls and furniture; stomps and the slammed door push them around. Walk over money on the floor to pick it up; the broom finds the rest and puts the bin back.
+- **The street**: walk out of the door onto the pavement and the road. Cars drive past (and honk and brake if you stand in the lane), people stroll by; the bakery, café, bookshop, flower shop, kebab house, phone repair, grocer and tailor are lit and open, but you can't go in.
 - **Shop hours**: flip the door sign to OPEN at 8:00; the day runs to 21:00 with a moving sun, golden hour and street lamps at dusk. At closing time the last customers finish and the next morning starts.
 - **Courier deliveries**: equipment and crates arrive with a courier who drops a parcel by the counter; open it to unbox the item.
 - **Crates & collectibles**: Street, Gold and Legend crates roll exclusive hair/beard dyes and tool skins (clipper, scissors, spray bottle) on a reel; duplicates are sold back.
@@ -53,7 +55,8 @@ npm run preview    # serve dist/ locally
 - **Shop life**: pedestrians walk past and peek in, customers queue on the waiting seats, and fictional VIP guests (footballer, rapper, streamer, actor, businessman, influencer) pay more but expect four stars.
 - **Daily events** from day 2: Friday Rush, Double Tips, VIP Day, Fade Challenge.
 - **Staff**: buy a second station and hire Marco. He calls waiting customers to his chair, cuts their hair himself (skill and speed upgrades) and keeps 35%.
-- **Save**: autosave after every haircut, purchase and level-up (localStorage, or the portal's data module). Settings include volumes, quality, look speed, replay tutorial and delete progress.
+- **Save**: autosave after every haircut, purchase, level-up and every game hour, including the time of day, so a reload puts you back in the same afternoon (localStorage, or the portal's data module). On the shared Claude link the save also lives in the page's per-person cloud storage, so your progress follows you on that link on any device.
+- **Online co-op** (`src/net/online.js`, on the shared Claude link): Play Online, type a shop code and give it to up to two colleagues. Everyone plays their own day with their own customers and money; the second station and the extension's chair are always there online, and you see the others walking around and cutting their customers at those chairs, hair getting shorter as they work. Staff take the day off while you're online. Settings include volumes, quality, look speed, replay tutorial and delete progress.
 
 ## Code map
 
@@ -67,6 +70,8 @@ npm run preview    # serve dist/ locally
 | `src/game/` | `game.js` (states, interactions, economy, events, haircut flow), `barber.js`, `customers.js`, `employee.js`, `street.js`, `player.js` (first person + hands), `tutorial.js` |
 | `src/cutscene/` | `director.js` (game-time waits, camera moves, skip), `intro.js` |
 | `src/audio/` | WebAudio synthesis: bell, door, squeaky chair, clipper motor with load, snips, voices, ambience, lo-fi music on the radio |
+| `src/net/` | `online.js`: co-op over the artifact runtime's `room` presence (no servers of our own) |
+| `src/core/cloud.js` | per-person cloud save through the artifact runtime's `db` |
 | `src/platform/` | portal adapters (CrazyGames v3, GamePix, Playgama, none). The SDK script is added by the portal packaging, not bundled. |
 | `src/debug/` | headless test harness (`play.mjs` plus `scenarios/`) used to play through the intro, tutorial and a normal day in Chromium |
 
