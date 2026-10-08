@@ -9,7 +9,7 @@ await p.evaluate(() => localStorage.setItem('oneroaddown.save.v1', JSON.stringif
 await p.goto('http://localhost:8080/index.html?fixed');
 await p.waitForFunction(() => document.querySelector('#boot.ready'), null, { timeout: 120000 });
 await p.keyboard.press('Enter');
-await p.waitForFunction(() => window.__game.state === 'menu', null, { timeout: 30000 });
+await p.waitForFunction(() => window.__game.state === 'menu', null, { timeout: 120000 });
 await p.waitForTimeout(1500);
 const k = async (key, w = 600) => { await p.keyboard.press(key); await p.waitForTimeout(w); };
 await k('ArrowDown'); // GARAGE

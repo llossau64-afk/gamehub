@@ -346,6 +346,13 @@ export class Run {
     const air = v.wheelsOnGround === 0 ? 1 : 0;
     this.airCam = damp(this.airCam || 0, air, 2, dt);
     let fov = 60 + clamp((speed * 3.6 - 40) / 140, 0, 1) * 14;
+    const ck = this.camMode === 'cockpit' && !this.countdown;
+    if (m.cockpit !== ck) {
+      m.cockpit = ck;
+      document.body.classList.toggle('cockpit', ck);
+      // clearer glass from the inside
+      if (m.glassMat) { m.glassMat.opacity = ck ? 0.16 : 0.72; }
+    }
     if (this.camMode === 'chase' || this.camMode === 'far' || this.countdown) {
       const far = this.camMode === 'far';
       const back = (far ? 8.8 : 4.4 + len * 0.36) + this.airCam * 1.6 + clamp(speed / 40, 0, 1) * 0.8;
@@ -379,13 +386,29 @@ export class Run {
       m.group.visible = true;
     } else {
       const eye = this.camMode === 'hood' ? m.hoodEye : m.eye;
-      const wp = m.group.localToWorld(new THREE.Vector3(eye[0], eye[1], eye[2]));
+      const fp = this.camMode === 'cockpit';
+      // head sways with the g-forces and looks a little into the corner
+      const hb = this.head || (this.head = { x: 0, y: 0, z: 0, yaw: 0 });
+      // local acceleration from the velocity change (x left, y up, z forward)
+      const pv = this.prevVel || (this.prevVel = new THREE.Vector3(v.vel.x, v.vel.y, v.vel.z));
+      const ax = (v.vel.x - pv.x) / Math.max(dt, 1e-3), ay = (v.vel.y - pv.y) / Math.max(dt, 1e-3), az = (v.vel.z - pv.z) / Math.max(dt, 1e-3);
+      pv.set(v.vel.x, v.vel.y, v.vel.z);
+      const rgt = this.tmp.r || (this.tmp.r = new THREE.Vector3());
+      rgt.crossVectors(up, f).normalize();
+      const acc = dt > 0 ? { x: ax * rgt.x + ay * rgt.y + az * rgt.z, y: ax * up.x + ay * up.y + az * up.z, z: ax * f.x + ay * f.y + az * f.z } : { x: 0, y: 0, z: 0 };
+      hb.x = damp(hb.x, clamp(-(acc.x || 0) * 0.006, -0.06, 0.06), 6, dt);
+      hb.z = damp(hb.z, clamp(-(acc.z || 0) * 0.004, -0.05, 0.05), 6, dt);
+      hb.y = damp(hb.y, clamp(-(acc.y || 0) * 0.002, -0.03, 0.03), 9, dt);
+      hb.yaw = damp(hb.yaw, (v.wheels[0].steer + v.wheels[1].steer) * 0.5 * 0.9, 4, dt);
+      const ex = eye[0] + (fp ? hb.x : 0), ey = eye[1] + (fp ? hb.y : 0), ez = eye[2] + (fp ? hb.z : 0);
+      const wp = m.group.localToWorld(new THREE.Vector3(ex, ey, ez));
       cam.position.copy(wp);
-      const ahead = m.group.localToWorld(new THREE.Vector3(eye[0] * 0.6, eye[1] - 0.15, eye[2] + 20));
+      const ya = fp ? hb.yaw : 0;
+      const ahead = m.group.localToWorld(new THREE.Vector3(ex - (fp ? 0.05 : eye[0] * 0.4) + Math.sin(ya) * 20, ey - (fp ? 1.1 : 0.15), ez + Math.cos(ya) * 20));
       cam.up.set(up.x * 0.25, 1, up.z * 0.25).normalize();
       cam.lookAt(ahead);
       cam.up.set(0, 1, 0);
-      fov = this.camMode === 'cockpit' ? 70 : 66;
+      fov = this.camMode === 'cockpit' ? 72 : 66;
     }
     // shake
     if (this.shake > 0) {
@@ -728,7 +751,8 @@ export class Run {
     this.pickMeshes.clear();
     for (const r of this.dynamic) if (r.mesh) this.g.worldScene.remove(r.mesh);
     this.dynamic.length = 0;
-    if (this.model) { this.g.worldScene.remove(this.model.group); this.model.dispose(); this.model = null; }
+    document.body.classList.remove('cockpit');
+    if (this.model) { if (this.model.glassMat) this.model.glassMat.opacity = 0.72; this.g.worldScene.remove(this.model.group); this.model.dispose(); this.model = null; }
     if (this.engine) { this.engine.dispose(); this.engine = null; }
     if (this.headlight) this.headlight.intensity = 0;
     this.g.platform.gameplayStop();

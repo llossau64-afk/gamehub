@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"../vendor/three.module.min.js"}}</script></head><body>
+<script type="module">
+// Preview of assets/models/cars.glb: ?car=rusty&rot=0.6&d=7&y=1.6&ly=0.5&interior=1
+import * as THREE from 'three';
+import { GLTFLoader } from '../vendor/GLTFLoader.js';
+const q = new URLSearchParams(location.search);
+const W = +(q.get('w') || 1200), H = +(q.get('h') || 700);
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(W, H); document.body.appendChild(r.domElement);
+r.toneMapping = THREE.ACESFilmicToneMapping; r.outputColorSpace = THREE.SRGBColorSpace; r.shadowMap.enabled = true;
+const sc = new THREE.Scene(); sc.background = new THREE.Color(0x9aa4ad);
+const pm = new THREE.PMREMGenerator(r);
+const es = new THREE.Scene(); es.background = new THREE.Color(0xc0ccd8);
+const l1 = new THREE.Mesh(new THREE.PlaneGeometry(10, 3), new THREE.MeshBasicMaterial({ color: 0xffffff })); l1.position.set(0, 6, 0); l1.rotation.x = Math.PI / 2; es.add(l1);
+const fl = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshBasicMaterial({ color: 0x40403c, side: THREE.DoubleSide })); fl.rotation.x = -Math.PI / 2; fl.position.y = -1; es.add(fl);
+sc.environment = pm.fromScene(es, 0.02).texture;
+sc.add(new THREE.HemisphereLight(0xdde6f0, 0x504840, 0.8));
+const sun = new THREE.DirectionalLight(0xffeedd, 2.6); sun.position.set(5, 8, 4 * +(q.get('sz') || 1)); sun.castShadow = true; sc.add(sun);
+const g = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x5c5c58 })); g.rotation.x = -Math.PI / 2; g.receiveShadow = true; sc.add(g);
+const paint = new THREE.MeshPhysicalMaterial({ color: +(q.get('paint') || 0x8a2a22), roughness: 0.35, metalness: 0.2, clearcoat: 1, clearcoatRoughness: 0.08 });
+const M = {
+  car_paint: paint, car_glass: new THREE.MeshPhysicalMaterial({ color: 0x101820, roughness: 0.04, transparent: true, opacity: 0.6, envMapIntensity: 1.6 }),
+};
+new GLTFLoader().load('../assets/models/cars.glb', (gl) => {
+  const ids = (q.get('car') || 'rusty').split(',');
+  ids.forEach((id, i) => {
+    const o = gl.scene.getObjectByName(id);
+    if (!o) { console.log('missing', id); return; }
+    o.traverse((m) => { if (m.isMesh) { if (!m.geometry.attributes.normal) m.geometry.computeVertexNormals(); m.castShadow = m.receiveShadow = true; if (M[m.material.name]) m.material = M[m.material.name]; else m.material.side = THREE.DoubleSide; } });
+    const bb = new THREE.Box3().setFromObject(o);
+    o.position.set((i - (ids.length - 1) / 2) * 3.4, -bb.min.y + 0.0, 0);
+    o.rotation.y = +(q.get('rot') || 0.6);
+    sc.add(o);
+  });
+  const cam = new THREE.PerspectiveCamera(+(q.get('fov') || 35), W / H, 0.02, 200);
+  if (q.get('interior')) {
+    const o = gl.scene.getObjectByName(ids[0]); o.rotation.y = 0; o.updateMatrixWorld(true);
+    const e = gl.scene.getObjectByName(ids[0] + '__eye').getWorldPosition(new THREE.Vector3());
+    cam.fov = 70; cam.updateProjectionMatrix(); cam.position.copy(e); cam.lookAt(e.x - 0.05, e.y - 0.12, e.z + 2);
+  } else {
+    const d = +(q.get('d') || 7); cam.position.set(0, +(q.get('y') || 1.6), d); cam.lookAt(0, +(q.get('ly') || 0.55), 0);
+  }
+  r.render(sc, cam);
+  console.log('ok', r.info.render.triangles);
+}, undefined, (e) => console.log('ERR', e.message));
+</script></body></html>

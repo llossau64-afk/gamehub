@@ -365,3 +365,6 @@ button:focus { outline: none; }
 .keyhints { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--pad) + 62px + env(safe-area-inset-bottom)); font: 500 11px 'Cond'; letter-spacing: .26em; color: var(--ink3); white-space: nowrap; text-shadow: 0 1px 6px rgba(0,0,0,.8); }
 body.touch .keyhints { display: none; }
 @media (max-height: 560px), (max-width: 760px) { .keyhints { display: none; } }
+
+/* first-person view: the real instrument cluster replaces the HUD dial */
+body.cockpit #hud canvas.speedo { opacity: 0; }

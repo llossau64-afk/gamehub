@@ -25,6 +25,41 @@ export function cloneAsset(n) {
 }
 export const groundTex = tex;
 
+// cars.glb: one root per car id with children `${id}__${part}` (meshes + anchor empties)
+const cars = new Map();
+export const carAsset = (id) => cars.get(id) || null;
+function registerCars(scene) {
+  for (const root of scene.children) {
+    const id = root.name;
+    const A = { parts: {}, nodes: {} };
+    root.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+    for (const o of root.children) {
+      const part = o.name.slice(id.length + 2);
+      const local = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+      if (o.isMesh || o.isGroup) {
+        const meshes = [];
+        o.traverse((m) => { if (m.isMesh) meshes.push(m); });
+        if (!meshes.length) { A.nodes[part] = new THREE.Vector3().setFromMatrixPosition(local); continue; }
+        const m = meshes[0];
+        const g = m.geometry;
+        if (part === 'steering') {
+          // keep the hub transform: the wheel turns about its local z axis
+          g.computeVertexNormals();
+          A.steering = { geometry: g, matrix: local.clone(), material: m.material.name };
+        } else {
+          g.applyMatrix4(local);
+          if (!g.attributes.normal) g.computeVertexNormals();
+          A.parts[part] = { geometry: g, material: (m.material.name || '').replace(/^car_/, '') };
+        }
+      } else {
+        A.nodes[part] = new THREE.Vector3().setFromMatrixPosition(local);
+      }
+    }
+    cars.set(id, A);
+  }
+}
+
 function patchFoliage(m, kind) {
   m.userData.patched = kind;
   const card = kind === 'leaf' || kind === 'needle' || kind === 'grass';
@@ -119,13 +154,14 @@ async function loadGLB(loader, path) {
 export async function loadAssets(renderer, onProgress = () => {}, base = './assets/') {
   const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   const loader = new GLTFLoader();
-  const files = ['nature', 'buildings'];
+  const files = ['nature', 'buildings', 'cars'];
   let done = 0;
   const steps = files.length + 1;
   for (const f of files) {
     try {
       const gl = await loadGLB(loader, `${base}models/${f}`);
-      register(gl.scene, aniso);
+      if (f === 'cars') registerCars(gl.scene);
+      else register(gl.scene, aniso);
     } catch (e) {
       console.warn('[assets] could not load', f, e && e.message);
     }
