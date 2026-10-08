@@ -452,6 +452,18 @@ export class Run {
     if (v.scrape > 0.3 && speed > 4) { const p = v.pos; P.sparks(p.x, p.y - v.p.cg * 0.6, p.z, v.vel.x, 0.5, v.vel.z, 2); }
     // falling rocks visuals
     for (const r of this.dynamic) if (r.mesh) { r.mesh.position.set(r.x, r.y, r.z); r.mesh.rotation.x += r.vz * dt; r.mesh.rotation.z -= r.vx * dt; }
+    // cherry blossom petals drifting through the air on the sakura maps
+    if (this.petalTrack !== this.track) { this.petalTrack = this.track; this.petals = this.track.m.biomes.some((b) => b.look && b.look.cherry); }
+    if (this.petals && dt > 0) {
+      const cam = g.camera.position, fw = v.getForward(this.tmp.f);
+      for (let i = 0; i < 3; i++) {
+        const a = Math.random() * 6.283, rr = 4 + Math.random() * 22;
+        const x = cam.x + fw.x * 14 + Math.cos(a) * rr, z = cam.z + fw.z * 14 + Math.sin(a) * rr;
+        const c = 0.9 + Math.random() * 0.1;
+        P.soft.emit(x, cam.y + 2 + Math.random() * 6, z, 0.6 + Math.random() * 0.8, -0.5 - Math.random() * 0.4, (Math.random() - 0.5) * 0.8,
+          4 + Math.random() * 2, 0.07, 0.07, 0.85, c, c * 0.74, c * 0.82, 0.12, 0.25);
+      }
+    }
     // waterfall mist
     P.setScale(g.renderer.domElement.height);
     P.update(dt);
@@ -486,6 +498,11 @@ export class Run {
       const height = (far ? 3.3 : 1.55 + m.dims.H * 0.32) + this.airCam * 0.8;
       let want = new THREE.Vector3(p.x - flatF.x * back, p.y + height, p.z - flatF.z * back);
       let look = new THREE.Vector3(p.x + flatF.x * 3.5, p.y + 0.75 + m.dims.H * 0.15, p.z + flatF.z * 3.5);
+      // look a little where the car is going (into the corner), not only where it points
+      if (speed > 3 && !this.countdown) {
+        const la = Math.min(6, speed * 0.12) / Math.max(speed, 1e-3);
+        look.x += v.vel.x * la; look.z += v.vel.z * la;
+      }
       if (this.countdown) {
         // intro: start beside the car, swing in behind
         this.camIntro = Math.min(1, this.camIntro + dt * (this.go ? 1.2 : 0.22));
@@ -502,6 +519,20 @@ export class Run {
       // terrain + tunnel clearance
       const th = this.track.height(this.camPos.x, this.camPos.z);
       if (this.camPos.y < th + 0.7) this.camPos.y = th + 0.7;
+      // keep the line of sight to the car clear of slopes: pull in where the ground blocks it
+      if (!this.countdown) {
+        const hx = p.x, hy = p.y + 1.0, hz = p.z;
+        for (let k = 0.35; k <= 0.95; k += 0.2) {
+          const px = lerp(hx, this.camPos.x, k), pz = lerp(hz, this.camPos.z, k), py = lerp(hy, this.camPos.y, k);
+          const gh = this.track.height(px, pz);
+          if (py < gh + 0.35) {
+            const kk = Math.max(0.3, k - 0.2);
+            this.camPos.x = lerp(hx, this.camPos.x, kk); this.camPos.z = lerp(hz, this.camPos.z, kk);
+            this.camPos.y = Math.max(lerp(hy, this.camPos.y, kk), gh + 0.6);
+            break;
+          }
+        }
+      }
       const cq = this.track.query(this.camPos.x, this.camPos.z, this.camQ || (this.camQ = {}));
       if (this.track.tunnel[cq.idx] && Math.abs(cq.d) < cq.halfW + 1.5) this.camPos.y = Math.min(this.camPos.y, this.track.roadY(cq.s) + 4.2);
       // keep the camera at a sensible distance after crashes / flips

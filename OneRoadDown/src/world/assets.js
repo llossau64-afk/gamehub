@@ -116,7 +116,7 @@ function patchFoliage(m, kind) {
           #endif
           // screen-door fade right in front of the camera instead of slicing through cards
           float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-          if (ign > smoothstep(0.9, 3.4, vCamD)) discard;
+          ${kind === 'grass' ? '' : 'if (ign > smoothstep(0.9, 3.4, vCamD)) discard;'}
           if (diffuseColor.a < alphaTest) discard;`);
       // cards: keep the authored (canopy / up) normal on both sides instead of flipping it
       sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>',

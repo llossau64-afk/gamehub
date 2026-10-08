@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { initMaterials, mats } from './gfx/materials.js';
 import { setAnisotropy } from './gfx/textures.js';
 import { Particles, SkidMarks, Debris } from './gfx/particles.js';
+import { Post } from './gfx/post.js';
 import { Track } from './world/track.js';
 import { World } from './world/world.js';
 import { Environment } from './world/env.js';
@@ -84,6 +85,7 @@ class Game {
     renderer.toneMappingExposure = 1.0;
     renderer.shadowMap.enabled = this.quality !== 'low';
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.post = new Post(renderer, this.quality);
     document.getElementById('game').appendChild(renderer.domElement);
     setAnisotropy(Math.min(this.quality === 'high' ? 8 : 4, renderer.capabilities.getMaxAnisotropy()));
     this.renderScale = 1;
@@ -920,7 +922,8 @@ class Game {
       this.garage.update(dt, this.camera);
       audio()?.ambience?.update(dt, { room: 1, wind: 0.05 });
       audio()?.setReverb(0.25);
-      r.render(this.garage.scene, this.camera);
+      this.post.enabled = this.quality !== 'low';
+      this.post.render(this.garage.scene, this.camera, { bloom: 0.45, warm: 0.6, vig: 0.42 });
       return;
     }
     if (this.state === 'run' && this.run) {
@@ -932,7 +935,8 @@ class Game {
       this.env.update(this.paused ? 0 : dt, this.track, Math.max(s, q.s), this.camera, this.run.model ? this.run.model.group.position : this.camera.position, inTunnel);
       this.world.update2(dt, this.camera.position, this.env.look);
       this.autoQuality(dt);
-      r.render(this.worldScene, this.camera);
+      this.post.enabled = this.quality !== 'low';
+      this.post.render(this.worldScene, this.camera, this.postLook(this.env.look));
       return;
     }
     // menu / boot: slow orbit around the parked car
@@ -953,9 +957,19 @@ class Game {
       if (audio() && Math.random() < dt * 0.25) audio().tone({ freq: 2800 + Math.random() * 1500, type: 'triangle', dur: 0.02, gain: 0.02 });
     }
     this.world.update2(dt, this.camera.position, this.env.look);
-    r.render(this.worldScene, this.camera);
+    this.post.enabled = this.quality !== 'low';
+    this.post.render(this.worldScene, this.camera, this.postLook(this.env.look));
   }
 
+  // grading follows the light: golden hour warmer with more glow, rain flatter and cooler
+  postLook(L) {
+    if (!L) return null;
+    const rain = Math.max(L.rain || 0, L.storm || 0), low = 1 - clamp(((L.sunElev ?? 30) - 4) / 40, 0, 1);
+    const pl = this._pl || (this._pl = {});
+    pl.bloom = 0.42 + low * 0.38 - rain * 0.15; pl.warm = 0.45 + low * 0.95 - rain * 0.5;
+    pl.contrast = 1.02 + low * 0.02 - rain * 0.03; pl.sat = 1.07 + low * 0.05 - rain * 0.16; pl.vig = 0.2 + rain * 0.1;
+    return pl;
+  }
   autoQuality(dt) {
     if (this.save.data.settings.quality !== 'auto') return;
     this.fpsT = (this.fpsT || 0) + dt; this.fpsN = (this.fpsN || 0) + 1;

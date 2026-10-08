@@ -101,7 +101,7 @@ export class UI {
     // loading screen
     const boot = h(`<div id="boot" class="screen show live">
       <canvas class="art"></canvas>
-      <div class="logo"><div class="logotype">ONE ROAD <span class="thin">DOWN</span></div><div class="tagline">HOLLOW PEAK · 25 KM · ONE WAY</div></div>
+      <div class="logo"><div class="logotype">DOWNFALL<span class="thin">NO BRAKES</span></div><div class="tagline">20 TRACKS · 8 COUNTRIES · UP TO 8 DRIVERS ONLINE</div></div>
       <div class="press">CLICK OR PRESS ANY KEY</div>
       <div class="foot"><div class="tip"><b>TIP</b><span></span></div>
       <div class="barrow"><div class="bar"><i></i></div><div class="status">STARTING ENGINE…</div></div></div>
@@ -111,8 +111,8 @@ export class UI {
     // menu
     const menu = h(`<div id="menu" class="screen live">
       <div class="col">
-        <div class="logotype">ONE ROAD <span class="thin">DOWN</span></div>
-        <div class="sub">HOLLOW PEAK PASS ROAD</div>
+        <div class="logotype">DOWNFALL<span class="thin">NO BRAKES</span></div>
+        <div class="sub">RACING · 20 TRACKS · 8 COUNTRIES</div>
         <div class="mlist">
           <button class="mitem primary" data-a="race">RACE <small>OFFLINE · VS BOTS</small></button>
           <button class="mitem" data-a="online">ONLINE <small>FRIENDS · RANDOM LOBBIES</small></button>
@@ -252,6 +252,7 @@ export class UI {
     const cine = h(`<div id="cine"><div class="lb top"></div><div class="lb bot"></div><div class="flash"></div>
       <div class="evcard"><div class="ev-top"><span class="cc"></span><span class="ev-place"></span></div><h1 class="ev-name"></h1><div class="ev-line"></div></div>
       <div class="evgrid"></div><div class="evskip">SPACE · SKIP</div></div>`);
+    cine.style.display = 'none';
     r.appendChild(cine);
     this.cine = cine;
     const pod = h(`<div id="podium"><div class="pd-title">PODIUM</div><div class="pd-places"></div><button class="btn main amber pd-go">RESULTS ›</button></div>`);
@@ -603,6 +604,8 @@ export class UI {
     c.querySelectorAll('.eg').forEach((el, i) => { el.querySelector('b').textContent = d.grid[i].name; el.querySelector('span').textContent = d.grid[i].car; });
     $(c, '.evskip').style.display = d.skippable ? '' : 'none';
     document.body.classList.add('cine-on');
+    clearTimeout(this.cineT);
+    c.style.display = '';
     c.classList.remove('out'); void c.offsetWidth; c.classList.add('on');
   }
   introCut() {
@@ -612,6 +615,8 @@ export class UI {
   raceIntroHide() {
     this.cine.classList.remove('on'); this.cine.classList.add('out');
     document.body.classList.remove('cine-on');
+    clearTimeout(this.cineT);
+    this.cineT = setTimeout(() => { this.cine.style.display = 'none'; }, 550);
   }
   podium(d) {
     const p = this.pod;
@@ -785,7 +790,7 @@ export class UI {
 
   credits() {
     this.openModal('CREDITS', `<div class="credits">
-      <h4>ONE ROAD DOWN</h4><p>A downhill driving progression game. Cars, trees, buildings, animals and the workshop were modelled with Blender scripts made for this game; sounds and music are synthesised live.</p>
+      <h4>DOWNFALL: NO BRAKES</h4><p>A downhill driving progression game. Cars, trees, buildings, animals and the workshop were modelled with Blender scripts made for this game; sounds and music are synthesised live.</p>
       <h4>DESIGN, CODE, VEHICLES, WORLD</h4><p>Built for the browser with three.js (MIT licence).</p>
       <h4>THIRD-PARTY MODELS</h4><p>Fox: model by PixelMannen (CC0), rigging and animation by tomkranis (CC-BY 4.0), glTF conversion by AsoboStudio and scurest (CC-BY 4.0).<br>
       Drinks fridge: Eric Chadwick / Darmstadt Graphics Group, based on "Commercial Fridge" by Sean Thomas (CC-BY 4.0).<br>

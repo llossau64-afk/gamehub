@@ -52,6 +52,7 @@ export class Race extends Run {
       if (e.isPlayer) continue;
       this.g.worldScene.remove(e.model.group); e.model.dispose();
       if (e.voice) e.voice.dispose();
+      if (e.tag) e.tag.remove();
     }
     this.field = [];
   }
@@ -193,6 +194,7 @@ export class Race extends Run {
     this.botAudio(dt);
     this.hud(rawDt);
     if (this.cfg.net) this.cfg.net.update(dt, this);
+    this.updateTags();
     if (this.active && !this.ended) this.checkEnd(dt);
     g.world.update(this.track.loop ? v.lastQuery.s : Math.max(this.maxS, this.startS), 1);
   }
@@ -218,6 +220,28 @@ export class Race extends Run {
   updateCamera(dt) {
     if (this.pres.update(dt)) return;
     super.updateCamera(dt);
+  }
+
+  // name tags over the other drivers (online: real players)
+  updateTags() {
+    const hud = this.g.ui.screens.hud;
+    let box = this.tagBox;
+    if (!box || !box.isConnected) { box = this.tagBox = document.createElement('div'); box.className = 'tags'; hud.appendChild(box); }
+    const cam = this.g.camera, W = innerWidth, H = innerHeight;
+    const show = !!(this.cfg && this.cfg.net) && !(this.pres && this.pres.active);
+    const pv = this.tmp.tag || (this.tmp.tag = new THREE.Vector3());
+    for (const e of this.field) {
+      if (e.isPlayer || !e.remote) continue;
+      if (!e.tag) { e.tag = document.createElement('div'); e.tag.className = 'tag'; e.tag.innerHTML = '<i></i><b></b>'; e.tag.querySelector('b').textContent = e.name; e.tag.style.setProperty('--c', e.color); box.appendChild(e.tag); }
+      const v = e.vehicle;
+      pv.set(v.pos.x, v.pos.y + 1.6, v.pos.z).project(cam);
+      const d = Math.hypot(v.pos.x - cam.position.x, v.pos.z - cam.position.z);
+      const vis = show && !e.gone && pv.z < 1 && d < 260 && Math.abs(pv.x) < 1.1 && Math.abs(pv.y) < 1.1;
+      e.tag.style.display = vis ? '' : 'none';
+      if (!vis) continue;
+      e.tag.querySelector('i').textContent = e.pos || '';
+      e.tag.style.transform = `translate(${((pv.x + 1) / 2 * W).toFixed(0)}px, ${((1 - pv.y) / 2 * H).toFixed(0)}px) translate(-50%, -100%) scale(${Math.max(0.65, Math.min(1, 40 / d)).toFixed(2)})`;
+    }
   }
 
   holdOnGrid(e) {

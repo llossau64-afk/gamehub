@@ -141,11 +141,15 @@ export class World {
     const ch = { k, group, j0, j1, ownedMats: [], cars: [], railSegs: [], cx: t.px[jm], cz: t.pz[jm] };
     const R = rng(t.m.seed * 1000 + k * 7919);
     this.building = ch;
-    this.buildTerrain(ch); yield;
-    this.buildRoad(ch); this.buildDecals(ch); yield;
-    this.buildRails(ch); this.buildStructures(ch); yield;
-    this.buildVegetation(ch, R); yield;
-    this.buildSigns(ch); this.buildProps(ch, R); this.buildObstacles(ch, R);
+    const st = this.stageMs || (this.stageMs = {});
+    let t0 = performance.now();
+    const mark = (n) => { const t1 = performance.now(); st[n] = Math.max(st[n] || 0, t1 - t0); t0 = t1; };
+    this.buildTerrain(ch); mark('terrain'); yield; t0 = performance.now();
+    this.buildRoad(ch); this.buildDecals(ch); mark('road'); yield; t0 = performance.now();
+    this.buildRails(ch); this.buildStructures(ch); mark('rails'); yield; t0 = performance.now();
+    for (const _ of this.buildVegetation(ch, R)) { mark('veg'); yield; t0 = performance.now(); }
+    mark('veg'); yield; t0 = performance.now();
+    this.buildSigns(ch); this.buildProps(ch, R); this.buildObstacles(ch, R); mark('props');
     this.building = null;
     this.root.add(group);
     this.chunks.set(k, ch);
@@ -594,7 +598,7 @@ export class World {
     return [base + '_lod0', base + '_lod1'];
   }
 
-  buildVegetation(ch, R) {
+  *buildVegetation(ch, R) {
     const t = this.track;
     const s0 = ch.j0 * STEP;
     const b = t.biome(s0 + 50);
@@ -667,6 +671,7 @@ export class World {
       // grown trees are solid: you do not drive through a trunk
       if (sp.u < 80) cols.push({ t: 's', x: sp.x, y: sp.h + 0.8, z: sp.z, r: 0.28 * s2 + 0.12, s: sp.s, tree: 1 });
     }
+    yield;
     // rocks
     const nRocks = Math.round(44 * (b.rocks || 0.5) * (this.quality === 'low' ? 0.5 : 1));
     for (let n = 0; n < nRocks; n++) {
@@ -677,6 +682,7 @@ export class World {
       this.addRock(I, sp.x, sp.h, sp.z, R, snowy, b, size, useAssets);
       if (sp.u < 40 && size > 0.7) cols.push({ t: 's', x: sp.x, y: sp.h + size * 0.3, z: sp.z, r: size * 0.75, s: sp.s });
     }
+    yield;
     // groves: clusters of trees standing close together
     const placeTree = (x, z, h, s2, kind, uDist, sAlong) => {
       if (!useAssets) return;
@@ -723,6 +729,7 @@ export class World {
         if (sp.u < 80) cols.push({ t: 's', x: sp.x, y: sp.h + 0.8, z: sp.z, r: 0.4, s: sp.s, tree: 1 });
       }
     }
+    yield;
     // young trees along the verges: these snap when you hit them
     if (useAssets) {
       const nSap = Math.round(26 * density + 4);
@@ -758,6 +765,7 @@ export class World {
         I.push(geo.uuid, [{ geometry: geo, material: mats.foliage }], m4, false, 'near');
       }
     }
+    yield;
     // ground cover: grass, flowers, ferns (not on snow, sparse on rock)
     if (useAssets && !snowy && this.quality !== 'low') {
       const forest = (tr.density || 0) > 0.7;
