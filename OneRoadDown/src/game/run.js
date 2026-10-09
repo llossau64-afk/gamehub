@@ -164,12 +164,14 @@ export class Run {
       v.input.throttle = inp.throttle; v.input.brake = inp.brake; v.input.steer = inp.steer;
       v.input.handbrake = inp.handbrake; v.input.boost = inp.boost;
     } else {
-      v.input.throttle = 0; v.input.brake = this.ended ? 0.3 : 1; v.input.steer = 0; v.input.handbrake = 0; v.input.boost = 0;
+      // before the start: handbrake only, first gear (a held brake at standstill would engage reverse)
+      if (this.ended) { v.input.throttle = 0; v.input.brake = 0.3; v.input.steer = 0; v.input.handbrake = 0; v.input.boost = 0; }
+      else { v.input.throttle = 0; v.input.brake = 0; v.input.steer = 0; v.input.handbrake = 1; v.input.boost = 0; v.gear = 1; }
     }
     if (g.input.wasPressed('KeyC')) this.cycleCamera();
     // physics
     if (!this.countdown || this.go) v.update(dt);
-    else v.update(dt * 0.5);
+    else { v.update(dt * 0.5); v.vel.x = 0; v.vel.z = 0; v.angVel.y = 0; }
     this.updateDynamic(dt);
     if (this.animals) this.animals.update(dt, v, this.maxS);
     // progress
@@ -492,7 +494,7 @@ export class Run {
     // heading the camera follows: blend between car nose and travel direction
     const velDir = new THREE.Vector3(v.vel.x, 0, v.vel.z);
     if (speed > 6 && v.fwdSpeed > 0) { velDir.normalize(); flatF.lerp(velDir, 0.35).normalize(); }
-    if (v.gear === -1 && v.fwdSpeed < -2) flatF.negate().lerp(new THREE.Vector3(f.x, 0, f.z).normalize(), 0.0);
+    if (v.gear === -1 && v.fwdSpeed < -2 && !this.countdown) flatF.negate().lerp(new THREE.Vector3(f.x, 0, f.z).normalize(), 0.0);
     const len = m.dims.L;
     const air = v.wheelsOnGround === 0 ? 1 : 0;
     this.airCam = damp(this.airCam || 0, air, 2, dt);

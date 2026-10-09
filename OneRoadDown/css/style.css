@@ -600,3 +600,8 @@ body.cine-on #touch { display: none; }
 .mitem.primary { color: #fff; }
 #menu .infobar { background: rgba(8,9,10,.6); border-top: 1px solid rgba(255,255,255,.08); padding: 10px 16px; left: 0; right: 0; bottom: 0; }
 .ol-empty a { color: var(--amber); word-break: break-all; }
+.ol-hint { font-size: 12.5px; line-height: 1.4; color: var(--ink2); margin-top: -4px; }
+.ol-row .btn { flex: 1; }
+.ol-invite { display: flex; gap: 6px; }
+.ol-invite .ol-link { flex: 1; min-width: 0; background: rgba(0,0,0,.35); border: 1px solid var(--line); color: #fff; font: 500 12px 'Body', sans-serif; padding: 8px 10px; border-radius: 2px; }
+.ol-invite .btn { padding: 8px 14px; font-size: 13px; }

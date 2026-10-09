@@ -159,7 +159,8 @@ export class Race extends Run {
       v.input.throttle = inp.throttle; v.input.brake = inp.brake; v.input.steer = inp.steer;
       v.input.handbrake = inp.handbrake; v.input.boost = inp.boost;
     } else if (this.me.finished) this.aiDrive(this.me, dt, 0.55);
-    else { v.input.throttle = 0; v.input.brake = 1; v.input.steer = 0; v.input.handbrake = 0; v.input.boost = 0; }
+    // on the grid: held on the handbrake (a held foot brake at standstill engages reverse)
+    else { v.input.throttle = 0; v.input.brake = 0; v.input.steer = 0; v.input.handbrake = 1; v.input.boost = 0; v.gear = 1; }
     if (g.input.wasPressed('KeyC')) this.cycleCamera();
     if (g.input.wasPressed('KeyR') && this.active && !this.me.finished) this.resetCar(this.me, true);
     // bots decide
@@ -173,6 +174,8 @@ export class Race extends Run {
       if (e.remote) continue;
       if (!this.countdown || this.go) e.vehicle.update(dt); else e.vehicle.update(dt * 0.5);
     }
+    // nobody creeps off the grid before the start
+    if (!this.go) for (const e of this.field) if (!e.remote) { e.vehicle.vel.x = 0; e.vehicle.vel.z = 0; e.vehicle.angVel.y = 0; }
     // car-to-car impulses collected on the boxes go back to their owners
     for (const e of this.field) {
       const b = e.box, ve = e.vehicle;
@@ -246,7 +249,7 @@ export class Race extends Run {
 
   holdOnGrid(e) {
     const v = e.vehicle;
-    v.input.throttle = 0; v.input.brake = 1; v.input.steer = 0; v.input.boost = 0;
+    v.input.throttle = 0; v.input.brake = 0; v.input.handbrake = 1; v.input.steer = 0; v.input.boost = 0; v.gear = 1;
   }
 
   // keep each car's lap / distance up to date and sort the field
@@ -452,7 +455,7 @@ export class Race extends Run {
       title: this.me.dnf ? 'DID NOT FINISH' : myPos === 1 ? 'VICTORY' : `P${myPos}`,
       map: this.map,
       rows: rows.map((r, i) => ({ pos: i + 1, name: r.e.name, car: r.e.car.name, me: r.e.isPlayer, color: r.e.color, time: r.t === Infinity ? 'DNF' : (r.est ? '~' : '') + fmtTime(r.t), best: fmtTime(r.e.bestLap) })),
-      lines, total, gift, online: !!(this.cfg && this.cfg.net),
+      lines, total, gift, online: !!(this.cfg && this.cfg.net), host: !!(this.g.online && this.g.online.isHost),
     });
     g.ui.show('hud', false); g.ui.show('touch', false);
     // podium for the top three, then the result panel

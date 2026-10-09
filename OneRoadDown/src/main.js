@@ -15,6 +15,10 @@ import { TYPE, carDims } from './models/carDims.js';
 import { Run } from './game/run.js';
 import { Race, fmtTime } from './game/race.js';
 import { Online } from './net/online.js';
+
+// the shared test version: 50 million to spend, once per save
+const TEST_BUILD = true;
+const TEST_COINS = 50_000_000;
 import { MAPS, mapById, COUNTRY_CODES } from './data/maps.js';
 import { computeStats, maxStats, capOf, unlockedTires } from './game/stats.js';
 import { CARS, carById, STARTERS } from './data/cars.js';
@@ -35,6 +39,12 @@ const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
 class Game {
   constructor() {
     this.save = new SaveManager();
+    // test build: every save gets a one-time grant to try the whole dealership
+    if (TEST_BUILD && !this.save.data.testGrant) {
+      this.save.data.cash += TEST_COINS;
+      this.save.data.testGrant = TEST_COINS;
+      this.save.save(); if (this.save.flush) this.save.flush();
+    }
     this.platform = new Platform();
     this.input = new Input();
     this.sound = new AudioSys();
@@ -229,7 +239,7 @@ class Game {
     this.ui.raceSelect({ maps: this.mapInfo(), sel: this.raceSel, opponents: this.raceOpp, cash: this.save.data.cash });
   }
   // ------------------------------------------------------------------ online
-  openOnline() {
+  openOnline(then) {
     const sv = this.save.data;
     if (!sv.owned.length) return this.enterFirst();
     if (!this.online) {
@@ -247,6 +257,14 @@ class Game {
       if (this.online.lobby) this.online.setCar(this.selectedCar().id);
       audio()?.music?.setMode('menu');
       this.ui.fade(false);
+      if (then) this.online.ready.then(() => then());
+    });
+  }
+  // one click: a private lobby with a brand-new code, invite link ready to copy
+  playWithFriend() {
+    this.openOnline(() => {
+      if (!this.online.available() || this.online.lobby) return;
+      this.olTry(() => this.online.host(this.raceSel || this.save.data.lastMap || MAPS[0].id, false));
     });
   }
   renderOnline() {
@@ -256,11 +274,21 @@ class Game {
     this.ui.online({
       avail: o.available(), connected: o.connected(), via: o.via, busy: !!this.olBusy, name: o.name(),
       lobbies: o.lobbies.map((l) => ({ ...l, mapName: (mapById(l.map) && mapById(l.map).name) || '—' })),
-      inLobby: !!o.lobby, code: o.code || '', pub: o.pub !== false, isHost: !!o.isHost, ready: !!o.myReady, msg: this.olMsg,
+      inLobby: !!o.lobby, code: o.code || '', pub: o.pub !== false, isHost: !!o.isHost, ready: !!o.myReady, msg: this.olMsg || o.closedMsg, invite: o.inviteLink(), following: !!o.following,
       members: o.members.map((m) => ({ ...m, carName: (carById(m.car) || {}).name || m.car })),
       map: mid, mapName: (mapById(mid) && mapById(mid).name) || '—',
       maps: MAPS.map((m) => ({ id: m.id, name: m.name, cc: COUNTRY_CODES[m.country] || '' })),
     });
+  }
+  // the host opened a rematch lobby and we followed it
+  onlineRematch() {
+    this.ui.show('raceres', false);
+    if (this.state !== 'online') this.openOnline(); else this.renderOnline();
+  }
+  // an invite link (#join-CODE or ?join=CODE) opens the lobby straight away
+  pendingInvite() {
+    const m = /join-([a-z0-9]{4,8})/i.exec(location.hash || '') || /[?&]join=([a-z0-9]{4,8})/i.exec(location.search || '');
+    return m ? m[1].toLowerCase() : null;
   }
   // a lobby race begins (host pressed start)
   onlineStart(view) {
@@ -365,6 +393,12 @@ class Game {
     this.ui.only('menu');
     audio()?.music?.setMode('menu');
     this.platform.gameplayStop();
+    // opened through an invite link: join that lobby right away (once)
+    const inv = !this.inviteDone && this.pendingInvite();
+    if (inv && sv.owned.length) {
+      this.inviteDone = true;
+      this.openOnline(() => { if (this.online.available() && !this.online.lobby) this.olTry(() => this.online.join(inv)); });
+    }
   }
 
   // ------------------------------------------------------------------ first start
@@ -399,6 +433,8 @@ class Game {
     await wait(2200);
     await this.ui.fade(true);
     this.garage.clearCars();
+    // a friend arriving through an invite goes straight to the lobby instead of the mountain
+    if (this.pendingInvite() && !this.inviteDone) { this.enterMenu(); this.ui.fade(false); return; }
     this.startRun();
     await wait(200);
     this.ui.fade(false);
@@ -802,6 +838,7 @@ class Game {
       const sv = this.save.data;
       if (a === 'race') this.ui.fade(true).then(() => { this.openRaceSelect(); this.ui.fade(false); });
       else if (a === 'online') this.openOnline();
+      else if (a === 'friend') this.playWithFriend();
       else if (a === 'continue') { if (!sv.owned.length) this.enterFirst(); else this.ui.fade(true).then(() => { this.startRun(); this.ui.fade(false); }); }
       else if (a === 'garage') this.ui.fade(true).then(() => { this.enterGarage('upgrades'); this.ui.fade(false); });
       else if (a === 'vehicles') this.ui.fade(true).then(() => { this.enterGarage('vehicles'); this.ui.fade(false); });
@@ -824,12 +861,12 @@ class Game {
     ui.on('raceBack', () => this.ui.fade(true).then(() => { this.enterMenu(); this.ui.fade(false); }));
     ui.on('raceAgain', () => { if (this.run && this.run.cfg && this.run.cfg.net) return; this.ui.show('raceres', false); if (this.run instanceof Race) this.run.restart(); });
     // online lobbies
-    const olTry = async (fn) => {
+    const olTry = (this.olTry = async (fn) => {
       if (this.olBusy) return;
       this.olBusy = true; this.olMsg = ''; this.renderOnline();
       try { await fn(); } catch (e) { this.olMsg = String((e && e.message) || e).toUpperCase().slice(0, 80); }
       this.olBusy = false; this.renderOnline();
-    };
+    });
     ui.on('olName', (v) => { this.online.setName(v); });
     ui.on('olQuick', () => olTry(() => this.online.quick(this.raceSel || this.save.data.lastMap || MAPS[0].id)));
     ui.on('olHost', (pub) => olTry(() => this.online.host(this.raceSel || this.save.data.lastMap || MAPS[0].id, pub)));
@@ -840,6 +877,9 @@ class Game {
     ui.on('olStart', () => this.online.startRace());
     ui.on('olBack', () => { if (this.online) this.online.leave(); this.ui.fade(true).then(() => { this.enterMenu(); this.ui.fade(false); }); });
     ui.on('olLobby', () => { this.ui.show('raceres', false); this.openOnline(); });
+    // after an online race: a rematch is a fresh lobby with a fresh code; leaving ends it
+    ui.on('olRematch', () => { this.ui.show('raceres', false); this.openOnline(() => olTry(() => this.online.rematch())); });
+    ui.on('olLeaveRace', () => { this.ui.show('raceres', false); if (this.online) this.online.leave(); this.openOnline(); });
     ui.on('raceTracks', () => this.ui.fade(true).then(() => { this.ui.show('raceres', false); this.openRaceSelect(); this.ui.fade(false); }));
     ui.on('toGarage', () => this.ui.fade(true).then(() => { this.enterGarage(); this.ui.fade(false); }));
     ui.on('pause', () => this.pause(true));

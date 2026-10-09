@@ -88,8 +88,20 @@ export class Online {
   }
 
   // ------------------------------------------------------------ joining
+  // a fresh code nobody has used: every lobby gets its own and it is never reused
+  newCode() {
+    const sv = this.g.save.data;
+    const used = new Set(sv.usedCodes || []);
+    for (const l of this.lobbies) used.add(l.code);
+    let code;
+    do code = rnd(6); while (used.has(code));
+    sv.usedCodes = [...(sv.usedCodes || []), code].slice(-60);
+    this.g.save.save();
+    return code;
+  }
+
   async host(mapId, pub = true) {
-    const code = rnd(5);
+    const code = this.newCode();
     this.lastMap = mapId; this.pub = pub;
     this.view = null;
     await this.enter(code, true);
@@ -106,6 +118,11 @@ export class Online {
     while (Date.now() < until && this.members.length <= 1) await new Promise((r) => setTimeout(r, 250));
     if (this.members.length > MAX_PLAYERS) { await this.leave(); throw new Error('LOBBY IS FULL'); }
     if (this.members.length <= 1) { await this.leave(); throw new Error('NO LOBBY WITH THAT CODE'); }
+    // one-time lobbies: a code dies once its race has started or the lobby was closed
+    const host = this.members.find((m) => m.host);
+    const hc = host && host.cfg;
+    if (!host) { await this.leave(); throw new Error('NO LOBBY WITH THAT CODE'); }
+    if (hc && (hc.used || hc.closed) && !this.following) { await this.leave(); throw new Error('THIS CODE HAS EXPIRED'); }
     return code;
   }
 
@@ -124,7 +141,7 @@ export class Online {
     this.lobby = await this.room.join('ord-' + code);
     this.code = code;
     this.state = 'lobby';
-    this.seqSeen = 0; this.isHost = false; this.lobKey = null;
+    this.seqSeen = 0; this.isHost = false; this.lobKey = null; this.hostPeer = null; this.closing = false; this.closedMsg = '';
     this.joinTs = Date.now();
     this.cfg = null;
     this.wantHost = asHost;
@@ -167,12 +184,22 @@ export class Online {
     // host: the earliest member claiming it; nobody claims -> the earliest member
     const claim = ms.filter((m) => m.hs).sort((a, b) => a.ts - b.ts || (a.peer < b.peer ? -1 : 1));
     // a fresh joiner waits a moment for the others to answer before it may take over
-    const canClaim = this.wantHost || Date.now() - this.joinTs > 2500;
-    const host = claim[0] || (canClaim ? [...ms].sort((a, b) => a.ts - b.ts || (a.peer < b.peer ? -1 : 1))[0] : null);
+    // one-time lobbies have exactly one host: nobody takes over when it leaves
+    const host = claim[0] || null;
     for (const m of ms) m.host = m === host;
     ms.sort((a, b) => (b.host - a.host) || a.ts - b.ts);
     this.members = ms;
     const me = ms.find((m) => m.me);
+    // the host left: this lobby and its code are finished
+    if (host) this.hostPeer = host.peer;
+    else if (this.hostPeer && !this.wantHost && !this.closing && !this.following && this.state !== 'racing') { this.closing = true; this.closedMsg = 'THE HOST CLOSED THE LOBBY'; this.leave(); return; }
+    // the host opened a rematch lobby with a new code: follow it
+    if (host && !host.me && host.cfg && host.cfg.next && host.cfg.next !== this.code && !this.following) {
+      const next = String(host.cfg.next);
+      this.following = true;
+      setTimeout(() => this.join(next).then(() => { this.following = false; this.g.onlineRematch && this.g.onlineRematch(); })
+        .catch((e) => { this.following = false; this.closedMsg = String(e.message || e); this.changed(); }), 400);
+    }
     const wasHost = this.isHost;
     this.isHost = !!(me && me.host);
     if (wasHost && !this.isHost) {
@@ -204,7 +231,7 @@ export class Online {
   async pushLobby() {
     if (!this.room || !this.lobby || !this.isHost) return;
     const map = (this.cfg && this.cfg.map) || '';
-    const st = this.cfg && this.cfg.go ? 'race' : 'open';
+    const st = this.cfg && (this.cfg.go || this.cfg.used || this.cfg.closed) ? 'race' : 'open';
     const n = this.members.length || 1;
     const key = [this.code, map, n, st, this.pub].join('|');
     if (key === this.lobKey) return;
@@ -223,7 +250,8 @@ export class Online {
   startRace() {
     if (!this.isHost || !this.cfg) return false;
     const grid = this.members.slice(0, MAX_PLAYERS).map((m) => m.peer).sort(() => Math.random() - 0.5);
-    this.cfg = { ...this.cfg, seq: (this.cfg.seq || 0) + 1, go: 1, grid, at: Date.now() + 9000 };
+    // `used`: from now on the code no longer lets anyone in
+    this.cfg = { ...this.cfg, seq: (this.cfg.seq || 0) + 1, go: 1, used: 1, grid, at: Date.now() + 9000 };
     this.lobby.presence({ cfg: this.cfg }).catch(() => {});
     this.pushLobby();
     // our own presence change may or may not echo through onPeers: start here
@@ -232,6 +260,25 @@ export class Online {
     this.g.onlineStart && this.g.onlineStart(this.view);
     return true;
   }
+  // host: a rematch is a brand-new lobby with a new code; everyone still here follows
+  async rematch() {
+    if (!this.isHost || !this.lobby) return null;
+    const next = this.newCode();
+    this.cfg = { ...this.cfg, next, closed: 1 };
+    await this.lobby.presence({ cfg: this.cfg }).catch(() => {});
+    await new Promise((r) => setTimeout(r, 900));
+    const pub = this.pub;
+    this.view = null;
+    this.pub = pub;
+    await this.enter(next, true);
+    return next;
+  }
+
+  inviteLink() {
+    if (!this.code || this.via !== 'p2p') return null;
+    return location.origin + location.pathname + '#join-' + this.code;
+  }
+
   endRace() {
     if (this.isHost && this.cfg && this.cfg.go) { this.cfg = { ...this.cfg, go: 0 }; this.lobby?.presence({ cfg: this.cfg }).catch(() => {}); this.pushLobby(); }
     this.lobby?.presence({ r: null, rdy: 0 }).catch(() => {});

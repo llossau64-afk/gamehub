@@ -116,7 +116,8 @@ export class UI {
         <div class="sub">RACING · 20 TRACKS · 8 COUNTRIES</div>
         <div class="mlist">
           <button class="mitem primary" data-a="race">RACE <small>OFFLINE · VS BOTS</small></button>
-          <button class="mitem" data-a="online">ONLINE <small>FRIENDS · RANDOM LOBBIES</small></button>
+          <button class="mitem" data-a="friend">PLAY WITH A FRIEND <small>ONE-TIME INVITE LINK</small></button>
+          <button class="mitem" data-a="online">ONLINE <small>QUICK MATCH · LOBBIES</small></button>
           <button class="mitem" data-a="garage">GARAGE</button>
           <button class="mitem" data-a="continue">MOUNTAIN RUN <small></small></button>
           <button class="mitem" data-a="mountain">MOUNTAIN <small></small></button>
@@ -230,8 +231,9 @@ export class UI {
       <div class="ol-main panel">
         <label class="ol-lab">DRIVER NAME</label>
         <input class="ol-name" maxlength="16" spellcheck="false" autocomplete="off">
-        <button class="btn main amber ol-quick">QUICK MATCH ›</button>
-        <div class="ol-row"><button class="btn ol-host">CREATE LOBBY</button><label class="ol-priv"><input type="checkbox" class="ol-pv"> PRIVATE</label></div>
+        <button class="btn main amber ol-friend">PLAY WITH A FRIEND ›</button>
+        <div class="ol-hint">Creates a private lobby with a one-time code. Send your friend the invite link.</div>
+        <div class="ol-row"><button class="btn ol-quick">QUICK MATCH</button><button class="btn ol-host">PUBLIC LOBBY</button></div>
         <div class="ol-row"><input class="ol-code" maxlength="8" placeholder="FRIEND CODE" spellcheck="false" autocomplete="off"><button class="btn ol-join">JOIN</button></div>
         <label class="ol-lab">OPEN LOBBIES</label>
         <div class="ol-list"></div>
@@ -244,7 +246,8 @@ export class UI {
     stopKeys($(ol, '.ol-name')); stopKeys($(ol, '.ol-code'));
     $(ol, '.ol-name').addEventListener('change', (e) => this.emit('olName', e.target.value));
     $(ol, '.ol-quick').addEventListener('click', () => { audio()?.ui('buy'); this.emit('olQuick'); });
-    $(ol, '.ol-host').addEventListener('click', () => { audio()?.ui('click'); this.emit('olHost', !$(ol, '.ol-pv').checked); });
+    $(ol, '.ol-host').addEventListener('click', () => { audio()?.ui('click'); this.emit('olHost', true); });
+    $(ol, '.ol-friend').addEventListener('click', () => { audio()?.ui('buy'); this.emit('olHost', false); });
     $(ol, '.ol-join').addEventListener('click', () => { audio()?.ui('click'); this.emit('olJoin', $(ol, '.ol-code').value); });
     $(ol, '.ol-back').addEventListener('click', () => { audio()?.ui('back'); this.emit('olBack'); });
     r.appendChild(ol);
@@ -635,7 +638,7 @@ export class UI {
     const nm = $(s, '.ol-name');
     if (document.activeElement !== nm) nm.value = d.name;
     $(s, '.ol-sub').textContent = !d.avail ? 'OFFLINE · BOTS ONLY' : d.connected ? (d.via === 'p2p' ? 'ONLINE · DIRECT CONNECTION · UP TO 8 DRIVERS' : 'ONLINE · UP TO 8 DRIVERS PER LOBBY') : 'CONNECTING…';
-    for (const b of s.querySelectorAll('.ol-quick, .ol-host, .ol-join')) b.disabled = !d.avail || d.busy || d.inLobby;
+    for (const b of s.querySelectorAll('.ol-quick, .ol-host, .ol-join, .ol-friend')) b.disabled = !d.avail || d.busy || d.inLobby;
     const list = $(s, '.ol-list');
     if (!d.avail) list.innerHTML = `<div class="ol-empty">This copy runs inside Claude, which only lets signed-in or invited viewers connect. To race anyone with a link, open the public version:<br><a href="${PUBLIC_URL}" target="_blank" rel="noopener">${PUBLIC_URL.replace('https://', '')}</a></div>`;
     else if (!d.lobbies.length) list.innerHTML = '<div class="ol-empty">No open lobbies right now. Quick Match opens one and waits for others.</div>';
@@ -652,12 +655,20 @@ export class UI {
     const mapSel = d.isHost
       ? `<select class="ol-map">${d.maps.map((m) => `<option value="${m.id}" ${m.id === d.map ? 'selected' : ''}>${esc(m.cc + ' · ' + m.name)}</option>`).join('')}</select>`
       : `<b class="ol-mapname">${esc(d.mapName)}</b>`;
-    lob.innerHTML = `<div class="ol-code-big"><span>LOBBY CODE</span><b>${esc(d.code.toUpperCase())}</b><small>${d.pub ? 'PUBLIC' : 'PRIVATE'} · SHARE THE CODE WITH FRIENDS</small></div>
+    lob.innerHTML = `<div class="ol-code-big"><span>ONE-TIME LOBBY CODE</span><b>${esc(d.code.toUpperCase())}</b><small>${d.pub ? 'PUBLIC' : 'PRIVATE'} · VALID FOR THIS LOBBY ONLY · EXPIRES WHEN THE RACE STARTS</small></div>
+      ${d.invite ? `<div class="ol-invite"><input class="ol-link" readonly value="${esc(d.invite)}"><button class="btn ol-copy">COPY LINK</button></div>` : ''}
       <div class="ol-track"><span>TRACK</span>${mapSel}</div>
       <div class="ol-members">${rows}${empty}</div>
       <div class="ol-foot"><button class="btn ol-leave">LEAVE</button>
-      ${d.isHost ? `<button class="btn main amber ol-start" ${d.members.length < 1 ? 'disabled' : ''}>START RACE ›</button>` : `<button class="btn main ${d.ready ? '' : 'amber'} ol-ready">${d.ready ? 'READY ✓' : 'READY?'}</button>`}</div>
-      <div class="ol-note">${d.isHost ? (d.members.length < 2 ? 'Waiting for drivers… you can also start alone.' : d.members.filter((m) => m.rdy || m.host).length + '/' + d.members.length + ' ready') : 'The host starts the race.'}</div>`;
+      ${d.isHost ? `<button class="btn main amber ol-start">PLAY ›</button>` : `<button class="btn main ${d.ready ? '' : 'amber'} ol-ready">${d.ready ? 'READY ✓' : 'READY?'}</button>`}</div>
+      <div class="ol-note">${d.isHost ? (d.members.length < 2 ? 'Waiting for your friend… send the link or the code. You can also start alone.' : d.members.filter((m) => m.rdy || m.host).length + '/' + d.members.length + ' ready · press PLAY when everyone is in') : 'The host presses PLAY to start the race.'}</div>`;
+    const cp = lob.querySelector('.ol-copy');
+    if (cp) cp.addEventListener('click', () => {
+      const inp = lob.querySelector('.ol-link');
+      const done = () => { cp.textContent = 'COPIED ✓'; setTimeout(() => { if (cp.isConnected) cp.textContent = 'COPY LINK'; }, 1600); };
+      try { navigator.clipboard.writeText(inp.value).then(done, () => { inp.select(); }); } catch (e) { inp.select(); }
+    });
+    const li = lob.querySelector('.ol-link'); if (li) li.addEventListener('focus', () => li.select());
     $(lob, '.ol-leave').addEventListener('click', () => { audio()?.ui('back'); this.emit('olLeave'); });
     const st = lob.querySelector('.ol-start'); if (st) st.addEventListener('click', () => { audio()?.ui('buy'); this.emit('olStart'); });
     const rd = lob.querySelector('.ol-ready'); if (rd) rd.addEventListener('click', () => { audio()?.ui('click'); this.emit('olReady'); });
@@ -673,9 +684,12 @@ export class UI {
       <div class="rtable">${rows}</div>
       <div class="lines">${lines}<div class="line total show"><span>TOTAL</span><b>${fmtMoney(d.total)}</b></div></div>
       ${d.gift ? `<div class="gift">${d.gift}</div>` : ''}
-      ${d.online ? '<div class="foot"><button class="btn main amber rr-lobby">BACK TO LOBBY ›</button></div>'
+      ${d.online ? `<div class="foot"><button class="btn rr-leave">LEAVE</button>${d.host ? '<button class="btn main amber rr-rematch">REMATCH · NEW CODE ›</button>' : '<button class="btn main rr-wait" disabled>WAITING FOR THE HOST…</button>'}</div>`
         : '<div class="foot"><button class="btn rr-garage">GARAGE</button><button class="btn rr-tracks">TRACKS</button><button class="btn main rr-retry">RACE AGAIN <span style="opacity:.5;font-size:.8em">[R]</span></button></div>'}`;
-    if (d.online) $(p, '.rr-lobby').addEventListener('click', () => { audio()?.ui('click'); this.emit('olLobby'); });
+    if (d.online) {
+      $(p, '.rr-leave').addEventListener('click', () => { audio()?.ui('back'); this.emit('olLeaveRace'); });
+      const rm = p.querySelector('.rr-rematch'); if (rm) rm.addEventListener('click', () => { audio()?.ui('buy'); this.emit('olRematch'); });
+    }
     else {
       $(p, '.rr-retry').addEventListener('click', () => { audio()?.ui('buy'); this.emit('raceAgain'); });
       $(p, '.rr-tracks').addEventListener('click', () => { audio()?.ui('click'); this.emit('raceTracks'); });
