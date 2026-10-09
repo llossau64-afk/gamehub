@@ -923,7 +923,7 @@ class Game {
       audio()?.ambience?.update(dt, { room: 1, wind: 0.05 });
       audio()?.setReverb(0.25);
       this.post.enabled = this.quality !== 'low';
-      this.post.render(this.garage.scene, this.camera, { bloom: 0.45, warm: 0.6, vig: 0.42 });
+      this.post.render(this.garage.scene, this.camera, { bloom: 0.3, warm: 0.35, vig: 0.18, contrast: 1.0, sat: 1.05 });
       return;
     }
     if (this.state === 'run' && this.run) {

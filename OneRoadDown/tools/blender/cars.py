@@ -222,7 +222,7 @@ class Profile:
         return pts
 
 
-SEG = [2, 2, 2, 3, 3, 2, 2, 2, 3, 2, 3]   # samples per control segment
+SEG = [3, 3, 3, 4, 4, 3, 3, 3, 4, 3, 4]   # samples per control segment (dense: smooth reflections)
 K_BELT = sum(SEG[:7])                      # index of the belt-edge control point
 K_ROOFEDGE = sum(SEG[:9])                  # index of the roof-edge control point
 K_SILL = sum(SEG[:2])
@@ -243,7 +243,7 @@ def catmull(pts, seg):
 
 
 def section_us(pr):
-    base = list(np.linspace(0, 1, 46))
+    base = list(np.linspace(0, 1, 72))
     keys = [pr.ws, pr.roofF, pr.roofR, pr.ghBase, pr.doorR, pr.fenderStart, 0.035, 0.965, 0.1, 0.9]
     for k in keys:
         for o in (-0.012, 0.0, 0.012):

@@ -99,6 +99,71 @@ function swapUV(g) {
 
 // ---------------------------------------------------------------- wheel
 const wheelCache = new Map();
+// Modelled rims (the flat textured faces stay for steel wheels and hubcaps).
+const RIM_3D = {
+  alloy: { spokes: 7, twin: false, dish: 0.0, color: 0xc4c8cc, sportColor: 0x34373c, rough: 0.28, metal: 0.9 },
+  dish: { spokes: 6, twin: false, dish: 1.0, color: 0xdcdfe2, rough: 0.14, metal: 0.95 },
+  rally: { spokes: 6, twin: false, dish: 0.3, color: 0xe6e6e2, rough: 0.4, metal: 0.25, thick: 1.6 },
+  beadlock: { spokes: 8, twin: false, dish: 0.6, color: 0x1e1f22, rough: 0.5, metal: 0.6, thick: 1.4, bolts: 16 },
+  offroad: { spokes: 6, twin: false, dish: 0.6, color: 0x2a2b2e, rough: 0.5, metal: 0.6, thick: 1.5 },
+};
+
+function rimGeometry(st, rr, w, sport) {
+  const parts = [];
+  const xFace = w * 0.6;                 // outer face plane (wheel axis is x)
+  const dish = st.dish;
+  const n = sport && !st.thick ? 5 : st.spokes, twin = sport && !st.thick;
+  const r0 = rr * 0.2, r1 = rr * 0.92;
+  // one tapered, slightly concave spoke from the hub to the lip
+  const spoke = (a, wid0, wid1, th) => {
+    const g = new THREE.BoxGeometry(1, 1, 1, 4, 1, 1);
+    const p = g.attributes.position;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    for (let i = 0; i < p.count; i++) {
+      const t = p.getX(i) + 0.5, side = p.getZ(i), up = p.getY(i);
+      const rad = r0 + (r1 - r0) * t;
+      const wd = (wid0 + (wid1 - wid0) * t) * side;
+      // concave face: the hub sits proud, the spoke sinks towards the lip (deep dish: the reverse)
+      const x = xFace + (1 - dish) * (0.03 * (1 - t) - 0.035 * t * t) + dish * (-0.07 * (1 - t) + 0.01 * t) + up * th;
+      p.setXYZ(i, x, ca * rad - sa * wd, sa * rad + ca * wd);
+    }
+    g.computeVertexNormals();
+    parts.push(g);
+  };
+  const th = 0.024 * (st.thick || 1);
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2;
+    if (twin) { spoke(a - 0.13, rr * 0.07, rr * 0.045, th); spoke(a + 0.13, rr * 0.07, rr * 0.045, th); }
+    else spoke(a, rr * 0.16 * (st.thick || 1), rr * 0.09 * (st.thick || 1), th);
+  }
+  // lip: a polished ring around the face
+  const lipX = xFace - 0.035 + dish * 0.02;
+  const lp = [[rr * 0.88, -(lipX - 0.03)], [rr * 0.99, -(lipX - 0.02)], [rr * 1.0, -(lipX + 0.005)], [rr * 0.95, -(lipX + 0.012)], [rr * 0.89, -(lipX + 0.004)]].map(([a, b]) => new THREE.Vector2(a, b));
+  const lip = new THREE.LatheGeometry(lp, 32); lip.rotateZ(Math.PI / 2);
+  parts.push(lip);
+  // hub, centre cap and five lug nuts
+  const hubX = xFace + (1 - dish) * 0.03 - dish * 0.07;
+  const hub = new THREE.CylinderGeometry(r0 * 1.05, r0 * 1.15, 0.05, 20); hub.rotateZ(Math.PI / 2); hub.translate(hubX, 0, 0);
+  const cap = new THREE.CylinderGeometry(r0 * 0.45, r0 * 0.5, 0.06, 16); cap.rotateZ(Math.PI / 2); cap.translate(hubX + 0.015, 0, 0);
+  parts.push(hub, cap);
+  for (let k = 0; k < 5; k++) {
+    const a = (k / 5) * Math.PI * 2 + 0.3;
+    const nut = new THREE.CylinderGeometry(0.011, 0.011, 0.03, 6); nut.rotateZ(Math.PI / 2);
+    nut.translate(hubX + 0.022, Math.cos(a) * r0 * 0.7, Math.sin(a) * r0 * 0.7);
+    parts.push(nut);
+  }
+  // beadlock ring with bolts
+  if (st.bolts) {
+    for (let k = 0; k < st.bolts; k++) {
+      const a = (k / st.bolts) * Math.PI * 2;
+      const b = new THREE.CylinderGeometry(0.009, 0.009, 0.025, 6); b.rotateZ(Math.PI / 2);
+      b.translate(lipX + 0.01, Math.cos(a) * rr * 0.95, Math.sin(a) * rr * 0.95);
+      parts.push(b);
+    }
+  }
+  return mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)).map((g) => { for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k); return g; }));
+}
+
 export function buildWheel(r, width, rimStyle, tireKind, sport) {
   const key = [r.toFixed(3), width.toFixed(3), rimStyle, tireKind, sport].join('|');
   let parts = wheelCache.get(key);
@@ -116,7 +181,8 @@ export function buildWheel(r, width, rimStyle, tireKind, sport) {
     const face = new THREE.CircleGeometry(rr * 0.97, 24); face.rotateY(Math.PI / 2); face.translate(w * 0.62, 0, 0);
     const disc = new THREE.CylinderGeometry(rr * 0.72, rr * 0.72, 0.03, 20); disc.rotateZ(Math.PI / 2); disc.translate(w * 0.05, 0, 0);
     const caliper = roundedBox(0.06, rr * 0.45, rr * 0.32, 0.015, 1); caliper.translate(w * 0.2, rr * 0.48, -rr * 0.25);
-    parts = { tire, barrel, face, disc, caliper, rr };
+    const rim3d = RIM_3D[rimStyle] ? rimGeometry(RIM_3D[rimStyle], rr, w, sport) : null;
+    parts = { tire, barrel, face, disc, caliper, rr, rim3d };
     wheelCache.set(key, parts);
   }
   const tireMat = new THREE.MeshStandardMaterial({ map: TX.tireTexture(tireKind), roughness: 0.9, bumpMap: TX.tireTexture(tireKind), bumpScale: 2 });
@@ -125,14 +191,21 @@ export function buildWheel(r, width, rimStyle, tireKind, sport) {
   const spin = new THREE.Group();
   const tire = new THREE.Mesh(parts.tire, tireMat); tire.castShadow = true;
   const barrel = new THREE.Mesh(parts.barrel, mats.darkSteel);
-  const face = new THREE.Mesh(parts.face, rimMat);
+  let face;
+  if (parts.rim3d) {
+    // modelled rim: spokes, lip, hub and lug nuts; the brake disc shows between the spokes
+    const st = RIM_3D[rimStyle];
+    const m3 = new THREE.MeshStandardMaterial({ color: sport && st.sportColor ? st.sportColor : st.color, roughness: st.rough, metalness: st.metal });
+    face = new THREE.Mesh(parts.rim3d, m3); face.castShadow = true;
+    g.userData.rimMat = m3;
+  } else face = new THREE.Mesh(parts.face, rimMat);
   spin.add(tire, barrel, face);
   const disc = new THREE.Mesh(parts.disc, mats.brakeDisc);
   spin.add(disc);
   const caliperMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.5, metalness: 0.5 });
   const caliper = new THREE.Mesh(parts.caliper, caliperMat);
   g.add(spin, caliper);
-  g.userData = { spin, face, caliper, caliperMat, tireMat, rimMat, tire };
+  g.userData = { ...g.userData, spin, face, caliper, caliperMat, tireMat, rimMat: g.userData.rimMat || rimMat, tire };
   return g;
 }
 

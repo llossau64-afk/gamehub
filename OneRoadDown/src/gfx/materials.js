@@ -40,9 +40,12 @@ export function initMaterials() {
   M.chrome = new THREE.MeshStandardMaterial({ color: 0xdfe2e5, roughness: 0.12, metalness: 1 });
   M.glass = new THREE.MeshPhysicalMaterial({ color: 0x101820, roughness: 0.04, metalness: 0.1, transparent: true, opacity: 0.72, envMapIntensity: 1.6, clearcoat: 1 });
   M.crack = new THREE.MeshBasicMaterial({ map: TX.crackTexture(), transparent: true, opacity: 0, depthWrite: false });
-  M.headlight = new THREE.MeshStandardMaterial({ color: 0xf0eee6, emissive: 0xfff1d6, emissiveIntensity: 0.12, roughness: 0.15, metalness: 0.2 });
+  // lamp units: smoked housing, chrome reflector bowls, projector lenses and LED strips;
+  // the emissive map lights only the lenses and LEDs
+  const lamp = lampTextures();
+  M.headlight = new THREE.MeshStandardMaterial({ color: 0xffffff, map: lamp.head, emissive: 0xfff1d6, emissiveMap: lamp.headGlow, emissiveIntensity: 0.12, roughness: 0.12, metalness: 0.55 });
   M.headlightBroken = new THREE.MeshStandardMaterial({ color: 0x2d2c2a, roughness: 0.6 });
-  M.taillight = new THREE.MeshStandardMaterial({ color: 0x5a0d0b, emissive: 0xff1d10, emissiveIntensity: 0.25, roughness: 0.25 });
+  M.taillight = new THREE.MeshStandardMaterial({ color: 0xffffff, map: lamp.tail, emissive: 0xff1d10, emissiveMap: lamp.tailGlow, emissiveIntensity: 0.25, roughness: 0.2, metalness: 0.2 });
   M.grille = new THREE.MeshStandardMaterial({ map: TX.grilleTexture(), roughness: 0.7, metalness: 0.3 });
   M.carbon = new THREE.MeshPhysicalMaterial({ map: TX.carbonTexture(), roughness: 0.3, metalness: 0.2, clearcoat: 1 });
   M.engine = new THREE.MeshStandardMaterial({ color: 0x5b5d60, roughness: 0.55, metalness: 0.7 });
@@ -130,3 +133,46 @@ varying float vObjY;`)
 }
 
 export function setWear(m, k, v) { if (m.userData.wear) m.userData.wear[k].value = v; }
+
+function lampTextures() {
+  const mk = (w, h, draw) => {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    draw(c.getContext('2d'), w, h);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    return t;
+  };
+  // headlight: drawn symmetric top/bottom so the unit reads right either way up
+  const head = (glow) => (g, W, H) => {
+    if (!glow) {
+      const bg = g.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, '#2c3036'); bg.addColorStop(0.5, '#15171a'); bg.addColorStop(1, '#2c3036');
+      g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    } else { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); }
+    for (const fx of [0.3, 0.68]) {
+      const x = W * fx, y = H / 2, R = H * 0.34;
+      if (!glow) {
+        const rg = g.createRadialGradient(x - R * 0.2, y - R * 0.2, R * 0.1, x, y, R);
+        rg.addColorStop(0, '#f4f6f8'); rg.addColorStop(0.55, '#8d949c'); rg.addColorStop(1, '#2a2e33');
+        g.fillStyle = rg; g.beginPath(); g.arc(x, y, R, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#c9ced4'; g.lineWidth = 2; g.stroke();
+      }
+      const lg = g.createRadialGradient(x, y, 0, x, y, R * 0.5);
+      lg.addColorStop(0, '#ffffff'); lg.addColorStop(0.6, glow ? '#fff4e0' : '#dfe8f2'); lg.addColorStop(1, glow ? '#000' : '#7f8a96');
+      g.fillStyle = lg; g.beginPath(); g.arc(x, y, R * 0.5, 0, Math.PI * 2); g.fill();
+    }
+    // LED daytime strips along both long edges
+    g.fillStyle = glow ? '#ffffff' : '#eef3f8';
+    for (const y of [H * 0.07, H * 0.89]) g.fillRect(W * 0.06, y, W * 0.88, H * 0.045);
+  };
+  const tail = (glow) => (g, W, H) => {
+    g.fillStyle = glow ? '#000' : '#3a0806'; g.fillRect(0, 0, W, H);
+    // stacked LED bars with a darker centre: reads as a modern light bar
+    for (let k = 0; k < 4; k++) {
+      const y = H * (0.14 + k * 0.2);
+      g.fillStyle = glow ? (k === 0 || k === 3 ? '#ff3a24' : '#b8160c') : (k === 0 || k === 3 ? '#e0281a' : '#8c120a');
+      g.fillRect(W * 0.05, y, W * 0.9, H * 0.1);
+    }
+    if (!glow) { g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(0, H * 0.02, W, H * 0.06); }
+  };
+  return { head: mk(256, 128, head(false)), headGlow: mk(256, 128, head(true)), tail: mk(256, 64, tail(false)), tailGlow: mk(256, 64, tail(true)) };
+}
