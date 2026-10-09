@@ -56,7 +56,7 @@ npm run preview    # serve dist/ locally
 - **Daily events** from day 2: Friday Rush, Double Tips, VIP Day, Fade Challenge.
 - **Staff**: buy a second station and hire Marco. He calls waiting customers to his chair, cuts their hair himself (skill and speed upgrades) and keeps 35%.
 - **Save**: autosave after every haircut, purchase, level-up and every game hour, including the time of day, so a reload puts you back in the same afternoon (localStorage, or the portal's data module). On the shared Claude link the save also lives in the page's per-person cloud storage, so your progress follows you on that link on any device.
-- **Online co-op** (`src/net/online.js`, `src/net/relay.js`): Play Online, make up a shop code, and up to two colleagues type the same code — no account or invite needed. Players talk through a free public MQTT broker over WebSocket (EMQX, HiveMQ as fallback); inside the claude.ai artifact, where outside connections can be blocked, it falls back to the runtime's `room`. Everyone plays their own day with their own customers and money; the second station and the extension's chair are always there online, and you see the others walking around and cutting their customers at those chairs. Staff take the day off while you're online.
+- **Online co-op** (`src/net/online.js`, `src/net/relay.js`): Play Online → **Create lobby** gives a fresh one-time code (checked to be unused); up to two colleagues press **Join** and type it. The host presses **Play** and everyone goes into the shop together. A code only exists while its lobby does: when the host leaves, the lobby closes and the code finds nothing. No account or invite needed; connections drop and reconnect gracefully. Players talk through a free public MQTT broker over WebSocket (EMQX, HiveMQ as fallback); inside the claude.ai artifact, where outside connections can be blocked, it falls back to the runtime's `room`. Everyone plays their own day with their own customers and money; the second station and the extension's chair are always there online, and you see the others walking around and cutting their customers at those chairs. Staff take the day off while you're online.
 - **Public web version**: `npm run pages` writes the single-file build to `/docs`, which GitHub Pages serves (Settings → Pages → Deploy from a branch → this branch, `/docs`).
 
 ## Code map
@@ -71,7 +71,7 @@ npm run preview    # serve dist/ locally
 | `src/game/` | `game.js` (states, interactions, economy, events, haircut flow), `barber.js`, `customers.js`, `employee.js`, `street.js`, `player.js` (first person + hands), `tutorial.js` |
 | `src/cutscene/` | `director.js` (game-time waits, camera moves, skip), `intro.js` |
 | `src/audio/` | WebAudio synthesis: bell, door, squeaky chair, clipper motor with load, snips, voices, ambience, lo-fi music on the radio |
-| `src/net/` | `online.js`: co-op over the artifact runtime's `room` presence (no servers of our own) |
+| `src/net/` | `online.js` (lobbies, remote barbers), `relay.js` (minimal MQTT-over-WebSocket client to a public broker; the artifact runtime's `room` is the fallback) |
 | `src/core/cloud.js` | per-person cloud save through the artifact runtime's `db` |
 | `src/platform/` | portal adapters (CrazyGames v3, GamePix, Playgama, none). The SDK script is added by the portal packaging, not bundled. |
 | `src/debug/` | headless test harness (`play.mjs` plus `scenarios/`) used to play through the intro, tutorial and a normal day in Chromium |

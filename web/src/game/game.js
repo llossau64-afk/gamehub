@@ -385,37 +385,54 @@ export class Game {
   }
 
   // ---------------------------------------------------------------- online co-op
-  async openOnline() {
-    const ui = this.ui;
-    const can = await this.online.probe();
-    const join = async (code, nick) => {
-      this.settings.nick = nick;
-      store.saveSettings();
-      try {
-        await this.online.join(code, nick);
-      } catch (e) {
-        return e?.message === 'offline' ? 'Couldn’t reach the online server. Check your internet connection.' : e?.message || 'Couldn’t connect. Try again.';
-      }
-      this.setOnlineShop(true);
-      ui.closePanel();
-      ui.toast(`Shop code ${this.online.code} — your colleagues can join from Play Online`, 'Online');
-      this.showMainMenu();
-      return null;
-    };
-    ui.onlinePanel({
-      active: this.online.active, code: this.online.code, available: can,
-      nick: this.settings.nick || '', suggest: randomCode(),
-      shops: this.online.shops || [],
-      watchShops: (fn) => { this.online.onShops = fn; return () => { if (this.online.onShops === fn) this.online.onShops = null; }; },
-      onJoin: join,
+  // Play Online: create a lobby (fresh one-time code) or join one by code; the host presses
+  // PLAY and everybody goes into the shop together
+  openOnline() {
+    const ui = this.ui, on = this.online;
+    const view = ui.onlinePanel({
+      nick: this.settings.nick || '',
+      lobby: on.active ? { code: on.code, host: on.host, started: on.started, players: on.players } : null,
+      onCreate: async (nick) => {
+        this.saveNick(nick);
+        try { await on.createLobby(nick); } catch (e) { return e?.message || 'Couldn’t create a lobby.'; }
+        return null;
+      },
+      onJoin: async (code, nick) => {
+        this.saveNick(nick);
+        try { await on.joinLobby(code, nick); } catch (e) { return e?.message || 'Couldn’t join.'; }
+        return null;
+      },
+      onPlay: () => on.start(),
       onLeave: async () => {
-        await this.online.leave();
+        await on.leave();
         this.setOnlineShop(false);
-        ui.closePanel();
-        ui.toast('You left the online shop', 'Online');
-        this.showMainMenu();
+        if (this.state !== 'menu') { ui.closePanel(); this.toMenu(); } else this.showMainMenu();
       },
     });
+    on.onChange = () => view.update?.({ code: on.code, host: on.host, started: on.started, players: on.players });
+    on.onStart = () => this.startOnline();
+    on.onClosed = async () => {
+      await on.leave();
+      this.setOnlineShop(false);
+      ui.closePanel();
+      ui.toast('The host closed the lobby', 'Online');
+      if (this.state !== 'menu') this.toMenu(); else this.showMainMenu();
+    };
+  }
+
+  saveNick(nick) { this.settings.nick = nick; store.saveSettings(); }
+
+  // everybody into the shop: your own save, or a quick fresh start (intro and tutorial skipped)
+  startOnline() {
+    this.ui.closePanel();
+    this.setOnlineShop(true);
+    if (this.state !== 'menu') { this.ui.toast('The lobby is playing', 'Online'); return; }
+    if (!store.hasProgress) {
+      Object.assign(this.save, { started: true, introSeen: true, tutorialDone: true });
+      this.persist();
+    }
+    this.ui.toast(`Online · lobby ${this.online.code}`, 'Online');
+    this.continueGame();
   }
 
   setOnlineShop(on) {
@@ -438,6 +455,7 @@ export class Game {
       onSettings: () => this.openSettings(),
       onOnline: () => this.openOnline(),
       online: this.online.active ? this.online.code : null,
+      onlineStarted: this.online.started,
     });
   }
 

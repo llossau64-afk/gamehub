@@ -11,7 +11,7 @@ const BROKERS = [
   'wss://broker.hivemq.com:8884/mqtt',
 ];
 const ROOT = 'barberempire/v1/';
-const STALE_MS = 6000;      // a player we haven't heard from for this long has left
+const STALE_MS = 45000;     // a player we haven't heard from for this long has left (background tabs get throttled)
 const BEAT_MS = 2000;       // resend the full state at least this often
 const MAX_MSG = 6000;
 
@@ -39,7 +39,7 @@ class Mqtt {
       const timer = setTimeout(() => { fail(new Error('timeout')); try { ws.close(); } catch (e) { /* */ } }, 6000);
       ws.onopen = () => {
         const flags = 0x02 | (will ? 0x04 : 0);
-        const body = [...str('MQTT'), 4, flags, 0, 30, ...str(clientId)];
+        const body = [...str('MQTT'), 4, flags, 0, 120, ...str(clientId)];
         if (will) body.push(...str(will.topic), ...str(will.payload));
         ws.send(packet(0x10, body));
       };
@@ -99,16 +99,17 @@ export async function joinRelay(code) {
   const base = ROOT + code.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) + '/';
   const override = new URLSearchParams(location.search).get('relay');
   const brokers = override ? [override] : BROKERS;
-  let mq = null;
-  for (const url of brokers) {
-    const m = new Mqtt(url);
-    try {
-      await m.connect('be-' + id, { topic: base + 'p', payload: JSON.stringify({ id, bye: true }) });
-      mq = m;
-      break;
-    } catch (e) { /* next broker */ }
-  }
+  const will = { topic: base + 'p', payload: JSON.stringify({ id, bye: true }) };
+  const connectAny = async (list) => {
+    for (const url of list) {
+      const m = new Mqtt(url);
+      try { await m.connect('be-' + id, will); return m; } catch (e) { /* next broker */ }
+    }
+    return null;
+  };
+  let mq = await connectAny(brokers);
   if (!mq) throw new Error('Couldn’t reach the online server. Check your internet connection and try again.');
+  const url0 = mq.url;
 
   const me = {};
   const others = new Map();   // id -> { presence, seen }
@@ -122,7 +123,7 @@ export async function joinRelay(code) {
   };
   const sendState = () => { lastSend = Date.now(); mq.publish(base + 'p', JSON.stringify({ id, s: me })); };
 
-  mq.onMessage = (topic, text) => {
+  const onMessage = (topic, text) => {
     let m;
     try { m = JSON.parse(text); } catch (e) { return; }
     if (!m || typeof m.id !== 'string' || m.id === id || m.id.length > 24) return;
@@ -134,9 +135,23 @@ export async function joinRelay(code) {
     if (!known) sendState();
     rebuild();
   };
-  mq.subscribe(base + 'p');
-  // say hello so the others answer with their state straight away
-  setTimeout(sendState, 150);
+  // the connection drops (sleeping laptop, flaky wifi): reconnect to the same broker and carry on
+  const attach = (m) => {
+    m.onMessage = onMessage;
+    m.onClose = () => { if (!left) setTimeout(reconnect, 1500); };
+    m.subscribe(base + 'p');
+    // say hello so the others answer with their state straight away
+    setTimeout(sendState, 150);
+  };
+  const reconnect = async () => {
+    if (left) return;
+    const m = await connectAny([url0]);
+    if (left) { m?.close(); return; }
+    if (!m) { setTimeout(reconnect, 4000); return; }
+    mq = m;
+    attach(m);
+  };
+  attach(mq);
 
   const beat = setInterval(() => {
     const now = Date.now();
@@ -145,7 +160,6 @@ export async function joinRelay(code) {
     if (changed) rebuild();
     if (now - lastSend > BEAT_MS) sendState();
   }, 500);
-  mq.onClose = () => { if (!left) { others.clear(); rebuild(); } };
 
   rebuild();
   return {

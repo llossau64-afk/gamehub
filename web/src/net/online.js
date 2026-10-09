@@ -15,6 +15,8 @@ import { spawnProp } from '../world/props.js';
 import { clamp } from '../core/util.js';
 import { joinRelay } from './relay.js';
 
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const SLOT_COLS = ['#d1a956', '#4aa3df', '#e0455a'];
 const SLOTS = [STATION2, STATION3];
@@ -215,7 +217,7 @@ export class Online {
 
   get active() { return !!this.room; }
 
-  // can this view go online at all? (null until known)
+  // the artifact runtime's room: only a fallback for views that can't reach the relay
   async probe() {
     if (this.available !== null) return this.available;
     try {
@@ -223,59 +225,86 @@ export class Online {
       this.lobby = await window.claude.use('room');
       this.available = !!this.lobby;
     } catch (e) { this.available = false; }
-    // the lobby: everyone who has the game open advertises the shop they're in, so a
-    // colleague can join with one click instead of typing the code
-    if (this.lobby) {
-      this.shops = [];
-      this.lobby.onPeers((ch) => {
-        const seen = new Map();
-        for (const p of ch.peers) {
-          if (p.isMe) continue;
-          const code = str(p.presence?.shop, 8).toUpperCase();
-          if (!code) continue;
-          const e = seen.get(code) || { code, nicks: [] };
-          e.nicks.push(str(p.presence?.nick, 16) || 'Barber');
-          seen.set(code, e);
-        }
-        this.shops = [...seen.values()];
-        this.onShops?.(this.shops);
-      }, () => {});
-    }
     return this.available;
   }
 
-  async join(code, nick) {
-    // the code relay works everywhere and needs no account; the artifact runtime's room
-    // (Claude sign-in + invite) is only the fallback when the relay can't be reached
-    let room = null, relayErr = null;
-    try { room = await joinRelay(code); } catch (e) { relayErr = e; }
-    if (!room) {
+  async connect(code) {
+    try { return await joinRelay(code); } catch (e) {
       if (!this.lobby) await this.probe();
-      if (!this.lobby) throw relayErr || new Error('offline');
-      room = await this.lobby.join('barber-' + code.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12));
+      if (!this.lobby) throw e;
+      return this.lobby.join('barber-' + code.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12));
     }
-    this.code = code.toUpperCase();
+  }
+
+  // others in the room who are actually playing this game
+  othersIn(room) { return room.peers().filter((p) => !p.isMe && p.presence && p.presence.v === 1); }
+
+  // ---- a lobby is one-time: a fresh random code nobody is using, gone when the host leaves
+  async createLobby(nick) {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = randomCode();
+      const room = await this.connect(code);
+      await wait(room.relay ? 1600 : 1200);
+      if (room.peers().some((p) => !p.isMe)) { await room.leave().catch(() => {}); continue; }
+      this.host = true;
+      this.started = false;
+      await this.enter(room, code, nick, { host: 1, lobby: 'wait', born: Date.now() });
+      return code;
+    }
+    throw new Error('Couldn’t create a lobby. Try again.');
+  }
+
+  async joinLobby(code, nick) {
+    code = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (code.length < 4) throw new Error('That code is too short.');
+    const room = await this.connect(code);
+    // the host must be there: an old or made-up code finds nobody
+    let host = null;
+    for (let t = 0; t < 14 && !host; t++) {
+      await wait(250);
+      host = this.othersIn(room).find((p) => p.presence.host === 1);
+    }
+    if (!host) { await room.leave().catch(() => {}); throw new Error('No lobby with this code. It may have been closed — ask your colleague for a new code.'); }
+    if (this.othersIn(room).length >= MAX_PLAYERS) { await room.leave().catch(() => {}); throw new Error('This lobby is full (3 barbers).'); }
+    this.host = false;
+    this.started = false;
+    await this.enter(room, code, nick, {});
+    return code;
+  }
+
+  async enter(room, code, nick, extra) {
+    this.code = code;
     this.nick = nick;
-    // wait a moment for the others to answer, then check the room isn't full
-    await new Promise((r) => setTimeout(r, room.relay ? 1800 : 1200));
-    const others = room.peers().filter((p) => !p.isMe && p.presence && p.presence.v === 1);
-    if (others.length >= MAX_PLAYERS) { await room.leave().catch(() => {}); throw new Error('That shop is full (3 barbers).'); }
     this.room = room;
+    this.last = {};
     this.unsub = room.onPeers((ch) => this.onPeers(ch.peers));
-    await room.presence({ v: 1, nick, st: 'menu', p: null, cu: null, hr: null }).catch(() => {});
+    await room.presence({ v: 1, nick, st: 'menu', p: null, cu: null, hr: null, ...extra }).catch(() => {});
     this.onPeers(room.peers());
-    this.lobby?.presence({ shop: this.code, nick }).catch(() => {});
-    return this.code;
+  }
+
+  // host: everybody into the shop
+  async start() {
+    if (!this.room || !this.host) return;
+    await this.room.presence({ lobby: 'play' }).catch(() => {});
+    this.started = true;
+    this.onStart?.();
+  }
+
+  get players() {
+    return [{ nick: this.nick, col: SLOT_COLS[0], me: true, host: !!this.host },
+      ...[...this.remotes.values()].map((r) => ({ nick: r.nick, col: r.col, host: r.isHost }))];
   }
 
   async leave() {
     const r = this.room;
     this.room = null;
+    this.host = false;
+    this.started = false;
+    this.hostSeen = false;
     this.unsub?.();
     for (const rb of this.remotes.values()) rb.dispose();
     this.remotes.clear();
     this.game.ui.setOnline?.(null);
-    this.lobby?.presence({ shop: null }).catch(() => {});
     await r?.leave().catch(() => {});
   }
 
@@ -285,18 +314,27 @@ export class Online {
     const others = peers.filter((p) => !p.isMe && p.presence && p.presence.v === 1)
       .sort((a, b) => (a.peer < b.peer ? -1 : 1)).slice(0, MAX_PLAYERS - 1);
     const keep = new Set(others.map((p) => p.peer));
-    for (const [id, rb] of this.remotes) if (!keep.has(id)) { rb.dispose(); this.remotes.delete(id); this.game.ui.toast(`${rb.nick || 'A barber'} left the shop`, 'Online'); }
+    for (const [id, rb] of this.remotes) if (!keep.has(id)) { rb.dispose(); this.remotes.delete(id); this.game.ui.toast(`${rb.nick || 'A barber'} left`, 'Online'); }
     others.forEach((p, i) => {
       let rb = this.remotes.get(p.peer);
       if (rb && rb.slot !== i) { rb.dispose(); this.remotes.delete(p.peer); rb = null; }
       if (!rb) {
         rb = new RemoteBarber(this.game, p.peer, i);
         this.remotes.set(p.peer, rb);
-        if (this.game.state !== 'menu') this.game.ui.toast(`${str(p.presence.nick, 16) || 'A barber'} joined the shop`, 'Online');
+        this.game.ui.toast(`${str(p.presence.nick, 16) || 'A barber'} joined`, 'Online');
       }
+      rb.isHost = p.presence.host === 1;
       rb.apply(p.presence);
     });
-    this.game.ui.setOnline?.({ code: this.code, players: [{ nick: this.nick, col: SLOT_COLS[0], me: true }, ...[...this.remotes.values()].map((r) => ({ nick: r.nick, col: r.col }))] });
+    if (!this.host) {
+      const host = others.find((p) => p.presence.host === 1);
+      if (host) this.hostSeen = true;
+      // the host left: the lobby (and its code) is gone
+      if (!host && this.hostSeen) { this.onClosed?.(); return; }
+      if (host?.presence.lobby === 'play' && !this.started) { this.started = true; this.onStart?.(); }
+    }
+    this.game.ui.setOnline?.({ code: this.code, players: this.players });
+    this.onChange?.();
   }
 
   // what I tell the others

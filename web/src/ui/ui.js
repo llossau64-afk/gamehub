@@ -103,7 +103,7 @@ export class UI {
     };
     if (opts.hasSave) add('Continue', opts.onContinue, 'primary', opts.saveInfo);
     add('New Game', opts.onNew, opts.hasSave ? '' : 'primary');
-    if (opts.onOnline) add(opts.online ? `Online · ${opts.online}` : 'Play Online', opts.onOnline, opts.online ? 'online on' : 'online', opts.online ? 'connected' : 'co-op · 3 barbers');
+    if (opts.onOnline) add(opts.online ? `Online · ${opts.online}` : 'Play Online', opts.onOnline, opts.online ? 'online on' : 'online', opts.online ? 'lobby' : 'co-op · 3 barbers');
     add('Upgrades', opts.onUpgrades);
     add('Achievements', opts.onAchievements);
     add('Settings', opts.onSettings);
@@ -113,52 +113,94 @@ export class UI {
     requestAnimationFrame(() => { el.style.transition = 'opacity .8s'; el.style.opacity = 1; });
   }
 
+  // Play Online: choose (create / join) -> lobby (code, players, PLAY for the host)
   onlinePanel(o) {
-    const body = h(`<div class="online-p">
-      <p class="op-lead">Cut hair together: up to <b>3 barbers</b> in one shop. Make up a code, tell it to your colleagues, and they type the same code — no account, no invite. Everyone keeps their own customers, money and day; you see each other working at the extra chairs.</p>
-      ${o.active ? `<div class="op-code"><span>Your shop code</span><b>${o.code}</b></div>
-        <p class="op-hint">Colleagues open the game, press <b>Play Online</b> and type this code.</p>
-        <button class="mbtn op-leave">Leave the online shop</button>` : `
-      <div class="op-shops"></div>
-      <label class="op-f"><span>Your name</span><input class="op-nick" maxlength="16" placeholder="Barber"></label>
-      <label class="op-f"><span>Shop code</span><input class="op-code-in" maxlength="8" placeholder="ABCD"></label>
-      <div class="op-hint">Same code = same shop. Pick something nobody else would guess, like <b>KIEZ42</b>.</div>
-      <div class="op-err"></div>
-      <button class="mbtn primary op-join">Open / join shop</button>`}
-    </div>`);
-    const nick = body.querySelector('.op-nick'), code = body.querySelector('.op-code-in');
-    if (nick) { nick.value = o.nick; code.value = o.suggest; }
-    const cleanNick = () => nick.value.trim().replace(/[^\p{L}\p{N} _.\-!?']/gu, '').slice(0, 16) || 'Barber';
-    const doJoin = async (c, b, label) => {
-      if (c.length < 3) { body.querySelector('.op-err').textContent = 'The code needs at least 3 letters or numbers.'; return; }
-      b.disabled = true; b.textContent = 'Connecting…';
-      const err = await o.onJoin(c, cleanNick());
-      if (err) { body.querySelector('.op-err').textContent = err; b.disabled = false; b.textContent = label; }
+    const body = h('<div class="online-p"></div>');
+    const cleanNick = (v) => v.trim().replace(/[^\p{L}\p{N} _.\-!?']/gu, '').slice(0, 16) || 'Barber';
+    let nickVal = o.nick || '';
+    const busy = (b, t) => { b.disabled = true; b.dataset.label = b.textContent; b.textContent = t; };
+    const unbusy = (b) => { b.disabled = false; b.textContent = b.dataset.label; };
+
+    const choose = (err = '') => {
+      body.innerHTML = `
+        <p class="op-lead">Cut hair together with up to <b>2 colleagues</b>. One of you creates a lobby and gets a one-time code; the others join with it. No account needed.</p>
+        <label class="op-f"><span>Your name</span><input class="op-nick" maxlength="16" placeholder="Barber"></label>
+        <div class="op-choice">
+          <div class="op-box">
+            <div class="op-bt">Create a lobby</div>
+            <div class="op-bs">You get a new code to send to your colleagues.</div>
+            <button class="mbtn primary op-create">Create lobby</button>
+          </div>
+          <div class="op-box">
+            <div class="op-bt">Join a lobby</div>
+            <div class="op-bs">Type the code a colleague sent you.</div>
+            <input class="op-code-in" maxlength="8" placeholder="CODE" autocomplete="off" spellcheck="false">
+            <button class="mbtn op-join">Join</button>
+          </div>
+        </div>
+        <div class="op-err">${err}</div>`;
+      const nick = body.querySelector('.op-nick');
+      nick.value = nickVal;
+      nick.addEventListener('input', () => { nickVal = nick.value; });
+      const code = body.querySelector('.op-code-in');
+      code.addEventListener('input', () => { code.value = code.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+      code.addEventListener('keydown', (e) => { if (e.key === 'Enter') body.querySelector('.op-join').click(); });
+      body.querySelector('.op-create').addEventListener('click', async (e) => {
+        const b = e.currentTarget; busy(b, 'Creating…');
+        const err = await o.onCreate(cleanNick(nick.value));
+        if (err) { unbusy(b); body.querySelector('.op-err').textContent = err; }
+      });
+      body.querySelector('.op-join').addEventListener('click', async (e) => {
+        if (code.value.length < 4) { body.querySelector('.op-err').textContent = 'Type the code your colleague sent you.'; code.focus(); return; }
+        const b = e.currentTarget; busy(b, 'Looking for the lobby…');
+        const err = await o.onJoin(code.value, cleanNick(nick.value));
+        if (err) { unbusy(b); body.querySelector('.op-err').textContent = err; }
+      });
     };
-    body.querySelector('.op-join')?.addEventListener('click', (e) => doJoin(code.value.toUpperCase().replace(/[^A-Z0-9]/g, ''), e.currentTarget, 'Open / join shop'));
-    body.querySelector('.op-leave')?.addEventListener('click', () => o.onLeave());
-    // shops colleagues have open right now
-    const list = body.querySelector('.op-shops');
-    const render = (shops) => {
-      if (!list) return;
+
+    let lobbyEl = null;
+    const lobby = (L) => {
+      if (!lobbyEl) {
+        body.innerHTML = `
+          <div class="op-code"><span>Lobby code</span><b class="op-c"></b><button class="op-copy">Copy</button></div>
+          <div class="op-actions"><button class="mbtn primary op-play">Play</button><button class="mbtn op-leave">Leave lobby</button></div>
+          <div class="op-status"></div>
+          <div class="op-sk">Barbers <span class="op-n"></span></div>
+          <div class="op-players"></div>
+          <div class="op-hint">This code only exists for this lobby. Send it to your colleagues — they press <b>Play Online → Join</b>. When the host leaves, the lobby and its code are gone.</div>`;
+        lobbyEl = body;
+        body.querySelector('.op-copy').addEventListener('click', (e) => {
+          const t = body.querySelector('.op-c').textContent;
+          navigator.clipboard?.writeText(t).then(() => { e.target.textContent = 'Copied'; setTimeout(() => { e.target.textContent = 'Copy'; }, 1400); }).catch(() => {});
+        });
+        body.querySelector('.op-play').addEventListener('click', () => o.onPlay());
+        body.querySelector('.op-leave').addEventListener('click', () => o.onLeave());
+      }
+      body.querySelector('.op-c').textContent = L.code;
+      body.querySelector('.op-n').textContent = `${L.players.length} / 3`;
+      const list = body.querySelector('.op-players');
       list.innerHTML = '';
-      if (!shops.length) { list.append(h('<div class="op-none">No open shops yet — open one and your colleagues will see it here.</div>')); return; }
-      list.append(h('<div class="op-sk">Open shops</div>'));
-      for (const s of shops.slice(0, 6)) {
-        const row = h('<div class="op-shop"><div><b></b><span></span></div><button class="op-sj">Join</button></div>');
-        row.querySelector('b').textContent = s.code;
-        row.querySelector('span').textContent = s.nicks.join(', ') + (s.nicks.length >= 3 ? ' · full' : '');
-        const btn = row.querySelector('button');
-        if (s.nicks.length >= 3) btn.disabled = true;
-        btn.addEventListener('click', () => doJoin(s.code, btn, 'Join'));
+      for (let i = 0; i < 3; i++) {
+        const p = L.players[i];
+        const row = h(`<div class="op-pl ${p ? '' : 'empty'}"><i></i><span></span><em></em></div>`);
+        if (p) {
+          row.querySelector('i').style.background = p.col;
+          row.querySelector('span').textContent = p.nick + (p.me ? ' (you)' : '');
+          row.querySelector('em').textContent = p.host ? 'Host' : '';
+        } else row.querySelector('span').textContent = 'Free chair…';
         list.append(row);
       }
+      const play = body.querySelector('.op-play');
+      play.style.display = L.host && !L.started ? '' : 'none';
+      body.querySelector('.op-status').textContent = L.started ? 'The lobby is playing.'
+        : L.host ? (L.players.length > 1 ? 'Everyone here? Press Play.' : 'Waiting for your colleagues… (you can also start alone)')
+          : 'Waiting for the host to press Play…';
     };
-    render(o.shops || []);
-    const unwatch = o.watchShops?.(render);
-    // typing in the inputs must not move the player / trigger shortcuts
+
+    if (o.lobby) lobby(o.lobby); else choose();
     body.addEventListener('keydown', (e) => e.stopPropagation());
-    this.panel('Co-op', 'Online shop', body, () => unwatch?.());
+    this.panel('Co-op', 'Play Online', body);
+    return { update: (L) => { if (body.isConnected) lobby(L); } };
   }
 
   // small badge with who's in the shop
