@@ -385,25 +385,29 @@ export class Game {
   }
 
   // ---------------------------------------------------------------- online co-op
-  openOnline() {
+  async openOnline() {
     const ui = this.ui;
+    const can = await this.online.probe();
+    const join = async (code, nick) => {
+      this.settings.nick = nick;
+      store.saveSettings();
+      try {
+        await this.online.join(code, nick);
+      } catch (e) {
+        return e?.message === 'offline' ? 'You can’t go online from this view (see below).' : e?.message || 'Couldn’t connect. Try again.';
+      }
+      this.setOnlineShop(true);
+      ui.closePanel();
+      ui.toast(`Shop code ${this.online.code} — your colleagues can join from Play Online`, 'Online');
+      this.showMainMenu();
+      return null;
+    };
     ui.onlinePanel({
-      active: this.online.active, code: this.online.code,
+      active: this.online.active, code: this.online.code, available: can,
       nick: this.settings.nick || '', suggest: randomCode(),
-      onJoin: async (code, nick) => {
-        this.settings.nick = nick;
-        store.saveSettings();
-        try {
-          await this.online.join(code, nick);
-        } catch (e) {
-          return e?.message || (e?.code === 'not_permitted' ? 'Online play isn’t available on this view.' : 'Couldn’t connect. Try again.');
-        }
-        this.setOnlineShop(true);
-        ui.closePanel();
-        ui.toast(`Shop code ${this.online.code} — give it to your colleagues`, 'Online');
-        this.showMainMenu();
-        return null;
-      },
+      shops: this.online.shops || [],
+      watchShops: (fn) => { this.online.onShops = fn; return () => { if (this.online.onShops === fn) this.online.onShops = null; }; },
+      onJoin: join,
       onLeave: async () => {
         await this.online.leave();
         this.setOnlineShop(false);

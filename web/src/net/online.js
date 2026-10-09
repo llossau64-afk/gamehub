@@ -216,17 +216,36 @@ export class Online {
 
   // can this view go online at all? (null until known)
   async probe() {
+    if (this.available !== null) return this.available;
     try {
       if (!window.claude?.use) { this.available = false; return false; }
       this.lobby = await window.claude.use('room');
       this.available = !!this.lobby;
     } catch (e) { this.available = false; }
+    // the lobby: everyone who has the game open advertises the shop they're in, so a
+    // colleague can join with one click instead of typing the code
+    if (this.lobby) {
+      this.shops = [];
+      this.lobby.onPeers((ch) => {
+        const seen = new Map();
+        for (const p of ch.peers) {
+          if (p.isMe) continue;
+          const code = str(p.presence?.shop, 8).toUpperCase();
+          if (!code) continue;
+          const e = seen.get(code) || { code, nicks: [] };
+          e.nicks.push(str(p.presence?.nick, 16) || 'Barber');
+          seen.set(code, e);
+        }
+        this.shops = [...seen.values()];
+        this.onShops?.(this.shops);
+      }, () => {});
+    }
     return this.available;
   }
 
   async join(code, nick) {
     if (!this.lobby) await this.probe();
-    if (!this.lobby) throw new Error('Online play needs the shared Claude link (signed in).');
+    if (!this.lobby) throw new Error('offline');
     const name = 'barber-' + code.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
     const room = await this.lobby.join(name);
     this.code = code.toUpperCase();
@@ -239,6 +258,7 @@ export class Online {
     this.unsub = room.onPeers((ch) => this.onPeers(ch.peers));
     await room.presence({ v: 1, nick, st: 'menu', p: null, cu: null, hr: null }).catch(() => {});
     this.onPeers(room.peers());
+    this.lobby.presence({ shop: this.code, nick }).catch(() => {});
     return this.code;
   }
 
@@ -249,6 +269,7 @@ export class Online {
     for (const rb of this.remotes.values()) rb.dispose();
     this.remotes.clear();
     this.game.ui.setOnline?.(null);
+    this.lobby?.presence({ shop: null }).catch(() => {});
     await r?.leave().catch(() => {});
   }
 

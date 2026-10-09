@@ -862,3 +862,13 @@
 @media (max-height: 420px) {
   .menu .col { transform: translateY(-50%) scale(.72); }
 }
+.online-p .op-off { background: #f6e3cf; border-left: 4px solid var(--red); border-radius: 8px; padding: 12px 14px; font-size: 14.5px; line-height: 1.45; display: flex; flex-direction: column; gap: 6px; }
+.online-p .op-off ol { margin: 4px 0 0; padding-left: 20px; }
+.online-p .op-shops { display: flex; flex-direction: column; gap: 6px; }
+.online-p .op-sk { font-family: var(--cond); font-weight: 700; font-size: 12px; letter-spacing: .25em; text-transform: uppercase; color: var(--red); }
+.online-p .op-none { font-size: 14px; opacity: .6; font-style: italic; }
+.online-p .op-shop { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #f6eedd; border: 1.5px solid rgba(34,26,21,.14); border-radius: 8px; padding: 8px 10px 8px 14px; }
+.online-p .op-shop b { font: 700 22px var(--cond); letter-spacing: .25em; margin-right: 10px; }
+.online-p .op-shop span { font-size: 14px; color: var(--ink-2); }
+.online-p .op-sj { border: 0; border-radius: 6px; background: var(--green); color: var(--paper); padding: 8px 16px; font-size: 16px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.online-p .op-sj:disabled { opacity: .4; }

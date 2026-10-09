@@ -115,30 +115,55 @@ export class UI {
 
   onlinePanel(o) {
     const body = h(`<div class="online-p">
-      <p class="op-lead">Cut hair together: up to <b>3 barbers</b> in one shop. Everyone keeps their own customers, money and day — you'll see each other working at the extra chairs.</p>
+      <p class="op-lead">Cut hair together: up to <b>3 barbers</b> in one shop. Everyone keeps their own customers, money and day — you see each other working at the extra chairs.</p>
+      ${o.available === false ? `<div class="op-off">
+        <b>Online isn’t available in this window.</b>
+        <span>Co-op only works for people who are <b>signed in to Claude</b> and were <b>added to this game by email</b>. Opening it through “anyone with the link” lets you play, but not online.</span>
+        <ol><li>The owner opens the game on claude.ai and clicks <b>Share</b>.</li><li>Add each colleague’s email address (they get an invitation).</li><li>Colleagues sign in to claude.ai, open the game from that invitation and press <b>Play Online</b>.</li></ol>
+      </div>` : ''}
       ${o.active ? `<div class="op-code"><span>Your shop code</span><b>${o.code}</b></div>
-        <button class="mbtn op-leave">Leave the online shop</button>` : `
+        <p class="op-hint">Colleagues press <b>Play Online</b> and pick your shop from the list, or type this code.</p>
+        <button class="mbtn op-leave">Leave the online shop</button>` : o.available === false ? '' : `
+      <div class="op-shops"></div>
       <label class="op-f"><span>Your name</span><input class="op-nick" maxlength="16" placeholder="Barber"></label>
       <label class="op-f"><span>Shop code</span><input class="op-code-in" maxlength="8" placeholder="ABCD"></label>
-      <div class="op-hint">Make up a code and tell it to your colleagues — they open the same link, press <b>Play Online</b> and type the same code.</div>
+      <div class="op-hint">Open a new shop with any code — your colleagues will see it in their list. Or type the code a colleague gave you.</div>
       <div class="op-err"></div>
       <button class="mbtn primary op-join">Open / join shop</button>`}
     </div>`);
     const nick = body.querySelector('.op-nick'), code = body.querySelector('.op-code-in');
     if (nick) { nick.value = o.nick; code.value = o.suggest; }
-    body.querySelector('.op-join')?.addEventListener('click', async (e) => {
-      const b = e.currentTarget;
-      const c = code.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-      const n = nick.value.trim().replace(/[^\p{L}\p{N} _.\-!?']/gu, '').slice(0, 16) || 'Barber';
+    const cleanNick = () => nick.value.trim().replace(/[^\p{L}\p{N} _.\-!?']/gu, '').slice(0, 16) || 'Barber';
+    const doJoin = async (c, b, label) => {
       if (c.length < 3) { body.querySelector('.op-err').textContent = 'The code needs at least 3 letters or numbers.'; return; }
       b.disabled = true; b.textContent = 'Connecting…';
-      const err = await o.onJoin(c, n);
-      if (err) { body.querySelector('.op-err').textContent = err; b.disabled = false; b.textContent = 'Open / join shop'; }
-    });
+      const err = await o.onJoin(c, cleanNick());
+      if (err) { body.querySelector('.op-err').textContent = err; b.disabled = false; b.textContent = label; }
+    };
+    body.querySelector('.op-join')?.addEventListener('click', (e) => doJoin(code.value.toUpperCase().replace(/[^A-Z0-9]/g, ''), e.currentTarget, 'Open / join shop'));
     body.querySelector('.op-leave')?.addEventListener('click', () => o.onLeave());
+    // shops colleagues have open right now
+    const list = body.querySelector('.op-shops');
+    const render = (shops) => {
+      if (!list) return;
+      list.innerHTML = '';
+      if (!shops.length) { list.append(h('<div class="op-none">No open shops yet — open one and your colleagues will see it here.</div>')); return; }
+      list.append(h('<div class="op-sk">Open shops</div>'));
+      for (const s of shops.slice(0, 6)) {
+        const row = h('<div class="op-shop"><div><b></b><span></span></div><button class="op-sj">Join</button></div>');
+        row.querySelector('b').textContent = s.code;
+        row.querySelector('span').textContent = s.nicks.join(', ') + (s.nicks.length >= 3 ? ' · full' : '');
+        const btn = row.querySelector('button');
+        if (s.nicks.length >= 3) btn.disabled = true;
+        btn.addEventListener('click', () => doJoin(s.code, btn, 'Join'));
+        list.append(row);
+      }
+    };
+    render(o.shops || []);
+    const unwatch = o.watchShops?.(render);
     // typing in the inputs must not move the player / trigger shortcuts
     body.addEventListener('keydown', (e) => e.stopPropagation());
-    this.panel('Co-op', 'Online shop', body);
+    this.panel('Co-op', 'Online shop', body, () => unwatch?.());
   }
 
   // small badge with who's in the shop
