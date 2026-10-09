@@ -6,7 +6,16 @@ import { spawnProp, part, setSpecialMaterial, meshesByMaterial } from './props.j
 import { propMaterial, addDetail, shared } from '../render/materials.js';
 const propColor = (n) => propMaterial(n).color;
 import * as T from '../render/textures.js';
-import { SHOPS, shopWindowTexture, shopSignTexture } from '../render/shopfronts.js';
+import { SHOPS, SUPERMARKET, shopWindowTexture, shopSignTexture } from '../render/shopfronts.js';
+
+// the street runs from STREET.x0 to STREET.x1; side alleys cut into our block
+export const STREET = { x0: -46, x1: 46, alleys: [[-27.5, -21.5], [21.5, 27.5]] };
+export const SUPER = { x0: -4.5, x1: 9.5, door: 2.5 };
+const R0 = { z1: 2.6 };
+const PARKED = [[-8.5, 4.2, 0, '#8f2f2a'], [10.5, 10.9, Math.PI, '#3b5f7d'], [16, 4.2, 0, '#d8cfb4'], [-33, 4.2, 0, '#2f4a3a'], [31, 10.9, Math.PI, '#c9922e'], [-15, 10.9, Math.PI, '#e8e4dc'], [40, 4.2, 0, '#1c1c1e']];
+const TREES_NEAR = [[-12, 1], [14, 0.9], [-16, 1.1], [-31, 1], [-41, 0.9], [31, 1.05], [42, 0.95]];
+const TREES_FAR = [[-9, 0.9], [-1, 1], [12, 0.95], [18, 1], [-30, 1], [-40, 0.9], [31, 1], [41, 0.95]];
+const LAMPS_EXTRA = [-18, 18, -36, 36];
 import { Spring, clamp, rand, damp, noise1 } from '../core/util.js';
 import { audio } from '../audio/audio.js';
 import menuPosterUrl from '../assets/menu-poster.jpg?inline';
@@ -319,12 +328,14 @@ export class Shop {
       { x0: R.x1, x1: 99, z0: -99, z1: ANNEX.z0 + 0.25, active: annexOwned },
       { x0: -99, x1: 99, z0: -99, z1: R.z0 + 0.25 },
       // the front wall, with the doorway: you can walk out onto the street
-      { x0: -99, x1: DOOR.x - DOOR.w / 2 + 0.02, z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
-      { x0: DOOR.x + DOOR.w / 2 - 0.02, x1: 99, z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
+      { x0: STREET.alleys[0][1], x1: DOOR.x - DOOR.w / 2 + 0.02, z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
+      { x0: DOOR.x + DOOR.w / 2 - 0.02, x1: STREET.alleys[1][0], z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
+      { x0: -199, x1: STREET.alleys[0][0], z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
+      { x0: STREET.alleys[1][1], x1: 199, z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
       // the door itself, while it's shut
       { x0: DOOR.x - DOOR.w / 2, x1: DOOR.x + DOOR.w / 2, z0: R.z1 - 0.12, z1: R.z1 + 0.2, active: () => this.doorSpring.value < 0.55 },
       // the street: pavement, road, the far pavement; the other shops are closed to you
-      { x0: -99, x1: -15, z0: -99, z1: 99 }, { x0: 15, x1: 99, z0: -99, z1: 99 },
+      { x0: -199, x1: STREET.x0, z0: -99, z1: 99 }, { x0: STREET.x1, x1: 199, z0: -99, z1: 99 },
       { x0: -99, x1: 99, z0: R.z1 + 13.8, z1: 99 },
     );
   }
@@ -381,7 +392,7 @@ export class Shop {
       g.add(fr, gl, sill);
     }
     // neighbours
-    const nb = (x0, x1, tint, seed, h) => {
+    const nb = (x0, x1, tint, seed, h, shopIdx) => {
       const t = T.facadeTexture(seed, tint);
       t.repeat.set(1, 1);
       const m = new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 });
@@ -391,7 +402,7 @@ export class Shop {
       g.add(box);
       // shopfront at street level: framed window with a warm glow, a sign and an awning
       const w = x1 - x0, cx = (x0 + x1) / 2;
-      const shop = SHOPS[(seed >> 2) % SHOPS.length];
+      const shop = SHOPS[shopIdx ?? ((seed >> 2) % SHOPS.length)];
       const sf = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.9, 2.0), this.shopWindowMat(shop, (w - 0.9) / 2.0, seed));
       sf.position.set(cx, 1.45, fz + 0.03);
       g.add(sf);
@@ -411,28 +422,40 @@ export class Shop {
       aw.position.set(cx, 2.68, fz + 0.45); aw.rotation.x = 0.3;
       g.add(aw);
     };
-    nb(X0 - 6, X0, [140, 132, 116], 21, 7.5);
-    nb(X1, X1 + 5.5, [96, 104, 98], 33, 5.8);
-    nb(X1 + 5.5, X1 + 12, [168, 136, 104], 45, 8.2);
-    nb(X0 - 12, X0 - 6, [118, 92, 78], 57, 6.6);
+    nb(X0 - 6, X0, [140, 132, 116], 21, 7.5, 5);
+    nb(X1, X1 + 5.5, [96, 104, 98], 33, 5.8, 0);
+    nb(X1 + 5.5, X1 + 12, [168, 136, 104], 45, 8.2, 3);
+    nb(X0 - 12, X0 - 6, [118, 92, 78], 57, 6.6, 6);
+    // the rest of our block, up to the alleys, and the next blocks beyond them
+    const A = STREET.alleys;
+    nb(A[0][1], X0 - 12, [150, 128, 104], 61, 7.2, 8);
+    nb(X1 + 12, A[1][0], [120, 110, 96], 63, 6.4, 9);
+    nb(STREET.x0 - 2, -38, [110, 100, 92], 65, 8.4, 10);
+    nb(-38, -33, [160, 140, 110], 67, 6.8, 11);
+    nb(-33, A[0][0], [128, 104, 90], 69, 7.6, 7);
+    nb(A[1][1], 33, [146, 122, 98], 71, 7.0, 1);
+    nb(33, 39, [104, 112, 120], 73, 8.8, 2);
+    nb(39, STREET.x1 + 2, [170, 150, 120], 75, 6.2, 4);
+    for (const [a0, a1] of A) this.buildAlley(g, a0, a1, fz);
     // sidewalk, curb, road
     const sw = texMat(this.tex.sidewalk, { rough: 0.95 });
-    this.tex.sidewalk.repeat.set(16, 3);
-    const swm = plane(40, 3.0, sw);
+    this.tex.sidewalk.repeat.set(40, 3);
+    const swm = plane(STREET.x1 - STREET.x0 + 8, 3.0, sw);
     swm.rotation.x = -Math.PI / 2;
     swm.position.set(0, 0.0, fz + 1.5);
     g.add(swm);
-    const curb = new THREE.Mesh(new THREE.BoxGeometry(40, 0.15, 0.25), propMaterial('Concrete'));
+    const curb = new THREE.Mesh(new THREE.BoxGeometry(STREET.x1 - STREET.x0 + 8, 0.15, 0.25), propMaterial('Concrete'));
     curb.position.set(0, 0.0, fz + 3.0);
     g.add(curb);
     const rd = texMat(this.tex.asphalt, { rough: 0.95 });
-    this.tex.asphalt.repeat.set(20, 4);
-    const road = plane(60, 9, rd);
+    this.tex.asphalt.repeat.set(46, 4);
+    const road = plane(140, 9, rd);
     road.rotation.x = -Math.PI / 2;
     road.position.set(0, -0.07, fz + 7.5);
     g.add(road);
     const lineMat = new THREE.MeshStandardMaterial({ color: '#d8cfb4', roughness: 0.8 });
-    for (let i = -10; i < 10; i++) {
+    for (let i = -22; i < 22; i++) {
+      if (STREET.alleys.some(([a, b]) => i * 3 > a - 1 && i * 3 < b + 1)) continue;
       const l = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.12), lineMat);
       l.rotation.x = -Math.PI / 2;
       l.position.set(i * 3, -0.065, fz + 7.5);
@@ -447,9 +470,27 @@ export class Shop {
       p.rotation.y = Math.PI;
       g.add(p);
     };
-    opp(-14, -6, [150, 118, 92], 71, 8); opp(-6, 1, [112, 120, 112], 73, 7); opp(1, 8, [176, 150, 120], 75, 9); opp(8, 16, [126, 98, 86], 77, 7.5);
+    // the far side: shops, a cross street opposite each alley, and the supermarket across from us
+    const oppBld = [[STREET.x0 - 2, -36, 8, 12], [-36, -27.5, 7, 13], [-21.5, -13, 8.5, 5], [-13, SUPER.x0, 7, 14],
+      [SUPER.x1, 16, 9, 15], [16, 21.5, 7.5, 7], [27.5, 36, 8, 0], [36, STREET.x1 + 2, 7, 3]];
+    oppBld.forEach(([x0, x1, h, si], i) => {
+      opp(x0, x1, [[150, 118, 92], [112, 120, 112], [176, 150, 120], [126, 98, 86]][i % 4], 81 + i * 2, h);
+      this.oppShopfront(g, (x0 + x1) / 2, Math.min(x1 - x0 - 1.2, 6), h, fz + 13.95, SHOPS[si % SHOPS.length], i);
+    });
+    this.buildSupermarket(g, fz + 14);
+    // the cross streets carry on past the far side
+    for (const [a0, a1] of STREET.alleys) {
+      const t = T.facadeTexture(91, [130, 112, 96]);
+      const back = new THREE.Mesh(new THREE.PlaneGeometry(a1 - a0 + 6, 9), new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 }));
+      back.position.set((a0 + a1) / 2, 4.5, fz + 34); back.rotation.y = Math.PI; g.add(back);
+      const cr = plane(a1 - a0, 20, rd); cr.rotation.x = -Math.PI / 2; cr.position.set((a0 + a1) / 2, -0.069, fz + 24); g.add(cr);
+      for (const sx of [a0 - 0.6, a1 + 0.6]) {
+        const side = new THREE.Mesh(new THREE.BoxGeometry(1.2, 9, 20), new THREE.MeshStandardMaterial({ map: T.facadeTexture(93, [120, 104, 92]), roughness: 0.9 }));
+        side.position.set(sx + (sx < a0 ? -0.6 : 0.6), 4.5, fz + 24); g.add(side);
+      }
+    }
     this.buildStreetLife(g, fz);
-    const swo = plane(40, 3.5, sw); swo.rotation.x = -Math.PI / 2; swo.position.set(0, 0, fz + 12.3); g.add(swo);
+    const swo = plane(STREET.x1 - STREET.x0 + 8, 3.5, sw); swo.rotation.x = -Math.PI / 2; swo.position.set(0, 0, fz + 12.3); g.add(swo);
 
     // street props
     const lampP = spawnProp('StreetLamp'); lampP.position.set(-3.9, 0, fz + 2.6); g.add(lampP);
@@ -464,10 +505,10 @@ export class Shop {
     solid(-1.4, fz + 1.0, 0.8, 0.28);          // bench
     solid(0.55, fz + 0.45, 0.3, 0.3);          // planter
     solid(3.0, fz + 2.5, 0.22, 0.22);          // bin
-    for (const x of [-3.9, 6.5]) solid(x, fz + 2.6, 0.1, 0.1);       // lamps
-    for (const x of [-6.2, 9.5, -12, 14, -16]) solid(x, fz + 2.25, 0.15, 0.15);  // trees
-    for (const x of [-9, -1, 7, 15]) solid(x, fz + 12.4, 0.15, 0.15);
-    solid(-8.5, fz + 4.2, 2.1, 0.92); solid(10.5, fz + 10.9, 2.1, 0.92); solid(16, fz + 4.2, 2.1, 0.92);  // parked cars
+    for (const x of [-3.9, 6.5, ...LAMPS_EXTRA]) solid(x, fz + 2.6, 0.1, 0.1);       // lamps
+    for (const x of [-6.2, 9.5, ...TREES_NEAR.map((t) => t[0])]) solid(x, fz + 2.25, 0.15, 0.15);  // trees
+    for (const [x] of TREES_FAR) solid(x, fz + 12.4, 0.15, 0.15);
+    for (const [x, z] of PARKED) solid(x, fz + z, 2.1, 0.92);  // parked cars
     solid(WINDOW.x, fz + 0.24, 1.35, 0.16);    // flower box
     for (let i = -4; i <= 6; i++) if (Math.abs(i * 1.6 - 1.9) >= 0.8) solid(i * 1.6, fz + 2.8, 0.07, 0.07);  // bollards
     // sign + awning + pole on our facade
@@ -496,23 +537,6 @@ export class Shop {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), typeof mat === 'string' ? propMaterial(mat) : mat);
       m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = false; m.receiveShadow = true; g.add(m); return m;
     };
-    // opposite shopfronts: awnings, glowing windows, cornice
-    const awnCols = ['#7a2a26', '#24344d', '#3e6b4a', '#b58a3c'];
-    [[-10, 8], [-2.5, 7], [4.5, 9], [12, 7.5]].forEach(([x, hgt], i) => {
-      const z = fz + 13.95;
-      box(6.2, 0.25, 0.4, 'Concrete', x, hgt - 0.1, z - 0.2);                              // cornice
-      box(6.2, 0.18, 0.3, 'Concrete', x, 3.15, z - 0.15);                                  // shop band
-      const aw = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.06, 1.1), new THREE.MeshStandardMaterial({ color: awnCols[i % 4], roughness: 0.8 }));
-      aw.position.set(x, 2.85, z - 0.55); aw.rotation.x = -0.32; g.add(aw);
-      const shop = SHOPS[[1, 2, 4, 7][i % 4]];
-      const win = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 1.7), this.shopWindowMat(shop, 3.6 / 1.7, 90 + i));
-      win.position.set(x, 1.45, z - 0.02); win.rotation.y = Math.PI; g.add(win);
-      const sgn = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 0.5), new THREE.MeshStandardMaterial({ map: shopSignTexture(shop), roughness: 0.6 }));
-      sgn.position.set(x, 3.5, z - 0.32); sgn.rotation.y = Math.PI; g.add(sgn);
-      // rooftop boxes
-      box(1.4, 0.8, 1.2, 'MetalPainted', x - 1.5, hgt + 0.4, z + 1);
-      box(0.4, 1.2, 0.4, 'Concrete', x + 2, hgt + 0.6, z + 0.6);
-    });
     // parked cars (simple stylised shapes), one on each side of the road
     const car = (x, z, ry, col) => {
       const c = new THREE.Group();
@@ -533,12 +557,17 @@ export class Shop {
       g.add(c);
       return c;
     };
-    car(-8.5, fz + 4.2, 0, '#8f2f2a');
-    car(10.5, fz + 10.9, Math.PI, '#3b5f7d');
-    car(16, fz + 4.2, 0, '#d8cfb4');
+    for (const [x, z, ry, col] of PARKED) car(x, fz + z, ry, col);
     // more trees and planters along the pavement
-    for (const [x, s] of [[-12, 1], [14, 0.9], [-16, 1.1]]) { const t = this.makeTree(); t.position.set(x, 0, fz + 2.3); t.scale.setScalar(s); g.add(t); }
-    for (const [x, s] of [[-9, 0.9], [-1, 1], [7, 0.95], [15, 1]]) { const t = this.makeTree(); t.position.set(x, 0, fz + 12.4); t.scale.setScalar(s); g.add(t); }
+    for (const [x, s] of TREES_NEAR) { const t = this.makeTree(); t.position.set(x, 0, fz + 2.3); t.scale.setScalar(s); g.add(t); }
+    for (const [x, s] of TREES_FAR) { const t = this.makeTree(); t.position.set(x, 0, fz + 12.4); t.scale.setScalar(s); g.add(t); }
+    // zebra crossings at the side streets
+    const zebra = new THREE.MeshStandardMaterial({ color: '#e8e2d2', roughness: 0.85 });
+    for (const [a0, a1] of STREET.alleys) {
+      for (let k = 0; k < 7; k++) { const z = new THREE.Mesh(new THREE.PlaneGeometry(a1 - a0 - 1, 0.5), zebra); z.rotation.x = -Math.PI / 2; z.position.set((a0 + a1) / 2, -0.064, fz + 3.6 + k * 1.15); g.add(z); }
+    }
+    // more street lamps along the whole street
+    for (const x of LAMPS_EXTRA) { const l = spawnProp('StreetLamp'); l.position.set(x, 0, fz + 2.6); g.add(l); }
     // bollards
     for (let i = -4; i <= 6; i++) { if (Math.abs(i * 1.6 - 1.9) < 0.8) continue; box(0.12, 0.7, 0.12, 'MetalDark', i * 1.6, 0.35, fz + 2.8); }
     // flower boxes under our window
@@ -551,11 +580,131 @@ export class Shop {
     }
     // street lamp light pools (only shine at dusk)
     this.streetLights = [];
-    for (const x of [-3.9, 6.5]) {
+    for (const x of [-3.9, 6.5, -18, 18, -36, 36]) {
       const L = new THREE.PointLight('#ffc98a', 0, 8, 2);
       L.position.set(x, 3.4, fz + 2.6);
       g.add(L);
       this.streetLights.push(L);
+    }
+  }
+
+  // a shopfront on the far side of the road (facing us): window, door, awning, sign, cornice
+  oppShopfront(g, x, w, hgt, z, shop, i) {
+    const box = (bw, bh, bd, mat, px, py, pz) => { const m = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), typeof mat === 'string' ? propMaterial(mat) : mat); m.position.set(px, py, pz); g.add(m); return m; };
+    box(w + 1, 0.25, 0.4, 'Concrete', x, hgt - 0.1, z - 0.2);
+    box(w + 1, 0.18, 0.3, 'Concrete', x, 3.15, z - 0.15);
+    const awn = ['#7a2a26', '#24344d', '#3e6b4a', '#b58a3c'];
+    const aw = new THREE.Mesh(new THREE.BoxGeometry(w - 0.6, 0.06, 1.1), new THREE.MeshStandardMaterial({ color: awn[i % 4], roughness: 0.8 }));
+    aw.position.set(x, 2.85, z - 0.55); aw.rotation.x = -0.32; g.add(aw);
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.4, 1.8), this.shopWindowMat(shop, (w - 0.4) / 1.8, 90 + i));
+    win.position.set(x, 1.4, z - 0.02); win.rotation.y = Math.PI; g.add(win);
+    const sgn = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(w - 0.4, 3.6), 0.52), new THREE.MeshStandardMaterial({ map: shopSignTexture(shop), roughness: 0.6 }));
+    sgn.position.set(x, 3.55, z - 0.32); sgn.rotation.y = Math.PI; g.add(sgn);
+    box(1.4, 0.8, 1.2, 'MetalPainted', x - w * 0.3, hgt + 0.4, z + 1);
+  }
+
+  // a narrow side street between two blocks: a back wall, a dumpster, crates, a fire escape
+  buildAlley(g, a0, a1, fz) {
+    const w = a1 - a0, cx = (a0 + a1) / 2, depth = 11;
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(w, depth), texMat(this.tex.asphalt, { rough: 0.95 }));
+    ground.rotation.x = -Math.PI / 2; ground.position.set(cx, -0.01, fz - depth / 2 + 0.2); g.add(ground);
+    const wallMat = new THREE.MeshStandardMaterial({ map: T.facadeTexture(Math.round(a0) + 100, [120, 98, 84]), roughness: 0.92 });
+    for (const sx of [a0, a1]) {
+      const side = new THREE.Mesh(new THREE.BoxGeometry(0.4, 8, depth), wallMat);
+      side.position.set(sx + (sx === a0 ? -0.2 : 0.2), 4, fz - depth / 2); g.add(side);
+    }
+    const back = new THREE.Mesh(new THREE.BoxGeometry(w + 0.8, 8, 0.4), wallMat);
+    back.position.set(cx, 4, fz - depth); g.add(back);
+    const bin = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 1.0), new THREE.MeshStandardMaterial({ color: '#2f5a3a', roughness: 0.6, metalness: 0.3 }));
+    bin.position.set(a0 + 1.2, 0.6, fz - depth + 1.0); g.add(bin);
+    const lid = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.08, 1.05), new THREE.MeshStandardMaterial({ color: '#1f3a28', roughness: 0.5 }));
+    lid.position.set(a0 + 1.2, 1.24, fz - depth + 0.95); lid.rotation.x = -0.12; g.add(lid);
+    const crate = new THREE.MeshStandardMaterial({ color: '#8a6a44', roughness: 0.9 });
+    for (const [dx, dz, y] of [[w - 1.0, -depth + 0.8, 0.3], [w - 1.5, -depth + 1.1, 0.3], [w - 1.2, -depth + 0.9, 0.9]]) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), crate); c.position.set(a0 + dx, y, fz + dz); c.rotation.y = dx; g.add(c); }
+    // fire escape on one wall
+    const metal = propMaterial('MetalDark');
+    for (const y of [3.2, 5.6]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 3), metal); p.position.set(a1 - 0.6, y, fz - 5); g.add(p); const r = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.9, 3), metal); r.position.set(a1 - 1.05, y + 0.45, fz - 5); g.add(r); }
+    this.colliders.push(
+      { x0: a0 - 1, x1: a0 + 0.05, z0: fz - depth - 1, z1: R0.z1 + 0.5, outside: true },
+      { x0: a1 - 0.05, x1: a1 + 1, z0: fz - depth - 1, z1: R0.z1 + 0.5, outside: true },
+      { x0: a0, x1: a1, z0: fz - depth - 2, z1: fz - depth + 0.3, outside: true },
+      { x0: a0 + 0.2, x1: a0 + 2.2, z0: fz - depth, z1: fz - depth + 1.6, outside: true },
+    );
+  }
+
+  // FRESH MART across the road: wide glass front, sliding doors, a big lit sign, carts, and
+  // a manager outside who is very keen to hire you
+  buildSupermarket(g, z) {
+    const S = SUPER, w = S.x1 - S.x0, cx = (S.x0 + S.x1) / 2, h = 7.5;
+    const box = (bw, bh, bd, mat, px, py, pz, ry = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), typeof mat === 'string' ? propMaterial(mat) : mat); m.position.set(px, py, pz); m.rotation.y = ry; g.add(m); return m; };
+    const wallM = new THREE.MeshStandardMaterial({ color: '#e9e4d8', roughness: 0.8 });
+    const facade = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallM);
+    facade.position.set(cx, h / 2, z); facade.rotation.y = Math.PI; g.add(facade);
+    const red = new THREE.MeshStandardMaterial({ color: '#c8302b', roughness: 0.5 });
+    box(w + 0.2, 0.9, 0.5, red, cx, 3.6, z - 0.25);                         // red band
+    box(w + 0.2, 0.2, 0.6, 'Concrete', cx, h, z - 0.2);
+    // glass front with the store inside
+    const sm = SUPERMARKET;
+    const gw = w - 0.6;
+    const glassL = new THREE.Mesh(new THREE.PlaneGeometry(gw / 2 - 1.3, 2.9), this.shopWindowMat({ ...sm, noDoor: true }, (gw / 2 - 1.3) / 2.9, 7));
+    glassL.position.set(S.x0 + 0.3 + (gw / 2 - 1.3) / 2, 1.55, z - 0.03); glassL.rotation.y = Math.PI; g.add(glassL);
+    const glassR = new THREE.Mesh(new THREE.PlaneGeometry(gw / 2 - 1.3, 2.9), this.shopWindowMat({ ...sm, noDoor: true }, (gw / 2 - 1.3) / 2.9, 9));
+    glassR.position.set(S.x1 - 0.3 - (gw / 2 - 1.3) / 2, 1.55, z - 0.03); glassR.rotation.y = Math.PI; g.add(glassR);
+    // sliding doors (they open when someone walks up)
+    const doorGlass = new THREE.MeshStandardMaterial({ color: '#6f8a9a', roughness: 0.08, metalness: 0.4, transparent: true, opacity: 0.55 });
+    const frame = propMaterial('MetalDark');
+    box(2.8, 0.12, 0.2, frame, S.door, 2.95, z - 0.1);
+    this.superDoors = [];
+    for (const sx of [-1, 1]) {
+      const d = new THREE.Group();
+      const pane = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 2.8), doorGlass); pane.rotation.y = Math.PI; d.add(pane);
+      const fr = new THREE.Mesh(new THREE.BoxGeometry(1.28, 2.84, 0.04), frame); fr.scale.set(1, 1, 1); fr.position.z = 0.03;
+      d.position.set(S.door + sx * 0.64, 1.42, z - 0.05);
+      g.add(d);
+      this.superDoors.push({ obj: d, base: S.door + sx * 0.64, dir: sx, open: 0 });
+    }
+    const inside = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.8), new THREE.MeshStandardMaterial({ color: '#fff7e6', emissive: new THREE.Color('#fff1d6'), emissiveIntensity: 0.35, roughness: 0.9 }));
+    inside.position.set(S.door, 1.42, z + 0.6); inside.rotation.y = Math.PI; g.add(inside);
+    // the big sign, lit at night
+    const st = shopSignTexture(sm);
+    const signM = new THREE.MeshStandardMaterial({ map: st, emissiveMap: st, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.25, roughness: 0.5 });
+    (this.shopWinMats ||= []).push(signM);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(7.5, 1.4), signM);
+    sign.position.set(cx, 5.3, z - 0.06); sign.rotation.y = Math.PI; g.add(sign);
+    // NOW HIRING poster in the window
+    const c = document.createElement('canvas'); c.width = 256; c.height = 320;
+    const x = c.getContext('2d');
+    x.fillStyle = '#fff6c8'; x.fillRect(0, 0, 256, 320);
+    x.fillStyle = '#c8302b'; x.fillRect(0, 0, 256, 70);
+    x.fillStyle = '#fff'; x.font = 'bold 44px sans-serif'; x.textAlign = 'center'; x.fillText('NOW', 128, 50);
+    x.fillStyle = '#c8302b'; x.font = 'bold 54px sans-serif'; x.fillText('HIRING', 128, 130);
+    x.fillStyle = '#222'; x.font = '22px sans-serif'; x.fillText('Shelf stacker', 128, 180); x.fillText('Night shifts', 128, 210); x.fillText('Great team spirit!*', 128, 240);
+    x.font = '13px sans-serif'; x.fillText('*mandatory', 128, 300);
+    const pt = new THREE.CanvasTexture(c); pt.colorSpace = THREE.SRGBColorSpace;
+    const poster = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.0), new THREE.MeshStandardMaterial({ map: pt, roughness: 0.8 }));
+    poster.position.set(S.door - 2.4, 1.8, z - 0.06); poster.rotation.y = Math.PI; g.add(poster);
+    // shopping carts lined up outside
+    const cartM = new THREE.MeshStandardMaterial({ color: '#b9bcc2', roughness: 0.35, metalness: 0.8, wireframe: false });
+    for (let i = 0; i < 4; i++) {
+      const cg = new THREE.Group();
+      const basket = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.85), new THREE.MeshStandardMaterial({ color: '#c8302b', roughness: 0.5, transparent: true, opacity: 0.85 }));
+      basket.position.y = 0.75; cg.add(basket);
+      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.6, 6), cartM); handle.rotation.z = Math.PI / 2; handle.position.set(0, 1.0, -0.45); cg.add(handle);
+      for (const [wx, wz] of [[-0.22, -0.35], [0.22, -0.35], [-0.22, 0.35], [0.22, 0.35]]) { const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.04, 10), propMaterial('MetalDark')); wh.rotation.z = Math.PI / 2; wh.position.set(wx, 0.06, wz); cg.add(wh); const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.5, 4), cartM); leg.position.set(wx, 0.3, wz); cg.add(leg); }
+      cg.position.set(S.x1 - 2.2, 0, z - 1.0 - i * 0.32); cg.rotation.y = Math.PI / 2;
+      g.add(cg);
+    }
+    this.colliders.push({ x0: S.x1 - 2.6, x1: S.x1 - 1.8, z0: z - 2.4, z1: z - 0.6, outside: true });
+    // a planter each side of the doors
+    for (const sx of [-1.9, 1.9]) { const p = spawnProp('Planter'); p.position.set(S.door + sx, 0, z - 0.5); g.add(p); }
+    this.colliders.push({ x0: S.door - 2.2, x1: S.door - 1.6, z0: z - 0.8, z1: z, outside: true }, { x0: S.door + 1.6, x1: S.door + 2.2, z0: z - 0.8, z1: z, outside: true });
+  }
+
+  updateSupermarket(dt, who) {
+    for (const d of this.superDoors || []) {
+      const near = who.some((p) => Math.abs(p.x - SUPER.door) < 1.6 && p.z > ROOM.z1 + 0.24 + 11.5);
+      d.open += ((near ? 1 : 0) - d.open) * Math.min(1, dt * 5);
+      d.obj.position.x = d.base + d.dir * d.open * 1.2;
     }
   }
 
@@ -706,6 +855,7 @@ export class Shop {
     this.buildStation2();
     this.buildAnnex();
     this.buildExtras();
+    this.buildExpansion();
     
     // waiting chairs / couch
     S.waitChairs = new THREE.Group();
@@ -871,6 +1021,84 @@ export class Shop {
   }
 
   // small extras: arcade cabinet, wall speakers, colour bar shelf
+  // the second wave of upgrades: espresso machine, wash basin, neon wall sign, aquarium,
+  // snack machine out front, chandelier
+  buildExpansion() {
+    const S = this.slots, R = ROOM;
+    const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.5, ...o });
+    const grp = (name) => { const g = new THREE.Group(); g.userData.dynamic = true; this.root.add(g); S[name] = g; return g; };
+    const add = (g, geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; g.add(o); return o; };
+    // espresso machine on the counter
+    const cf = grp('coffee');
+    const steel = mat('#c9ccd0', { metalness: 0.85, roughness: 0.25 });
+    add(cf, new THREE.BoxGeometry(0.34, 0.3, 0.28), mat('#7a2a26', { roughness: 0.35 }), 0, 0.15, 0);
+    add(cf, new THREE.BoxGeometry(0.36, 0.04, 0.3), steel, 0, 0.32, 0);
+    add(cf, new THREE.CylinderGeometry(0.02, 0.02, 0.08, 8), steel, -0.08, 0.1, 0.16);
+    add(cf, new THREE.CylinderGeometry(0.02, 0.02, 0.08, 8), steel, 0.08, 0.1, 0.16);
+    for (const x of [-0.08, 0.08]) add(cf, new THREE.CylinderGeometry(0.03, 0.025, 0.05, 12), mat('#f3efe4'), x, 0.025, 0.16);
+    add(cf, new THREE.SphereGeometry(0.03, 10, 8), mat('#d1a956', { metalness: 0.9, roughness: 0.2 }), 0.12, 0.36, 0);
+    cf.position.set(R.x0 + 0.3, 1.02, 1.8); cf.rotation.y = Math.PI / 2;
+    // wash basin against the left wall
+    const wb = grp('washBasin');
+    add(wb, new THREE.BoxGeometry(0.6, 0.8, 0.5), mat('#2b2f33', { roughness: 0.6 }), 0, 0.4, 0);
+    const bowl = add(wb, new THREE.SphereGeometry(0.24, 20, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), mat('#f6f4ee', { roughness: 0.15 }), 0, 0.92, 0.02);
+    bowl.scale.set(1, 0.6, 0.8);
+    add(wb, new THREE.TorusGeometry(0.24, 0.025, 8, 24), mat('#f6f4ee', { roughness: 0.15 }), 0, 0.92, 0.02).rotation.x = Math.PI / 2;
+    const tap = add(wb, new THREE.CylinderGeometry(0.018, 0.018, 0.28, 8), steel, 0, 1.06, -0.2);
+    tap.rotation.x = 0.0;
+    add(wb, new THREE.CylinderGeometry(0.015, 0.015, 0.16, 8), steel, 0, 1.18, -0.13).rotation.x = Math.PI / 2;
+    add(wb, new THREE.BoxGeometry(0.5, 0.6, 0.04), mat('#d9e6ea', { roughness: 0.1, metalness: 0.3 }), 0, 1.65, -0.24);
+    wb.position.set(R.x0 + 0.28, 0, -1.9); wb.rotation.y = Math.PI / 2;
+    this.colliders.push({ x0: R.x0, x1: R.x0 + 0.55, z0: -2.2, z1: -1.6, active: () => this.has('washBasin') });
+    // neon scissors on the right wall
+    const nn = grp('neonWall');
+    const neonMat = (c) => new THREE.MeshStandardMaterial({ color: c, emissive: new THREE.Color(c), emissiveIntensity: 2.2, roughness: 0.4, toneMapped: false });
+    const tube = (pts, c) => { const curve = new THREE.CatmullRomCurve3(pts.map(([x, y]) => new THREE.Vector3(x, y, 0))); add(nn, new THREE.TubeGeometry(curve, 40, 0.012, 6, false), neonMat(c), 0, 0, 0); };
+    // two rings and two blades
+    const ring = (cx, cy) => tube(Array.from({ length: 17 }, (_, i) => [cx + Math.cos(i / 16 * Math.PI * 2) * 0.09, cy + Math.sin(i / 16 * Math.PI * 2) * 0.09]), '#ff4fa3');
+    ring(-0.3, -0.12); ring(-0.3, 0.12);
+    tube([[-0.22, -0.08], [0.1, 0.02], [0.42, 0.1]], '#4cc3ff');
+    tube([[-0.22, 0.08], [0.1, -0.02], [0.42, -0.1]], '#4cc3ff');
+    add(nn, new THREE.BoxGeometry(1.1, 0.5, 0.02), mat('#111111', { roughness: 0.9 }), 0.05, 0, -0.02);
+    const glow = new THREE.PointLight('#ff6fb5', 0.9, 3, 2); glow.position.set(0, 0, 0.3); nn.add(glow);
+    nn.position.set(R.x1 - 0.03, 2.05, -0.35); nn.rotation.y = -Math.PI / 2;
+    // aquarium on a stand by the front window
+    const aq = grp('aquarium');
+    add(aq, new THREE.BoxGeometry(0.8, 0.7, 0.4), mat('#3a2a1e', { roughness: 0.6 }), 0, 0.35, 0);
+    add(aq, new THREE.BoxGeometry(0.78, 0.5, 0.38), new THREE.MeshStandardMaterial({ color: '#5fb8d8', transparent: true, opacity: 0.45, roughness: 0.05, emissive: new THREE.Color('#2a7fa8'), emissiveIntensity: 0.4 }), 0, 0.96, 0);
+    add(aq, new THREE.BoxGeometry(0.8, 0.04, 0.4), mat('#222'), 0, 1.23, 0);
+    add(aq, new THREE.BoxGeometry(0.76, 0.06, 0.36), mat('#d9c08a', { roughness: 0.9 }), 0, 0.74, 0);
+    this.fish = [];
+    ['#ff8a3c', '#f2cf7c', '#4cc3ff', '#ff4f6f'].forEach((c, i) => {
+      const f = add(aq, new THREE.ConeGeometry(0.025, 0.08, 6), mat(c, { emissive: new THREE.Color(c), emissiveIntensity: 0.3 }), 0, 0.95, 0);
+      f.rotation.z = Math.PI / 2; this.fish.push({ f, ph: i * 1.7, sp: 0.6 + i * 0.15 });
+    });
+    for (let i = 0; i < 4; i++) add(aq, new THREE.ConeGeometry(0.03, 0.22, 5), mat('#3e8a4a'), -0.3 + i * 0.2, 0.86, -0.1);
+    aq.position.set(0.75, 0, R.z1 - 0.3); aq.rotation.y = Math.PI;
+    this.colliders.push({ x0: 0.33, x1: 1.17, z0: R.z1 - 0.52, z1: R.z1, active: () => this.has('aquarium') });
+    // snack machine on the pavement next to our door
+    const vm = grp('vending');
+    add(vm, new THREE.BoxGeometry(0.85, 1.85, 0.7), mat('#c8302b', { roughness: 0.4 }), 0, 0.925, 0);
+    add(vm, new THREE.PlaneGeometry(0.55, 1.2), new THREE.MeshStandardMaterial({ color: '#cfe8ff', emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.35, roughness: 0.1 }), -0.1, 1.15, 0.351);
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) add(vm, new THREE.BoxGeometry(0.08, 0.12, 0.02), mat(['#f2cf7c', '#4cc3ff', '#9cc94a', '#ff8a3c'][(r + c) % 4]), -0.3 + c * 0.13, 0.75 + r * 0.26, 0.36);
+    add(vm, new THREE.BoxGeometry(0.18, 0.5, 0.02), mat('#222'), 0.3, 1.25, 0.36);
+    vm.position.set(3.15, 0, R.z1 + 0.24 + 0.4); vm.rotation.y = 0;
+    this.colliders.push({ x0: 2.7, x1: 3.6, z0: R.z1 + 0.24, z1: R.z1 + 1.0, active: () => this.has('vending'), outside: true });
+    // chandelier
+    const ch = grp('chandelier');
+    const gold = mat('#d1a956', { metalness: 0.9, roughness: 0.25 });
+    add(ch, new THREE.CylinderGeometry(0.01, 0.01, 0.5, 6), gold, 0, -0.25, 0);
+    add(ch, new THREE.TorusGeometry(0.32, 0.02, 8, 32), gold, 0, -0.55, 0).rotation.x = Math.PI / 2;
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * Math.PI * 2;
+      add(ch, new THREE.CylinderGeometry(0.03, 0.02, 0.06, 8), gold, Math.cos(a) * 0.32, -0.52, Math.sin(a) * 0.32);
+      add(ch, new THREE.SphereGeometry(0.035, 10, 8), new THREE.MeshStandardMaterial({ color: '#fff4d2', emissive: new THREE.Color('#ffe2a0'), emissiveIntensity: 1.6, toneMapped: false }), Math.cos(a) * 0.32, -0.46, Math.sin(a) * 0.32);
+    }
+    for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; add(ch, new THREE.OctahedronGeometry(0.02), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.8 }), Math.cos(a) * 0.36, -0.64, Math.sin(a) * 0.36); }
+    const cl = new THREE.PointLight('#ffe2a0', 1.4, 6, 2); cl.position.set(0, -0.6, 0); ch.add(cl);
+    ch.position.set(0.6, R.h, 0.3);
+  }
+
   buildExtras() {
     const S = this.slots, R = ROOM;
     const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.5, ...o });
@@ -1008,6 +1236,7 @@ export class Shop {
     S.station2.visible = h('station2');
     S.annex.visible = h('extension');
     S.arcade.visible = h('arcade');
+    for (const id of ['coffee', 'washBasin', 'neonWall', 'aquarium', 'vending', 'chandelier']) if (S[id]) S[id].visible = h(id);
     S.speakers.visible = h('sound');
     S.colourBar.visible = h('dyeStation');
     this.archPlug.visible = !h('extension');
@@ -1101,6 +1330,8 @@ export class Shop {
   }
 
   update(dt, camera) {
+    if (this.fish && this.slots.aquarium?.visible) for (const F of this.fish) { const t = this.time * F.sp + F.ph; F.f.position.set(Math.sin(t) * 0.3, 0.9 + Math.sin(t * 1.7) * 0.12, Math.cos(t * 0.8) * 0.1); F.f.rotation.y = Math.cos(t) > 0 ? 0 : Math.PI; }
+    if (camera) { this.sky?.position.set(camera.position.x, 0, camera.position.z); this.updateSupermarket(dt, [camera.position]); }
     if (this.arcadeScreen && this.slots.arcade.visible) this.arcadeScreen.emissive.setHSL((this.time * 0.07) % 1, 0.7, 0.5);
     this.time += dt;
     const t = this.time;

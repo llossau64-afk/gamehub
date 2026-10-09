@@ -220,8 +220,9 @@ export class Reactions {
     const E = this.eject;
     if (!E || this.game.state !== 'play') return null;
     const g = this.game, ch = E.c.ch;
-    const d = (E.center ? E.center.clone().setY(0) : ch.root.position).distanceTo(g.player.pos);
-    if (E.phase === 'walk' && d < 1.7) {
+    const onFeet = E.phase === 'walk' || E.phase === 'flee';
+    const d = (!onFeet && E.center ? E.center.clone().setY(0) : ch.root.position).distanceTo(g.player.pos);
+    if ((E.phase === 'walk' || E.phase === 'flee') && d < 1.8) {
       const f = V(Math.sin(ch.yaw), 0, Math.cos(ch.yaw));
       const toMe = g.player.pos.clone().sub(ch.root.position).setY(0).normalize();
       return f.dot(toMe) < 0 ? 'Kick in the butt' : 'Punch in the face';
@@ -234,14 +235,16 @@ export class Reactions {
   bouncerPos() {
     const E = this.eject;
     if (!E) return V(0, -9, 0);
-    return (E.center || E.c.ch.root.position).clone().setY(E.phase === 'down' ? 0.25 : 1.0);
+    const onFeet = E.phase === 'walk' || E.phase === 'flee';
+    return (!onFeet && E.center ? E.center : E.c.ch.root.position).clone().setY(E.phase === 'down' ? 0.25 : 1.0);
   }
 
   bouncerAction() {
     const E = this.eject;
     if (!E) return;
     const g = this.game, ch = E.c.ch;
-    if (E.phase === 'walk') {
+    if (E.phase === 'walk' || E.phase === 'flee') {
+      if (E.phase === 'flee' && ch.root.position.z > ROOM.z1 + 0.3) { g.save.stats.streetHits = (g.save.stats.streetHits || 0) + 1; }
       const f = V(Math.sin(ch.yaw), 0, Math.cos(ch.yaw));
       const away = ch.root.position.clone().sub(g.player.pos).setY(0).normalize();
       const behind = f.dot(away) > 0;
@@ -303,7 +306,7 @@ export class Reactions {
     ch.stop();
     ch.path = [];
     ch.faceYaw = null;
-    if (!E.center) this.bodyInit(E);
+    if (!E.center || E.onFeet) { this.bodyInit(E); E.onFeet = false; }
     E.phase = 'fly';
     E.vel = vel.clone();
     E.style = style;
@@ -378,7 +381,11 @@ export class Reactions {
         // through the doorway: squeeze towards its middle
         if (C.z > R.z1 - 0.4 && inDoor) C.x += (1.9 - C.x) * k(10);
       } else {
-        C.z = Math.min(C.z, R.z1 + 5);
+        // out on the street: the far pavement and the street ends stop him
+        const fz = R.z1 + 0.24;
+        if (C.z > fz + 13.3) { C.z = fz + 13.3; E.vel.z *= -0.35; this.bonk(E); }
+        if (C.x < -44) { C.x = -44; E.vel.x *= -0.35; } if (C.x > 44) { C.x = 44; E.vel.x *= -0.35; }
+        if (C.z < fz + 0.45 && Math.abs(C.x - 1.9) > 0.6) { C.z = fz + 0.45; E.vel.z *= -0.35; this.bonk(E); }
         if (!E.out) { E.out = true; g.save.stats.bounced = (g.save.stats.bounced || 0) + 1; g.ui.toast('Thrown out!', 'Bouncer'); g.checkAchievements(); audio.cheer?.(); }
       }
       if (C.y <= 0.16 && E.vel.y < 0) {
@@ -428,11 +435,19 @@ export class Reactions {
         ch.bounce = 0;
         ch.extra = {};
         E.phase = 'flee';
+        E.onFeet = true;
         c.say(pick(['I’M LEAVING! I’M LEAVING!', 'You’re CRAZY!', 'Never coming back! NEVER!']), 'horrified', 2, { pitch: ch.voice.pitch * 1.4, rate: 1.5, vol: 0.14 });
         const outside = p.z > ROOM.z1 + 0.2;
-        const route = outside ? [V(p.x - 3, 0, 4.0), V(-12, 0, 4.1)] : [SPOTS.doorIn, SPOTS.doorStep, V(0, 0, 4.0), V(-12, 0, 4.1)];
+        // away from you, along the pavement, all the way down the street. Limping a bit
+        // after a beating, so a sprint catches him: you can keep going until he's gone
+        const side = p.x >= g.player.pos.x ? 1 : -1;
+        const fz = ROOM.z1 + 0.24;
+        const end = V(side * 45, 0, fz + 1.6);
+        const route = outside ? [V(p.x + side * 1.5, 0, fz + 1.6), end] : [SPOTS.doorIn, SPOTS.doorStep, V(1.9 + side * 2, 0, fz + 1.6), end];
         if (!outside) g.shop.openDoor(true, 2.5);
-        ch.walkTo(route, 'run').then(() => this.finishEject(c));
+        const id = E.fleeId = (E.fleeId || 0) + 1;
+        ch.walkTo(route, E.hits > 1 ? 'speedwalk' : 'run').then(() => { if (this.eject === E && E.fleeId === id && E.phase === 'flee') this.finishEject(c); });
+        if (outside && E.hits > 1) c.say(pick(['Leave me ALONE!', 'Okay okay OKAY!', 'I’m going! I’m going!', 'MOMMY!']), null, 0, { pitch: ch.voice.pitch * 1.5, rate: 1.5, vol: 0.14 });
         return;
       }
     } else return;

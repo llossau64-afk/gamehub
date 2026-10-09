@@ -25,10 +25,11 @@ import { Reactions } from './reactions.js';
 import { playTutorial } from './tutorial.js';
 import { UPGRADES, byId, effects, xpFor, ACHIEVEMENTS, EVENTS } from '../world/upgrades.js';
 import { Street } from './street.js';
+import { Supermarket } from './supermarket.js';
 import { Employee } from './employee.js';
 import { availableHaircuts } from '../hair/styles.js';
 import { audio } from '../audio/audio.js';
-import { store } from '../core/save.js';
+import { store, defaultSave } from '../core/save.js';
 import { platform } from '../platform/platform.js';
 import { Spring, clamp, damp, rand, pick, chance, formatMoney, lerp, easeInOut } from '../core/util.js';
 import { makeEnvironment, applyQuality, QUALITY } from '../render/renderer.js';
@@ -60,6 +61,7 @@ export class Game {
     this.customers = new CustomerManager(this);
     this.barber = new BarberMode(this);
     this.street = new Street(this);
+    this.supermarket = new Supermarket(this);
     this.online = new Online(this);
     this.save = store.data;
     this.settings = store.settings;
@@ -280,6 +282,10 @@ export class Game {
       id: 'bouncer', label: () => this.reactions.bouncerLabel(), pos: () => this.reactions.bouncerPos(), radius: 2.6,
       action: () => { this.reactions.bouncerAction(); return 'bouncer'; },
     });
+    I({
+      id: 'manager', label: () => this.supermarket.label(), pos: () => this.supermarket.pos(), radius: 3.2,
+      action: () => { this.supermarket.talk().catch((e) => console.error(e)); return 'manager'; },
+    });
     I({ id: 'catalog', label: () => 'Upgrades', pos: () => this.shop.slots.catalog.getWorldPosition(V()).add(V(0, 0.05, 0)), radius: 2.2, action: () => { this.openUpgrades(); return 'catalog'; } });
     I({
       id: 'broom', label: () => (this.clippings.floorCount > 15 ? 'Sweep the floor' : null),
@@ -391,7 +397,7 @@ export class Game {
     const ui = this.ui, on = this.online;
     const view = ui.onlinePanel({
       nick: this.settings.nick || '',
-      lobby: on.active ? { code: on.code, host: on.host, started: on.started, players: on.players } : null,
+      lobby: on.active ? { code: on.code, host: on.host, started: on.started, players: on.players, team: on.teamSummary() } : null,
       onCreate: async (nick) => {
         this.saveNick(nick);
         try { await on.createLobby(nick); } catch (e) { return e?.message || 'Couldn’t create a lobby.'; }
@@ -405,14 +411,16 @@ export class Game {
       onPlay: () => on.start(),
       onLeave: async () => {
         await on.leave();
+        this.endCoop();
         this.setOnlineShop(false);
         if (this.state !== 'menu') { ui.closePanel(); this.toMenu(); } else this.showMainMenu();
       },
     });
-    on.onChange = () => view.update?.({ code: on.code, host: on.host, started: on.started, players: on.players });
-    on.onStart = () => this.startOnline();
+    on.onChange = () => view.update?.({ code: on.code, host: on.host, started: on.started, players: on.players, team: on.teamSummary() });
+    on.onStart = (team) => this.startOnline(team);
     on.onClosed = async () => {
       await on.leave();
+      this.endCoop();
       this.setOnlineShop(false);
       ui.closePanel();
       ui.toast('The host closed the lobby', 'Online');
@@ -423,17 +431,77 @@ export class Game {
   saveNick(nick) { this.settings.nick = nick; store.saveSettings(); }
 
   // everybody into the shop: your own save, or a quick fresh start (intro and tutorial skipped)
-  startOnline() {
+  startOnline(team) {
     this.ui.closePanel();
     this.setOnlineShop(true);
-    if (this.state !== 'menu') { this.ui.toast('The lobby is playing', 'Online'); return; }
-    if (!store.hasProgress) {
-      Object.assign(this.save, { started: true, introSeen: true, tutorialDone: true });
-      this.persist();
+    this.startCoop(team);
+    if (this.state !== 'menu') {
+      // already in the shop (late start): just switch to the team's shop
+      this.fx = effects(this.save.owned);
+      this.shop.applyState(new Set(this.save.owned));
+      this.ui.setMoney(this.save.money, false);
+      this.ui.setLevel(this.save.level, this.save.xp);
+      this.ui.toast('Now playing in the team shop', 'Online');
+      return;
     }
-    this.ui.toast(`Online · lobby ${this.online.code}`, 'Online');
+    this.ui.toast(`Team shop · lobby ${this.online.code}`, 'Online');
     this.continueGame();
   }
+
+  // ---------------------------------------------------------------- team (co-op) save
+  // Playing online, you play in a shop you share with exactly these colleagues: one wallet,
+  // one set of upgrades, saved on each of your devices under the team's key. Your solo
+  // shop waits untouched until you leave.
+  loadTeam(k) {
+    try { const raw = platform.load('coop:' + k); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+  }
+
+  startCoop(team) {
+    const k = String(team?.k || '').replace(/[^a-z0-9-]/g, '').slice(0, 120);
+    if (!k) return;
+    if (!this.coopKey) this.soloSave = this.save;
+    const fresh = defaultSave();
+    const local = this.loadTeam(k);
+    const save = Object.assign(fresh, local || {}, { started: true, introSeen: true, tutorialDone: true });
+    save.stats = Object.assign(defaultSave().stats, local?.stats || {});
+    save.equipped = Object.assign(defaultSave().equipped, local?.equipped || {});
+    const s = Online.cleanSlim(team.s);
+    if (s) {
+      Object.assign(save, { money: s.money, xp: s.xp, level: s.level, day: s.day, owned: s.owned });
+      Object.assign(save.equipped, s.equipped);
+      Object.assign(save.stats, { served: s.served, fiveStars: s.fiveStars, earned: s.earned });
+    } else if (!local) save.money = 60;   // a new team shop: a little starting cash
+    if (!local) save.clock = null;
+    this.save = save;
+    this.coopKey = k;
+    this.persist();
+    this.online.beginTeam(team);
+  }
+
+  endCoop() {
+    if (!this.coopKey) return;
+    this.persist();
+    this.coopKey = null;
+    this.save = this.soloSave || store.data;
+    this.soloSave = null;
+    this.fx = effects(this.save.owned);
+    this.shop.applyState(new Set(this.save.owned));
+    this.ui.setMoney(this.save.money, false);
+    this.ui.setLevel(this.save.level, this.save.xp);
+  }
+
+  onTeamUpgrade(id, nick) {
+    const u = byId[id];
+    this.fx = effects(this.save.owned);
+    this.shop.applyState(new Set(this.save.owned));
+    if (u?.equip) this.save.equipped[u.equip] = id;
+    this.barber?.makeTools?.();
+    this.syncEmployee();
+    this.ui.toast(`${nick} bought ${u?.name || id} for the shop`, 'Team');
+    audio.purchase();
+  }
+
+  saveSettings() { store.saveSettings(); }
 
   setOnlineShop(on) {
     this.shop.forced = on ? ['station2', 'extension'] : [];
@@ -819,6 +887,49 @@ export class Game {
     this.checkAchievements();
   }
 
+  // hit by a car: thrown, the world spins, black — you wake up back in the shop with a
+  // $10 hospital bill (money can go into the red)
+  async runOver(carPos, vx) {
+    if (this.knockedOut) return;
+    this.knockedOut = true;
+    const p = this.player, cam = this.camera;
+    audio.thud(1); audio.tone(110, 0.4, { type: 'square', vol: 0.08, slide: 0.4 });
+    this.street.honk?.(carPos);
+    this.ui.flash?.('#ffffff');
+    p.control = false;
+    p.lookOverride = true;
+    p.shake = 1;
+    const start = cam.position.clone();
+    const fly = V(Math.sign(vx) * 4.5, 0, (p.pos.z - carPos.z) >= 0 ? 1.5 : -1.5);
+    const t0 = performance.now();
+    await new Promise((res) => {
+      const tick = () => {
+        const t = Math.min(1, (performance.now() - t0) / 900);
+        const arc = Math.sin(t * Math.PI) * 1.4;
+        cam.position.set(start.x + fly.x * t, Math.max(0.25, start.y + arc - t * 1.3), start.z + fly.z * t);
+        cam.rotation.set(-0.3 + t * 1.1, p.yaw + t * 2.4 * Math.sign(vx), t * 1.3, 'YXZ');
+        if (t < 1) requestAnimationFrame(tick); else res();
+      };
+      tick();
+    });
+    audio.thud(0.8);
+    this.ui.toast?.('Hit by a car! Hospital bill: −$10', 'Ouch');
+    await wait(500);
+    await this.ui.fade(true, 700);
+    this.save.money -= 10;
+    this.ui.setMoney(this.save.money);
+    this.save.stats.carHits = (this.save.stats.carHits || 0) + 1;
+    p.lookOverride = false;
+    p.place(SPOTS.playerStart, 0.6, -0.05);
+    this.persist();
+    await wait(300);
+    this.knockedOut = false;
+    if (this.state === 'play') { p.control = true; this.enterFP(); }
+    await this.ui.fade(false, 700);
+    this.ui.banner('Back in the shop', '−$10', 'Look both ways next time', 1800);
+    this.checkAchievements();
+  }
+
   addXP(v) {
     const s = this.save;
     s.xp += v;
@@ -892,6 +1003,11 @@ export class Game {
   persist() {
     // the time of day goes into the save too, so a reload puts you back in the same afternoon
     if (this.clock && ['play', 'barber', 'reaction'].includes(this.state)) this.save.clock = { day: this.save.day, hour: this.clock.hour, open: this.clock.open };
+    if (this.coopKey) {
+      this.save.savedAt = Date.now();
+      try { platform.save('coop:' + this.coopKey, JSON.stringify(this.save)); } catch (e) { /* storage blocked */ }
+      return;
+    }
     store.data = this.save;
     store.save();
     cloud.push(this.save, this.settings);
@@ -1348,6 +1464,7 @@ export class Game {
     if (this.owner) this.owner.update(dt);
     this.customers.update(dt);
     this.street.update(dt);
+    this.supermarket.update(dt);
     for (const e of this.staff) e.update(dt);
     this.updateItems(dt);
     this.clippings.update(dt);

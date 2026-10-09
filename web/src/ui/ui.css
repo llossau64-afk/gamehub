@@ -893,3 +893,14 @@
 .online-p .op-play { font-size: 24px; flex: 2; animation: pulse 1.6s infinite; }
 .online-p .op-actions .op-leave { flex: 1; font-size: 15px; }
 @media (max-width: 620px) { .online-p .op-choice { grid-template-columns: 1fr; } }
+
+/* dialogue choices */
+.choices { position: absolute; left: 50%; bottom: calc(18vh + var(--safe-b)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 16; pointer-events: auto; animation: chIn .35s cubic-bezier(.2,1.4,.4,1) both; }
+.choices.out { animation: igOut .25s forwards; }
+.choices .ch-k { font-family: var(--cond); font-weight: 700; font-size: 12px; letter-spacing: .3em; text-transform: uppercase; color: var(--brass-2); text-shadow: 0 1px 3px rgba(0,0,0,.9); }
+.choices .ch-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.choices .ch-b { display: flex; align-items: center; gap: 10px; border: 0; border-radius: 12px; padding: 12px 22px 11px 12px; background: var(--glass); color: var(--paper); box-shadow: var(--lift), var(--hair); font-size: 22px; font-weight: 800; letter-spacing: .06em; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: transform .12s, background .12s; }
+.choices .ch-b:hover { background: var(--paper); color: var(--ink); transform: translateY(-2px); }
+@keyframes chIn { from { opacity: 0; transform: translate(-50%, 16px); } }
+.online-p .op-team { font-family: var(--cond); font-weight: 600; font-size: 15px; letter-spacing: .04em; color: var(--green); }
+.online-p .op-team:empty { display: none; }

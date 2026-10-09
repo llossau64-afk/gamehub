@@ -11,7 +11,13 @@ export const SHOPS = [
   { name: 'PHONE FIX', sub: 'screens · batteries', wall: '#d9dde2', sign: '#1c1c1e', ink: '#6fd3ff', kind: 'phone' },
   { name: 'GROCER', sub: 'fruit & veg', wall: '#e6d9b8', sign: '#c9922e', ink: '#2a1c10', kind: 'grocer' },
   { name: 'TAILOR', sub: 'alterations', wall: '#cbb9a0', sign: '#3a2a1e', ink: '#e9c983', kind: 'tailor' },
+  { name: 'PIZZERIA ROMA', sub: 'wood-fired since 1987', wall: '#e8c9a0', sign: '#2f6b3a', ink: '#fff3d0', kind: 'pizza' },
+  { name: 'PHARMACY', sub: 'open 8 – 20', wall: '#e9f0ec', sign: '#2f8a4a', ink: '#ffffff', kind: 'pharmacy' },
+  { name: 'LAUNDRETTE', sub: 'wash · dry · fold', wall: '#dfe8f0', sign: '#24447a', ink: '#bfe3ff', kind: 'laundry' },
+  { name: 'GOLD & CO', sub: 'jewellers', wall: '#2a2420', sign: '#141210', ink: '#e9c46f', kind: 'jeweller' },
 ];
+
+export const SUPERMARKET = { name: 'FRESH MART', sub: 'supermarket · open 7 – 22', wall: '#f3f1ea', sign: '#c8302b', ink: '#ffffff', kind: 'super' };
 
 function rng(seed) { let s = seed * 9301 + 49297; return () => ((s = (s * 9301 + 49297) % 233280) / 233280); }
 
@@ -96,7 +102,28 @@ export function shopWindowTexture(shop, aspect = 2, seed = 1) {
       x.beginPath(); x.moveTo(mx - 26, 90); x.lineTo(mx + 26, 90); x.lineTo(mx + 20, 190); x.lineTo(mx - 20, 190); x.fill();
       x.fillStyle = '#d8cfb4'; x.fillRect(mx - 3, 190, 6, 50); x.beginPath(); x.ellipse(mx, 80, 12, 14, 0, 0, Math.PI * 2); x.fill();
     }
+  } else if (k === 'pizza') {
+    x.fillStyle = '#7a3b22'; x.beginPath(); x.arc(room * 0.25, 150, 56, Math.PI, 0); x.fill();
+    x.fillStyle = '#ff9a3c'; x.beginPath(); x.arc(room * 0.25, 150, 26, Math.PI, 0); x.fill();
+    counter(x, 14, 200, room - 10, '#d8cfb4');
+    for (let i = 0; i < 3; i++) { const cx = room * 0.55 + i * 60; x.fillStyle = '#e9b44c'; x.beginPath(); x.arc(cx, 190, 24, 0, Math.PI * 2); x.fill(); x.fillStyle = '#c0392b'; for (let j = 0; j < 6; j++) { x.beginPath(); x.arc(cx + Math.cos(j) * 12, 190 + Math.sin(j * 2) * 10, 4, 0, Math.PI * 2); x.fill(); } }
+  } else if (k === 'pharmacy') {
+    x.fillStyle = '#2f8a4a'; x.fillRect(room * 0.5 - 30, 30, 60, 20); x.fillRect(room * 0.5 - 10, 10, 20, 60);
+    for (const y of [120, 175, 230]) { shelf(y); for (let i = 0; i < 14; i++) { x.fillStyle = ['#ffffff', '#cfe8ff', '#ffd6d6', '#e8f5d0'][i % 4]; x.fillRect(22 + i * (room - 40) / 14, y - 26, (room - 40) / 14 - 4, 24); } }
+  } else if (k === 'laundry') {
+    for (let i = 0; i < 5; i++) { const cx = 40 + i * (room - 60) / 4.5; x.fillStyle = '#f2f4f6'; x.fillRect(cx - 26, 140, 52, 70); x.fillStyle = '#3a4a5a'; x.beginPath(); x.arc(cx, 180, 18, 0, Math.PI * 2); x.fill(); x.fillStyle = 'rgba(160,210,255,.7)'; x.beginPath(); x.arc(cx, 180, 13, 0, Math.PI * 2); x.fill(); }
+  } else if (k === 'jeweller') {
+    for (let i = 0; i < 3; i++) { const cx = 30 + i * (room - 40) / 3; x.fillStyle = '#141210'; x.fillRect(cx, 150, (room - 40) / 3 - 14, 60); x.fillStyle = 'rgba(255,240,200,.25)'; x.fillRect(cx, 120, (room - 40) / 3 - 14, 30); for (let j = 0; j < 5; j++) { x.fillStyle = '#f2cf7c'; x.beginPath(); x.arc(cx + 14 + j * 18, 168, 4, 0, Math.PI * 2); x.fill(); } }
+  } else if (k === 'super') {
+    // aisles of colourful products and a checkout
+    for (const y of [80, 125, 170, 215]) {
+      x.fillStyle = '#b9bcc2'; x.fillRect(10, y, W - 20, 4);
+      for (let bx = 14; bx < W - 14;) { const bw = 8 + r() * 10, bh = 16 + r() * 20; x.fillStyle = ['#e0455a', '#f2a03c', '#9cc94a', '#4aa3df', '#f2cf7c', '#ffffff', '#7a3b8a', '#2f8a4a'][Math.floor(r() * 8)]; x.fillRect(bx, y - bh, bw, bh); bx += bw + 2; }
+    }
+    x.fillStyle = '#c8302b'; x.fillRect(W * 0.08, 6, W * 0.2, 22); x.fillStyle = '#fff'; x.font = 'bold 16px sans-serif'; x.fillText('-30% FRUIT', W * 0.09, 23);
+    x.fillStyle = '#2f8a4a'; x.fillRect(W * 0.62, 6, W * 0.26, 22); x.fillStyle = '#fff'; x.fillText('FRESH BREAD DAILY', W * 0.63, 23);
   }
+  if (shop.noDoor) { glass(x, W, H); const t0 = new THREE.CanvasTexture(c); t0.colorSpace = THREE.SRGBColorSpace; t0.anisotropy = 4; return t0; }
   // the door with its glass and handle
   x.fillStyle = shade(shop.sign, -0.1); x.fillRect(doorX - 6, 6, doorW + 12, H - 6);
   x.fillStyle = 'rgba(40,52,64,0.85)'; x.fillRect(doorX + 8, 18, doorW - 16, H * 0.6);
@@ -105,12 +132,7 @@ export function shopWindowTexture(shop, aspect = 2, seed = 1) {
   x.fillStyle = '#d1a956'; x.fillRect(doorX + doorW - 22, H * 0.6, 6, 26);
   // mullion between window and door
   x.fillStyle = '#2a2420'; x.fillRect(doorX - 16, 0, 10, H);
-  // glass: tint and a diagonal reflection
-  x.fillStyle = 'rgba(120,150,170,0.12)'; x.fillRect(0, 0, W, H);
-  x.save(); x.globalAlpha = 0.18; x.fillStyle = '#ffffff';
-  x.beginPath(); x.moveTo(W * 0.1, 0); x.lineTo(W * 0.22, 0); x.lineTo(W * 0.02, H); x.lineTo(-W * 0.1, H); x.fill();
-  x.beginPath(); x.moveTo(W * 0.3, 0); x.lineTo(W * 0.34, 0); x.lineTo(W * 0.18, H); x.lineTo(W * 0.14, H); x.fill();
-  x.restore();
+  glass(x, W, H);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
@@ -128,6 +150,15 @@ export function shopSignTexture(shop) {
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
+}
+
+// glass: tint and a diagonal reflection
+function glass(x, W, H) {
+  x.fillStyle = 'rgba(120,150,170,0.12)'; x.fillRect(0, 0, W, H);
+  x.save(); x.globalAlpha = 0.18; x.fillStyle = '#ffffff';
+  x.beginPath(); x.moveTo(W * 0.1, 0); x.lineTo(W * 0.22, 0); x.lineTo(W * 0.02, H); x.lineTo(-W * 0.1, H); x.fill();
+  x.beginPath(); x.moveTo(W * 0.3, 0); x.lineTo(W * 0.34, 0); x.lineTo(W * 0.18, H); x.lineTo(W * 0.14, H); x.fill();
+  x.restore();
 }
 
 function counter(x, x0, y, w, col) {

@@ -19,7 +19,7 @@ export class Street {
     this.game = game;
     this.walkers = [];
     this.t = rand(2, 5);
-    this.max = game.quality.hairLayers <= 10 ? 1 : 2;
+    this.max = game.quality.hairLayers <= 10 ? 2 : 4;
     this.cars = [];
     this.carT = rand(3, 8);
   }
@@ -48,10 +48,10 @@ export class Street {
     const fz = ROOM.z1 + 0.24;
     const dir = chance(0.5) ? 1 : -1;
     const obj = this.makeCar(pick(['#8f2f2a', '#3b5f7d', '#d8cfb4', '#2f4a3a', '#1c1c1e', '#c9922e', '#e8e4dc']));
-    obj.position.set(-dir * 32, -0.07, dir > 0 ? fz + 5.6 : fz + 9.4);
+    obj.position.set(-dir * 60, -0.07, dir > 0 ? fz + 5.6 : fz + 9.4);
     obj.rotation.y = dir > 0 ? 0 : Math.PI;
     this.game.scene.add(obj);
-    this.cars.push({ obj, dir, v: rand(7, 10), vmax: rand(7, 10), honked: 0 });
+    this.cars.push({ obj, dir, v: rand(8, 11), vmax: rand(8, 11), honked: 0, careful: chance(0.6) });
   }
 
   updateCars(dt) {
@@ -62,23 +62,27 @@ export class Street {
     for (let i = this.cars.length - 1; i >= 0; i--) {
       const C = this.cars[i], o = C.obj;
       // someone in front of me in my lane?
+      // careful drivers brake for you (if they see you in time); the others honk and keep going
       const ahead = (P.x - o.position.x) * C.dir;
-      const inLane = Math.abs(P.z - o.position.z) < 1.4 && g.state === 'play';
-      const blocked = inLane && ahead > 1.6 && ahead < 9;
-      const want = blocked ? Math.max(0, (ahead - 2.6) * 1.5) : C.vmax;
-      C.v += Math.sign(want - C.v) * Math.min(Math.abs(want - C.v), (blocked ? 16 : 4) * dt);
+      const inLane = Math.abs(P.z - o.position.z) < 1.4 && g.state === 'play' && !g.knockedOut;
+      const blocked = inLane && ahead > 1.6 && ahead < 14;
+      const brakes = blocked && C.careful;
+      const want = brakes ? Math.max(0, (ahead - 2.8) * 1.4) : C.vmax;
+      C.v += Math.sign(want - C.v) * Math.min(Math.abs(want - C.v), (brakes ? 7 : 4) * dt);
       if (blocked && C.honked <= 0) { C.honked = 2.5; this.honk(o.position); }
       C.honked -= dt;
       o.position.x += C.v * C.dir * dt;
       for (const w of o.userData.wheels) w.rotation.y += C.v * dt / 0.34;
       // solid: you can't walk through a car
       const dx = P.x - o.position.x, dz = P.z - o.position.z;
-      if (Math.abs(dx) < 2.35 && Math.abs(dz) < 1.15) {
+      if (Math.abs(dx) < 2.35 && Math.abs(dz) < 1.15 && C.v > 2.5 && g.state === 'play' && !g.knockedOut) {
+        g.runOver(o.position, C.dir * C.v);
+      } else if (Math.abs(dx) < 2.35 && Math.abs(dz) < 1.15) {
         if (2.35 - Math.abs(dx) < 1.15 - Math.abs(dz)) P.x = o.position.x + Math.sign(dx || 1) * 2.35;
         else P.z = o.position.z + Math.sign(dz || 1) * 1.15;
       }
       if (outside && !C.passed && Math.abs(P.x - o.position.x) < 8) { C.passed = true; audio._carPass?.(1); }
-      if (Math.abs(o.position.x) > 34) {
+      if (Math.abs(o.position.x) > 62) {
         o.parent?.remove(o);
         o.traverse((m) => { if (m.isMesh) { m.geometry.dispose(); } });
         this.cars.splice(i, 1);
@@ -105,7 +109,7 @@ export class Street {
     ch.hair = hair;
     const dir = chance(0.5) ? 1 : -1;
     const z = ROOM.z1 + rand(1.0, 2.2);
-    const x0 = -dir * 13, x1 = dir * 13;
+    const x0 = -dir * 44, x1 = dir * 44;
     ch.place(new THREE.Vector3(x0, 0, z), dir > 0 ? Math.PI / 2 : -Math.PI / 2);
     const w = { ch, dir, z, stop: chance(0.35) ? rand(WINDOW.x - 1, WINDOW.x + 1) : null, stopped: false, phone: chance(0.25) };
     ch.walkTo([new THREE.Vector3(x1, 0, z)], chance(0.3) ? 'stroll' : 'walk');
@@ -139,8 +143,8 @@ export class Street {
       const d = ch.root.position.distanceTo(g.camera.position);
       if (d < 22) ch.update(dt); else { ch.updateLocomotion(dt); }
       ch.hair.setLOD(d);
-      if (Math.abs(ch.root.position.x) > 12.5 && !ch.path.length && !w.stopped) { ch.dispose(); this.walkers.splice(i, 1); continue; }
-      if (Math.abs(ch.root.position.x) > 12.5 && !ch.path.length) { ch.dispose(); this.walkers.splice(i, 1); }
+      if (Math.abs(ch.root.position.x) > 43.5 && !ch.path.length && !w.stopped) { ch.dispose(); this.walkers.splice(i, 1); continue; }
+      if (Math.abs(ch.root.position.x) > 43.5 && !ch.path.length) { ch.dispose(); this.walkers.splice(i, 1); }
     }
   }
 

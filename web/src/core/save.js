@@ -21,6 +21,7 @@ export function defaultSave() {
     stats: { served: 0, perfect: 0, fiveStars: 0, earned: 0, tips: 0, streak: 0, bestStreak: 0, lost: 0 },
     achievements: [],
     playTime: 0,
+    flags: {},
   };
 }
 

@@ -1,0 +1,50 @@
+// co-op economy over the local test broker: shared wallet, shared upgrades, team save
+import { chromium } from 'playwright-core';
+const out = process.argv[2];
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const logs = [];
+const ctxA = await browser.newContext({ viewport: { width: 760, height: 470 } }), ctxB = await browser.newContext({ viewport: { width: 760, height: 470 } });
+const open = async (ctx, tag, money) => {
+  const p = await ctx.newPage();
+  p.on('pageerror', (e) => logs.push(tag + ' PAGEERROR ' + e.message));
+  p.on('console', (m) => { if (m.type() === 'error') logs.push(tag + ' ' + m.text()); });
+  await p.goto('http://localhost:5173/?relay=ws://localhost:8883');
+  await p.waitForFunction(() => window.__ready === true, null, { timeout: 90000 });
+  await p.evaluate((money) => { const g = window.__game; Object.assign(g.save, { started: true, introSeen: true, tutorialDone: true, money, level: 6, owned: ['bulb'] }); g.persist(); }, money);
+  return p;
+};
+const A = await open(ctxA, 'A', 999), B = await open(ctxB, 'B', 5);
+const lobby = async (codeFrom) => {
+  await A.evaluate(() => { window.__game.openOnline(); document.querySelector('.op-nick').value = 'Anna'; document.querySelector('.op-create').click(); });
+  await A.waitForFunction(() => document.querySelector('.op-c')?.textContent, null, { timeout: 20000 });
+  const code = await A.evaluate(() => document.querySelector('.op-c').textContent);
+  await B.evaluate((c) => { window.__game.openOnline(); document.querySelector('.op-nick').value = 'Ben'; document.querySelector('.op-code-in').value = c; document.querySelector('.op-join').click(); }, code);
+  await B.waitForFunction(() => document.querySelectorAll('.op-pl:not(.empty)').length === 2, null, { timeout: 20000 });
+  await A.waitForTimeout(1500);
+  return code;
+};
+await lobby();
+console.log('team (1st):', await A.evaluate(() => document.querySelector('.op-team')?.textContent));
+await A.evaluate(() => document.querySelector('.op-play').click());
+await B.waitForFunction(() => window.__game.state === 'play', null, { timeout: 60000 });
+await A.waitForFunction(() => window.__game.state === 'play', null, { timeout: 60000 });
+const m = async (p) => p.evaluate(() => JSON.stringify({ money: window.__game.save.money, owned: window.__game.save.owned, coop: !!window.__game.coopKey }));
+console.log('start A', await m(A), 'B', await m(B));
+await A.evaluate(() => window.__game.addMoney(40));
+await A.waitForTimeout(2500);
+console.log('after A earns 40 → B', await m(B));
+await B.evaluate(() => { const g = window.__game; g.save.money += 200; g.addMoney(0); return g.buy('radio'); });
+await B.waitForTimeout(2500);
+console.log('after B buys coffee → A', await m(A), 'A sees radio', await A.evaluate(() => window.__game.shop.slots.radio.visible));
+// leave and come back together: the team shop is still there
+await B.evaluate(() => window.__game.online.leave().then(() => window.__game.endCoop()));
+await A.evaluate(() => window.__game.online.leave().then(() => window.__game.endCoop()));
+await A.waitForTimeout(1000);
+console.log('solo again A', await m(A), 'B', await m(B));
+await A.evaluate(() => { window.__game.ui.closePanel(); window.__game.toMenu(); });
+await B.evaluate(() => { window.__game.ui.closePanel(); window.__game.toMenu(); });
+await A.waitForTimeout(3000);
+await lobby();
+console.log('team (2nd):', await A.evaluate(() => document.querySelector('.op-team')?.textContent));
+console.log(logs.slice(0, 10).join('\n'));
+await browser.close();

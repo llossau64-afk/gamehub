@@ -48,6 +48,18 @@ export const UPGRADES = [
     desc: 'Proper speakers on the wall. The music hits different.', effect: '+10% tips · better music' },
   { id: 'arcade', cat: 'decor', name: 'Arcade Cabinet', price: 340, level: 5, icon: 'tv',
     desc: 'A blinking arcade machine in the corner. Waiting is fun now.', effect: '+30% patience' },
+  { id: 'coffee', cat: 'decor', name: 'Espresso Machine', price: 150, level: 2, icon: 'coffee',
+    desc: 'A red espresso machine on the counter. Free coffee for everyone who waits.', effect: '+15% patience · +4% tips' },
+  { id: 'neonWall', cat: 'shop', name: 'Neon Scissors', price: 210, level: 3, icon: 'neon',
+    desc: 'Pink and blue neon scissors on the wall. Very good for selfies.', effect: '+10% customers · +5% tips' },
+  { id: 'vending', cat: 'shop', name: 'Snack Machine', price: 240, level: 4, icon: 'vending',
+    desc: 'A snack machine on the pavement out front. People stop, then come in.', effect: '+12% customers' },
+  { id: 'washBasin', cat: 'shop', name: 'Hair Wash Basin', price: 280, level: 4, icon: 'sink',
+    desc: 'A proper shampoo station. Every cut starts with a wash now.', effect: '+8% satisfaction' },
+  { id: 'aquarium', cat: 'decor', name: 'Aquarium', price: 380, level: 5, icon: 'fish',
+    desc: 'Four fish who have seen things. Waiting customers stare at them, calmly.', effect: '+25% patience' },
+  { id: 'chandelier', cat: 'shop', name: 'Chandelier', price: 650, level: 6, icon: 'chandelier',
+    desc: 'Gold and crystal over the chair. You’re a luxury salon now.', effect: '+8% satisfaction · +12% tips' },
   { id: 'clipperPro', cat: 'tools', name: 'Pro Clippers', price: 240, level: 4, icon: 'clipper', equip: 'clipper',
     desc: 'Black and gold, quiet motor, perfect fades.', effect: '+90% clipper speed' },
 ];
@@ -64,12 +76,12 @@ export const byId = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));
 // combined effects of everything owned
 export function effects(owned) {
   const h = (id) => owned.includes(id);
-  const sat = (h('bulb') ? 0.05 : 0) + (h('clean') ? 0.08 : 0) + (h('paint') ? 0.08 : 0) + (h('mirrorLarge') ? 0.08 : 0) + (h('floorWood') ? 0.08 : 0);
-  const tips = 1 + (h('decor') ? 0.06 : 0) + (h('products') ? 0.1 : 0) + (h('chairClassic') ? 0.12 : 0) + (h('sound') ? 0.1 : 0);
-  const patience = 1 + (h('radio') ? 0.2 : 0) + (h('couch') ? 0.25 : 0) + (h('tv') ? 0.25 : 0) + (h('arcade') ? 0.3 : 0);
+  const sat = (h('bulb') ? 0.05 : 0) + (h('clean') ? 0.08 : 0) + (h('paint') ? 0.08 : 0) + (h('mirrorLarge') ? 0.08 : 0) + (h('floorWood') ? 0.08 : 0) + (h('washBasin') ? 0.08 : 0) + (h('chandelier') ? 0.08 : 0);
+  const tips = 1 + (h('decor') ? 0.06 : 0) + (h('products') ? 0.1 : 0) + (h('chairClassic') ? 0.12 : 0) + (h('sound') ? 0.1 : 0) + (h('coffee') ? 0.04 : 0) + (h('neonWall') ? 0.05 : 0) + (h('chandelier') ? 0.12 : 0);
+  const patience = 1 + (h('radio') ? 0.2 : 0) + (h('couch') ? 0.25 : 0) + (h('tv') ? 0.25 : 0) + (h('arcade') ? 0.3 : 0) + (h('coffee') ? 0.15 : 0) + (h('aquarium') ? 0.25 : 0);
   const clipper = h('clipperPro') ? 'pro' : h('clipperBasic') ? 'basic' : 'rusty';
   const clipperRate = { rusty: 1.6, basic: 2.3, pro: 3.1 }[clipper];
-  const arrival = 1 + (h('pole') ? 0.35 : 0) + (h('decor') ? 0.1 : 0) + (h('paint') ? 0.1 : 0);
+  const arrival = 1 + (h('pole') ? 0.35 : 0) + (h('decor') ? 0.1 : 0) + (h('paint') ? 0.1 : 0) + (h('neonWall') ? 0.1 : 0) + (h('vending') ? 0.12 : 0);
   const staffSkill = h('trainBarber') ? 0.86 : 0.62;
   const staffSpeed = h('fastHands') ? 1.8 : 1;
   return { sat, tips, patience, clipper, clipperRate, scissorsPro: h('scissorsPro'), arrival: arrival + (h('hireBarber') ? 0.25 : 0) + (h('extension') ? 0.2 : 0) + (h('hireBarber2') ? 0.25 : 0), dye: h('dyeStation'), staffSkill, staffSpeed };
@@ -126,6 +138,9 @@ export const ACHIEVEMENTS = [
   { id: 'oops', cat: 'secret', tier: 'bronze', icon: 'mask', name: 'Oops.', desc: 'Leave a bald patch where nobody asked for one.', goal: 1, progress: st('oops'), reward: { money: 5, xp: 10 }, secret: true },
   { id: 'toughCrowd', cat: 'secret', tier: 'bronze', icon: 'mask', name: 'Tough Crowd', desc: 'A customer gave up waiting and walked out.', goal: 1, progress: st('lost'), reward: { money: 5, xp: 10 }, secret: true },
   { id: 'collateral', cat: 'secret', tier: 'bronze', icon: 'mask', name: 'Collateral Damage', desc: 'An angry customer kicked your trash bin over.', goal: 1, progress: st('binsKicked'), reward: { money: 5, xp: 10 }, secret: true },
+  { id: 'careerChoice', cat: 'secret', tier: 'bronze', icon: 'mask', name: 'Career Choice', desc: 'Turned down a glamorous job at Fresh Mart.', goal: 1, progress: st('jobsRefused'), reward: { money: 10, xp: 10 }, secret: true },
+  { id: 'roadkill', cat: 'secret', tier: 'bronze', icon: 'mask', name: 'Look Both Ways', desc: 'Got run over by a car.', goal: 1, progress: st('carHits'), reward: { money: 10, xp: 10 }, secret: true },
+  { id: 'streetJustice', cat: 'secret', tier: 'silver', icon: 'fist', name: 'Street Justice', desc: 'Chased an angry customer down the street and hit them again.', goal: 1, progress: st('streetHits'), reward: { money: 15, xp: 20 }, secret: true },
   { id: 'bouncer', cat: 'secret', tier: 'silver', icon: 'fist', name: 'Bouncer', desc: 'Physically threw a furious customer out of your shop.', goal: 1, progress: st('bounced'), reward: { money: 20, xp: 25 }, secret: true },
   { id: 'bootcamp', cat: 'secret', tier: 'bronze', icon: 'mask', name: 'Boot Camp', desc: 'Kicked an angry customer in the behind.', goal: 1, progress: st('kicks'), reward: { money: 5, xp: 10 }, secret: true },
   { id: 'knockout', cat: 'secret', tier: 'bronze', icon: 'fist', name: 'Knuckle Sandwich', desc: 'Punched a customer who threw money at you.', goal: 1, progress: st('punches'), reward: { money: 5, xp: 10 }, secret: true },

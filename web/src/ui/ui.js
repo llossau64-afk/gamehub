@@ -123,7 +123,7 @@ export class UI {
 
     const choose = (err = '') => {
       body.innerHTML = `
-        <p class="op-lead">Cut hair together with up to <b>2 colleagues</b>. One of you creates a lobby and gets a one-time code; the others join with it. No account needed.</p>
+        <p class="op-lead">Cut hair together with up to <b>2 colleagues</b>. One of you creates a lobby and gets a one-time code; the others join with it. Online you share one shop: one cash register, every upgrade counts for everyone, and the team’s progress is saved for the next time you play together.</p>
         <label class="op-f"><span>Your name</span><input class="op-nick" maxlength="16" placeholder="Barber"></label>
         <div class="op-choice">
           <div class="op-box">
@@ -165,6 +165,7 @@ export class UI {
           <div class="op-code"><span>Lobby code</span><b class="op-c"></b><button class="op-copy">Copy</button></div>
           <div class="op-actions"><button class="mbtn primary op-play">Play</button><button class="mbtn op-leave">Leave lobby</button></div>
           <div class="op-status"></div>
+          <div class="op-team"></div>
           <div class="op-sk">Barbers <span class="op-n"></span></div>
           <div class="op-players"></div>
           <div class="op-hint">This code only exists for this lobby. Send it to your colleagues — they press <b>Play Online → Join</b>. When the host leaves, the lobby and its code are gone.</div>`;
@@ -177,6 +178,7 @@ export class UI {
         body.querySelector('.op-leave').addEventListener('click', () => o.onLeave());
       }
       body.querySelector('.op-c').textContent = L.code;
+      body.querySelector('.op-team').textContent = L.team || '';
       body.querySelector('.op-n').textContent = `${L.players.length} / 3`;
       const list = body.querySelector('.op-players');
       list.innerHTML = '';
@@ -201,6 +203,36 @@ export class UI {
     body.addEventListener('keydown', (e) => e.stopPropagation());
     this.panel('Co-op', 'Play Online', body);
     return { update: (L) => { if (body.isConnected) lobby(L); } };
+  }
+
+  // a dialogue choice: numbered answers above the subtitles; resolves with the index
+  choices(title, options) {
+    this.choiceEl?.remove();
+    const prevMode = this.input.mode;
+    this.input.setMode('ui');
+    return new Promise((resolve) => {
+      const el = h(`<div class="choices"><div class="ch-k"></div><div class="ch-row"></div></div>`);
+      el.querySelector('.ch-k').textContent = title;
+      const done = (i) => {
+        removeEventListener('keydown', onKey, true);
+        el.classList.add('out');
+        setTimeout(() => el.remove(), 250);
+        this.choiceEl = null;
+        if (prevMode === 'fp') this.input.setMode('fp');
+        audio.click?.();
+        resolve(i);
+      };
+      options.forEach((o, i) => {
+        const b = h(`<button class="ch-b"><span class="key">${i + 1}</span><span></span></button>`);
+        b.querySelector('span:last-child').textContent = o;
+        b.addEventListener('click', (e) => { e.stopPropagation(); done(i); });
+        el.querySelector('.ch-row').append(b);
+      });
+      const onKey = (e) => { const n = +e.key; if (n >= 1 && n <= options.length) { e.preventDefault(); e.stopPropagation(); done(n - 1); } };
+      addEventListener('keydown', onKey, true);
+      this.root.append(el);
+      this.choiceEl = el;
+    });
   }
 
   // small badge with who's in the shop

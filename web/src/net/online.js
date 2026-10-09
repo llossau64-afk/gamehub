@@ -14,8 +14,11 @@ import { SPOTS, STATION2, STATION3 } from '../world/shop.js';
 import { spawnProp } from '../world/props.js';
 import { clamp } from '../core/util.js';
 import { joinRelay } from './relay.js';
+import { xpFor } from '../world/upgrades.js';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// all the XP ever earned (level + progress), so XP changes add up across level-ups
+function totalXp(s) { let t = s.xp; for (let l = 1; l < s.level; l++) t += xpFor(l); return t; }
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const SLOT_COLS = ['#d1a956', '#4aa3df', '#e0455a'];
@@ -278,16 +281,138 @@ export class Online {
     this.room = room;
     this.last = {};
     this.unsub = room.onPeers((ch) => this.onPeers(ch.peers));
-    await room.presence({ v: 1, nick, st: 'menu', p: null, cu: null, hr: null, ...extra }).catch(() => {});
+    this.teamTs = null;
+    await room.presence({ v: 1, nick, pid: this.pid, st: 'menu', p: null, cu: null, hr: null, ...extra }).catch(() => {});
     this.onPeers(room.peers());
   }
 
   // host: everybody into the shop
   async start() {
     if (!this.room || !this.host) return;
-    await this.room.presence({ lobby: 'play' }).catch(() => {});
+    // the team's shop: the newest save any of us has for exactly this group of people,
+    // or a brand-new shop if we've never played together
+    const k = this.teamKey();
+    const cands = [this.teamTs, ...this.othersIn(this.room).map((p) => p.presence.ts)].filter((t) => t && t.k === k && t.s);
+    cands.sort((a, b) => (b.at || 0) - (a.at || 0));
+    const team = { k, s: cands[0]?.s || null, seen: {} };
+    await this.room.presence({ lobby: 'play', team }).catch(() => {});
     this.started = true;
-    this.onStart?.();
+    this.onStart?.(team);
+  }
+
+  // ---- the team: who's playing, and the save we share
+  get pid() {
+    const st = this.game.settings;
+    if (!st.pid) { st.pid = Math.random().toString(36).slice(2, 12); this.game.saveSettings?.(); }
+    return st.pid;
+  }
+
+  teamKey() {
+    const ids = [this.pid, ...(this.room ? this.othersIn(this.room) : []).map((p) => String(p.presence.pid || '').replace(/[^a-z0-9]/g, '').slice(0, 16)).filter(Boolean)];
+    return [...new Set(ids)].sort().join('-');
+  }
+
+  static slim(save) {
+    return {
+      money: save.money, xp: save.xp, level: save.level, day: save.day, owned: [...save.owned], equipped: { ...save.equipped },
+      served: save.stats.served || 0, fiveStars: save.stats.fiveStars || 0, earned: save.stats.earned || 0, at: save.savedAt || 0,
+    };
+  }
+
+  static cleanSlim(s) {
+    if (!s || typeof s !== 'object') return null;
+    const n = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? clamp(Math.round(v), lo, hi) : lo);
+    return {
+      money: n(s.money, -9999, 9999999), xp: n(s.xp, 0, 1e7), level: n(s.level, 1, 99), day: n(s.day, 1, 99999),
+      owned: Array.isArray(s.owned) ? s.owned.filter((x) => typeof x === 'string' && /^[A-Za-z0-9]{2,24}$/.test(x)).slice(0, 80) : [],
+      equipped: s.equipped && typeof s.equipped === 'object' ? Object.fromEntries(Object.entries(s.equipped).filter(([k, v]) => /^[a-z]{2,12}$/.test(k) && typeof v === 'string' && /^[A-Za-z0-9]{2,24}$/.test(v))) : {},
+      served: n(s.served, 0, 1e7), fiveStars: n(s.fiveStars, 0, 1e7), earned: n(s.earned, 0, 1e9),
+    };
+  }
+
+  // what the lobby shows: is there a shop we've already built together?
+  teamSummary() {
+    if (!this.room) return '';
+    const k = this.teamKey();
+    const others = this.othersIn(this.room);
+    if (!others.length) return 'Solo for now — the team shop is saved for whoever plays together.';
+    const best = [this.teamTs, ...others.map((p) => p.presence.ts)].filter((t) => t && t.k === k && t.s).sort((a, b) => (b.at || 0) - (a.at || 0))[0];
+    const s = best && Online.cleanSlim(best.s);
+    return s ? `Your team shop with these barbers: Day ${s.day} · $${s.money} · ${s.owned.length} upgrades` : 'New team shop — your progress together will be saved.';
+  }
+
+  // in the lobby: tell the host which save I have for this exact team
+  lobbyTeam() {
+    const k = this.teamKey();
+    if (this.teamTs?.k === k) return;
+    const local = this.game.loadTeam(k);
+    this.teamTs = { k, at: local?.savedAt || 0, s: local ? Online.slim(local) : null };
+    this.room.presence({ ts: this.teamTs }).catch(() => {});
+  }
+
+  // ---- shared wallet: every change to money, XP, upgrades or the day becomes an event
+  // the others apply. Events ride in presence as a short log so a dropped update is
+  // caught by the next one.
+  beginTeam(team) {
+    const s = this.game.save;
+    this.base = { money: s.money, xp: totalXp(s), owned: new Set(s.owned), day: s.day };
+    this.seq = 0;
+    this.evLog = [];
+    // the snapshot says how far it already includes everyone's events (host's view)
+    this.seen = new Map();
+    if (team?.seen && typeof team.seen === 'object') {
+      for (const [k, v] of Object.entries(team.seen).slice(0, 8)) if (/^[A-Za-z0-9_-]{1,40}$/.test(k)) this.seen.set(k, num(v, 0, 1e9));
+    }
+    this.room?.presence({ ev: [] }).catch(() => {});
+  }
+
+  myPeer() { return this.room?.peers().find((p) => p.isMe)?.peer; }
+
+  // the host keeps a full snapshot up to date for anyone joining later
+  hostSnapshot() {
+    const g = this.game;
+    if (!this.host || !g.coopKey) return;
+    const seen = Object.fromEntries(this.seen);
+    const me = this.myPeer();
+    if (me) seen[me] = this.seq;
+    this.room.presence({ team: { k: g.coopKey, s: Online.slim(g.save), seen } }).catch(() => {});
+  }
+
+  emitChanges() {
+    const g = this.game, s = g.save, b = this.base;
+    if (!b || !g.coopKey) return;
+    const dm = s.money - b.money, dx = totalXp(s) - b.xp;
+    const bought = s.owned.filter((id) => !b.owned.has(id));
+    const day = s.day > b.day ? s.day : 0;
+    if (!dm && !dx && !bought.length && !day) return;
+    b.money = s.money; b.xp = totalXp(s); bought.forEach((id) => b.owned.add(id)); b.day = Math.max(b.day, s.day);
+    this.evLog.push([++this.seq, dm, dx, bought, day]);
+    if (this.evLog.length > 24) this.evLog.shift();
+    this.room.presence({ ev: this.evLog }).catch(() => {});
+    this.hostSnapshot();
+  }
+
+  applyEvents(p) {
+    const g = this.game, b = this.base;
+    if (!b || !g.coopKey || !Array.isArray(p.presence.ev)) return;
+    const evs = p.presence.ev.filter((e) => Array.isArray(e) && typeof e[0] === 'number');
+    const top = evs.reduce((m, e) => Math.max(m, e[0]), 0);
+    const last = this.seen.get(p.peer) || 0;
+    const nick = str(p.presence.nick, 16) || 'Your colleague';
+    for (const e of evs.sort((a, c) => a[0] - c[0])) {
+      if (e[0] <= last) continue;
+      const dm = num(e[1], -1e6, 1e6), dx = num(e[2], 0, 1e6), day = num(e[4], 0, 99999);
+      const bought = Array.isArray(e[3]) ? e[3].filter((x) => typeof x === 'string' && /^[A-Za-z0-9]{2,24}$/.test(x)) : [];
+      if (dm) { g.save.money += dm; b.money += dm; g.ui.setMoney(g.save.money); if (dm >= 5) g.ui.toast(`+$${Math.round(dm)} from ${nick}`, 'Team'); }
+      if (dx) { b.xp += dx; g.addXP(dx); }
+      for (const id of bought) {
+        if (g.save.owned.includes(id)) continue;
+        g.save.owned.push(id); b.owned.add(id);
+        g.onTeamUpgrade?.(id, nick);
+      }
+      if (day > g.save.day) { g.save.day = day; b.day = day; }
+    }
+    if (top > last) { this.seen.set(p.peer, top); g.persist(); this.hostSnapshot(); }
   }
 
   get players() {
@@ -297,6 +422,7 @@ export class Online {
 
   async leave() {
     const r = this.room;
+    this.base = null;
     this.room = null;
     this.host = false;
     this.started = false;
@@ -326,12 +452,14 @@ export class Online {
       rb.isHost = p.presence.host === 1;
       rb.apply(p.presence);
     });
+    if (!this.started) this.lobbyTeam();
+    for (const p of others) this.applyEvents(p);
     if (!this.host) {
       const host = others.find((p) => p.presence.host === 1);
       if (host) this.hostSeen = true;
       // the host left: the lobby (and its code) is gone
       if (!host && this.hostSeen) { this.onClosed?.(); return; }
-      if (host?.presence.lobby === 'play' && !this.started) { this.started = true; this.onStart?.(); }
+      if (host?.presence.lobby === 'play' && !this.started && host.presence.team) { this.started = true; this.onStart?.(host.presence.team); }
     }
     this.game.ui.setOnline?.({ code: this.code, players: this.players });
     this.onChange?.();
@@ -341,6 +469,8 @@ export class Online {
   update(dt) {
     if (!this.room) return;
     for (const rb of this.remotes.values()) rb.update(dt);
+    this.emitT = (this.emitT || 0) - dt;
+    if (this.emitT <= 0) { this.emitT = 0.25; this.emitChanges(); }
     const g = this.game;
     this.sendT -= dt; this.hairT -= dt;
     if (this.sendT > 0) return;
