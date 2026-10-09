@@ -43,15 +43,20 @@ export class UI {
   setLoading(p, text) {
     const boot = document.getElementById('boot');
     if (!boot) return;
-    boot.querySelector('.bar i').style.width = Math.round(p * 100) + '%';
+    const pc = Math.round(clamp(p, 0, 1) * 100);
+    const bar = boot.querySelector('.track i'), sc = boot.querySelector('.sc'), hair = boot.querySelector('.hair'), pct = boot.querySelector('.pct');
+    if (bar) bar.style.width = pc + '%';
+    if (sc) sc.style.left = pc + '%';
+    if (hair) hair.style.setProperty('--p', pc + '%');
+    if (pct) pct.textContent = pc + '%';
     if (text) boot.querySelector('.t').textContent = text;
   }
 
   hideLoading() {
     const boot = document.getElementById('boot');
     if (!boot) return;
-    boot.style.opacity = 0;
-    setTimeout(() => boot.remove(), 700);
+    boot.classList.add('out');
+    setTimeout(() => { clearInterval(window.__bootTips); boot.remove(); }, 900);
   }
 
   fade(on, ms = 600) {
@@ -675,6 +680,7 @@ export class UI {
     </div>`);
     this.root.append(el);
     this.barberEl = el;
+    this.root.classList.add('in-barber');
     const tools = el.querySelector('.tools');
     this.toolBtns = {};
     cfg.tools.forEach((t, i) => {
@@ -687,13 +693,14 @@ export class UI {
     power.addEventListener('pointerdown', (e) => { e.preventDefault(); cfg.onPower(); });
     tools.prepend(power);
     this.powerBtn = power;
+    power.after(h('<i class="sep"></i>'));
     const guards = h('<div class="guards"><div class="gl">Guard</div><div class="row"></div></div>');
     GUARDS.forEach((g, i) => {
       const b = h(`<button data-i="${i}">${g.id}</button>`);
       b.addEventListener('pointerdown', (e) => { e.preventDefault(); cfg.onGuard(i); });
       guards.querySelector('.row').append(b);
     });
-    tools.append(guards);
+    tools.append(h('<i class="sep"></i>'), guards);
     this.guardsEl = guards;
     // motor speed: how fast the clipper and trimmer take hair off (saved)
     const sp = h(`<div class="speed"><div class="gl">Speed</div><input type="range" min="0" max="1" step="0.05" value="${cfg.clipSpeed ?? 0.45}"><div class="sv"></div></div>`);
@@ -745,7 +752,7 @@ export class UI {
     tools.append(closeBtn);
     this.closeBtn = closeBtn;
     el.querySelector('.barber-help').innerHTML = this.touch ? '' :
-      '<div><span class="key">LMB</span>cut</div><div><span class="key">RMB</span> / <span class="key">R</span>rotate view</div><div><span class="key">C</span>close-up</div>';
+      '<div><span class="key">LMB</span>cut</div><div><span class="key">RMB</span><span class="key">R</span>rotate</div><div><span class="key">C</span>close-up</div>';
   }
 
   // film-style title over the cold open
@@ -771,6 +778,7 @@ export class UI {
   }
 
   hideBarber() {
+    this.root.classList.remove('in-barber');
     this.hideReference(); if (this.barberEl) { this.barberEl.remove(); this.barberEl = null; } }
 
   updateBarber(st) {

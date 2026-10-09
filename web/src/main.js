@@ -33,7 +33,7 @@ async function boot() {
       new Promise((r) => setTimeout(r, 2500)),
     ]);
   } catch (e) { /* fall back to system fonts */ }
-  ui.setLoading(0.15);
+  ui.setLoading(0.15, 'Stropping the razors');
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const progress = { props: 0, characters: 0 };
@@ -43,12 +43,13 @@ async function boot() {
     const bin = Uint8Array.from(atob(embedded[key]), (c) => c.charCodeAt(0));
     loader.parse(bin.buffer, '', res, rej);
   }) : new Promise((res, rej) => loader.load(ASSETS[key], res, (e) => {
-    if (e.total) { progress[key] = e.loaded / e.total; ui.setLoading(0.15 + 0.6 * (progress.props + progress.characters) / 2); }
+    if (e.total) { progress[key] = e.loaded / e.total; ui.setLoading(0.15 + 0.6 * (progress.props + progress.characters) / 2, 'Unpacking the chairs'); }
   }, rej));
   const [props, chars] = await Promise.all([load('props'), load('characters')]);
   registerProps(props.scene);
   window.__T = buildTemplate(chars.scene);
   ui.setLoading(0.82, 'Sweeping the floor');
+  await new Promise((r) => setTimeout(r, 0));
   await new Promise((r) => setTimeout(r, 30));
   const game = new Game({ renderer, ui, input, qualityName });
   window.__game = game;
@@ -96,5 +97,5 @@ async function boot() {
 boot().catch((e) => {
   console.error(e);
   const b = document.getElementById('boot');
-  if (b) b.querySelector('.t').textContent = 'Something went wrong. Please reload.';
+  if (b) { const t = b.querySelector('.t'); t.textContent = 'Something went wrong. Please reload.'; t.classList.add('err'); }
 });
