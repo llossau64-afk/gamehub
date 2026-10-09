@@ -254,7 +254,7 @@ class Game {
     if (!o) return;
     const mid = (o.view && o.view.map) || (o.cfg && o.cfg.map) || '';
     this.ui.online({
-      avail: o.available(), connected: o.connected(), busy: !!this.olBusy, name: o.name(),
+      avail: o.available(), connected: o.connected(), via: o.via, busy: !!this.olBusy, name: o.name(),
       lobbies: o.lobbies.map((l) => ({ ...l, mapName: (mapById(l.map) && mapById(l.map).name) || '—' })),
       inLobby: !!o.lobby, code: o.code || '', pub: o.pub !== false, isHost: !!o.isHost, ready: !!o.myReady, msg: this.olMsg,
       members: o.members.map((m) => ({ ...m, carName: (carById(m.car) || {}).name || m.car })),

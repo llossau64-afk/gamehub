@@ -8,6 +8,7 @@ import { audio } from '../audio/audio.js';
 const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
 const $ = (root, sel) => root.querySelector(sel);
 
+export const PUBLIC_URL = 'https://llossau64-afk.github.io/gamehub/OneRoadDown/';
 export const TIPS = [
   'Better suspension reduces landing damage.',
   'Armour protects your car but adds weight.',
@@ -633,10 +634,10 @@ export class UI {
     const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const nm = $(s, '.ol-name');
     if (document.activeElement !== nm) nm.value = d.name;
-    $(s, '.ol-sub').textContent = !d.avail ? 'OFFLINE · BOTS ONLY' : d.connected ? 'CONNECTED · UP TO 8 DRIVERS PER LOBBY' : 'CONNECTING…';
+    $(s, '.ol-sub').textContent = !d.avail ? 'OFFLINE · BOTS ONLY' : d.connected ? (d.via === 'p2p' ? 'ONLINE · DIRECT CONNECTION · UP TO 8 DRIVERS' : 'ONLINE · UP TO 8 DRIVERS PER LOBBY') : 'CONNECTING…';
     for (const b of s.querySelectorAll('.ol-quick, .ol-host, .ol-join')) b.disabled = !d.avail || d.busy || d.inLobby;
     const list = $(s, '.ol-list');
-    if (!d.avail) list.innerHTML = '<div class="ol-empty">Online races need the game opened inside Claude while signed in, or from an invite. Offline races against bots work everywhere.</div>';
+    if (!d.avail) list.innerHTML = `<div class="ol-empty">This copy runs inside Claude, which only lets signed-in or invited viewers connect. To race anyone with a link, open the public version:<br><a href="${PUBLIC_URL}" target="_blank" rel="noopener">${PUBLIC_URL.replace('https://', '')}</a></div>`;
     else if (!d.lobbies.length) list.innerHTML = '<div class="ol-empty">No open lobbies right now. Quick Match opens one and waits for others.</div>';
     else {
       list.innerHTML = d.lobbies.map((l) => `<button class="ol-lob" data-c="${esc(l.code)}" ${l.st === 'race' || l.n >= 8 || d.inLobby ? 'disabled' : ''}><b>${esc(l.host)}</b><span>${esc(l.mapName)}</span><i>${l.st === 'race' ? 'RACING' : l.n + '/8'}</i></button>`).join('');

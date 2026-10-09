@@ -12,6 +12,7 @@ import { Vehicle } from '../physics/vehicle.js';
 import { computeStats } from '../game/stats.js';
 import { carById } from '../data/cars.js';
 import { carState } from '../core/save.js';
+import { createP2P } from './p2p.js';
 
 export const MAX_PLAYERS = 8;
 const SEND_HZ = 15, DELAY = 0.12;
@@ -35,10 +36,15 @@ export class Online {
     this.sendT = 0;
     this.seqSeen = 0;
     this.ready = (async () => {
-      try {
-        const c = window.claude;
-        this.room = c && c.use ? await c.use('room') : null;
-      } catch (e) { this.room = null; }
+      // inside Claude: the room capability (signed-in or invited viewers);
+      // on the public web build: direct browser-to-browser connections
+      const c = window.claude;
+      try { this.room = c && c.use ? await c.use('room') : null; } catch (e) { this.room = null; }
+      this.via = this.room ? 'claude' : null;
+      if (!this.room && !c) {
+        try { this.room = await createP2P(); } catch (e) { this.room = null; }
+        if (this.room) this.via = 'p2p';
+      }
       if (!this.room) { this.state = 'off'; this.changed(); return false; }
       this.state = 'idle';
       this.room.onPeers(() => this.readLobbies(), () => { this.room = null; this.state = 'off'; this.changed(); });
@@ -95,8 +101,9 @@ export class Online {
     if (code.length < 4) throw new Error('CODE TOO SHORT');
     this.view = null; this.pub = true;
     await this.enter(code, false);
-    // wait a moment for the others to answer, then check the size
-    await new Promise((r) => setTimeout(r, 1200));
+    // wait for the others to answer (direct connections can take several seconds to form)
+    const until = Date.now() + (this.via === 'p2p' ? 15000 : 1500);
+    while (Date.now() < until && this.members.length <= 1) await new Promise((r) => setTimeout(r, 250));
     if (this.members.length > MAX_PLAYERS) { await this.leave(); throw new Error('LOBBY IS FULL'); }
     if (this.members.length <= 1) { await this.leave(); throw new Error('NO LOBBY WITH THAT CODE'); }
     return code;

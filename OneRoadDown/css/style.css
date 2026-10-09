@@ -599,3 +599,4 @@ body.cine-on #touch { display: none; }
 .mitem:hover, .mitem.focus { color: #fff; }
 .mitem.primary { color: #fff; }
 #menu .infobar { background: rgba(8,9,10,.6); border-top: 1px solid rgba(255,255,255,.08); padding: 10px 16px; left: 0; right: 0; bottom: 0; }
+.ol-empty a { color: var(--amber); word-break: break-all; }
