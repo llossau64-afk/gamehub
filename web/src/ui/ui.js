@@ -115,19 +115,14 @@ export class UI {
 
   onlinePanel(o) {
     const body = h(`<div class="online-p">
-      <p class="op-lead">Cut hair together: up to <b>3 barbers</b> in one shop. Everyone keeps their own customers, money and day — you see each other working at the extra chairs.</p>
-      ${o.available === false ? `<div class="op-off">
-        <b>Online isn’t available in this window.</b>
-        <span>Co-op only works for people who are <b>signed in to Claude</b> and were <b>added to this game by email</b>. Opening it through “anyone with the link” lets you play, but not online.</span>
-        <ol><li>The owner opens the game on claude.ai and clicks <b>Share</b>.</li><li>Add each colleague’s email address (they get an invitation).</li><li>Colleagues sign in to claude.ai, open the game from that invitation and press <b>Play Online</b>.</li></ol>
-      </div>` : ''}
+      <p class="op-lead">Cut hair together: up to <b>3 barbers</b> in one shop. Make up a code, tell it to your colleagues, and they type the same code — no account, no invite. Everyone keeps their own customers, money and day; you see each other working at the extra chairs.</p>
       ${o.active ? `<div class="op-code"><span>Your shop code</span><b>${o.code}</b></div>
-        <p class="op-hint">Colleagues press <b>Play Online</b> and pick your shop from the list, or type this code.</p>
-        <button class="mbtn op-leave">Leave the online shop</button>` : o.available === false ? '' : `
+        <p class="op-hint">Colleagues open the game, press <b>Play Online</b> and type this code.</p>
+        <button class="mbtn op-leave">Leave the online shop</button>` : `
       <div class="op-shops"></div>
       <label class="op-f"><span>Your name</span><input class="op-nick" maxlength="16" placeholder="Barber"></label>
       <label class="op-f"><span>Shop code</span><input class="op-code-in" maxlength="8" placeholder="ABCD"></label>
-      <div class="op-hint">Open a new shop with any code — your colleagues will see it in their list. Or type the code a colleague gave you.</div>
+      <div class="op-hint">Same code = same shop. Pick something nobody else would guess, like <b>KIEZ42</b>.</div>
       <div class="op-err"></div>
       <button class="mbtn primary op-join">Open / join shop</button>`}
     </div>`);

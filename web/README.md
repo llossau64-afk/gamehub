@@ -56,7 +56,8 @@ npm run preview    # serve dist/ locally
 - **Daily events** from day 2: Friday Rush, Double Tips, VIP Day, Fade Challenge.
 - **Staff**: buy a second station and hire Marco. He calls waiting customers to his chair, cuts their hair himself (skill and speed upgrades) and keeps 35%.
 - **Save**: autosave after every haircut, purchase, level-up and every game hour, including the time of day, so a reload puts you back in the same afternoon (localStorage, or the portal's data module). On the shared Claude link the save also lives in the page's per-person cloud storage, so your progress follows you on that link on any device.
-- **Online co-op** (`src/net/online.js`, on the shared Claude link): Play Online, type a shop code and give it to up to two colleagues. Everyone plays their own day with their own customers and money; the second station and the extension's chair are always there online, and you see the others walking around and cutting their customers at those chairs, hair getting shorter as they work. Staff take the day off while you're online. Settings include volumes, quality, look speed, replay tutorial and delete progress.
+- **Online co-op** (`src/net/online.js`, `src/net/relay.js`): Play Online, make up a shop code, and up to two colleagues type the same code — no account or invite needed. Players talk through a free public MQTT broker over WebSocket (EMQX, HiveMQ as fallback); inside the claude.ai artifact, where outside connections can be blocked, it falls back to the runtime's `room`. Everyone plays their own day with their own customers and money; the second station and the extension's chair are always there online, and you see the others walking around and cutting their customers at those chairs. Staff take the day off while you're online.
+- **Public web version**: `npm run pages` writes the single-file build to `/docs`, which GitHub Pages serves (Settings → Pages → Deploy from a branch → this branch, `/docs`).
 
 ## Code map
 

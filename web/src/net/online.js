@@ -13,6 +13,7 @@ import { HairSystem } from '../hair/hair.js';
 import { SPOTS, STATION2, STATION3 } from '../world/shop.js';
 import { spawnProp } from '../world/props.js';
 import { clamp } from '../core/util.js';
+import { joinRelay } from './relay.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const SLOT_COLS = ['#d1a956', '#4aa3df', '#e0455a'];
@@ -244,21 +245,26 @@ export class Online {
   }
 
   async join(code, nick) {
-    if (!this.lobby) await this.probe();
-    if (!this.lobby) throw new Error('offline');
-    const name = 'barber-' + code.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
-    const room = await this.lobby.join(name);
+    // the code relay works everywhere and needs no account; the artifact runtime's room
+    // (Claude sign-in + invite) is only the fallback when the relay can't be reached
+    let room = null, relayErr = null;
+    try { room = await joinRelay(code); } catch (e) { relayErr = e; }
+    if (!room) {
+      if (!this.lobby) await this.probe();
+      if (!this.lobby) throw relayErr || new Error('offline');
+      room = await this.lobby.join('barber-' + code.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12));
+    }
     this.code = code.toUpperCase();
     this.nick = nick;
     // wait a moment for the others to answer, then check the room isn't full
-    await new Promise((r) => setTimeout(r, 1200));
+    await new Promise((r) => setTimeout(r, room.relay ? 1800 : 1200));
     const others = room.peers().filter((p) => !p.isMe && p.presence && p.presence.v === 1);
     if (others.length >= MAX_PLAYERS) { await room.leave().catch(() => {}); throw new Error('That shop is full (3 barbers).'); }
     this.room = room;
     this.unsub = room.onPeers((ch) => this.onPeers(ch.peers));
     await room.presence({ v: 1, nick, st: 'menu', p: null, cu: null, hr: null }).catch(() => {});
     this.onPeers(room.peers());
-    this.lobby.presence({ shop: this.code, nick }).catch(() => {});
+    this.lobby?.presence({ shop: this.code, nick }).catch(() => {});
     return this.code;
   }
 
@@ -304,7 +310,10 @@ export class Online {
     const st = g.state === 'menu' || g.state === 'intro' ? 'menu' : g.state === 'barber' ? 'barber' : 'play';
     const P = g.player.pos;
     const patch = {};
-    const pos = [+P.x.toFixed(2), +P.z.toFixed(2), +g.player.yaw.toFixed(2)];
+    // while cutting, the camera flies around the head: show me standing beside my chair
+    const pos = st === 'barber'
+      ? [+(SPOTS.chair.x + 0.45).toFixed(2), +(SPOTS.chair.z + 0.45).toFixed(2), 2.4]
+      : [+P.x.toFixed(2), +P.z.toFixed(2), +g.player.yaw.toFixed(2)];
     if (st !== this.last.st) patch.st = st;
     if (!this.last.p || Math.abs(pos[0] - this.last.p[0]) + Math.abs(pos[1] - this.last.p[1]) > 0.03 || Math.abs(pos[2] - this.last.p[2]) > 0.05) patch.p = pos;
     const c = g.customers.inChair;
@@ -331,6 +340,6 @@ export class Online {
 export function randomCode() {
   const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let s = '';
-  for (let i = 0; i < 4; i++) s += A[Math.floor(Math.random() * A.length)];
+  for (let i = 0; i < 6; i++) s += A[Math.floor(Math.random() * A.length)];
   return s;
 }

@@ -10,7 +10,8 @@
     "pack": "gltfpack -i assets-src/props.glb -o public/assets/props.glb -cc -kn -km -ke && gltfpack -i assets-src/characters.glb -o public/assets/characters.glb -cc -kn -km -ke",
     "artifact": "vite build && node tools/make-artifact.mjs",
     "mac": "bash tools/mac/build-dmg.sh",
-    "mac:lite": "bash tools/mac/build-lite.sh"
+    "mac:lite": "bash tools/mac/build-lite.sh",
+    "pages": "npm run artifact && mkdir -p ../docs && cp artifact/index.html ../docs/index.html && touch ../docs/.nojekyll"
   },
   "license": "UNLICENSED",
   "dependencies": {

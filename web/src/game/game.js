@@ -394,7 +394,7 @@ export class Game {
       try {
         await this.online.join(code, nick);
       } catch (e) {
-        return e?.message === 'offline' ? 'You can’t go online from this view (see below).' : e?.message || 'Couldn’t connect. Try again.';
+        return e?.message === 'offline' ? 'Couldn’t reach the online server. Check your internet connection.' : e?.message || 'Couldn’t connect. Try again.';
       }
       this.setOnlineShop(true);
       ui.closePanel();
