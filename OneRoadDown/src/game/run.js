@@ -15,7 +15,8 @@ import { carState } from '../core/save.js';
 import { clamp, lerp, damp, fmtMoney, fmtKm, smoothstep } from '../core/util.js';
 
 const V = () => new THREE.Vector3();
-const FLAME_GEO = new THREE.ConeGeometry(0.075, 0.9, 10, 1, true).translate(0, -0.45, 0).rotateX(Math.PI);
+const FLAME_GEO = new THREE.ConeGeometry(0.095, 0.62, 12, 1, true).translate(0, -0.31, 0).rotateX(Math.PI);
+const FLAME_CORE = new THREE.ConeGeometry(0.05, 0.26, 10, 1, true).translate(0, -0.13, 0).rotateX(Math.PI);
 const FLAME_OUT = new THREE.MeshBasicMaterial({ color: 0xff7a24, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
 const FLAME_IN = new THREE.MeshBasicMaterial({ color: 0x8fc4ff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
 const PICK_COLORS = { cash: 0x9fd07a, fuel: 0xe05a3a, repair: 0x5aa0e0, repairL: 0x5aa0e0, rare: 0xe2b04a, crate: 0xe2b04a };
@@ -355,9 +356,11 @@ export class Run {
     if (!m.flameMeshes) {
       m.flameMeshes = m.exhaustTips.map((tip) => {
         const grp = new THREE.Group();
-        const outer = new THREE.Mesh(FLAME_GEO, FLAME_OUT), inner = new THREE.Mesh(FLAME_GEO, FLAME_IN);
-        inner.scale.set(0.55, 0.7, 0.55);
-        grp.add(outer, inner);
+        // orange plume, white-blue core and a short shock diamond at the mouth
+        const outer = new THREE.Mesh(FLAME_GEO, FLAME_OUT), inner = new THREE.Mesh(FLAME_GEO, FLAME_IN), core = new THREE.Mesh(FLAME_CORE, FLAME_IN);
+        inner.scale.set(0.5, 0.55, 0.5);
+        grp.add(outer, inner, core);
+        grp.userData.parts = [outer, inner, core];
         grp.position.copy(tip); grp.position.z -= 0.08;
         grp.rotation.x = -Math.PI / 2;
         m.group.add(grp);
@@ -367,14 +370,23 @@ export class Run {
     const on = v.nitroT > 0;
     for (const f of m.flameMeshes) {
       f.visible = on;
-      if (on) { const k = 0.8 + Math.random() * 0.5; f.scale.set(1 + Math.random() * 0.2, k * (1.2 + Math.min(1, v.speed / 60)), 1 + Math.random() * 0.2); }
+      if (on) {
+        // licking, uneven flame: length and width flicker every frame, longest in the first second
+        const fresh = 1 + Math.max(0, v.nitroT - 3) * 0.5;
+        const k = (0.75 + Math.random() * 0.45) * fresh;
+        f.scale.set(0.9 + Math.random() * 0.25, k, 0.9 + Math.random() * 0.25);
+        const [o, i, c] = f.userData.parts;
+        o.rotation.y = Math.random() * 6.28; i.scale.y = 0.45 + Math.random() * 0.2; c.scale.set(1, 0.8 + Math.random() * 0.5, 1);
+      }
     }
     if (!on) return;
     for (const tip of m.exhaustTips) {
       const ep = m.group.localToWorld(this.tmp.p.copy(tip));
       if (Math.random() < dt * 60) P.glow.emit(ep.x, ep.y, ep.z, v.vel.x - fw.x * 9, 0.4, v.vel.z - fw.z * 9, 0.14, 0.55, 0.1, 1, 0.55 + Math.random() * 0.3, 0.25, 0.08, 0, 2);
+      // embers and heat puffs trailing behind
+      if (Math.random() < dt * 25) P.glow.emit(ep.x, ep.y, ep.z, v.vel.x * 0.6 - fw.x * 4 + (Math.random() - 0.5) * 2, 0.6 + Math.random(), v.vel.z * 0.6 - fw.z * 4 + (Math.random() - 0.5) * 2, 0.35, 0.09, 0.03, 1, 1, 0.55, 0.2, 2, 1);
     }
-    if (isPlayer && this.flash) { this.flash.position.copy(m.group.localToWorld(this.tmp.p.copy(m.exhaustTips[0]))); this.flash.intensity = Math.max(this.flash.intensity, 60 + Math.random() * 40); this.flashT = Math.max(this.flashT || 0, 0.05); }
+    if (isPlayer && this.flash) { this.flash.position.copy(m.group.localToWorld(this.tmp.p.copy(m.exhaustTips[0]))); this.flash.intensity = Math.max(this.flash.intensity, 18 + Math.random() * 14); this.flashT = Math.max(this.flashT || 0, 0.05); }
   }
 
   checkDetach() {

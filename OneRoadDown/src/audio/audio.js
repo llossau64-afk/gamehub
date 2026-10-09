@@ -179,6 +179,25 @@ export class AudioSys {
     else { this.tone({ freq: 1200, type: 'sine', dur: 0.03, gain: 0.06 }); this.burst({ freq: 3000, q: 2, dur: 0.02, gain: 0.05 }); }
   }
   countdown(go) { this.tone({ freq: go ? 1046 : 523, type: 'triangle', dur: go ? 0.5 : 0.18, gain: 0.16 }); }
+  // camera cut / transition: a short filtered-noise sweep
+  whoosh(k = 0.5) {
+    const f = this.burst({ freq: 500, q: 1.4, type: 'bandpass', dur: 0.5, gain: 0.22 * k, buf: this.pink, attack: 0.12 });
+    if (f) f.frequency.exponentialRampToValueAtTime(3200, this.ctx.currentTime + 0.5);
+  }
+  // grandstand crowd: a swelling roar with scattered claps
+  cheer(k = 1) {
+    if (!this.ready()) return;
+    this.burst({ freq: 900, q: 0.6, type: 'bandpass', dur: 3.2, gain: 0.16 * k, buf: this.pink, attack: 0.5 });
+    this.burst({ freq: 2400, q: 0.8, type: 'bandpass', dur: 2.6, gain: 0.07 * k, buf: this.white, attack: 0.6 });
+    for (let i = 0; i < 26; i++) this.burst({ freq: 1600 + Math.random() * 1800, q: 2, dur: 0.05, gain: 0.05 * k, delay: 0.2 + Math.random() * 2.6 });
+  }
+  // podium fanfare: a short brassy major arpeggio
+  fanfare() {
+    [[392, 0], [523, 0.16], [659, 0.32], [784, 0.48], [1046, 0.72]].forEach(([f, d], i) => {
+      this.tone({ freq: f, type: 'sawtooth', dur: i === 4 ? 1.1 : 0.22, gain: 0.05, delay: d, bus: this.musicBus, attack: 0.02 });
+      this.tone({ freq: f * 1.005, type: 'square', dur: i === 4 ? 1.1 : 0.22, gain: 0.025, delay: d, bus: this.musicBus, attack: 0.02 });
+    });
+  }
   record() { [523, 659, 784, 1046].forEach((f, i) => this.tone({ freq: f, type: 'triangle', dur: 0.5, gain: 0.07, delay: i * 0.09, bus: this.musicBus })); }
   thunder(power = 1) {
     this.burst({ freq: 120, q: 0.4, type: 'lowpass', dur: 2.5 + power * 2, gain: 0.5 * power, buf: this.brown, attack: 0.05 });

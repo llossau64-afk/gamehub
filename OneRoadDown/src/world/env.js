@@ -39,15 +39,35 @@ void main(){
   float sd = max(dot(d, uSunDir), 0.0);
   col += uSun * (pow(sd, 1400.0) * 14.0 + pow(sd, 18.0) * 0.22 + pow(sd, 3.0) * 0.08) * (1.0 - uCloud * 0.6);
   if (h > -0.02) {
-    vec2 uv = d.xz / (h + 0.11) * 0.55 + vec2(uTime * 0.006, uTime * 0.002);
+    vec2 base = d.xz / (h + 0.11);
+    vec2 uv = base * 0.55 + vec2(uTime * 0.006, uTime * 0.002);
+    float cov = mix(0.70, 0.34, uCloud);
+    #ifdef SKY_HQ
+    // high cirrus streaks
+    vec2 cu = base * 0.16 + vec2(uTime * 0.004, 0.0);
+    float ci = fbm(vec2(cu.x * 3.2, cu.y * 0.55));
+    col = mix(col, mix(vec3(1.0), uSun, 0.25), smoothstep(0.56, 0.86, ci) * 0.32 * smoothstep(0.06, 0.4, h) * (1.0 - uCloud * 0.6));
+    // cumulus: domain-warped, lit from the sun side
+    vec2 w = vec2(fbm(uv * 0.7 + 1.7), fbm(uv * 0.7 + 9.2)) - 0.5;
+    float n = fbm(uv * 1.3 + w) * 0.72 + fbm(uv * 4.1 + 3.7 + w * 1.5) * 0.28;
+    vec2 sdir = normalize(uSunDir.xz + vec2(1e-4));
+    vec2 uv2 = uv + sdir * 0.07;
+    float n2 = fbm(uv2 * 1.3 + w) * 0.72 + fbm(uv2 * 4.1 + 3.7 + w * 1.5) * 0.28;
+    float shade = clamp((n2 - n) * 5.0 + 0.45, 0.0, 1.0);
+    #else
     float n = fbm(uv * 1.3) * 0.75 + fbm(uv * 4.1 + 3.7) * 0.25;
-    float cov = mix(0.72, 0.36, uCloud);
-    float a = smoothstep(cov, cov + 0.22, n) * smoothstep(-0.02, 0.18, h);
-    float thick = smoothstep(cov, cov + 0.5, n);
-    vec3 lit = mix(vec3(1.0), uSun, 0.35) * (0.95 + pow(sd, 6.0) * 0.4);
-    vec3 dark = mix(uHorizon, vec3(0.32, 0.34, 0.38), 0.6);
-    vec3 cc = mix(lit, dark, clamp(thick * (0.4 + uCloudDark), 0.0, 1.0));
-    col = mix(col, cc, a * 0.92);
+    float shade = 0.4;
+    #endif
+    float a = smoothstep(cov, cov + 0.17, n) * smoothstep(-0.02, 0.16, h);
+    float thick = smoothstep(cov, cov + 0.45, n);
+    vec3 lit = mix(vec3(1.0), uSun, 0.4) * (0.98 + pow(sd, 8.0) * 0.6);
+    vec3 dark = mix(uHorizon * 0.78, vec3(0.30, 0.33, 0.38), 0.55);
+    vec3 cc = mix(lit, dark, clamp(thick * (0.3 + uCloudDark) + shade * 0.38, 0.0, 1.0));
+    // silver lining: thin edges glow when they cover the sun
+    cc += uSun * pow(sd, 10.0) * (1.0 - thick) * 0.9;
+    // far clouds melt into the horizon haze
+    cc = mix(uHorizon, cc, 0.3 + 0.7 * smoothstep(0.0, 0.22, h));
+    col = mix(col, cc, a * 0.95);
   }
   col += vec3(0.85, 0.88, 1.0) * uFlash;
   gl_FragColor = vec4(col, 1.0);
@@ -81,6 +101,7 @@ export class Environment {
     // sky
     this.skyMat = new THREE.ShaderMaterial({
       vertexShader: skyVert, fragmentShader: skyFrag, side: THREE.BackSide, depthWrite: false, fog: false,
+      defines: quality === 'low' ? {} : { SKY_HQ: 1 },
       uniforms: {
         uTop: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() }, uSunDir: { value: new THREE.Vector3(0, 1, 0) },
         uSun: { value: new THREE.Color() }, uCloud: { value: 0.4 }, uCloudDark: { value: 0.1 }, uTime: { value: 0 }, uFlash: { value: 0 },

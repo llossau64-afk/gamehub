@@ -90,6 +90,7 @@ export class Presentation {
     this.finishCam = V().set(p.x, Math.max(p.y, t.height(p.x, p.z)) + 1.3, p.z);
     this.mode = 'finish'; this.t = 0;
     r.timeScale = 0.35;
+    audio()?.cheer?.(0.7);
   }
 
   // ------------------------------------------------------------------ podium
@@ -136,7 +137,8 @@ export class Presentation {
     if (r.engine) r.engine.setRunning(false);
     for (const e of r.field) if (e.voice && e.voice.setRunning) e.voice.setRunning(false);
     r.g.ui.podium({ places: top.map((x, i) => ({ place: i + 1, name: x.e.name, car: x.e.car.name, me: !!x.e.isPlayer, time: x.label })) });
-    audio()?.record?.();
+    audio()?.fanfare?.();
+    audio()?.cheer?.(1);
   }
 
   endPodium() {
@@ -167,7 +169,7 @@ export class Presentation {
       let acc = 0, i = 0;
       while (i < this.shots.length - 1 && this.t > acc + this.shots[i].dur) { acc += this.shots[i].dur; i++; }
       const sh = this.shots[i], k = clamp((this.t - acc) / sh.dur, 0, 1);
-      if (i !== this.shot) { this.shot = i; r.g.ui.introCut && r.g.ui.introCut(); }
+      if (i !== this.shot) { this.shot = i; r.g.ui.introCut && r.g.ui.introCut(); if (i > 0) audio()?.whoosh?.(0.6); }
       const [p, l] = sh.cam(k);
       cam.position.copy(p); cam.lookAt(l);
       cam.fov = 42; cam.updateProjectionMatrix();
