@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>CS0649;CS0414;CS0169;CS0618;CS0067</NoWarn>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Assets/Downfall/Scripts/**/*.cs" Exclude="../Assets/Downfall/Scripts/Editor/**/*.cs" />
+    <Compile Include="../Assets/Downfall/Scripts/Editor/**/*.cs" Condition="'$(WithEditor)'=='true'" />
+    <Reference Include="refs/*.dll" />
+  </ItemGroup>
+</Project>

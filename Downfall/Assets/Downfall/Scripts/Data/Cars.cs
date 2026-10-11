@@ -1,0 +1,409 @@
+// Vehicle catalogue. Every number here feeds the physics through Game/Stats.cs.
+//
+// base:  stock statistics shown in the garage.
+// pot:   what full upgrades add (absolute), so "MAX POTENTIAL" is real.
+// caps:  maximum upgrade level per category (differs per car).
+// phys:  chassis geometry and character.
+// model: parameters for the procedural body builder.
+// sound: engine synthesis profile.
+//
+// Optional JS fields (model.lift, phys.downforce, sound.turbo, ...) default to 0 / false / null,
+// which is what the JS `x || default` reads give for a missing field.
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Downfall
+{
+    public sealed class CarBase { public double top, hp, nm, grip, brakes, susp, dur, fuel, kg; }
+    public sealed class CarPot { public double hp, turbo, nm, top, grip, brakes, susp, dur, fuel, kg; }
+
+    public sealed class CarPhys
+    {
+        public double cg, wb, track, r, redline;
+        public int gears;
+        public double steer, freq, weightFront, fuelUse, stability, ground;
+        // optional
+        public double offroad, rearGrip, travel, downforce;
+    }
+
+    public sealed class CarModel
+    {
+        public string type;
+        public double len, wid, hgt;
+        public int paint, trim;
+        public bool chrome;
+        public double rust;
+        public string rim;
+        public double wear;
+        // optional
+        public bool rack, spare;
+        public int stripes, livery, flamesColor, wing, sport, flares, lightbar, cage;
+        public double lift;
+        public string style;
+    }
+
+    public sealed class CarSound
+    {
+        public int cyl;
+        public double @base, rough;
+        public string tone;
+        public double exhaust;
+        // optional
+        public double pops, turbo, blower;
+    }
+
+    public sealed class CarDef
+    {
+        public string id, name, cls, drive, desc;
+        public int price, upBase;
+        public bool starter, exotic;
+        public string[] traits;
+        public CarBase @base;
+        public CarPot pot;
+        public Dictionary<string, int> caps;
+        public CarPhys phys;
+        public CarModel model;
+        public CarSound sound;
+    }
+
+    public static class Cars
+    {
+        public static readonly CarDef[] CARS =
+        {
+            new CarDef {
+                id = "rusty", name = "RUSTY", cls = "SMALL HATCHBACK", price = 2500, starter = true, drive = "FWD", upBase = 120,
+                desc = "A tired little hatchback held together by rust and optimism. Light, eager, and nervous when it gets fast.",
+                traits = new[] { "Light and responsive", "Weak engine", "Cheap upgrades", "Unstable at high speed" },
+                @base = new CarBase { top = 105, hp = 62, nm = 90, grip = 45, brakes = 38, susp = 42, dur = 40, fuel = 28, kg = 850 },
+                pot = new CarPot { hp = 52, turbo = 34, nm = 70, top = 62, grip = 36, brakes = 44, susp = 40, dur = 38, fuel = 20, kg = 120 },
+                caps = new Dictionary<string, int> { ["engine"] = 18, ["transmission"] = 16, ["torque"] = 16, ["tires"] = 18, ["brakes"] = 18, ["suspension"] = 16, ["armor"] = 15, ["fuel"] = 15, ["cooling"] = 15, ["turbo"] = 12, ["weight"] = 16 },
+                phys = new CarPhys { cg = 0.5, wb = 2.36, track = 1.38, r = 0.29, redline = 6300, gears = 4, steer = 34, freq = 1.75, weightFront = 0.62, fuelUse = 0.9, stability = 0.85, ground = 0.17 },
+                model = new CarModel { type = "hatch", len = 3.6, wid = 1.6, hgt = 1.42, paint = 0x8a6d4a, trim = 0x2b2b2b, chrome = false, rust = 0.55, rim = "steel", wear = 0.6 },
+                sound = new CarSound { cyl = 4, @base = 0.95, rough = 0.55, tone = "raspy", exhaust = 0.7 },
+            },
+            new CarDef {
+                id = "brick", name = "BRICK", cls = "STATION WAGON", price = 2500, starter = true, drive = "RWD", upBase = 130,
+                desc = "A slab of a family wagon with a bombproof shell. Slow, heavy and very hard to kill.",
+                traits = new[] { "Slow and heavy", "Very durable", "Stable", "Forgiving beginner car" },
+                @base = new CarBase { top = 95, hp = 75, nm = 120, grip = 40, brakes = 45, susp = 38, dur = 58, fuel = 35, kg = 1150 },
+                pot = new CarPot { hp = 62, turbo = 38, nm = 95, top = 55, grip = 34, brakes = 38, susp = 42, dur = 38, fuel = 24, kg = 130 },
+                caps = new Dictionary<string, int> { ["engine"] = 17, ["transmission"] = 15, ["torque"] = 17, ["tires"] = 17, ["brakes"] = 17, ["suspension"] = 17, ["armor"] = 18, ["fuel"] = 16, ["cooling"] = 15, ["turbo"] = 12, ["weight"] = 15 },
+                phys = new CarPhys { cg = 0.54, wb = 2.75, track = 1.48, r = 0.31, redline = 5600, gears = 4, steer = 32, freq = 1.5, weightFront = 0.55, fuelUse = 1, stability = 1.15, ground = 0.18 },
+                model = new CarModel { type = "wagon", len = 4.65, wid = 1.74, hgt = 1.48, paint = 0x4c5a4d, trim = 0x262626, chrome = true, rust = 0.3, rim = "steel", wear = 0.45, rack = true },
+                sound = new CarSound { cyl = 4, @base = 0.8, rough = 0.4, tone = "boxy", exhaust = 0.6 },
+            },
+            new CarDef {
+                id = "dusty", name = "DUSTY", cls = "OLD PICKUP", price = 2500, starter = true, drive = "RWD", upBase = 140,
+                desc = "An old work truck with a lazy straight-six and long-travel springs. Shrugs off rough ground, drinks fuel.",
+                traits = new[] { "Good off-road", "Strong torque", "Strong suspension", "Thirsty" },
+                @base = new CarBase { top = 100, hp = 82, nm = 155, grip = 52, brakes = 35, susp = 60, dur = 52, fuel = 40, kg = 1300 },
+                pot = new CarPot { hp = 70, turbo = 40, nm = 125, top = 50, grip = 32, brakes = 42, susp = 34, dur = 40, fuel = 30, kg = 140 },
+                caps = new Dictionary<string, int> { ["engine"] = 16, ["transmission"] = 15, ["torque"] = 18, ["tires"] = 18, ["brakes"] = 16, ["suspension"] = 18, ["armor"] = 17, ["fuel"] = 18, ["cooling"] = 16, ["turbo"] = 11, ["weight"] = 14 },
+                phys = new CarPhys { cg = 0.66, wb = 2.95, track = 1.56, r = 0.36, redline = 4900, gears = 4, steer = 31, freq = 1.35, weightFront = 0.56, fuelUse = 1.35, stability = 1, ground = 0.26, offroad = 1.1 },
+                model = new CarModel { type = "pickup", len = 4.9, wid = 1.8, hgt = 1.7, paint = 0x9a8a62, trim = 0x2a2a28, chrome = true, rust = 0.45, rim = "steel", wear = 0.5 },
+                sound = new CarSound { cyl = 6, @base = 0.7, rough = 0.35, tone = "burble", exhaust = 0.75 },
+            },
+            new CarDef {
+                id = "diplomat", name = "DIPLOMAT", cls = "OLD SEDAN", price = 8500, drive = "RWD", upBase = 220,
+                desc = "A long, soft executive sedan from a better decade. Comfortable cruiser, wallows in the bends.",
+                traits = new[] { "Smooth power", "Soft ride", "Big tank", "Leans hard" },
+                @base = new CarBase { top = 150, hp = 112, nm = 175, grip = 54, brakes = 50, susp = 48, dur = 60, fuel = 55, kg = 1380 },
+                pot = new CarPot { hp = 95, turbo = 55, nm = 120, top = 55, grip = 32, brakes = 38, susp = 38, dur = 34, fuel = 26, kg = 150 },
+                caps = new Dictionary<string, int> { ["engine"] = 18, ["transmission"] = 17, ["torque"] = 16, ["tires"] = 17, ["brakes"] = 17, ["suspension"] = 17, ["armor"] = 17, ["fuel"] = 16, ["cooling"] = 16, ["turbo"] = 14, ["weight"] = 15 },
+                phys = new CarPhys { cg = 0.55, wb = 2.85, track = 1.52, r = 0.32, redline = 5800, gears = 5, steer = 32, freq = 1.35, weightFront = 0.54, fuelUse = 1.05, stability = 1.05, ground = 0.17 },
+                model = new CarModel { type = "sedan", len = 4.85, wid = 1.78, hgt = 1.42, paint = 0x2e3a4a, trim = 0x222222, chrome = true, rust = 0.15, rim = "hubcap", wear = 0.3 },
+                sound = new CarSound { cyl = 6, @base = 0.85, rough = 0.2, tone = "smooth", exhaust = 0.55 },
+            },
+            new CarDef {
+                id = "samurai", name = "SAMURAI", cls = "JDM DRIFT COUPE", price = 16500, drive = "RWD", upBase = 260,
+                desc = "A light eighties coupe with pop-up lights and a rev-happy twin-cam. Slow on paper, a hero sideways.",
+                traits = new[] { "Light and tail-happy", "Cheap to tune", "Pop-up lights", "Fragile at speed" },
+                @base = new CarBase { top = 175, hp = 128, nm = 150, grip = 60, brakes = 58, susp = 52, dur = 46, fuel = 50, kg = 950 },
+                pot = new CarPot { hp = 130, turbo = 110, nm = 120, top = 70, grip = 30, brakes = 34, susp = 36, dur = 30, fuel = 18, kg = 120 },
+                caps = new Dictionary<string, int> { ["engine"] = 19, ["transmission"] = 18, ["torque"] = 16, ["tires"] = 19, ["brakes"] = 18, ["suspension"] = 19, ["armor"] = 14, ["fuel"] = 14, ["cooling"] = 17, ["turbo"] = 19, ["weight"] = 19 },
+                phys = new CarPhys { cg = 0.46, wb = 2.4, track = 1.42, r = 0.3, redline = 7600, gears = 5, steer = 38, freq = 1.9, weightFront = 0.52, fuelUse = 0.9, stability = 0.85, ground = 0.13 },
+                model = new CarModel { type = "coupe", len = 4.2, wid = 1.63, hgt = 1.3, paint = 0xe9e7e1, trim = 0x141414, chrome = false, rust = 0, rim = "alloy", wear = 0.05, stripes = 0x1b1b1b },
+                sound = new CarSound { cyl = 4, @base = 1.12, rough = 0.25, tone = "raspy", exhaust = 0.85, pops = 0.8 },
+            },
+            new CarDef {
+                id = "sparrow", name = "SPARROW", cls = "OLD COUPE", price = 13500, drive = "RWD", upBase = 260,
+                desc = "A light two-door with a rev-happy four. Tail-happy and honest, a drifter's first love.",
+                traits = new[] { "Rev-happy", "Light rear end", "Playful", "Fragile" },
+                @base = new CarBase { top = 165, hp = 128, nm = 160, grip = 57, brakes = 54, susp = 46, dur = 44, fuel = 45, kg = 1060 },
+                pot = new CarPot { hp = 100, turbo = 70, nm = 110, top = 60, grip = 34, brakes = 38, susp = 40, dur = 34, fuel = 20, kg = 130 },
+                caps = new Dictionary<string, int> { ["engine"] = 19, ["transmission"] = 18, ["torque"] = 15, ["tires"] = 18, ["brakes"] = 18, ["suspension"] = 17, ["armor"] = 14, ["fuel"] = 14, ["cooling"] = 17, ["turbo"] = 16, ["weight"] = 18 },
+                phys = new CarPhys { cg = 0.48, wb = 2.45, track = 1.42, r = 0.3, redline = 7400, gears = 5, steer = 34, freq = 1.7, weightFront = 0.52, fuelUse = 0.95, stability = 0.8, ground = 0.15 },
+                model = new CarModel { type = "coupe", len = 4.2, wid = 1.66, hgt = 1.32, paint = 0xa33a2a, trim = 0x1e1e1e, chrome = true, rust = 0.2, rim = "alloy", wear = 0.3 },
+                sound = new CarSound { cyl = 4, @base = 1.1, rough = 0.3, tone = "raspy", exhaust = 0.85, pops = 0.5 },
+            },
+            new CarDef {
+                id = "nomad", name = "NOMAD", cls = "CLASSIC SUV", price = 19500, drive = "4WD", upBase = 300,
+                desc = "A square-shouldered 4x4 wagon with real axles. Unbothered by gravel, mud and minor collisions.",
+                traits = new[] { "Stable and durable", "Four-wheel drive", "Big torque", "Top-heavy" },
+                @base = new CarBase { top = 145, hp = 138, nm = 265, grip = 59, brakes = 52, susp = 68, dur = 72, fuel = 70, kg = 1760 },
+                pot = new CarPot { hp = 100, turbo = 65, nm = 160, top = 45, grip = 30, brakes = 36, susp = 28, dur = 26, fuel = 35, kg = 170 },
+                caps = new Dictionary<string, int> { ["engine"] = 17, ["transmission"] = 16, ["torque"] = 18, ["tires"] = 18, ["brakes"] = 17, ["suspension"] = 18, ["armor"] = 19, ["fuel"] = 18, ["cooling"] = 16, ["turbo"] = 14, ["weight"] = 14 },
+                phys = new CarPhys { cg = 0.72, wb = 2.6, track = 1.6, r = 0.38, redline = 5200, gears = 5, steer = 32, freq = 1.4, weightFront = 0.53, fuelUse = 1.3, stability = 1.25, ground = 0.27, offroad = 1.15 },
+                model = new CarModel { type = "suv", len = 4.45, wid = 1.85, hgt = 1.85, paint = 0x6b5b45, trim = 0x2c2b29, chrome = false, rust = 0.12, rim = "offroad", wear = 0.25, rack = true, spare = true },
+                sound = new CarSound { cyl = 6, @base = 0.75, rough = 0.35, tone = "burble", exhaust = 0.7 },
+            },
+            new CarDef {
+                id = "mistral", name = "MISTRAL", cls = "FRENCH HOT HATCH", price = 44000, drive = "FWD", upBase = 420,
+                desc = "A turbocharged three-door from the coast road: a limited-slip diff, a chassis that rotates on a lift and stickers nowhere.",
+                traits = new[] { "Turns in sharply", "Turbo punch", "Great brakes", "Torque steer" },
+                @base = new CarBase { top = 225, hp = 220, nm = 300, grip = 72, brakes = 72, susp = 58, dur = 50, fuel = 50, kg = 1200 },
+                pot = new CarPot { hp = 140, turbo = 110, nm = 160, top = 50, grip = 22, brakes = 24, susp = 30, dur = 30, fuel = 18, kg = 120 },
+                caps = new Dictionary<string, int> { ["engine"] = 19, ["transmission"] = 19, ["torque"] = 17, ["tires"] = 19, ["brakes"] = 19, ["suspension"] = 18, ["armor"] = 15, ["fuel"] = 14, ["cooling"] = 18, ["turbo"] = 18, ["weight"] = 18 },
+                phys = new CarPhys { cg = 0.47, wb = 2.59, track = 1.55, r = 0.32, redline = 7000, gears = 6, steer = 35, freq = 2.1, weightFront = 0.61, fuelUse = 1.05, stability = 1, ground = 0.13 },
+                model = new CarModel { type = "hatch", len = 4.09, wid = 1.82, hgt = 1.42, paint = 0x2b5fae, trim = 0x111111, chrome = false, rust = 0, rim = "alloy", wear = 0, sport = 1, wing = 1 },
+                sound = new CarSound { cyl = 4, @base = 1.05, rough = 0.2, tone = "rally", exhaust = 0.9, pops = 0.8, turbo = 1 },
+            },
+            new CarDef {
+                id = "wasp", name = "WASP", cls = "HOT HATCH", price = 29000, drive = "FWD", upBase = 360,
+                desc = "A stubby hatch with a screaming twin-cam and a stiff chassis. Brilliant in tight switchbacks.",
+                traits = new[] { "Agile", "Sharp brakes", "Rev-happy", "Light armour" },
+                @base = new CarBase { top = 190, hp = 172, nm = 225, grip = 68, brakes = 64, susp = 56, dur = 48, fuel = 48, kg = 1120 },
+                pot = new CarPot { hp = 120, turbo = 85, nm = 140, top = 55, grip = 26, brakes = 32, susp = 34, dur = 32, fuel = 18, kg = 130 },
+                caps = new Dictionary<string, int> { ["engine"] = 19, ["transmission"] = 18, ["torque"] = 16, ["tires"] = 19, ["brakes"] = 19, ["suspension"] = 18, ["armor"] = 15, ["fuel"] = 14, ["cooling"] = 17, ["turbo"] = 17, ["weight"] = 18 },
+                phys = new CarPhys { cg = 0.48, wb = 2.48, track = 1.48, r = 0.31, redline = 7800, gears = 5, steer = 35, freq = 2, weightFront = 0.6, fuelUse = 1, stability = 1, ground = 0.14 },
+                model = new CarModel { type = "hatch", len = 3.95, wid = 1.72, hgt = 1.38, paint = 0xd8d4c8, trim = 0x1a1a1a, chrome = false, rust = 0, rim = "alloy", wear = 0.1, sport = 1 },
+                sound = new CarSound { cyl = 4, @base = 1.15, rough = 0.2, tone = "scream", exhaust = 0.9, pops = 0.7 },
+            },
+            new CarDef {
+                id = "mule", name = "MULE", cls = "4X4 PICKUP", price = 39500, drive = "4WD", upBase = 420,
+                desc = "A modern work truck on locking diffs and tall tyres. Climbs, crawls and tows; just do not ask it to corner.",
+                traits = new[] { "Huge torque", "Off-road traction", "Very durable", "Heavy" },
+                @base = new CarBase { top = 160, hp = 195, nm = 390, grip = 62, brakes = 55, susp = 76, dur = 75, fuel = 82, kg = 1980 },
+                pot = new CarPot { hp = 130, turbo = 90, nm = 230, top = 45, grip = 28, brakes = 34, susp = 24, dur = 25, fuel = 40, kg = 190 },
+                caps = new Dictionary<string, int> { ["engine"] = 17, ["transmission"] = 16, ["torque"] = 19, ["tires"] = 19, ["brakes"] = 17, ["suspension"] = 19, ["armor"] = 20, ["fuel"] = 19, ["cooling"] = 17, ["turbo"] = 15, ["weight"] = 14 },
+                phys = new CarPhys { cg = 0.74, wb = 3.1, track = 1.66, r = 0.4, redline = 4800, gears = 6, steer = 32, freq = 1.45, weightFront = 0.56, fuelUse = 1.45, stability = 1.2, ground = 0.3, offroad = 1.2 },
+                model = new CarModel { type = "pickup", len = 5.2, wid = 1.92, hgt = 1.86, paint = 0x2f3a33, trim = 0x1d1d1d, chrome = false, rust = 0, rim = "offroad", wear = 0.15, lift = 0.08 },
+                sound = new CarSound { cyl = 6, @base = 0.6, rough = 0.5, tone = "diesel", exhaust = 0.7, turbo = 1 },
+            },
+            new CarDef {
+                id = "bulldog", name = "BULLDOG", cls = "MUSCLE COUPE", price = 58000, drive = "RWD", upBase = 520,
+                desc = "A big-block V8 bolted to a chassis that was never asked for its opinion. Monstrous torque, few manners.",
+                traits = new[] { "Massive torque", "Very fast in a line", "Tail-happy", "Difficult handling" },
+                @base = new CarBase { top = 215, hp = 330, nm = 495, grip = 57, brakes = 55, susp = 48, dur = 58, fuel = 66, kg = 1620 },
+                pot = new CarPot { hp = 190, turbo = 120, nm = 260, top = 55, grip = 30, brakes = 36, susp = 36, dur = 30, fuel = 26, kg = 180 },
+                caps = new Dictionary<string, int> { ["engine"] = 20, ["transmission"] = 18, ["torque"] = 19, ["tires"] = 19, ["brakes"] = 18, ["suspension"] = 18, ["armor"] = 17, ["fuel"] = 16, ["cooling"] = 18, ["turbo"] = 16, ["weight"] = 16 },
+                phys = new CarPhys { cg = 0.52, wb = 2.8, track = 1.55, r = 0.33, redline = 6000, gears = 4, steer = 31, freq = 1.5, weightFront = 0.57, fuelUse = 1.6, stability = 0.7, ground = 0.15, rearGrip = 0.9 },
+                model = new CarModel { type = "muscle", len = 4.85, wid = 1.86, hgt = 1.34, paint = 0x1d2a20, trim = 0x111111, chrome = true, rust = 0, rim = "dish", wear = 0.1, stripes = 0xd6cfb8 },
+                sound = new CarSound { cyl = 8, @base = 0.62, rough = 0.6, tone = "v8", exhaust = 1, pops = 0.6 },
+            },
+            new CarDef {
+                id = "stallion", name = "STALLION", cls = "MODERN MUSCLE", price = 96000, drive = "RWD", upBase = 640,
+                desc = "A five-litre V8 fastback with a long hood and a short temper. Monster straight-line pace, needs respect in the wet.",
+                traits = new[] { "V8 thunder", "Huge straight-line pace", "Heavy nose", "Smokes the tyres" },
+                @base = new CarBase { top = 268, hp = 460, nm = 570, grip = 74, brakes = 74, susp = 56, dur = 62, fuel = 70, kg = 1720 },
+                pot = new CarPot { hp = 260, turbo = 160, nm = 300, top = 55, grip = 22, brakes = 22, susp = 30, dur = 24, fuel = 22, kg = 160 },
+                caps = new Dictionary<string, int> { ["engine"] = 20, ["transmission"] = 19, ["torque"] = 20, ["tires"] = 19, ["brakes"] = 19, ["suspension"] = 18, ["armor"] = 17, ["fuel"] = 16, ["cooling"] = 19, ["turbo"] = 18, ["weight"] = 16 },
+                phys = new CarPhys { cg = 0.5, wb = 2.72, track = 1.6, r = 0.34, redline = 7400, gears = 6, steer = 32, freq = 1.9, weightFront = 0.54, fuelUse = 1.45, stability = 0.95, ground = 0.12 },
+                model = new CarModel { type = "muscle", len = 4.79, wid = 1.92, hgt = 1.38, paint = 0x9a1a1d, trim = 0x101010, chrome = false, rust = 0, rim = "alloy", wear = 0, sport = 1, stripes = 0x111111 },
+                sound = new CarSound { cyl = 8, @base = 0.82, rough = 0.35, tone = "v8", exhaust = 1.15, pops = 0.6 },
+            },
+            new CarDef {
+                id = "falke", name = "FALKE", cls = "SPORT SALOON", price = 86000, drive = "RWD", upBase = 620,
+                desc = "A four-door with a straight-six, a limited-slip diff and very serious brakes. Built for the Autobahn, happy on a hillclimb.",
+                traits = new[] { "Fast and stable", "Strong brakes", "Four seats", "Heavy-ish" },
+                @base = new CarBase { top = 250, hp = 425, nm = 550, grip = 76, brakes = 80, susp = 58, dur = 58, fuel = 60, kg = 1640 },
+                pot = new CarPot { hp = 160, turbo = 110, nm = 200, top = 50, grip = 20, brakes = 18, susp = 30, dur = 26, fuel = 20, kg = 160 },
+                caps = new Dictionary<string, int> { ["engine"] = 19, ["transmission"] = 19, ["torque"] = 18, ["tires"] = 19, ["brakes"] = 19, ["suspension"] = 18, ["armor"] = 16, ["fuel"] = 15, ["cooling"] = 18, ["turbo"] = 17, ["weight"] = 17 },
+                phys = new CarPhys { cg = 0.5, wb = 2.86, track = 1.6, r = 0.33, redline = 7200, gears = 8, steer = 32, freq = 1.9, weightFront = 0.52, fuelUse = 1.25, stability = 1.1, ground = 0.12 },
+                model = new CarModel { type = "sedan", len = 4.8, wid = 1.9, hgt = 1.42, paint = 0x2e5a8c, trim = 0x111111, chrome = false, rust = 0, rim = "alloy", wear = 0, sport = 1 },
+                sound = new CarSound { cyl = 6, @base = 0.95, rough = 0.2, tone = "rally", exhaust = 0.95, pops = 0.5, turbo = 1 },
+            },
+            new CarDef {
+                id = "ronin", name = "RONIN", cls = "JDM TURBO COUPE", price = 128000, drive = "RWD", upBase = 780,
+                desc = "Long hood, short tail, a twin-turbo straight-six that loves boost. The tuner legend of the night expressways.",
+                traits = new[] { "Huge tuning headroom", "Turbo surge", "Drifts on demand", "Twitchy when cold" },
+                @base = new CarBase { top = 260, hp = 330, nm = 440, grip = 76, brakes = 74, susp = 56, dur = 50, fuel = 70, kg = 1520 },
+                pot = new CarPot { hp = 300, turbo = 220, nm = 300, top = 75, grip = 22, brakes = 24, susp = 32, dur = 30, fuel = 22, kg = 160 },
+                caps = new Dictionary<string, int> { ["engine"] = 20, ["transmission"] = 19, ["torque"] = 19, ["tires"] = 20, ["brakes"] = 19, ["suspension"] = 19, ["armor"] = 15, ["fuel"] = 16, ["cooling"] = 19, ["turbo"] = 20, ["weight"] = 18 },
+                phys = new CarPhys { cg = 0.46, wb = 2.55, track = 1.56, r = 0.32, redline = 7400, gears = 6, steer = 34, freq = 2, weightFront = 0.53, fuelUse = 1.3, stability = 0.95, ground = 0.12 },
+                model = new CarModel { type = "gt", len = 4.52, wid = 1.82, hgt = 1.28, paint = 0xc7c9c4, trim = 0x101010, chrome = false, rust = 0, rim = "alloy", wear = 0, sport = 1, wing = 1 },
+                sound = new CarSound { cyl = 6, @base = 1, rough = 0.18, tone = "rally", exhaust = 1, pops = 0.9, turbo = 1 },
+            },
+            new CarDef {
+                id = "kestrel", name = "KESTREL", cls = "RALLY HATCH", price = 175000, drive = "AWD", upBase = 900,
+                desc = "A homologation special: turbocharged, all-wheel drive and built for loose surfaces. The mountain's natural predator.",
+                traits = new[] { "Excellent grip", "Rally suspension", "All-wheel drive", "Turbo from the factory" },
+                @base = new CarBase { top = 185, hp = 190, nm = 250, grip = 73, brakes = 68, susp = 78, dur = 55, fuel = 55, kg = 1180 },
+                pot = new CarPot { hp = 145, turbo = 75, nm = 170, top = 60, grip = 21, brakes = 26, susp = 20, dur = 27, fuel = 20, kg = 140 },
+                caps = new Dictionary<string, int> { ["engine"] = 20, ["transmission"] = 19, ["torque"] = 18, ["tires"] = 20, ["brakes"] = 19, ["suspension"] = 20, ["armor"] = 17, ["fuel"] = 15, ["cooling"] = 18, ["turbo"] = 18, ["weight"] = 18 },
+                phys = new CarPhys { cg = 0.48, wb = 2.5, track = 1.52, r = 0.31, redline = 7600, gears = 6, steer = 35, freq = 1.8, weightFront = 0.58, fuelUse = 1.05, stability = 1.25, ground = 0.2, offroad = 1.12 },
+                model = new CarModel { type = "hatch", len = 4, wid = 1.8, hgt = 1.42, paint = 0xe8e6df, trim = 0x111111, chrome = false, rust = 0, rim = "rally", wear = 0, wing = 1, flares = 1, livery = 0x2f5fa0, sport = 1 },
+                sound = new CarSound { cyl = 4, @base = 1.05, rough = 0.35, tone = "rally", exhaust = 0.95, pops = 1, turbo = 1 },
+            },
+            new CarDef {
+                id = "rook", name = "ROOK", cls = "RALLY SEDAN", price = 265000, drive = "AWD", upBase = 1100,
+                desc = "Four doors, a roll cage and an anti-lag system that sounds like gunfire. Composed at any speed on any surface.",
+                traits = new[] { "Planted", "Fast on gravel", "Strong brakes", "Anti-lag turbo" },
+                @base = new CarBase { top = 205, hp = 265, nm = 345, grip = 76, brakes = 72, susp = 80, dur = 62, fuel = 65, kg = 1320 },
+                pot = new CarPot { hp = 170, turbo = 90, nm = 200, top = 55, grip = 19, brakes = 24, susp = 18, dur = 26, fuel = 22, kg = 150 },
+                caps = new Dictionary<string, int> { ["engine"] = 20, ["transmission"] = 19, ["torque"] = 19, ["tires"] = 20, ["brakes"] = 20, ["suspension"] = 20, ["armor"] = 18, ["fuel"] = 16, ["cooling"] = 19, ["turbo"] = 18, ["weight"] = 18 },
+                phys = new CarPhys { cg = 0.5, wb = 2.62, track = 1.56, r = 0.32, redline = 7200, gears = 6, steer = 34, freq = 1.8, weightFront = 0.56, fuelUse = 1.15, stability = 1.3, ground = 0.2, offroad = 1.1 },
+                model = new CarModel { type = "sedan", len = 4.55, wid = 1.82, hgt = 1.44, paint = 0x1f2b3d, trim = 0x101010, chrome = false, rust = 0, rim = "rally", wear = 0, wing = 1, flares = 1, livery = 0xd8a23a, sport = 1 },
+                sound = new CarSound { cyl = 4, @base = 1, rough = 0.4, tone = "rally", exhaust = 1, pops = 1, turbo = 1 },
+            },
+            new CarDef {
+                id = "bauhaus", name = "BAUHAUS", cls = "REAR-ENGINE SPORTS", price = 268000, drive = "RWD", upBase = 1100,
+                desc = "The engine hangs out behind the rear axle. Unbeatable traction out of hairpins, a lift-off snap if you get greedy.",
+                traits = new[] { "Traction out of corners", "Strong brakes", "Lift-off oversteer", "Compact" },
+                @base = new CarBase { top = 293, hp = 450, nm = 530, grip = 82, brakes = 86, susp = 54, dur = 50, fuel = 64, kg = 1450 },
+                pot = new CarPot { hp = 190, turbo = 130, nm = 200, top = 45, grip = 16, brakes = 14, susp = 30, dur = 28, fuel = 20, kg = 140 },
+                caps = new Dictionary<string, int> { ["engine"] = 20, ["transmission"] = 20, ["torque"] = 18, ["tires"] = 20, ["brakes"] = 20, ["suspension"] = 18, ["armor"] = 15, ["fuel"] = 15, ["cooling"] = 19, ["turbo"] = 18, ["weight"] = 19 },
+                phys = new CarPhys { cg = 0.44, wb = 2.45, track = 1.58, r = 0.33, redline = 8400, gears = 7, steer = 32, freq = 2.2, weightFront = 0.39, fuelUse = 1.3, stability = 0.95, ground = 0.11 },
+                model = new CarModel { type = "rear", len = 4.5, wid = 1.85, hgt = 1.3, paint = 0xd8a03a, trim = 0x101010, chrome = false, rust = 0, rim = "alloy", wear = 0, sport = 1, wing = 1 },
+                sound = new CarSound { cyl = 6, @base = 1.1, rough = 0.14, tone = "flat6", exhaust = 1.05, pops = 0.6 },
+            },
+            new CarDef {
+                id = "stiletto", name = "STILETTO", cls = "SPORTS COUPE", price = 198000, drive = "RWD", upBase = 1250,
+                desc = "A low front-engined coupe with a flat-six howl. Sublime on clean tarmac, miserable on broken roads.",
+                traits = new[] { "High top speed", "Precise", "Low ground clearance", "Fragile" },
+                @base = new CarBase { top = 250, hp = 335, nm = 385, grip = 80, brakes = 80, susp = 52, dur = 45, fuel = 60, kg = 1360 },
+                pot = new CarPot { hp = 190, turbo = 120, nm = 200, top = 60, grip = 16, brakes = 18, susp = 32, dur = 30, fuel = 20, kg = 150 },
+                caps = new Dictionary<string, int> { ["engine"] = 20, ["transmission"] = 20, ["torque"] = 17, ["tires"] = 20, ["brakes"] = 20, ["suspension"] = 18, ["armor"] = 15, ["fuel"] = 15, ["cooling"] = 19, ["turbo"] = 18, ["weight"] = 20 },
+                phys = new CarPhys { cg = 0.44, wb = 2.5, track = 1.56, r = 0.32, redline = 7900, gears = 6, steer = 33, freq = 2.1, weightFront = 0.48, fuelUse = 1.2, stability = 1, ground = 0.12 },
+                model = new CarModel { type = "sports", len = 4.45, wid = 1.85, hgt = 1.26, paint = 0x9b9fa3, trim = 0x111111, chrome = false, rust = 0, rim = "alloy", wear = 0, sport = 1 },
+                sound = new CarSound { cyl = 6, @base = 1.05, rough = 0.15, tone = "flat6", exhaust = 1, pops = 0.6 },
+            },
+            new CarDef {
+                id = "sidewinder", name = "SIDEWINDER", cls = "BAJA TRUCK", price = 430000, drive = "4WD", upBase = 1400,
+                desc = "A desert racer with a tube frame, half a metre of travel and a V8 up front. Treats jumps as suggestions.",
+                traits = new[] { "Massive suspension travel", "Jumps without damage", "Off-road speed", "Wide and heavy" },
+                @base = new CarBase { top = 190, hp = 385, nm = 565, grip = 70, brakes = 64, susp = 92, dur = 78, fuel = 110, kg = 2050 },
+                pot = new CarPot { hp = 200, turbo = 120, nm = 280, top = 50, grip = 22, brakes = 28, susp = 8, dur = 20, fuel = 40, kg = 200 },
+                caps = new Dictionary<string, int> { ["engine"] = 19, ["transmission"] = 18, ["torque"] = 19, ["tires"] = 20, ["brakes"] = 18, ["suspension"] = 20, ["armor"] = 19, ["fuel"] = 18, ["cooling"] = 19, ["turbo"] = 16, ["weight"] = 16 },
+                phys = new CarPhys { cg = 0.72, wb = 3.05, track = 1.86, r = 0.42, redline = 6200, gears = 5, steer = 33, freq = 1.25, weightFront = 0.52, fuelUse = 1.6, stability = 1.15, ground = 0.38, offroad = 1.3, travel = 0.42 },
+                model = new CarModel { type = "baja", len = 5, wid = 2.05, hgt = 1.9, paint = 0xb8642e, trim = 0x161616, chrome = false, rust = 0, rim = "beadlock", wear = 0.1, lightbar = 1, cage = 1, lift = 0.18 },
+                sound = new CarSound { cyl = 8, @base = 0.68, rough = 0.55, tone = "v8", exhaust = 1, pops = 0.4 },
+            },
+            new CarDef {
+                id = "behemoth", name = "BEHEMOTH", cls = "OFF-ROAD BEAST", price = 610000, drive = "4WD", upBase = 1600,
+                desc = "A military-grade expedition truck. Portal axles, armoured cab and torque measured in geological units.",
+                traits = new[] { "Nearly indestructible", "Unstoppable off-road", "Slow to turn", "Enormous mass" },
+                @base = new CarBase { top = 170, hp = 425, nm = 790, grip = 74, brakes = 66, susp = 95, dur = 92, fuel = 130, kg = 2620 },
+                pot = new CarPot { hp = 210, turbo = 130, nm = 380, top = 40, grip = 20, brakes = 28, susp = 5, dur = 8, fuel = 50, kg = 260 },
+                caps = new Dictionary<string, int> { ["engine"] = 18, ["transmission"] = 17, ["torque"] = 20, ["tires"] = 20, ["brakes"] = 18, ["suspension"] = 20, ["armor"] = 20, ["fuel"] = 20, ["cooling"] = 18, ["turbo"] = 16, ["weight"] = 15 },
+                phys = new CarPhys { cg = 0.88, wb = 3.3, track = 1.9, r = 0.48, redline = 4200, gears = 6, steer = 31, freq = 1.3, weightFront = 0.55, fuelUse = 1.9, stability = 1.3, ground = 0.44, offroad = 1.35, travel = 0.38 },
+                model = new CarModel { type = "beast", len = 5.4, wid = 2.15, hgt = 2.3, paint = 0x4a4d3a, trim = 0x151515, chrome = false, rust = 0, rim = "beadlock", wear = 0.2, lightbar = 1, rack = true, spare = true, lift = 0.25 },
+                sound = new CarSound { cyl = 8, @base = 0.5, rough = 0.7, tone = "diesel", exhaust = 0.9, turbo = 1 },
+            },
+            new CarDef {
+                id = "kaiju", name = "KAIJU", cls = "AWD SUPER GT", price = 540000, drive = "AWD", upBase = 1700,
+                desc = "A heavy four-seat coupe with a computer for every wheel. Launches like a catapult and does not care about the weather.",
+                traits = new[] { "Brutal launch", "All-weather grip", "Heavy", "Tunes to absurd power" },
+                @base = new CarBase { top = 315, hp = 570, nm = 640, grip = 86, brakes = 86, susp = 58, dur = 60, fuel = 74, kg = 1760 },
+                pot = new CarPot { hp = 300, turbo = 220, nm = 320, top = 55, grip = 16, brakes = 16, susp = 28, dur = 26, fuel = 22, kg = 160 },
+                caps = new Dictionary<string, int> { ["engine"] = 20, ["transmission"] = 20, ["torque"] = 20, ["tires"] = 20, ["brakes"] = 20, ["suspension"] = 19, ["armor"] = 17, ["fuel"] = 16, ["cooling"] = 20, ["turbo"] = 20, ["weight"] = 17 },
+                phys = new CarPhys { cg = 0.48, wb = 2.78, track = 1.6, r = 0.34, redline = 7100, gears = 6, steer = 32, freq = 2.1, weightFront = 0.54, fuelUse = 1.6, stability = 1.2, ground = 0.11 },
+                model = new CarModel { type = "gt", len = 4.71, wid = 1.9, hgt = 1.37, paint = 0x2a2c30, trim = 0x0c0c0c, chrome = false, rust = 0, rim = "alloy", wear = 0, sport = 1, wing = 1 },
+                sound = new CarSound { cyl = 6, @base = 0.95, rough = 0.22, tone = "rally", exhaust = 1.1, pops = 1, turbo = 1 },
+            },
+            new CarDef {
+                id = "volt", name = "VOLT", cls = "ELECTRIC SUPER SALOON", price = 880000, drive = "AWD", upBase = 2000,
+                desc = "Three motors, no gears, no mercy. The quickest car off the line in the garage and eerily quiet doing it.",
+                traits = new[] { "Instant torque", "Silent", "All-wheel traction", "Very heavy" },
+                @base = new CarBase { top = 305, hp = 1020, nm = 1420, grip = 86, brakes = 84, susp = 60, dur = 64, fuel = 90, kg = 2160 },
+                pot = new CarPot { hp = 220, turbo = 0, nm = 200, top = 40, grip = 14, brakes = 16, susp = 26, dur = 24, fuel = 30, kg = 160 },
+                caps = new Dictionary<string, int> { ["engine"] = 18, ["transmission"] = 14, ["torque"] = 18, ["tires"] = 20, ["brakes"] = 20, ["suspension"] = 19, ["armor"] = 17, ["fuel"] = 18, ["cooling"] = 20, ["turbo"] = 0, ["weight"] = 16 },
+                phys = new CarPhys { cg = 0.42, wb = 2.96, track = 1.66, r = 0.35, redline = 12000, gears = 2, steer = 31, freq = 2, weightFront = 0.48, fuelUse = 0.8, stability = 1.3, ground = 0.12 },
+                model = new CarModel { type = "sedan", len = 5, wid = 1.96, hgt = 1.4, paint = 0xd6d8da, trim = 0x0c0c0c, chrome = false, rust = 0, rim = "alloy", wear = 0, sport = 1 },
+                sound = new CarSound { cyl = 12, @base = 1.6, rough = 0.02, tone = "smooth", exhaust = 0.25, pops = 0 },
+            },
+            new CarDef {
+                id = "vanta", name = "VANTA", cls = "SUPERCAR", price = 1150000, drive = "AWD", upBase = 2600,
+                desc = "A carbon wedge with a mid-mounted V10. Devastating on smooth tarmac; a pothole can end it.",
+                traits = new[] { "Brutal acceleration", "Huge grip on tarmac", "Very low", "Fragile on rough terrain" },
+                @base = new CarBase { top = 315, hp = 630, nm = 660, grip = 86, brakes = 88, susp = 45, dur = 38, fuel = 70, kg = 1450 },
+                pot = new CarPot { hp = 260, turbo = 160, nm = 260, top = 45, grip = 12, brakes = 12, susp = 35, dur = 32, fuel = 22, kg = 130 },
+                caps = new Dictionary<string, int> { ["engine"] = 20, ["transmission"] = 20, ["torque"] = 18, ["tires"] = 20, ["brakes"] = 20, ["suspension"] = 19, ["armor"] = 16, ["fuel"] = 15, ["cooling"] = 20, ["turbo"] = 18, ["weight"] = 20 },
+                phys = new CarPhys { cg = 0.42, wb = 2.65, track = 1.66, r = 0.33, redline = 8700, gears = 7, steer = 31, freq = 2.3, weightFront = 0.42, fuelUse = 1.9, stability = 1.1, ground = 0.1 },
+                model = new CarModel { type = "super", len = 4.55, wid = 1.98, hgt = 1.15, paint = 0xc9a227, trim = 0x0e0e0e, chrome = false, rust = 0, rim = "alloy", wear = 0, sport = 1 },
+                sound = new CarSound { cyl = 10, @base = 1.05, rough = 0.2, tone = "v10", exhaust = 1, pops = 0.6 },
+            },
+            new CarDef {
+                id = "apex", name = "APEX", cls = "GT3 RACE CAR", price = 1480000, drive = "RWD", upBase = 2600,
+                desc = "A homologated racer: slick-ready, stripped, a swan-neck wing and downforce that pins it to the circuit. Hates potholes.",
+                traits = new[] { "Downforce", "Race brakes", "Circuit king", "Low and fragile" },
+                @base = new CarBase { top = 300, hp = 560, nm = 520, grip = 94, brakes = 95, susp = 46, dur = 40, fuel = 90, kg = 1290 },
+                pot = new CarPot { hp = 150, turbo = 90, nm = 140, top = 75, grip = 8, brakes = 6, susp = 30, dur = 30, fuel = 20, kg = 90 },
+                caps = new Dictionary<string, int> { ["engine"] = 20, ["transmission"] = 20, ["torque"] = 18, ["tires"] = 20, ["brakes"] = 20, ["suspension"] = 18, ["armor"] = 14, ["fuel"] = 16, ["cooling"] = 20, ["turbo"] = 16, ["weight"] = 20 },
+                phys = new CarPhys { cg = 0.4, wb = 2.63, track = 1.68, r = 0.34, redline = 9000, gears = 6, steer = 30, freq = 2.6, weightFront = 0.45, fuelUse = 1.5, stability = 1.25, ground = 0.08, downforce = 1.3 },
+                model = new CarModel { type = "super", len = 4.6, wid = 2.04, hgt = 1.18, paint = 0xe8e6df, trim = 0x0c0c0c, chrome = false, rust = 0, rim = "alloy", wear = 0, sport = 1, wing = 2, livery = 0xc23b2a, flares = 1 },
+                sound = new CarSound { cyl = 8, @base = 1.1, rough = 0.25, tone = "v8", exhaust = 1.2, pops = 1 },
+            },
+            new CarDef {
+                id = "mammoth", name = "MAMMOTH", cls = "MONSTER TRUCK", price = 1850000, drive = "4WD", upBase = 2400,
+                desc = "A show truck on 1.7 metre tyres. Corners like a cathedral, rolls over anything the mountain throws at it.",
+                traits = new[] { "Drives over obstacles", "Indestructible", "Slow cornering", "Absurd fuel use" },
+                @base = new CarBase { top = 140, hp = 720, nm = 1420, grip = 78, brakes = 60, susp = 100, dur = 100, fuel = 160, kg = 4300 },
+                pot = new CarPot { hp = 300, turbo = 180, nm = 500, top = 45, grip = 16, brakes = 34, susp = 0, dur = 0, fuel = 60, kg = 400 },
+                caps = new Dictionary<string, int> { ["engine"] = 18, ["transmission"] = 17, ["torque"] = 18, ["tires"] = 18, ["brakes"] = 18, ["suspension"] = 18, ["armor"] = 15, ["fuel"] = 18, ["cooling"] = 18, ["turbo"] = 15, ["weight"] = 15 },
+                phys = new CarPhys { cg = 1.3, wb = 3.6, track = 2.6, r = 0.85, redline = 5600, gears = 4, steer = 30, freq = 1, weightFront = 0.5, fuelUse = 2.6, stability = 1.35, ground = 0.95, offroad = 1.45, travel = 0.55 },
+                model = new CarModel { type = "monster", len = 5.4, wid = 2.4, hgt = 1.75, paint = 0x2c4f86, trim = 0x111111, chrome = true, rust = 0, rim = "beadlock", wear = 0.1, lift = 0.95, cage = 1, flamesColor = 0xd0441e },
+                sound = new CarSound { cyl = 8, @base = 0.55, rough = 0.8, tone = "v8", exhaust = 1.1, pops = 0.3, blower = 1 },
+            },
+            new CarDef {
+                id = "halo", name = "HALO", cls = "HYPERCAR", price = 2750000, drive = "AWD", upBase = 3400,
+                desc = "A V12 hybrid prototype with active aero. It does not drive down the mountain so much as fall down it on purpose.",
+                traits = new[] { "Absurd speed", "Aero grip", "Carbon brakes", "Shatters on rough ground" },
+                @base = new CarBase { top = 365, hp = 990, nm = 1060, grip = 92, brakes = 94, susp = 50, dur = 40, fuel = 75, kg = 1500 },
+                pot = new CarPot { hp = 320, turbo = 160, nm = 300, top = 40, grip = 8, brakes = 6, susp = 34, dur = 30, fuel = 20, kg = 120 },
+                caps = new Dictionary<string, int> { ["engine"] = 20, ["transmission"] = 20, ["torque"] = 18, ["tires"] = 20, ["brakes"] = 20, ["suspension"] = 20, ["armor"] = 16, ["fuel"] = 15, ["cooling"] = 20, ["turbo"] = 18, ["weight"] = 20 },
+                phys = new CarPhys { cg = 0.4, wb = 2.75, track = 1.72, r = 0.34, redline = 9200, gears = 7, steer = 30, freq = 2.4, weightFront = 0.44, fuelUse = 2.2, stability = 1.2, ground = 0.1, downforce = 1 },
+                model = new CarModel { type = "hyper", len = 4.75, wid = 2.04, hgt = 1.12, paint = 0x2a2d31, trim = 0x0c0c0c, chrome = false, rust = 0, rim = "alloy", wear = 0, wing = 2, sport = 1, livery = 0xb52a1e },
+                sound = new CarSound { cyl = 12, @base = 1.1, rough = 0.1, tone = "v12", exhaust = 1, pops = 0.5 },
+            },
+            new CarDef {
+                id = "rivale", name = "RIVALE", cls = "ITALIAN BERLINETTA", price = 4800000, drive = "RWD", upBase = 5200, exotic = true,
+                desc = "Hand-built in a red-brick workshop near the hills. A screaming V12 behind your shoulders and bodywork that looks like it was poured, not pressed.",
+                traits = new[] { "Screaming V12", "540 km/h fully built", "Rear-wheel drive: handle with care", "Costs more than the village" },
+                @base = new CarBase { top = 455, hp = 1450, nm = 1150, grip = 93, brakes = 95, susp = 55, dur = 38, fuel = 110, kg = 1420 },
+                pot = new CarPot { hp = 520, turbo = 260, nm = 420, top = 90, grip = 7, brakes = 5, susp = 30, dur = 28, fuel = 20, kg = 110 },
+                caps = new Dictionary<string, int> { ["engine"] = 20, ["transmission"] = 20, ["torque"] = 18, ["tires"] = 20, ["brakes"] = 20, ["suspension"] = 20, ["armor"] = 16, ["fuel"] = 15, ["cooling"] = 20, ["turbo"] = 18, ["weight"] = 20 },
+                phys = new CarPhys { cg = 0.4, wb = 2.68, track = 1.7, r = 0.35, redline = 9400, gears = 8, steer = 30, freq = 2.5, weightFront = 0.43, fuelUse = 0.55, stability = 1.25, ground = 0.1, downforce = 1.2 },
+                model = new CarModel { type = "berlinetta", len = 4.7, wid = 2, hgt = 1.16, paint = 0xa8100c, trim = 0x0c0c0c, chrome = false, rust = 0, rim = "alloy", wear = 0, sport = 1, style = "berlinetta" },
+                sound = new CarSound { cyl = 12, @base = 1.15, rough = 0.08, tone = "v12", exhaust = 1.1, pops = 0.6 },
+            },
+            new CarDef {
+                id = "furia", name = "FURIA", cls = "V12 WEDGE", price = 6900000, drive = "AWD", upBase = 6400, exotic = true,
+                desc = "All angles and attitude. Hexagons everywhere, an engine cover made of slats and a sound that sets off car alarms three valleys away.",
+                traits = new[] { "560 km/h fully built", "All-wheel drive", "Enormous downforce", "Wide and very low" },
+                @base = new CarBase { top = 495, hp = 1650, nm = 1300, grip = 95, brakes = 96, susp = 55, dur = 40, fuel = 115, kg = 1520 },
+                pot = new CarPot { hp = 640, turbo = 300, nm = 480, top = 80, grip = 5, brakes = 4, susp = 30, dur = 28, fuel = 20, kg = 120 },
+                caps = new Dictionary<string, int> { ["engine"] = 20, ["transmission"] = 20, ["torque"] = 18, ["tires"] = 20, ["brakes"] = 20, ["suspension"] = 20, ["armor"] = 16, ["fuel"] = 15, ["cooling"] = 20, ["turbo"] = 18, ["weight"] = 20 },
+                phys = new CarPhys { cg = 0.4, wb = 2.72, track = 1.74, r = 0.36, redline = 9000, gears = 8, steer = 29, freq = 2.6, weightFront = 0.42, fuelUse = 0.6, stability = 1.35, ground = 0.09, downforce = 1.5 },
+                model = new CarModel { type = "wedge", len = 4.85, wid = 2.08, hgt = 1.12, paint = 0x8fbf1a, trim = 0x0a0a0a, chrome = false, rust = 0, rim = "alloy", wear = 0, sport = 1, style = "wedge" },
+                sound = new CarSound { cyl = 12, @base = 1, rough = 0.12, tone = "v12", exhaust = 1.2, pops = 0.9 },
+            },
+            new CarDef {
+                id = "zenith", name = "ZENITH", cls = "LONGTAIL HYPERCAR", price = 12500000, drive = "AWD", upBase = 9000, exotic = true,
+                desc = "A sixteen-cylinder land missile with a tail longer than most hatchbacks. Built for one thing: the number six hundred.",
+                traits = new[] { "630 km/h fully built", "Quad-turbo W16", "Stable at insane speed", "Brakes like an anchor" },
+                @base = new CarBase { top = 540, hp = 1900, nm = 1700, grip = 94, brakes = 97, susp = 58, dur = 45, fuel = 125, kg = 1880 },
+                pot = new CarPot { hp = 1000, turbo = 400, nm = 700, top = 100, grip = 6, brakes = 3, susp = 30, dur = 30, fuel = 20, kg = 140 },
+                caps = new Dictionary<string, int> { ["engine"] = 20, ["transmission"] = 20, ["torque"] = 18, ["tires"] = 20, ["brakes"] = 20, ["suspension"] = 20, ["armor"] = 16, ["fuel"] = 15, ["cooling"] = 20, ["turbo"] = 18, ["weight"] = 20 },
+                phys = new CarPhys { cg = 0.42, wb = 2.75, track = 1.76, r = 0.36, redline = 7200, gears = 7, steer = 28, freq = 2.4, weightFront = 0.44, fuelUse = 0.62, stability = 1.6, ground = 0.1, downforce = 1.4 },
+                model = new CarModel { type = "longtail", len = 4.95, wid = 2.04, hgt = 1.18, paint = 0x1c2a44, trim = 0x0a0a0a, chrome = false, rust = 0, rim = "alloy", wear = 0, sport = 1, style = "longtail", livery = 0x9aa4b4 },
+                sound = new CarSound { cyl = 16, @base = 0.85, rough = 0.15, tone = "v12", exhaust = 1.3, pops = 0.4, turbo = 1 },
+            },
+            new CarDef {
+                id = "lemans", name = "LEMANS", cls = "ENDURANCE PROTOTYPE", price = 18500000, drive = "AWD", upBase = 9000, exotic = true,
+                desc = "A road-legal endurance prototype: hybrid V8, a shark fin and more downforce than sense. The fastest thing you can buy.",
+                traits = new[] { "Downforce monster", "Hybrid boost", "Race brakes", "Unforgiving" },
+                @base = new CarBase { top = 590, hp = 1350, nm = 1100, grip = 98, brakes = 99, susp = 48, dur = 44, fuel = 120, kg = 1180 },
+                pot = new CarPot { hp = 220, turbo = 120, nm = 160, top = 70, grip = 4, brakes = 2, susp = 26, dur = 26, fuel = 20, kg = 60 },
+                caps = new Dictionary<string, int> { ["engine"] = 20, ["transmission"] = 20, ["torque"] = 18, ["tires"] = 20, ["brakes"] = 20, ["suspension"] = 18, ["armor"] = 14, ["fuel"] = 16, ["cooling"] = 20, ["turbo"] = 16, ["weight"] = 20 },
+                phys = new CarPhys { cg = 0.36, wb = 2.88, track = 1.74, r = 0.35, redline = 9800, gears = 7, steer = 28, freq = 2.8, weightFront = 0.42, fuelUse = 0.6, stability = 1.45, ground = 0.07, downforce = 1.6 },
+                model = new CarModel { type = "longtail", len = 5.05, wid = 2.05, hgt = 1.08, paint = 0x101418, trim = 0x0a0a0a, chrome = false, rust = 0, rim = "alloy", wear = 0, sport = 1, style = "longtail", livery = 0x2fb36a, wing = 2 },
+                sound = new CarSound { cyl = 8, @base = 1.25, rough = 0.2, tone = "v12", exhaust = 1.3, pops = 0.9, turbo = 1 },
+            },
+        };
+
+        // Display order in the showroom (monster truck sits between supercar and hypercar).
+        public static CarDef CarById(string id) => CARS.FirstOrDefault(c => c.id == id) ?? CARS[0];
+        public static readonly CarDef[] STARTERS = CARS.Where(c => c.starter).ToArray();
+    }
+}
