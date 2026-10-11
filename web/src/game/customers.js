@@ -35,7 +35,7 @@ export class Customer {
     this.ch = new Character(game.scene, { ...look, name: this.name, voice: { ...look.voice, rate: (look.voice?.rate || 1) * this.personality.voiceRate } });
     this.hair = new HairSystem({ color: look.hairColor, skin: look.colors.Skin, curl: look.curl, layers: game.quality.hairLayers });
     this.hair.attach(this.ch.bones.Head);
-    this.hair.setStyle(startStyle(this.cutId));
+    this.hair.setStyle(startStyle(this.cutId, look));
     // with a Colour Bar, some customers want a colour on top of the cut (exclusive colours pay more)
     const dyes = opts.tutorial || opts.noDye ? [] : availableDyes(game.save, game.save.owned);
     if (opts.dye || (dyes.length && chance(0.3))) {
@@ -45,10 +45,11 @@ export class Customer {
     }
     this.hair.setStyleDir(this.cut.style);
     this.ch.hair = this.hair;
+    if (look.cap && !opts.vip && !opts.tutorial) this.ch.setCap(look.cap);
     // beard: required by beard cuts, otherwise a matter of taste
     const beardSpec = startBeard(this.cutId) || opts.beard || (opts.noBeard ? null : (chance(0.38) ? BEARD_STYLES[pick(['stubble', 'stubble', 'short', 'full', 'goatee', 'moustache'])] : null));
     if (beardSpec) {
-      this.beard = new BeardSystem({ color: look.hairColor, skin: look.colors.Skin, layers: game.quality.hairLayers });
+      this.beard = new BeardSystem({ color: look.hairColor, skin: look.colors.Skin, layers: game.quality.hairLayers, shape: this.ch.headShape });
       this.beard.attach(this.ch.bones.Head);
       this.beard.setStyle(beardSpec);
       this.ch.beard = this.beard;
@@ -64,6 +65,15 @@ export class Customer {
   }
 
   get pos() { return this.ch.root.position; }
+
+  // cap straight onto the lap (no animation): for customers placed directly in a chair
+  capToLap() {
+    const capObj = this.ch.removeCap();
+    if (!capObj) return;
+    this.ch.bones.Hips.add(capObj);
+    capObj.position.set(0.02, -0.33, 0.27); capObj.rotation.set(-1.4, 0, 0.3);
+    this.lapCap = capObj;
+  }
   headPos(out = new THREE.Vector3()) { return this.ch.headWorld(out); }
 
   dispose() {
@@ -107,6 +117,7 @@ export class CustomerManager {
     if (opts.chair) {
       this.inChair = c;
       c.seatedInChair = true;
+      c.capToLap();
       g.setChairAngle(0.35, 2);
       c.ch.sitOn({ pos: SPOTS.chair.clone().add(new THREE.Vector3(0, 0, -0.05)), rot: Math.PI, height: g.shop.seatHeight() - 0.03 }, true);
       const cape = spawnProp('Cape');
@@ -241,6 +252,20 @@ export class CustomerManager {
     await ch.sitOn({ pos: SPOTS.chair.clone().add(new THREE.Vector3(0, 0, -0.05)), rot: 0, height: shop.seatHeight() - 0.03 });
     c.seatedInChair = true;
     audio.chairThump();
+    // caps come off for the haircut and rest on the lap
+    if (ch.cap) {
+      ch.reach('R', () => ch.headWorld(new THREE.Vector3()).add(new THREE.Vector3(0, 0.13, 0.02)), { speed: 9, hand: 'grip' });
+      await this.game.dir.wait(0.45).catch(() => {});
+      const capObj = ch.removeCap();
+      if (capObj) {
+        ch.hold('R', capObj, { pos: [0.0, -0.09, 0.03], rot: [0, 0, Math.PI / 2] });
+        ch.reach('R', () => ch.root.localToWorld(new THREE.Vector3(0.04, 0.62, 0.3)), { speed: 6, hand: 'grip' });
+        await this.game.dir.wait(0.5).catch(() => {});
+        c.lapCap = ch.drop('R', ch.bones.Hips);
+        audio.cloth?.(0.5, 0.2);
+      }
+      ch.release('R');
+    }
     if (!shop.has('chairClassic')) audio.squeak(0.4); else audio.creak();
     this.game.chairBounce(0.6);
     c.state = 'seated';
@@ -298,6 +323,8 @@ export class CustomerManager {
   }
 
   async walkOut(c, gait = 'walk') {
+    // the cap goes back on
+    if (c.lapCap) { c.lapCap.parent?.remove(c.lapCap); c.lapCap = null; c.ch.setCap(c.look.cap); }
     c.state = 'leaving';
     c.ch.lookAt(null);
     await c.ch.walkTo([SPOTS.hub, SPOTS.doorIn], gait);

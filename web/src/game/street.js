@@ -107,6 +107,7 @@ export class Street {
     hair.attach(ch.bones.Head);
     hair.setStyle(pick(STYLES));
     ch.hair = hair;
+    if (look.cap) ch.setCap(look.cap);
     const dir = chance(0.5) ? 1 : -1;
     const z = ROOM.z1 + rand(1.0, 2.2);
     const x0 = -dir * 44, x1 = dir * 44;

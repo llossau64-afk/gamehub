@@ -40,9 +40,35 @@ def _g(d2, r):
     return math.exp(-d2 / (r * r))
 
 
-def sculpt_face(ob, hz):
+# Head shapes: each is a separate optional head mesh (acc tag hd0..hd7). Only the lower
+# face changes (jaw, cheeks, chin, width); the cranium where the hair grows stays the same.
+HEAD_SHAPES = {
+    'hd0': {},                                                        # average
+    'hd1': {'wide': 0.03, 'cheek': 0.006, 'jaw': -0.002, 'chinDrop': -0.003},   # round
+    'hd2': {'wide': -0.08, 'cheek': -0.002, 'long': 0.004},          # narrow
+    'hd3': {'jaw': 0.009, 'wide': 0.02, 'chinFwd': 0.002},           # square
+    'hd4': {'long': 0.013, 'wide': -0.04, 'chinFwd': 0.002},         # long face
+    'hd5': {'wide': 0.08, 'cheek': 0.003},                           # wide face
+    'hd6': {'jaw': 0.008, 'chinFwd': 0.006, 'chinDrop': 0.004, 'wide': 0.03},   # strong jaw
+    'hd7': {'jaw': -0.004, 'chinDrop': -0.002, 'cheek': 0.004},      # soft jaw
+}
+
+# Noses: (bridge width, tip width, projection, length, hump, tip lift) per acc tag ns0..ns6
+NOSES = {
+    'ns0': (1.0, 1.0, 0.0, 0.0, 0.0, 0.0),        # average
+    'ns1': (0.85, 0.82, -0.004, -0.006, 0.0, 0.002),   # small
+    'ns2': (1.1, 1.38, -0.001, 0.0, 0.0, 0.0),    # wide
+    'ns3': (0.78, 0.8, 0.002, 0.006, 0.0, -0.001),    # narrow
+    'ns4': (0.95, 0.95, 0.004, 0.008, 0.0, -0.002),   # straight, long
+    'ns5': (1.0, 1.02, 0.003, 0.004, 0.0035, -0.003), # slightly curved
+    'ns6': (0.9, 1.12, -0.002, -0.008, -0.001, 0.004),  # button
+}
+
+
+def sculpt_face(ob, hz, P=None):
     """Pushes the plain head loft into a face: brow ridge, eye sockets, cheekbones, a chin,
     jaw corners and temples. Coordinates are head-local, the face looks down -Y."""
+    P = P or {}
     for v in ob.data.vertices:
         x, y, z = v.co.x, v.co.y, v.co.z - hz
         front = min(1.0, max(0.0, (-y - 0.03) / 0.05))
@@ -68,6 +94,20 @@ def sculpt_face(ob, hz):
         k = _g(x * x, 0.022) * _g((z - 0.004) ** 2, 0.018) * front
         dy -= 0.009 * k * (1 - 0.25 * _g(x * x, 0.004))
         dz -= 0.003 * k
+        if P:
+            wl = min(1.0, max(0.0, (0.095 - z) / 0.04))     # lower face only
+            dx += x * P.get('wide', 0.0) * wl
+            for sx in (-1, 1):
+                d2 = (x - sx * 0.05) ** 2 + (z - 0.022) ** 2 + (y + 0.03) ** 2
+                dx += sx * P.get('jaw', 0.0) * _g(d2, 0.025)
+                d2 = (x - sx * 0.055) ** 2 + (z - 0.06) ** 2 + (y + 0.06) ** 2
+                dx += sx * P.get('cheek', 0.0) * _g(d2, 0.025)
+                dy -= P.get('cheek', 0.0) * 0.4 * _g(d2, 0.025)
+            k = _g(x * x, 0.025) * _g(z * z, 0.03) * front
+            dz -= P.get('chinDrop', 0.0) * k
+            dy -= P.get('chinFwd', 0.0) * k
+            if z < 0.04:
+                dz -= P.get('long', 0.0) * min(1.0, (0.04 - z) / 0.06)
         v.co.x += dx; v.co.y += dy; v.co.z += dz
     ob.data.update()
 
@@ -163,13 +203,23 @@ def build_person():
         a = math.radians(deg)
         rings.append((cz + rz * math.sin(a), rx * math.cos(a), ry * math.cos(a), cx, cy))
     rings = [(hz + r[0], r[1], r[2], r[3], r[4]) for r in rings]
-    head = loft('M_Head', rings, 'Skin', seg=32, parent=H, power=2.0, subsurf=1)
-    sculpt_face(head, hz)
-    # nose
-    nose = [(hz + 0.122, 0.009, 0.010, 0, -0.091), (hz + 0.106, 0.010, 0.014, 0, -0.101),
-            (hz + 0.089, 0.013, 0.018, 0, -0.108), (hz + 0.077, 0.017, 0.017, 0, -0.108),
-            (hz + 0.068, 0.016, 0.010, 0, -0.101), (hz + 0.064, 0.008, 0.004, 0, -0.096)]
-    loft('M_Nose', nose, 'Skin', seg=12, parent=H, subsurf=1)
+    for tag, P in HEAD_SHAPES.items():
+        head = loft('M_Head__acc_' + tag, rings, 'Skin', seg=32, parent=H, power=2.0, subsurf=1)
+        sculpt_face(head, hz, P)
+    # noses: rings of (height, half-width, half-depth, x, y-forward)
+    for tag, (bw, tw, proj, ln, hump, lift) in NOSES.items():
+        nose = [(hz + 0.122 + ln * 0.3, 0.009 * bw, 0.010, 0, -0.091),
+                (hz + 0.106 + ln * 0.15, 0.010 * bw, 0.014, 0, -0.101 - proj * 0.5 - hump),
+                (hz + 0.089, 0.013 * (bw + tw) / 2, 0.018, 0, -0.108 - proj * 0.8 - hump * 0.6),
+                (hz + 0.077 - ln * 0.4 + lift, 0.017 * tw, 0.017, 0, -0.108 - proj),
+                (hz + 0.068 - ln * 0.5 + lift * 0.6, 0.016 * tw, 0.010, 0, -0.101 - proj * 0.7),
+                (hz + 0.064 - ln * 0.4 + lift * 0.3, 0.008 * tw, 0.004, 0, -0.096 - proj * 0.3)]
+        loft('M_Nose__acc_' + tag, nose, 'Skin', seg=12, parent=H, subsurf=1)
+        # nostril wings for wider noses
+        if tw > 1.05:
+            for side in (-1, 1):
+                sphere('M_Nostril%d__acc_%s' % (side, tag), 0.007, (side * 0.014 * tw, -0.098 - proj * 0.6, hz + 0.068 - ln * 0.5),
+                       'Skin', scale=(1.0, 0.9, 0.8), seg=10, rings=6, parent=H, subsurf=1)
     # ears
     for side in (-1, 1):
         sphere('M_Ear%s' % side, 0.031, (side * 0.085, 0.014, hz + 0.1), 'Skin',
@@ -347,6 +397,52 @@ def build_person():
     for i, z in enumerate((1.14, 1.22, 1.30, 1.38)):
         torus('M_VestRib%d__acc_vest' % i, 0.18 if z < 1.4 else 0.19, 0.006, (0, -0.004, z), 'TopDark', seg=24, tseg=4,
               parent=j['Chest'], scale=(1.0, 0.68))
+    # crew-neck knit sweater: thick ribbed collar, cuffs and hem
+    torus('M_SweaterCollar__acc_sweater', 0.06, 0.013, (0, 0.004, 1.485), 'TopDark', seg=24, tseg=6, parent=j['Chest'],
+          scale=(1.0, 0.93))
+    for side, nm in ((1, 'L'), (-1, 'R')):
+        torus('M_SweaterCuff%s__acc_sweater' % nm, 0.036, 0.008, (side * 0.196, 0.01, 0.95), 'TopDark', seg=16, tseg=5,
+              parent=j['ForeArm' + nm])
+    loft('M_SweaterHem__acc_sweater', [(0.95, 0.17, 0.114, 0, -0.004), (1.0, 0.168, 0.112, 0, -0.004)], 'TopDark', seg=20,
+         parent=j['Hips'], caps=(False, False), power=2.3)
+    # tracksuit: two stripes down the arms and legs, a zip and a stand-up collar
+    for side, nm in ((1, 'L'), (-1, 'R')):
+        for k in (0, 1):
+            off = 0.008 if k else -0.008
+            sweep('M_TrackArm%s%d__acc_track' % (nm, k), [(side * 0.247, off, 1.41), (side * 0.245, off, 1.30), (side * 0.236, off, 1.16)],
+                  0.003, 'Shirt', seg=4, parent=j['UpperArm' + nm])
+            sweep('M_TrackFore%s%d__acc_track' % (nm, k), [(side * 0.24, off + 0.004, 1.15), (side * 0.236, off + 0.004, 1.02), (side * 0.229, off + 0.004, 0.95)],
+                  0.003, 'Shirt', seg=4, parent=j['ForeArm' + nm])
+            sweep('M_TrackLeg%s%d__acc_track' % (nm, k), [(side * 0.183, off, 0.95), (side * 0.18, off, 0.75), (side * 0.158, off, 0.54)],
+                  0.0035, 'Shirt', seg=4, parent=j['Thigh' + nm])
+            sweep('M_TrackShin%s%d__acc_track' % (nm, k), [(side * 0.157, off - 0.004, 0.52), (side * 0.157, off - 0.004, 0.32), (side * 0.15, off - 0.004, 0.12)],
+                  0.0035, 'Shirt', seg=4, parent=j['Shin' + nm])
+    torus('M_TrackCollar__acc_track', 0.062, 0.011, (0, 0.002, 1.495), 'TopDark', seg=22, tseg=6, parent=j['Chest'],
+          scale=(1.0, 0.95))
+    box('M_TrackZip__acc_track', (0.006, 0.006, 0.42), (0, -0.118, 1.25), 'Metal', parent=j['Chest'], bevel=0.001)
+    # button-up shirt: a pointed collar, placket and buttons
+    for side in (-1, 1):
+        sweep('M_ShirtCol%d__acc_shirt' % side, [(side * 0.012, -0.088, 1.49), (side * 0.04, -0.085, 1.475), (side * 0.06, -0.06, 1.47)],
+              (0.0025, 0.012), 'Shirt', seg=4, parent=j['Chest'])
+    box('M_Placket__acc_shirt', (0.022, 0.006, 0.4), (0, -0.117, 1.25), 'Shirt', parent=j['Chest'], bevel=0.002)
+    for i, z in enumerate((1.42, 1.34, 1.26, 1.18, 1.10)):
+        sphere('M_ShirtBtn%d__acc_shirt' % i, 0.0045, (0, -0.121 if z > 1.15 else -0.118, z), 'Button', scale=(1, 0.4, 1), seg=8, rings=4,
+               parent=j['Chest'] if z > 1.2 else j['Spine'])
+    # football jersey: V-neck trim, shoulder stripes and a big number panel on the back
+    sweep('M_JerseyV__acc_jersey', [(-0.05, -0.08, 1.49), (0, -0.112, 1.42), (0.05, -0.08, 1.49)], 0.006, 'Shirt', seg=5,
+          parent=j['Chest'])
+    for side in (-1, 1):
+        sweep('M_JerseyStripe%d__acc_jersey' % side, [(side * 0.06, -0.06, 1.49), (side * 0.12, -0.03, 1.47), (side * 0.18, 0.0, 1.44)],
+              (0.004, 0.012), 'Shirt', seg=4, parent=j['Chest'])
+    box('M_JerseyNum__acc_jersey', (0.13, 0.006, 0.16), (0, 0.117, 1.3), 'Shirt', parent=j['Chest'], bevel=0.004)
+    # work hi-vis vest with reflective bands
+    loft('M_HiVis__acc_hivis', [(1.06, 0.17, 0.118, 0, -0.004), (1.18, 0.176, 0.122, 0, -0.006), (1.30, 0.188, 0.126, 0, -0.008),
+                                (1.40, 0.194, 0.118, 0, -0.004), (1.45, 0.166, 0.098, 0, 0.0)], 'Apron', seg=18,
+         parent=j['Chest'], caps=(False, False), power=2.6)
+    for i, z in enumerate((1.14, 1.24)):
+        torus('M_HiVisBand%d__acc_hivis' % i, 0.178, 0.008, (0, -0.002, z), 'Metal', seg=24, tseg=4,
+              parent=j['Chest'], scale=(1.0, 0.7))
+
     # wristwatch (left) and earrings
     torus('M_Watch__acc_watch', 0.03, 0.006, (0.196, 0.0, 0.94), 'Belt', seg=16, tseg=5, parent=j['ForeArmL'],
           scale=(1.0, 1.0))

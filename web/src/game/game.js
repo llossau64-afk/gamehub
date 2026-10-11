@@ -1222,6 +1222,7 @@ export class Game {
   }
 
   enterBarber(c, opts) {
+    if (c.ch.cap) c.capToLap?.();
     this.state = 'barber';
     this.player.control = false;
     this.ui.prompt(null);

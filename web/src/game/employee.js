@@ -127,6 +127,7 @@ export class Employee {
     await c.ch.sitOn({ pos: this.st.chair.clone().add(V(0, 0, -0.05)), rot: 0, height: g.shop.seatHeight() - 0.03 });
     audio.chairThump();
     c.seatedInChair2 = true; c.seatedAt = this.st;
+    c.capToLap?.();
     // cape on, chair to the mirror
     const cape = spawnProp('Cape');
     c.ch.bones.Chest.add(cape);

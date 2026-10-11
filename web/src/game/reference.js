@@ -79,7 +79,7 @@ function draw(cutId, look) {
   ch.hair = hair;
   let beard = null;
   if (cut.beard) {
-    beard = new BeardSystem({ color: look.hairColor, skin: look.colors.Skin, layers: 14 });
+    beard = new BeardSystem({ color: look.hairColor, skin: look.colors.Skin, layers: 14, shape: (look.accessories || []).find((a) => /^hd\d$/.test(a)) || 'hd0' });
     beard.attach(ch.bones.Head);
     beard.setStyle(LONG_BEARD);
     beard.beginService(cut, 1);

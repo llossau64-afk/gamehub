@@ -65,7 +65,12 @@ export class Character {
     this.look = look;
     this.root = new THREE.Group();
     this.root.name = look.name || 'character';
-    const body = createBody(look.colors, look.accessories || []);
+    // every body needs one head shape and one nose; old looks get the average ones
+    const accs = [...(look.accessories || [])];
+    if (!accs.some((a) => /^hd\d$/.test(a))) accs.push('hd0');
+    if (!accs.some((a) => /^ns\d$/.test(a))) accs.push('ns0');
+    this.headShape = accs.find((a) => /^hd\d$/.test(a));
+    const body = createBody(look.colors, accs);
     this.body = body;
     this.bones = body.bones;
     this.mouth = body.mouth;
@@ -77,6 +82,8 @@ export class Character {
     this.mesh.scale.set(sc * (look.width || 1), sc, sc * (look.width || 1));
     // head proportions: a touch wider, longer or rounder per person (hair follows the bone)
     if (look.head) this.bones.Head.scale.set(look.head[0], look.head[1], look.head[2]);
+    this.applyFace(look.face);
+    this.applyBuild(look.build);
     scene.add(this.root);
     for (const b of Object.values(this.bones)) b.rotation.order = 'YXZ';
     // rig measurements
@@ -149,6 +156,64 @@ export class Character {
   }
 
   // ------------------------------------------------------------------ high level API
+  // eyes and brows differ per person: size, spacing, brow weight, length and angle
+  applyFace(f) {
+    if (!f) return;
+    const B = this.bones;
+    for (const [s, sign] of [['L', 1], ['R', -1]]) {
+      const es = f.eye ?? 1, sp = (f.spread ?? 0) * sign;
+      for (const n of ['Eye', 'Lid']) { const b = B[n + s]; if (!b) continue; b.scale.setScalar(es); b.position.x += sp; }
+      const br = B['Brow' + s];
+      if (br) {
+        br.scale.set(f.browLen ?? 1, f.browThick ?? 1, f.browThick ?? 1);
+        br.position.x += sp;
+        br.position.y += (f.browRaise ?? 0);
+        br.userData.tilt = (f.browTilt ?? 0) * sign;
+      }
+    }
+  }
+
+  // body type: broader or narrower shoulders and hips, without fattening the arms and legs
+  applyBuild(b) {
+    if (!b) return;
+    const keepKids = (bone, sx, sz) => {
+      bone.scale.set(sx, 1, sz);
+      for (const c of bone.children) if (c.isBone) c.scale.set(1 / sx, 1, 1 / sz);
+    };
+    if (b.shoulders && this.bones.Chest) keepKids(this.bones.Chest, b.shoulders, 0.5 + b.shoulders * 0.5);
+    if (b.hips && this.bones.Hips) keepKids(this.bones.Hips, b.hips, 0.5 + b.hips * 0.5);
+  }
+
+  // a cap worn on the way in; taken off for the haircut
+  setCap(color) {
+    if (this.cap) { this.cap.parent?.remove(this.cap); this.cap = null; }
+    if (!color) return;
+    const g = new THREE.Group();
+    const m = new THREE.MeshStandardMaterial({ color, roughness: 0.75 });
+    // a baseball cap: the crown hugs the cranium, the brim points forward over the brow
+    const crown = new THREE.Mesh(new THREE.SphereGeometry(0.106, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.52), m);
+    crown.scale.set(0.98, 0.92, 1.06); g.add(crown);
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.088, 0.088, 0.007, 24, 1, false, -Math.PI / 2, Math.PI), m);
+    brim.position.set(0, 0.006, 0.06); brim.scale.set(0.92, 1, 1.25); brim.rotation.x = 0.12; g.add(brim);
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.104, 0.105, 0.016, 24, 1, true), new THREE.MeshStandardMaterial({ color, roughness: 0.85, side: THREE.DoubleSide }));
+    band.scale.set(0.98, 1, 1.06); band.position.y = 0.002; g.add(band);
+    const btn = new THREE.Mesh(new THREE.SphereGeometry(0.008, 8, 6), m); btn.position.y = 0.098; g.add(btn);
+    g.position.set(0, 0.118, 0.006); g.rotation.x = -0.08;
+    g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    this.bones.Head.add(g);
+    this.cap = g;
+    // the hair under a cap is pressed flat: hide the top shells while it's on
+    if (this.hair) this.hair.mesh.visible = false;
+  }
+
+  removeCap() {
+    if (!this.cap) return null;
+    const c = this.cap; this.cap = null;
+    c.parent?.remove(c);
+    if (this.hair) this.hair.mesh.visible = true;
+    return c;
+  }
+
   place(pos, yaw = 0) {
     this.root.position.set(pos.x, 0, pos.z);
     this.yaw = yaw;
@@ -703,10 +768,10 @@ export class Character {
       const sign = s === 'L' ? 1 : -1;
       const A = F.asym + (M ? M.asym : 0);
       const asym = s === 'L' ? A : -A * 0.6;
-      b['Brow' + s].position.y = b['Brow' + s].userData.y0 ??= b['Brow' + s].position.y;
+      b['Brow' + s].userData.y0 ??= b['Brow' + s].position.y;
       b['Brow' + s].position.y = b['Brow' + s].userData.y0 + (F.raise + (M ? M.raise : 0) + asym * 0.5) * 0.006 + F.inner * 0.002 - F.angry * 0.003 + (this.browBeat || 0) * 0.0025;
       // inner end up (sad) / down (angry); rotation about the face axis
-      b['Brow' + s].rotation.set(0, 0, sign * (-F.inner * 0.32 + F.angry * 0.38 + asym * 0.1));
+      b['Brow' + s].rotation.set(0, 0, sign * (-F.inner * 0.32 + F.angry * 0.38 + asym * 0.1) + (b['Brow' + s].userData.tilt || 0));
     }
     if (this.mouth) {
       const d = this.mouth.morphTargetDictionary, inf = this.mouth.morphTargetInfluences;

@@ -167,8 +167,11 @@ const MOUTH_SHAPES = ['Smile', 'Frown', 'Open', 'Wide', 'O', 'Smirk'];
 let mouthGeo = null;
 
 function lipColor(colors) {
+  // lips: a little darker and warmer than the skin; deep skin gets deep, brownish lips
   const skin = new THREE.Color(colors.Skin || '#c48a64');
-  const lip = skin.clone().lerp(new THREE.Color('#b0454a'), 0.42).multiplyScalar(0.86);
+  const hsl = {}; skin.getHSL(hsl);
+  const deep = hsl.l < 0.36;
+  const lip = skin.clone().lerp(new THREE.Color(deep ? '#5a2a26' : '#a8484a'), deep ? 0.3 : 0.36).multiplyScalar(deep ? 0.84 : 0.88);
   return lip;
 }
 

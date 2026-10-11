@@ -31,15 +31,17 @@ function ringAt(y) {
 // The beard sits on the real skin: rays from the head's vertical axis outward hit the
 // sculpted head mesh (bind pose, head-joint space); the distances are cached in a table.
 const TA = 56, TY = 40;
-let SKIN = null;
-function skinTable() {
-  if (SKIN !== null) return SKIN;
-  SKIN = false;
+// one table per head shape (the jaw and cheeks differ)
+const SKINS = new Map();
+let SHAPE = 'hd0';
+function skinTable(shape = SHAPE) {
+  if (SKINS.has(shape)) return SKINS.get(shape);
+  SKINS.set(shape, false);
   const T = getTemplate();
-  if (!T) return SKIN;
+  if (!T) return false;
   const hw = T.joints[T.jointIndex.get('Head')].world;
-  const parts = T.pieces.filter((p) => /^M_(Head|Neck)(\b|_|$)/.test(p.name));
-  if (!parts.length) return SKIN;
+  let parts = T.pieces.filter((p) => (/^M_Head(\b|_|$)/.test(p.name) && (!p.acc || p.acc === shape)) || /^M_Neck(\b|_|$)/.test(p.name));
+  if (!parts.some((p) => p.name.startsWith('M_Head'))) return false;
   const mat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
   const meshes = parts.map((p) => { const g = p.geometry.clone(); g.translate(-hw.x, -hw.y, -hw.z); return new THREE.Mesh(g, mat); });
   meshes.forEach((m) => m.updateMatrixWorld(true));
@@ -60,12 +62,11 @@ function skinTable() {
     }
   }
   meshes.forEach((m) => m.geometry.dispose());
-  SKIN = tab;
-  return SKIN;
+  SKINS.set(shape, tab);
+  return tab;
 }
 
-function skinRadius(a, y) {
-  const t = SKIN;
+function skinRadius(a, y, t) {
   const fi = clamp((a + A + 0.1) / (2 * A + 0.2) * (TA - 1), 0, TA - 1.001);
   const fj = clamp((y - (Y0 - 0.01)) / (Y1 - Y0 + 0.02) * (TY - 1), 0, TY - 1.001);
   const i = Math.floor(fi), j = Math.floor(fj), u = fi - i, v = fj - j;
@@ -73,9 +74,10 @@ function skinRadius(a, y) {
   return lerp(lerp(r00, r10, u), lerp(r01, r11, u), v);
 }
 
-export function beardPoint(a, y, out = new THREE.Vector3(), inflate = 0.0012) {
-  if (skinTable()) {
-    const r = skinRadius(a, y) + inflate;
+export function beardPoint(a, y, out = new THREE.Vector3(), inflate = 0.0012, shape = SHAPE) {
+  const t = skinTable(shape);
+  if (t) {
+    const r = skinRadius(a, y, t) + inflate;
     return out.set(Math.sin(a) * r, y, Math.cos(a) * r);
   }
   const [rx, rz, cz] = ringAt(y);
@@ -97,8 +99,10 @@ export function beardRegion(a, y) {
 }
 
 const geoCache = new Map();
-function buildGeometry(layers) {
-  if (geoCache.has(layers)) return geoCache.get(layers);
+function buildGeometry(layers, shape = 'hd0') {
+  const key = layers + '|' + shape;
+  if (geoCache.has(key)) return geoCache.get(key);
+  SHAPE = shape;
   const NU = 40, NV = 24;
   const pos = [], nrm = [], tdn = [], uvs = [], lay = [], idx = [];
   const p = new THREE.Vector3(), pu = new THREE.Vector3(), pv = new THREE.Vector3(), n = new THREE.Vector3();
@@ -109,9 +113,9 @@ function buildGeometry(layers) {
       const y = Y0 + (Y1 - Y0) * j / NV;
       for (let i = 0; i <= NU; i++) {
         const a = -A + 2 * A * i / NU;
-        beardPoint(a, y, p);
-        beardPoint(a + 0.01, y, pu).sub(p);
-        beardPoint(a, y + 0.002, pv).sub(p);
+        beardPoint(a, y, p, 0.0012, shape);
+        beardPoint(a + 0.01, y, pu, 0.0012, shape).sub(p);
+        beardPoint(a, y + 0.002, pv, 0.0012, shape).sub(p);
         n.crossVectors(pu, pv).normalize();
         if (n.dot(new THREE.Vector3(Math.sin(a), 0, Math.cos(a))) < 0) n.negate();
         pos.push(p.x, p.y, p.z); nrm.push(n.x, n.y, n.z);
@@ -142,7 +146,7 @@ function buildGeometry(layers) {
   g.setAttribute('layer', new THREE.Float32BufferAttribute(lay, 1));
   g.setIndex(idx);
   g.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0.05, 0.05), 0.2);
-  geoCache.set(layers, g);
+  geoCache.set(key, g);
   return g;
 }
 
@@ -166,11 +170,12 @@ export class BeardSystem {
       this.area[j * BW + i] = 1;
     }
     this.layers = Math.max(6, Math.round((opts.layers || 16) * 0.7));
-    this.mesh = new THREE.Mesh(buildGeometry(this.layers), makeMaterial(this));
+    this.shape = opts.shape || 'hd0';
+    this.mesh = new THREE.Mesh(buildGeometry(this.layers, this.shape), makeMaterial(this));
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 3;
     // invisible base surface for picking
-    this.pickMesh = new THREE.Mesh(buildGeometry(1), new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+    this.pickMesh = new THREE.Mesh(buildGeometry(1, this.shape), new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
     this.highlight = 0; this.highlightTarget = 0; this.highlightRegion = -1;
     this.dirty = true;
   }
@@ -216,7 +221,7 @@ export class BeardSystem {
 
   setLOD(dist) {
     const want = dist > 4 ? 4 : dist > 2.2 ? Math.ceil(this.layers * 0.6) : this.layers;
-    if (want !== this._lod) { this._lod = want; this.mesh.geometry = buildGeometry(want); }
+    if (want !== this._lod) { this._lod = want; this.mesh.geometry = buildGeometry(want, this.shape); }
   }
 
   update(dt) {
@@ -250,7 +255,7 @@ export class BeardSystem {
   }
 
   surfacePoint(a, y, extra = 0, out = new THREE.Vector3()) {
-    return beardPoint(a, y, out, 0.0012 + extra).applyMatrix4(this.mesh.matrixWorld);
+    return beardPoint(a, y, out, 0.0012 + extra, this.shape).applyMatrix4(this.mesh.matrixWorld);
   }
 
   lengthAt(a, y) {

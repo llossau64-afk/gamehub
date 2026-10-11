@@ -1,5 +1,5 @@
 // Haircut requests, starting hair, and scoring.
-import { clamp, rand } from '../core/util.js';
+import { clamp, rand, pick } from '../core/util.js';
 import { REGIONS, EDGE_REGIONS, hairline, THETA_MAX, TEX_W, TEX_H } from './hair.js';
 
 // Guard lengths in normalised units (1.0 = 60 mm)
@@ -292,13 +292,38 @@ export function payment(cutId, result, personality, mult = {}) {
 }
 
 // starting hair for a customer wanting `cutId`
-export function startStyle(cutId) {
+// How customers walk in: genuinely different starting hair. Each preset is a region length
+// spec (0..1); `types` says which hair types it suits.
+export const START_PRESETS = {
+  grownBuzz: { name: 'Grown-out buzz', spec: { top: 0.3, front: 0.3, left: 0.27, right: 0.27, back: 0.28, fuzz: 0.08, noise: 0.12 }, types: ['straight', 'wavy', 'curly', 'tight'] },
+  messyShort: { name: 'Messy short', spec: { top: 0.48, front: 0.52, left: 0.32, right: 0.32, back: 0.34, fuzz: 0.08, noise: 0.32 }, types: ['straight', 'wavy'] },
+  grownFade: { name: 'Grown-out fade', spec: { top: 0.55, front: 0.55, left: 0.3, right: 0.3, back: 0.31, fuzz: 0.07, fade: 0.45, noise: 0.14 }, types: ['straight', 'wavy', 'curly', 'tight'] },
+  shortCurls: { name: 'Short curls', spec: { top: 0.5, front: 0.46, left: 0.42, right: 0.42, back: 0.42, fuzz: 0.06, noise: 0.2 }, types: ['curly', 'tight'] },
+  mediumCurls: { name: 'Medium curls', spec: { top: 0.72, front: 0.7, left: 0.55, right: 0.55, back: 0.56, fuzz: 0.06, noise: 0.22 }, types: ['curly', 'tight', 'wavy'] },
+  sidePart: { name: 'Side part', spec: { top: 0.62, front: 0.66, left: 0.34, right: 0.36, back: 0.36, fuzz: 0.06, noise: 0.1 }, types: ['straight', 'wavy'] },
+  messyFringe: { name: 'Messy fringe', spec: { top: 0.66, front: 0.82, left: 0.4, right: 0.4, back: 0.42, fuzz: 0.08, noise: 0.28 }, types: ['straight', 'wavy'] },
+  grownCrop: { name: 'Grown-out crop', spec: { top: 0.58, front: 0.64, left: 0.3, right: 0.3, back: 0.32, fuzz: 0.07, noise: 0.18 }, types: ['straight', 'wavy', 'curly'] },
+  textured: { name: 'Short textured', spec: { top: 0.46, front: 0.46, left: 0.28, right: 0.28, back: 0.3, fuzz: 0.07, noise: 0.3 }, types: ['straight', 'wavy', 'curly'] },
+  topShortSides: { name: 'Medium top, short sides', spec: { top: 0.72, front: 0.7, left: 0.24, right: 0.24, back: 0.27, fuzz: 0.08, fade: 0.3, noise: 0.15 }, types: ['straight', 'wavy', 'curly', 'tight'] },
+  longer: { name: 'Longer hair', spec: { top: 0.86, front: 0.86, left: 0.62, right: 0.62, back: 0.72, fuzz: 0.06, noise: 0.16 }, types: ['straight', 'wavy', 'curly'] },
+  afro: { name: 'Short afro', spec: { top: 0.66, front: 0.6, left: 0.56, right: 0.56, back: 0.56, fuzz: 0.05, noise: 0.12 }, types: ['tight'] },
+};
+
+// the starting hair for a cut: a preset that suits the customer's hair type and leaves
+// something to cut everywhere the request wants it shorter
+export function startStyle(cutId, look = null) {
   const cut = HAIRCUTS[cutId];
-  const s = { ...(cut.start || HAIR_START) };
-  const j = () => rand(0.92, 1.1);
+  const tgt = cut.target || {};
+  const type = look?.hairType || 'straight';
+  const ok = (p) => ['top', 'front', 'left', 'right', 'back'].every((k) => tgt[k] === undefined || p.spec[k] >= tgt[k] + 0.12);
+  let choices = Object.values(START_PRESETS).filter((p) => p.types.includes(type) && ok(p));
+  if (!choices.length) choices = Object.values(START_PRESETS).filter(ok);
+  const base = choices.length ? pick(choices).spec : (cut.start || HAIR_START);
+  const s = { ...base };
+  const j = () => rand(0.94, 1.08);
   for (const k of ['top', 'front', 'left', 'right', 'back']) s[k] = clamp(s[k] * j(), 0.05, 1);
   s.right = s.left * rand(0.95, 1.05);
-  s.noise = 0.14;
+  s.noise = base.noise ?? 0.14;
   return s;
 }
 

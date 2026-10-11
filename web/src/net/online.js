@@ -46,7 +46,7 @@ function cleanLook(L) {
   if (!L || typeof L !== 'object') return null;
   const colors = {};
   for (const [k, v] of Object.entries(L.colors || {}).slice(0, 40)) if (/^[A-Za-z]{2,12}$/.test(k) && HEX.test(v)) colors[k] = v;
-  const accessories = Array.isArray(L.accessories) ? L.accessories.filter((a) => typeof a === 'string' && /^[a-z]{2,12}$/.test(a)).slice(0, 10) : [];
+  const accessories = Array.isArray(L.accessories) ? L.accessories.filter((a) => typeof a === 'string' && /^[a-z]{2,12}\d?$/.test(a)).slice(0, 10) : [];
   return {
     colors, accessories,
     scale: num(L.scale, 0.85, 1.15, 1), width: num(L.width, 0.9, 1.15, 1), hunch: num(L.hunch, 0, 0.3, 0),
