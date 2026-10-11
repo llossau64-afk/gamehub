@@ -3,21 +3,27 @@
 import * as THREE from 'three';
 import { spawnProp, part } from '../world/props.js';
 import { propMaterial } from '../render/materials.js';
-import { HEAD_C, REGIONS, REGION_ID, EDGE_REGIONS } from '../hair/hair.js';
+import { HEAD_C, REGIONS, REGION_ID, EDGE_REGIONS, hairline } from '../hair/hair.js';
 import { BEARD_ID } from '../hair/beard.js';
-import { GUARDS, stats as cutStats } from '../hair/styles.js';
+import { GUARDS, guardIndex, fadeTarget, stats as cutStats } from '../hair/styles.js';
+import { HairSystem } from '../hair/hair.js';
 import { audio } from '../audio/audio.js';
 import { store } from '../core/save.js';
 import { inventory, applySkin } from './items.js';
 import { clamp, damp, dampAngle, rand, pick, chance, lerp, smooth } from '../core/util.js';
 
+// cutting tools, then styling tools (keys 1-9, 0 for colour)
 export const TOOLS = [
-  { id: 'clipper', label: 'Clipper', icon: 'clipper', electric: true },
-  { id: 'scissors', label: 'Scissors', icon: 'scissors', electric: false },
-  { id: 'trimmer', label: 'Trimmer', icon: 'trimmer', electric: true },
-  { id: 'comb', label: 'Comb', icon: 'comb', electric: false },
-  { id: 'spray', label: 'Spray', icon: 'spray', electric: false },
-  { id: 'dye', label: 'Colour', icon: 'paint', electric: false },
+  { id: 'clipper', label: 'Clipper', icon: 'clipper', electric: true, group: 'cut', key: '1' },
+  { id: 'scissors', label: 'Scissors', icon: 'scissors', electric: false, group: 'cut', key: '2' },
+  { id: 'trimmer', label: 'Trimmer', icon: 'trimmer', electric: true, group: 'cut', key: '3' },
+  { id: 'comb', label: 'Comb', icon: 'comb', electric: false, group: 'style', key: '4' },
+  { id: 'spray', label: 'Spray', icon: 'spray', electric: false, group: 'style', key: '5' },
+  { id: 'brush', label: 'Brush', icon: 'brush', electric: false, group: 'style', key: '6' },
+  { id: 'dryer', label: 'Dryer', icon: 'dryer', electric: false, group: 'style', key: '7' },
+  { id: 'pomade', label: 'Wax', icon: 'wax', electric: false, group: 'style', key: '8' },
+  { id: 'powder', label: 'Powder', icon: 'powder', electric: false, group: 'style', key: '9' },
+  { id: 'dye', label: 'Colour', icon: 'paint', electric: false, group: 'cut', key: '0' },
 ];
 
 const SMALLTALK = [
@@ -40,7 +46,7 @@ export class BarberMode {
     this.active = false;
     this.raycaster = new THREE.Raycaster();
     this.tool = 'clipper';
-    this.guard = 4;
+    this.guard = guardIndex('3');
     this.power = false;
     this.camPitch = 0.32;
     this.camDist = 0.66;
@@ -82,7 +88,7 @@ export class BarberMode {
     this.dyeBristleMat = new THREE.MeshStandardMaterial({ color: '#222', roughness: 0.6 });
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.012, 0.03), this.dyeBristleMat);
     head.position.z = -0.01; db.add(head);
-    this.toolObjs = { clipper: cl, scissors: sc, trimmer: tr, comb: cb, spray: sp, dye: db };
+    this.toolObjs = { clipper: cl, scissors: sc, trimmer: tr, comb: cb, spray: sp, dye: db, ...styleTools() };
     const eq = inventory(this.game.save).equip;
     for (const t of ['clipper', 'scissors', 'spray']) if (eq[t]) applySkin(this.toolObjs[t], t, eq[t]);
     for (const o of Object.values(this.toolObjs)) {
@@ -100,7 +106,7 @@ export class BarberMode {
     this.time = 0;
     this.tool = opts.tool || null;
     this.power = false;
-    this.guard = 4;
+    this.guard = guardIndex('3');
     this.warned = false;
     this.combed = new Set();
     this.smalltalkT = rand(14, 22);
@@ -123,7 +129,8 @@ export class BarberMode {
     g.ui.showBarber({
       cutName: customer.cut.name,
       regions: Object.keys(customer.cut.target),
-      style: !!customer.cut.style,
+      style: !!(customer.cut.style || customer.cut.styling),
+      styleLabel: customer.cut.styling?.label,
       dye: customer.dyeReq || null,
       tools: TOOLS.filter((t) => t.id !== 'dye' || customer.dyeReq),
       onTool: (id) => this.selectTool(id),
@@ -152,6 +159,19 @@ export class BarberMode {
     g.player.arms.L.set({ visible: false });
     if (this.tool) this.selectTool(this.tool, true);
     if (!opts.tutorial) this.introduceMechanics(customer);
+    // beginners get guide lines on a fade: where to switch to the next guard
+    const fadesDone = g.save.stats?.fadeCuts || 0;
+    if (customer.cut.fade && !opts.tutorial && (fadesDone < 4 || g.settings.fadeGuides)) {
+      const f = customer.cut.fade;
+      customer.hair.setGuides((phi, theta, region) => {
+        if (region < 3 || region > 5) return null;
+        const t = fadeTarget(f, hairline(phi), theta, phi);
+        let gi = 0;
+        for (let i = 0; i < GUARDS.length; i++) if (GUARDS[i].len <= t + 0.004) gi = i;
+        return gi;
+      });
+      this.guidesOn = true;
+    } else this.guidesOn = false;
   }
 
   // new mechanics get one short tip the first time they show up
@@ -162,6 +182,10 @@ export class BarberMode {
     if (!seen.includes('combSpray')) tips.push(['combSpray', g.input.touch ? 'New tools: comb for a groomed finish, spray for cleaner scissor cuts' : 'New tools: comb (4) for a groomed finish, spray (5) for cleaner scissor cuts']);
     if (c.cut.fade && !seen.includes('fade')) tips.push(['fade', 'Fade: short guard at the bottom, then longer guards higher up']);
     if (c.cut.beard && !seen.includes('beard')) tips.push(['beard', 'Beard: rotate the view to the front, trimmer for the neckline']);
+    if (c.cut.fade && this.guidesOn && !seen.includes('fadeGuide')) tips.push(['fadeGuide', 'The cyan lines show where to switch guards: shortest guard below the lowest line, one guard longer above each line']);
+    if (c.cut.fade?.burst && !seen.includes('burst')) tips.push(['burst', 'Burst fade: the fade arcs around the ear — leave the back and the temples longer']);
+    if (c.cut.fade?.drop && !seen.includes('drop')) tips.push(['drop', 'Drop fade: the fade line dips down behind the ear towards the neck']);
+    if (c.cut.styling && !seen.includes('styling')) tips.push(['styling', g.input.touch ? 'Styling: after cutting, brush or blow-dry in the direction shown on the card, then wax or powder' : 'Styling: after cutting, brush (6) or blow-dry (7) in the direction on the card, then wax (8) or powder (9)']);
     if (c.cut.style && !seen.includes('style')) tips.push(['style', c.cut.style === 'part' ? 'Side part: cut first, then comb the top until it lies flat. Spray helps.' : c.cut.style === 'center' ? 'Curtains: cut first, then comb the top away from the middle. Spray helps.' : 'Slick back: cut first, then comb the top back until it lies flat. Spray helps.']);
     if (c.cut.curly && !seen.includes('curly')) tips.push(['curly', 'Curly hair: scissors on top, clippers for the fade']);
     if (c.vip && !seen.includes('vip')) tips.push(['vip', 'VIP: four stars or more, or your reputation takes a hit']);
@@ -175,9 +199,22 @@ export class BarberMode {
     if (tips.length) g.persist();
   }
 
+  // live styling meter (throttled: the full scan is not free)
+  styleLive() {
+    const now = performance.now();
+    if (!this._styleT || now - this._styleT > 250) {
+      this._styleT = now;
+      const h = this.c.hair;
+      this._styleV = clamp(h.styledShare() * 0.3 + h.styleScore(this.c.cut.styling) * 0.7, 0, 1);
+    }
+    return this._styleV;
+  }
+
   exit() {
     this.active = false;
     if (this.motor) { this.motor.stop(); this.motor = null; }
+    if (this.dryerSnd) { this.dryerSnd.stop(); this.dryerSnd = null; }
+    this.c?.hair.setGuides(null);
     this.power = false;
     for (const o of Object.values(this.toolObjs)) { o.parent?.remove(o); }
     this.toolObjs = {};
@@ -212,6 +249,7 @@ export class BarberMode {
     const keepPower = false;
     this.power = keepPower;
     for (const [k, o] of Object.entries(this.toolObjs)) o.visible = k === id;
+    if (this.dryerSnd) { this.dryerSnd.stop(); this.dryerSnd = null; }
     this.swapT = 0.35;
     audio.whoosh(0.5);
     if (id === 'scissors') audio.scissorOpen();
@@ -252,7 +290,7 @@ export class BarberMode {
     this.game.ui.updateBarber({
       tool: this.tool, power: this.power, electric: !!(t && t.electric), guard: this.guard,
       cut: this.c.cut, stats: this.stats, time: this.time, focus: this.focus,
-      styled: this.c.cut.style ? this.c.hair.styledShare() : null,
+      styled: this.c.cut.styling ? this.styleLive() : this.c.cut.style ? this.c.hair.styledShare() : null,
       dyed: this.c.dyeReq ? this.dyeCoverage() : null,
     });
   }
@@ -269,7 +307,11 @@ export class BarberMode {
     if (input.pressed('tool3')) this.selectTool('trimmer');
     if (input.pressed('tool4')) this.selectTool('comb');
     if (input.pressed('tool5')) this.selectTool('spray');
-    if (input.pressed('tool6') && this.c.dyeReq) this.selectTool('dye');
+    if (input.pressed('tool6')) this.selectTool('brush');
+    if (input.pressed('tool7')) this.selectTool('dryer');
+    if (input.pressed('tool8')) this.selectTool('pomade');
+    if (input.pressed('tool9')) this.selectTool('powder');
+    if (input.pressed('tool0') && this.c.dyeReq) this.selectTool('dye');
     if (input.pressed('power')) this.togglePower();
     if (this.tool === 'clipper') {
       if (input.pressed('guardDown')) this.setGuard(this.guard - 1);
@@ -286,6 +328,16 @@ export class BarberMode {
     this.raycaster.setFromCamera(ndc, g.camera);
     let hit = c.hair.pick(this.raycaster.ray, 0.02);
     if (hit) { hit.sys = c.hair; hit.distance = hit.point.distanceTo(g.camera.position); }
+    // the stroke on the scalp since last frame, in east/down components (for combing & drying)
+    this.stroke = [0, 0];
+    if (hit && this.lastHit && p.down) {
+      let dphi = hit.phi - this.lastHit.phi;
+      if (dphi > Math.PI) dphi -= Math.PI * 2; if (dphi < -Math.PI) dphi += Math.PI * 2;
+      const e = dphi * Math.sin(hit.theta), sd = hit.theta - this.lastHit.theta;
+      const l = Math.hypot(e, sd);
+      if (l > 0.004 && l < 0.5) { this.strokeSm ||= [0, 0]; this.strokeSm[0] = this.strokeSm[0] * 0.5 + e / l * 0.5; this.strokeSm[1] = this.strokeSm[1] * 0.5 + sd / l * 0.5; this.stroke = this.strokeSm; }
+    }
+    this.lastHit = hit && hit.sys === c.hair ? { phi: hit.phi, theta: hit.theta } : null;
     const bh = c.beard ? c.beard.pick(this.raycaster) : null;
     if (bh && (!hit || bh.distance < hit.distance + 0.004)) hit = bh;
     // camera orbit: right mouse always, left mouse in rotate mode, keys any time
@@ -352,11 +404,21 @@ export class BarberMode {
           z.copy(n).multiplyScalar(-0.6).addScaledVector(towardCrown, 0.8).normalize();
           yv.copy(n);
           pos = hit.point.clone().addScaledVector(n, 0.01 + len * 0.4);
-        } else if (this.tool === 'comb') {
-          // teeth (-y) into the hair, spine along the stroke
+        } else if (this.tool === 'comb' || this.tool === 'brush') {
+          // teeth / bristles (-y) into the hair, handle along the stroke
           yv.copy(n);
           z.copy(side);
-          pos = hit.point.clone().addScaledVector(n, 0.012 + len * 0.35);
+          pos = hit.point.clone().addScaledVector(n, (this.tool === 'brush' ? 0.02 : 0.012) + len * 0.35);
+        } else if (this.tool === 'dryer') {
+          // nozzle (+z) toward the hair from 15 cm, tilted with the stroke
+          z.copy(n).negate();
+          yv.set(0, 1, 0).addScaledVector(z, -z.y).normalize();
+          pos = hit.point.clone().addScaledVector(n, 0.15);
+        } else if (this.tool === 'pomade' || this.tool === 'powder') {
+          // fingertips with product: the tin/bottle rides just above the hair
+          z.copy(n).multiplyScalar(-0.4).addScaledVector(towardCrown, 0.9).normalize();
+          yv.copy(n);
+          pos = hit.point.clone().addScaledVector(n, 0.03 + len * 0.4);
         } else if (this.tool === 'spray') {
           // nozzle (+z) aimed at the hair from a hand's width away
           z.copy(n).negate();
@@ -431,12 +493,33 @@ export class BarberMode {
         } else if (this.tool === 'comb') {
           const mv = Math.hypot(p.dragDX, p.dragDY);
           if (mv > 0.5 || p.touch) {
-            sys.comb(hit.phi, hit.theta, beard ? undefined : 0.03);
+            if (beard) sys.comb(hit.phi, hit.theta); else sys.comb(hit.phi, hit.theta, 0.03, this.stroke[0], this.stroke[1]);
             if (!beard && this.c.cut.style) this.cutDirty = true;
             this.markCombed(sys, hit);
             this.combSnd = (this.combSnd || 0) - dt;
             if (this.combSnd <= 0) { this.combSnd = 0.12; audio.noiseBurst(0.05, { vol: 0.05, freq: rand(2500, 3800), q: 2 }); }
           }
+        } else if (this.tool === 'brush' && !beard) {
+          const mv = Math.hypot(p.dragDX, p.dragDY);
+          if (mv > 0.5 || p.touch) {
+            sys.brushStroke(hit.phi, hit.theta, this.stroke[0], this.stroke[1], 0.045);
+            this.cutDirty = true;
+            this.brushSnd = (this.brushSnd || 0) - dt;
+            if (this.brushSnd <= 0) { this.brushSnd = 0.16; audio.noiseBurst(0.09, { vol: 0.06, freq: rand(1600, 2400), q: 0.8 }); }
+          }
+        } else if (this.tool === 'dryer' && !beard) {
+          // air goes with the stroke; holding still blows away from you
+          let [de, ds] = this.stroke;
+          if (!de && !ds) { const away = hit.point.clone().sub(g.camera.position).normalize(); [de, ds] = HairSystem.tangentOf(hit.phi, hit.theta, [away.x, away.y, away.z].map((v, i) => v)); }
+          sys.blowDry(hit.phi, hit.theta, de, ds, dt, 0.05);
+          this.cutDirty = true;
+          this.dryerOn = 0.15;
+        } else if ((this.tool === 'pomade' || this.tool === 'powder') && !beard) {
+          sys.applyProduct(this.tool, hit.phi, hit.theta, dt, 0.04);
+          this.cutDirty = true;
+          this.prodSnd = (this.prodSnd || 0) - dt;
+          if (this.prodSnd <= 0) { this.prodSnd = 0.22; audio.noiseBurst(0.12, { vol: this.tool === 'powder' ? 0.05 : 0.035, freq: this.tool === 'powder' ? 5200 : 700, q: 0.7 }); }
+          if (this.tool === 'powder' && Math.random() < dt * 8) g.mist?.burst(toolObj.position.clone(), hit.point);
         } else if (this.tool === 'dye' && c.dyeReq) {
           const mv = Math.hypot(p.dragDX, p.dragDY);
           if (mv > 0.3 || p.touch) {
@@ -471,6 +554,11 @@ export class BarberMode {
       }
     }
     if (!cutting) this.snipT = Math.min(this.snipT, 0.02);
+    // the dryer roars while it blows
+    this.dryerOn = Math.max(0, (this.dryerOn || 0) - dt);
+    if (this.tool === 'dryer' && p.down && !this.dragging && this.mode === 'cut') {
+      if (!this.dryerSnd) { this.dryerSnd = audio.dryer?.(); if (!this.reactedDryer) { this.reactedDryer = true; c.ch.setEmotion('surprised', 0.7); } }
+    } else if (this.dryerSnd) { this.dryerSnd.stop(); this.dryerSnd = null; }
     this.load = damp(this.load, 0, 6, dt);
     if (this.motor) this.motor.setLoad(this.load);
     this.sprayAnim = Math.max(0, (this.sprayAnim || 0) - dt);
@@ -681,4 +769,42 @@ export class BarberMode {
       }
     }
   }
+}
+
+
+// styling tools, built from simple parts with real proportions
+function styleTools() {
+  const M = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.45, ...o });
+  // paddle brush: oval head with rubber cushion and bristle rows, handle along +z
+  const brush = new THREE.Group();
+  const body = M('#1d1b1a', { roughness: 0.35 });
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.012, 24), body); head.scale.set(1, 1, 1.35); brush.add(head);
+  const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.004, 24), M('#7a2a26', { roughness: 0.8 })); pad.scale.set(1, 1, 1.35); pad.position.y = -0.007; brush.add(pad);
+  const bristle = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.0012, 0.0008, 0.012, 4), M('#2a2420'), 60);
+  const mm = new THREE.Matrix4(); let bi = 0;
+  for (let i = -3; i <= 3; i++) for (let j = -4; j <= 4; j++) { if (bi >= 60 || (i * i) / 12 + (j * j) / 20 > 1) continue; mm.makeTranslation(i * 0.008, -0.014, j * 0.008); bristle.setMatrixAt(bi++, mm); }
+  bristle.count = bi; brush.add(bristle);
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.01, 0.11, 12), body); handle.rotation.x = Math.PI / 2; handle.position.z = 0.1; brush.add(handle);
+  // hair dryer: body, nozzle (+z), handle down
+  const dryer = new THREE.Group();
+  const dm = M('#1b1b1d', { roughness: 0.3 }), chrome = M('#c9ccd0', { metalness: 0.9, roughness: 0.2 });
+  const db = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.036, 0.16, 20), dm); db.rotation.x = Math.PI / 2; dryer.add(db);
+  const back = new THREE.Mesh(new THREE.CylinderGeometry(0.041, 0.041, 0.012, 20), M('#3a3a3c', { roughness: 0.8 })); back.rotation.x = Math.PI / 2; back.position.z = -0.085; dryer.add(back);
+  const noz = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.034, 0.05, 20), dm); noz.rotation.x = Math.PI / 2; noz.position.z = 0.1; dryer.add(noz);
+  const tip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.012, 0.012), chrome); tip.position.z = 0.125; dryer.add(tip);
+  const hd = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.017, 0.12, 14), dm); hd.position.set(0, -0.07, -0.02); hd.rotation.x = -0.25; dryer.add(hd);
+  const sw = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.02, 0.006), M('#c8302b')); sw.position.set(0, -0.05, 0.0); dryer.add(sw);
+  // wax tin: flat round tin, lid off, product visible
+  const pomade = new THREE.Group();
+  const tin = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.018, 24), M('#c9922e', { metalness: 0.7, roughness: 0.3 })); pomade.add(tin);
+  const wax = new THREE.Mesh(new THREE.CylinderGeometry(0.027, 0.027, 0.004, 24), M('#e9dcc0', { roughness: 0.25 })); wax.position.y = 0.008; pomade.add(wax);
+  const label = new THREE.Mesh(new THREE.CylinderGeometry(0.0305, 0.0305, 0.01, 24, 1, true), M('#24344d')); pomade.add(label);
+  // texture powder: a small matte bottle with a sifter cap
+  const powder = new THREE.Group();
+  const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.02, 0.07, 16), M('#e8e2d6', { roughness: 0.9 })); powder.add(bottle);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.017, 0.016, 16), M('#1b1b1d')); cap.position.y = 0.043; powder.add(cap);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.0202, 0.0202, 0.022, 16, 1, true), M('#7a2a26')); band.position.y = -0.005; powder.add(band);
+  powder.rotation.x = Math.PI / 2;
+  const pw = new THREE.Group(); pw.add(powder);
+  return { brush, dryer, pomade, powder: pw };
 }

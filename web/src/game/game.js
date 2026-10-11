@@ -1272,7 +1272,7 @@ export class Game {
     await this.ui.showResult({
       kicker: c.tutorial ? 'First cut complete' : `${c.name} · ${c.cut.name}`,
       title: ['Rough', 'Not great', 'Decent', 'Clean', 'Perfect'][result.stars - 1] + (result.stars >= 4 ? '!' : ''),
-      quote, stars: result.stars, accuracy: result.accuracy, symmetry: result.symmetry, edges: result.edges, fade: result.fade, style: result.style, dye: result.dye,
+      quote, stars: result.stars, accuracy: result.accuracy, symmetry: result.symmetry, edges: result.edges, fade: result.fade, style: result.style, dye: result.dye, overall: result.overall,
       speed: result.speed, groom: result.groom, pay: pay.pay, tip: pay.tip, xp: pay.xp, level: lvlBefore, levelUp: up,
       xpBefore, xpNeedBefore: needBefore, xpAfter: s.xp, xpNeedAfter: xpFor(s.level),
     });
@@ -1282,6 +1282,7 @@ export class Game {
     if (result.stars === 5) { s.stats.fiveStars++; platform.happyTime(); }
     s.stats.cuts ||= {};
     s.stats.cuts[c.cutId] = (s.stats.cuts[c.cutId] || 0) + 1;
+    if (c.cut.fade && !c.tutorial) s.stats.fadeCuts = (s.stats.fadeCuts || 0) + 1;
     if (result.stars === 5 && c.cut.fade) s.stats.fades5 = (s.stats.fades5 || 0) + 1;
     if (result.stars === 5 && c.cut.beard) s.stats.beards5 = (s.stats.beards5 || 0) + 1;
     if (result.stars === 5 && c.cut.style) s.stats.styled5 = (s.stats.styled5 || 0) + 1;

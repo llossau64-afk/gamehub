@@ -7,12 +7,14 @@ export const GUARDS = [
   { id: '0', mm: 0.5, len: 0.008 },
   { id: '0.5', mm: 1.5, len: 0.025 },
   { id: '1', mm: 3, len: 0.05 },
+  { id: '1.5', mm: 4.5, len: 0.075 },
   { id: '2', mm: 6, len: 0.1 },
   { id: '3', mm: 10, len: 0.167 },
   { id: '4', mm: 13, len: 0.217 },
 ];
 
 export const mm = (len) => Math.round(len * 60);
+export const guardIndex = (id) => GUARDS.findIndex((g) => g.id === id);
 
 const HAIR_START = { top: 0.6, front: 0.58, left: 0.38, right: 0.38, back: 0.4, fuzz: 0.07 };
 const BEARD_START = { chin: 0.3, cheeks: 0.24, moustache: 0.26, neck: 0.12 };
@@ -80,6 +82,7 @@ export const HAIRCUTS = {
   },
   texturedCrop: {
     name: 'Textured Crop', price: 46, level: 5, par: 110,
+    styling: { dir: 'forward', volume: 0.4, label: 'Forward, powder texture' },
     lines: ['Short textured top', 'Short fringe', 'Sides guard 1, faded'],
     target: { top: 0.28, front: 0.22, left: 0, right: 0, back: 0, edges: 0 },
     fade: { bottom: 0.025, top: 0.1, height: 0.4 },
@@ -112,6 +115,7 @@ export const HAIRCUTS = {
   },
   sidePart: {
     name: 'Side Part', price: 45, level: 4, par: 115, style: 'part',
+    styling: { dir: 'part', product: 0.4, label: 'Side part, a bit of wax' },
     lines: ['Classic top, keep it long', 'Sides guard 2', 'Comb it into a side part'],
     target: { top: 0.46, front: 0.5, left: 0.1, right: 0.1, back: 0.1, edges: 0 },
     tol: 0.06,
@@ -127,6 +131,7 @@ export const HAIRCUTS = {
   },
   frenchCrop: {
     name: 'French Crop', price: 48, level: 5, par: 115,
+    styling: { dir: 'forward', product: 0.25, label: 'Fringe brushed forward' },
     lines: ['Short top, longer fringe', 'Blunt fringe with scissors', 'Sides faded to 6 mm'],
     target: { top: 0.22, front: 0.32, left: 0, right: 0, back: 0, edges: 0 },
     fade: { bottom: 0.008, top: 0.1, height: 0.45 },
@@ -135,6 +140,7 @@ export const HAIRCUTS = {
   },
   slickBack: {
     name: 'Slick Back', price: 58, level: 5, par: 125, style: 'back',
+    styling: { dir: 'back', product: 0.7, label: 'Slicked back with wax' },
     lines: ['Keep the top long', 'Sides faded to 13 mm', 'Comb everything back'],
     target: { top: 0.58, front: 0.56, left: 0, right: 0, back: 0, edges: 0 },
     fade: { bottom: 0.05, top: 0.217, height: 0.6 },
@@ -151,6 +157,7 @@ export const HAIRCUTS = {
   },
   curlyFade: {
     name: 'Curly Top', price: 62, level: 7, par: 130, curly: true,
+    styling: { dir: 'up', volume: 0.5, label: 'Curls lifted, volume' },
     lines: ['Keep the curls on top', 'Mid fade on the sides', 'Shape it with scissors'],
     target: { top: 0.5, front: 0.44, left: 0, right: 0, back: 0, edges: 0 },
     fade: { bottom: 0.008, top: 0.167, height: 0.62 },
@@ -159,6 +166,7 @@ export const HAIRCUTS = {
   },
   longerTop: {
     name: 'Longer Top', price: 44, level: 3, par: 110,
+    styling: { dir: 'messy', volume: 0.45, label: 'Messy with volume' },
     lines: ['Messy longer top', 'Scissors on top, keep the length', 'Sides faded to 6 mm'],
     target: { top: 0.55, front: 0.5, left: 0, right: 0, back: 0, edges: 0 },
     fade: { bottom: 0.008, top: 0.1, height: 0.5 },
@@ -167,6 +175,7 @@ export const HAIRCUTS = {
   },
   curtainHair: {
     name: 'Curtain Hair', price: 50, level: 4, par: 120, style: 'center',
+    styling: { dir: 'center', volume: 0.2, label: 'Parted in the middle' },
     lines: ['Long top, middle parting', 'Sides and back tidy at 18 mm', 'Comb it away from the centre'],
     target: { top: 0.56, front: 0.62, left: 0.3, right: 0.3, back: 0.3, edges: 0 },
     tol: 0.065,
@@ -178,6 +187,67 @@ export const HAIRCUTS = {
     target: { top: 0.34, front: 0.3, left: 0.1, right: 0.1, back: 0.55, edges: 0 },
     tol: 0.06,
     start: { top: 0.58, front: 0.56, left: 0.4, right: 0.4, back: 0.7, fuzz: 0.06 },
+  },
+  quiff: {
+    name: 'Quiff', price: 64, level: 6, par: 135,
+    styling: { dir: 'up', volume: 0.7, product: 0.35, label: 'Blow-dried up, wax to hold' },
+    lines: ['Long front, swept up', 'Low fade to 10 mm', 'Dryer + wax for the quiff'],
+    target: { top: 0.5, front: 0.62, left: 0, right: 0, back: 0, edges: 0 },
+    fade: { bottom: 0.008, top: 0.167, height: 0.4 },
+    tol: 0.06,
+    start: { top: 0.74, front: 0.82, left: 0.42, right: 0.42, back: 0.44, fuzz: 0.07 },
+  },
+  burstFade: {
+    name: 'Burst Fade', price: 60, level: 6, par: 130,
+    styling: { dir: 'forward', volume: 0.3, label: 'Top pushed forward' },
+    lines: ['Fade curves around the ear', 'Back stays longer', 'Top medium, textured'],
+    target: { top: 0.38, front: 0.36, left: 0, right: 0, back: 0, edges: 0 },
+    fade: { bottom: 0.008, top: 0.167, height: 0.6, burst: true },
+    tol: 0.05,
+    start: HAIR_START,
+  },
+  dropFade: {
+    name: 'Drop Fade', price: 58, level: 7, par: 130,
+    lines: ['Fade drops behind the ear', 'Skin at the bottom, 10 mm up top', 'Clean edges'],
+    target: { top: 0.4, front: 0.38, left: 0, right: 0, back: 0, edges: 0 },
+    fade: { bottom: 0.0, top: 0.167, height: 0.55, drop: true },
+    tol: 0.05,
+    start: HAIR_START,
+  },
+  edgarCut: {
+    name: 'Edgar Cut', price: 62, level: 7, par: 130,
+    styling: { dir: 'forward', product: 0.3, label: 'Blunt fringe, combed forward' },
+    lines: ['Straight blunt fringe', 'High skin fade', 'Comb it all forward'],
+    target: { top: 0.3, front: 0.3, left: 0, right: 0, back: 0, edges: 0 },
+    fade: { bottom: 0.0, top: 0.1, height: 0.85 },
+    tol: 0.045,
+    start: HAIR_START,
+  },
+  modernMullet: {
+    name: 'Modern Mullet', price: 62, level: 7, par: 130,
+    styling: { dir: 'messy', volume: 0.45, label: 'Messy, powder texture' },
+    lines: ['Textured top', 'Tapered sides', 'Long in the back'],
+    target: { top: 0.4, front: 0.36, left: 0.1, right: 0.1, back: 0.5, edges: 0 },
+    tol: 0.06,
+    start: { top: 0.62, front: 0.6, left: 0.4, right: 0.4, back: 0.7, fuzz: 0.07 },
+  },
+  burstMullet: {
+    name: 'Burst Fade Mullet', price: 72, level: 8, par: 145,
+    styling: { dir: 'messy', volume: 0.4, label: 'Messy texture' },
+    lines: ['Burst fade around the ear', 'Long flow in the back', 'Textured top'],
+    target: { top: 0.4, front: 0.36, left: 0, right: 0, back: 0, edges: 0 },
+    fade: { bottom: 0.008, top: 0.167, height: 0.55, burst: true, backLen: 0.5 },
+    tol: 0.06,
+    start: { top: 0.64, front: 0.6, left: 0.42, right: 0.42, back: 0.72, fuzz: 0.07 },
+  },
+  curlyTaper: {
+    name: 'Curly Taper', price: 56, level: 6, par: 125, curly: true,
+    styling: { dir: 'up', volume: 0.45, label: 'Curls lifted with powder' },
+    lines: ['Keep the curls on top', 'Taper at the hairline only', 'Shape with scissors'],
+    target: { top: 0.5, front: 0.46, left: 0, right: 0, back: 0, edges: 0 },
+    fade: { bottom: 0.025, top: 0.2, height: 0.3 },
+    tol: 0.06,
+    start: { top: 0.72, front: 0.66, left: 0.42, right: 0.42, back: 0.44, fuzz: 0.08 },
   },
 };
 
@@ -193,12 +263,25 @@ function fadeMean(f, region) {
     for (let j = 0; j < TEX_H; j++) {
       const th = (j + 0.5) / TEX_H * THETA_MAX;
       if (th < 0.95 || th > hl) continue;
-      sum += fadeTarget(f, hl, th); n++;
+      sum += fadeTarget(f, hl, th, phi); n++;
     }
   }
   return n ? sum / n : f.top;
 }
-export function fadeTarget(f, hl, theta) { return f.bottom + (f.top - f.bottom) * clamp((hl - theta) / f.height, 0, 1); }
+// burst: the fade arcs around the ear and the back keeps its length (or grows to backLen);
+// drop: the fade line sits higher on the sides and drops down behind the ear
+export function fadeTarget(f, hl, theta, phi = Math.PI / 2) {
+  const a = Math.abs(phi);
+  let h = f.height, top = f.top;
+  if (f.drop) h *= 1 + 0.55 * clamp(1 - Math.abs(a - 1.4) / 1.2, 0, 1) - 0.35 * clamp((a - 2.4) / 0.6, 0, 1);
+  let t = clamp((hl - theta) / h, 0, 1);
+  if (f.burst) {
+    const ear = clamp(1 - Math.abs(a - 1.65) / 0.9, 0, 1);   // 1 over the ear, 0 at the temple and nape
+    t = clamp(t + (1 - ear) * 1.2, 0, 1);
+    if (f.backLen) top = top + (f.backLen - top) * clamp((a - 2.2) / 0.6, 0, 1);
+  }
+  return f.bottom + (top - f.bottom) * t;
+}
 for (const c of Object.values(HAIRCUTS)) if (c.fade) for (const r of ['left', 'right', 'back']) c.target[r] = fadeMean(c.fade, r);
 
 export function availableHaircuts(level) {
@@ -215,7 +298,7 @@ export function stats(c) {
 const WEIGHTS = { top: 1.2, front: 0.8, left: 1, right: 1, back: 1, chin: 1.2, cheeks: 1, moustache: 0.8 };
 
 // Scoring ----------------------------------------------------------------
-// returns { accuracy, symmetry, edges, speed, fade, overall, stars, perRegion }
+// returns { accuracy, symmetry, edges, speed, fade, style, overall, stars, perRegion }
 export function evaluate(c, cutId, seconds) {
   const cut = HAIRCUTS[cutId];
   const st = stats(c);
@@ -248,8 +331,11 @@ export function evaluate(c, cutId, seconds) {
   const speed = clamp(1 - Math.max(0, seconds - cut.par) / (cut.par * 1.6), 0.4, 1);
   let overall = accuracy * 0.58 + symmetry * 0.14 + edges * 0.16 + speed * 0.12;
   if (fade !== null) overall = overall * 0.75 + fade * 0.25;
-  const style = cut.style ? c.hair.styledShare() : null;
-  if (style !== null) overall = overall * 0.8 + style * 0.2;
+  // styling: direction / product / volume against what the cut asks for
+  let style = null;
+  if (cut.styling) style = clamp(c.hair.styledShare() * 0.3 + c.hair.styleScore(cut.styling) * 0.7, 0, 1);
+  else if (cut.style) style = c.hair.styledShare();
+  if (style !== null) overall = overall * 0.78 + style * 0.22;
   const stars = starsFor(overall);
   return { accuracy, symmetry, edges, speed, fade, style, overall, stars, perRegion: per };
 }
@@ -269,7 +355,7 @@ export function fadeScore(hair, f) {
       if (reg < 3 || reg > 5) continue;
       const th = (j + 0.5) / TEX_H * THETA_MAX;
       const v = hair.len[k];
-      err += Math.abs(v - fadeTarget(f, hl, th)); n++;
+      err += Math.abs(v - fadeTarget(f, hl, th, phi)); n++;
       if (prev !== null) { orderN++; if (v <= prev + 0.008) order++; }
       prev = v;
     }

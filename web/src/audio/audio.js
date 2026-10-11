@@ -524,6 +524,35 @@ class AudioEngine {
     };
   }
 
+  // hair dryer: fan whine + rushing air; returns { stop }
+  dryer() {
+    if (!this.ctx) return { stop() {} };
+    const ctx = this.ctx, t = ctx.currentTime;
+    const out = this._out('sfx', 0.1);
+    out.gain.value = 0.0001;
+    const n = ctx.createBufferSource(); n.buffer = this.noise; n.loop = true;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 0.6;
+    const ng = ctx.createGain(); ng.gain.value = 0.7;
+    n.connect(bp).connect(ng).connect(out);
+    const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(260, t);
+    o.frequency.exponentialRampToValueAtTime(610, t + 0.35);
+    const og = ctx.createGain(); og.gain.value = 0.12;
+    o.connect(og).connect(out);
+    n.start(t, Math.random()); o.start(t);
+    out.gain.exponentialRampToValueAtTime(0.07, t + 0.25);
+    let stopped = false;
+    return {
+      stop: () => {
+        if (stopped) return;
+        stopped = true;
+        const tt = ctx.currentTime;
+        o.frequency.exponentialRampToValueAtTime(180, tt + 0.4);
+        out.gain.setTargetAtTime(0.0001, tt, 0.08);
+        n.stop(tt + 0.6); o.stop(tt + 0.6);
+      },
+    };
+  }
+
   // flickering bulb hum
   hum(level = 1) {
     if (!this.ctx) return null;

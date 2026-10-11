@@ -795,6 +795,10 @@
 .speed { position: static; flex-direction: row; gap: 6px; padding: 0 6px 0 8px; background: transparent; box-shadow: none; border-left: 1px solid rgba(239,228,207,.14); margin-left: 4px; -webkit-backdrop-filter: none; backdrop-filter: none; }
 .speed input { width: 74px; accent-color: var(--brass-2); }
 .speed .sv { color: var(--paper); font-size: 11px; min-width: 44px; }
+.topts { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); display: flex; align-items: center; gap: 4px; padding: 5px 8px; background: var(--glass); border-radius: 14px; box-shadow: var(--lift), var(--hair); white-space: nowrap; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.topts .guards button { width: 32px; }
+.tool.g-style svg { stroke: #c9dbe6; }
+.tool.g-style.on svg { stroke: var(--ink); }
 .closeup { width: 36px; height: 36px; margin: 0 2px 0 4px; background: var(--glass-2); box-shadow: none; }
 .closeup svg { stroke: var(--paper); }
 .closeup.on { background: var(--brass-2); } .closeup.on svg { stroke: var(--ink); }
@@ -830,6 +834,7 @@
   .tool { width: 48px; height: 46px; } .tool span { font-size: 9.5px; } .tool svg { width: 20px; height: 20px; }
   .guards button { width: 24px; height: 26px; font-size: 12px; }
   .speed input { width: 54px; } .speed .sv { display: none; }
+  .topts .guards button { width: 28px; }
   .finish { padding: 10px 14px 9px; font-size: 15px; } .finish small { display: none; }
   .in-barber .subs { bottom: calc(84px + var(--safe-b)); }
   .regions { width: 168px; }
@@ -904,3 +909,20 @@
 @keyframes chIn { from { opacity: 0; transform: translate(-50%, 16px); } }
 .online-p .op-team { font-family: var(--cond); font-weight: 600; font-size: 15px; letter-spacing: .04em; color: var(--green); }
 .online-p .op-team:empty { display: none; }
+
+/* overall score under the stars */
+.result .overall { display: flex; justify-content: center; align-items: baseline; gap: 10px; margin: -2px 0 8px; font-family: var(--cond); text-transform: uppercase; letter-spacing: .2em; font-size: 12px; color: var(--ink-2); }
+.result .overall b { font-size: 26px; letter-spacing: .02em; color: var(--ink); }
+.result .overall b.good { color: #3f7d4e; } .result .overall b.mid { color: #b07d2a; } .result .overall b.bad { color: #b1452f; }
+/* ten tools in the dock: tighter on mid-size screens so FINISH never covers it */
+@media (max-width: 1180px) {
+  .tool { width: 49px; } .tool span { font-size: 9.5px; letter-spacing: .06em; }
+  .tools { left: calc(50% - 60px); }
+}
+@media (max-width: 900px) {
+  .tool { width: 44px; height: 44px; } .tool span { font-size: 8.5px; } .tool .num { display: none; }
+  .tools { left: calc(50% - 70px); }
+}
+@media (max-height: 520px) {
+  .in-barber .tip { top: calc(64px + var(--safe-t)) !important; bottom: auto !important; max-width: 50vw; font-size: 13px; }
+}

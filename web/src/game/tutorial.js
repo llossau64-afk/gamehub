@@ -3,6 +3,7 @@ import { referenceImage } from './reference.js';
 import * as THREE from 'three';
 import { audio } from '../audio/audio.js';
 import { TUTORIAL_LOOK } from '../chars/looks.js';
+import { guardIndex } from '../hair/styles.js';
 import { HAIRCUTS } from '../hair/styles.js';
 import { SPOTS } from '../world/shop.js';
 
@@ -96,7 +97,7 @@ export async function playTutorial(game) {
   await wait(1.0);
 
   // ---- 7: first section, right side, guard 3 is already on
-  bm.setGuard(4);
+  bm.setGuard(guardIndex('3'));
   ui.tip(key('Hold the mouse and move over the glowing hair', 'Drag across the glowing hair'), 'LMB');
   c.hair.setHighlight('right');
   bm.focus = 'right';

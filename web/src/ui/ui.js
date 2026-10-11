@@ -777,8 +777,12 @@ export class UI {
     this.root.classList.add('in-barber');
     const tools = el.querySelector('.tools');
     this.toolBtns = {};
+    // cutting tools, a divider, then the styling kit
+    let lastGroup = null;
     cfg.tools.forEach((t, i) => {
-      const b = h(`<button class="tool" data-tool="${t.id}"><span class="num">${i + 1}</span>${ICON[t.icon]}<span>${t.label}</span></button>`);
+      if (lastGroup && t.group !== lastGroup) tools.append(h('<i class="sep"></i>'));
+      lastGroup = t.group;
+      const b = h(`<button class="tool g-${t.group || 'cut'}" data-tool="${t.id}" title="${t.label}${t.key ? ' (' + t.key + ')' : ''}"><span class="num">${t.key || i + 1}</span>${ICON[t.icon] || ''}<span>${t.label}</span></button>`);
       b.addEventListener('pointerdown', (e) => { e.preventDefault(); cfg.onTool(t.id); });
       tools.append(b);
       this.toolBtns[t.id] = b;
@@ -794,7 +798,11 @@ export class UI {
       b.addEventListener('pointerdown', (e) => { e.preventDefault(); cfg.onGuard(i); });
       guards.querySelector('.row').append(b);
     });
-    tools.append(h('<i class="sep"></i>'), guards);
+    // clipper options float above the dock so the tool row stays compact
+    const opts = h('<div class="topts"></div>');
+    opts.append(guards);
+    tools.append(opts);
+    this.optsEl = opts;
     this.guardsEl = guards;
     // motor speed: how fast the clipper and trimmer take hair off (saved)
     const sp = h(`<div class="speed"><div class="gl">Speed</div><input type="range" min="0" max="1" step="0.05" value="${cfg.clipSpeed ?? 0.45}"><div class="sv"></div></div>`);
@@ -803,7 +811,7 @@ export class UI {
     lbl(+spIn.value);
     spIn.addEventListener('input', () => { lbl(+spIn.value); cfg.onSpeed?.(+spIn.value); });
     spIn.addEventListener('pointerdown', (e) => e.stopPropagation());
-    tools.append(sp);
+    opts.append(sp);
     this.speedEl = sp;
     el.querySelector('.finish').addEventListener('click', cfg.onFinish);
     this.finishBtn = el.querySelector('.finish');
@@ -828,7 +836,7 @@ export class UI {
     }
     this.styleEl = null;
     if (cfg.style) {
-      this.styleEl = h('<div class="rg style"><div class="h"><span>Combed into shape</span><b></b></div><div class="track"><div class="zone" style="left:85%;width:15%"></div><div class="cur"></div></div></div>');
+      this.styleEl = h(`<div class="rg style"><div class="h"><span>${cfg.styleLabel || 'Styled into shape'}</span><b></b></div><div class="track"><div class="zone" style="left:85%;width:15%"></div><div class="cur"></div></div></div>`);
       regions.append(this.styleEl);
     }
     // left: what the mouse does (cut / rotate the view around the head)
@@ -882,6 +890,7 @@ export class UI {
     this.powerBtn.style.display = st.electric ? '' : 'none';
     this.guardsEl.style.display = st.tool === 'clipper' ? '' : 'none';
     if (this.speedEl) this.speedEl.style.display = st.tool === 'clipper' || st.tool === 'trimmer' ? '' : 'none';
+    if (this.optsEl) this.optsEl.style.display = st.tool === 'clipper' || st.tool === 'trimmer' ? '' : 'none';
     this.guardsEl.querySelectorAll('button').forEach((b) => b.classList.toggle('on', +b.dataset.i === st.guard));
     const cut = st.cut;
     for (const [r, row] of Object.entries(this.regionEls)) {
@@ -934,16 +943,17 @@ export class UI {
     return new Promise((resolve) => {
       const pct = (v) => Math.round(v * 100) + '%';
       const cls = (v) => (v >= 0.85 ? 'good' : v >= 0.6 ? 'mid' : 'bad');
-      const rows = [['Accuracy', r.accuracy], ['Symmetry', r.symmetry], ['Edges', r.edges]];
+      const rows = [['Length', r.accuracy], ['Symmetry', r.symmetry], ['Edges', r.edges]];
       if (r.fade !== null && r.fade !== undefined) rows.push(['Fade', r.fade]);
       if (r.style !== null && r.style !== undefined) rows.push(['Styling', r.style]);
       if (r.dye !== null && r.dye !== undefined) rows.push(['Colour', r.dye]);
-      rows.push(['Speed', r.speed]);
+      rows.push(['Time', r.speed]);
       if (r.groom > 0.05) rows.push(['Grooming', r.groom]);
       const wrap = h(`<div class="panel-wrap"><div class="card result">
         <div class="k">${r.kicker}</div><h3>${r.title}</h3>
         <div class="quote">“${r.quote}”</div>
         <div class="stars">${starSVG.repeat(5)}</div>
+        ${r.overall !== undefined ? `<div class="overall"><span>Overall</span><b class="${cls(r.overall)}">${pct(r.overall)}</b></div>` : ''}
         <div class="stats">${rows.map(([l, v]) => `<div class="stat"><span>${l}</span><span class="v ${cls(v)}">${pct(v)}</span></div>`).join('')}</div>
         <div class="payout"><div><span class="n pay">$0</span><span class="l">Payment</span></div><div><span class="n tipn">$0</span><span class="l">Tip</span></div><div><span class="n xp">+0</span><span class="l">XP</span></div></div>
         <div class="lvlbar"><i></i></div><div class="lvltxt"><span class="lv">Level ${r.level}</span><span class="nx"></span></div>

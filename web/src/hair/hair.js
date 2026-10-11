@@ -133,6 +133,17 @@ export function addDye(sys, w, h) {
   };
 }
 
+let blank = null;
+function blankStyle() {
+  if (!blank) { blank = new THREE.DataTexture(new Uint8Array([128, 128, 0, 0]), 1, 1, THREE.RGBAFormat); blank.needsUpdate = true; }
+  return blank;
+}
+let blankG = null;
+function blankGuide() {
+  if (!blankG) { blankG = new THREE.DataTexture(new Uint8Array([0]), 1, 1, THREE.RedFormat); blankG.needsUpdate = true; }
+  return blankG;
+}
+
 export function makeMaterial(sys) {
   noiseTex ||= hairNoise();
   return new THREE.ShaderMaterial({
@@ -150,6 +161,7 @@ export function makeMaterial(sys) {
       uHeadC: { value: HEAD_C },
       uBaseCut: { value: sys.kind === 'beard' ? 0.16 : 0 },
       uDyeTex: { value: sys.dyeTexture }, uDyeCol: { value: sys.dyeColor },
+      uStyle: { value: sys.styleTexture || blankStyle() }, uGuide: { value: 0 }, uGuideTex: { value: sys.guideTexture || blankGuide() },
       uPart: { value: 9 },
       uDirA: { value: new THREE.Vector3(0, -0.6, -1).normalize() },
       uDirB: { value: new THREE.Vector3(0, -0.6, -1).normalize() },
@@ -159,21 +171,35 @@ export function makeMaterial(sys) {
       attribute float layer; attribute vec3 tdown;
       uniform sampler2D uLen; uniform float uMaxLen; uniform vec3 uGrav; uniform float uCurl;
       uniform vec3 uHeadC; uniform float uPart; uniform vec3 uDirA; uniform vec3 uDirB;
-      varying vec2 vUv; varying float vH; varying vec3 vN; varying vec3 vT; varying vec3 vWPos; varying float vLen; varying float vPart; varying float vStyled;
+      uniform sampler2D uStyle; uniform sampler2D uNoise;
+      varying vec2 vUv; varying float vH; varying vec3 vN; varying vec3 vT; varying vec3 vWPos; varying float vLen; varying float vPart; varying float vStyled; varying float vProduct;
       void main(){
         vUv = uv; vH = layer;
         vec4 tx = texture2D(uLen, uv);
+        vec4 sy = texture2D(uStyle, uv);
         float len = tx.r * uMaxLen;
         vLen = tx.r;
-        // combed hair (alpha channel) lies flat along the style direction
-        float st = tx.a * (1.0 - uCurl * 0.6);
+        float vol = sy.a;
+        vProduct = sy.b;
+        // combed hair (alpha channel) lies flat along the style direction; volume lifts it
+        float st = tx.a * (1.0 - uCurl * 0.6) * (1.0 - vol * 0.7);
         vStyled = st;
         vec3 rel = position - uHeadC;
         vPart = rel.x - uPart;
         vec3 D = vPart > 0.0 ? uDirA : uDirB;
         vec3 sd = D - normal * dot(D, normal);
         sd = sd / max(length(sd), 1e-4);
-        vec3 p = position + normal * (0.0011 + layer * len * 0.5 * (1.0 - 0.62 * st));
+        // a direction the player combed in (east/down components in the scalp's tangent plane)
+        vec2 dd = sy.rg * 2.0 - 1.0;
+        if (dot(dd, dd) > 0.02) {
+          vec3 east = normalize(cross(normal, tdown));
+          sd = normalize(east * dd.x + tdown * dd.y);
+          vPart = 1.0;
+        }
+        // texture: strands fan out a little, more with volume/powder
+        float jit = texture2D(uNoise, uv * vec2(64.0, 32.0)).r - 0.5;
+        sd = normalize(sd + cross(normal, sd) * jit * (0.15 + vol * 0.9));
+        vec3 p = position + normal * (0.0011 + layer * len * (0.5 + vol * 0.45) * (1.0 - 0.62 * st));
         float drape = layer * layer * max(len - 0.006, 0.0);
         p += tdown * drape * (0.75 - uCurl * 0.5) * (1.0 - st * 0.8);
         p += uGrav * drape * (0.45 - uCurl * 0.3) * (1.0 - st * 0.5);
@@ -188,9 +214,9 @@ export function makeMaterial(sys) {
       uniform sampler2D uLen; uniform sampler2D uNoise; uniform float uMaxLen;
       uniform vec3 uColor; uniform vec3 uTip; uniform vec3 uSkin;
       uniform float uHl; uniform float uHlRegion; uniform float uTime; uniform float uCurl; uniform float uBaseCut;
-      uniform sampler2D uDyeTex; uniform vec3 uDyeCol;
+      uniform sampler2D uDyeTex; uniform vec3 uDyeCol; uniform float uGuide; uniform sampler2D uGuideTex;
       uniform vec3 uKeyDir; uniform vec3 uKeyColor; uniform vec3 uAmbTop; uniform vec3 uAmbBot;
-      varying vec2 vUv; varying float vH; varying vec3 vN; varying vec3 vT; varying vec3 vWPos; varying float vLen; varying float vPart; varying float vStyled;
+      varying vec2 vUv; varying float vH; varying vec3 vN; varying vec3 vT; varying vec3 vWPos; varying float vLen; varying float vPart; varying float vStyled; varying float vProduct;
       void main(){
         vec4 tx = texture2D(uLen, vUv);
         // a combed side part shows as a thin line of scalp
@@ -233,11 +259,17 @@ export function makeMaterial(sys) {
         vec3 H = normalize(Ld + V);
         vec3 T = normalize(vT);
         float th = dot(T, H);
-        float spec = pow(sqrt(max(0.0, 1.0 - th * th)), 80.0 - vStyled * 30.0) * 0.22 * (1.0 + wet * 2.0 + vStyled * 1.4);
+        float spec = pow(sqrt(max(0.0, 1.0 - th * th)), 80.0 - vStyled * 30.0) * 0.22 * (1.0 + wet * 2.0 + vStyled * 1.4 + vProduct * 2.5);
         vec3 amb = mix(uAmbBot, uAmbTop, N.y * 0.5 + 0.5);
-        col *= (1.0 - wet * 0.4);
+        col *= (1.0 - wet * 0.4) * (1.0 - vProduct * 0.12);
         vec3 lit = col * (amb + uKeyColor * diff) * ao * strandShade + uKeyColor * spec * ao;
-        float rid = floor(tx.b * 255.0 / 20.0 + 0.5);
+        float bb = tx.b * 255.0;
+        float rid = floor(bb / 20.0 + 0.5);
+        // fade guide lines: where the next longer guard starts (glow a little so they read on dark hair)
+        if (uGuide > 0.0) {
+          float gl = smoothstep(0.3, 0.75, texture2D(uGuideTex, vUv).r) * uGuide;
+          lit = mix(lit, vec3(0.3, 0.9, 1.0) * (0.9 + 0.3 * sin(uTime * 3.0)), gl * 0.75);
+        }
         if (uHl > 0.0 && abs(rid - uHlRegion) < 0.5) {
           float pulse = 0.55 + 0.45 * sin(uTime * 4.0);
           lit += vec3(1.0, 0.72, 0.35) * 0.22 * pulse * uHl;
@@ -262,6 +294,20 @@ export class HairSystem {
     this.data = new Uint8Array(TEX_W * TEX_H * 4);
     this.texture = new THREE.DataTexture(this.data, TEX_W, TEX_H, THREE.RGBAFormat);
     addDye(this, TEX_W, TEX_H);
+    // styling: direction (east, down) in the scalp's tangent plane, product, volume
+    this.dirE = new Float32Array(TEX_W * TEX_H);
+    this.dirS = new Float32Array(TEX_W * TEX_H);
+    this.product = new Float32Array(TEX_W * TEX_H);
+    this.volume = new Float32Array(TEX_W * TEX_H);
+    this.guide = new Uint8Array(TEX_W * TEX_H);
+    this.styleData = new Uint8Array(TEX_W * TEX_H * 4);
+    this.styleTexture = new THREE.DataTexture(this.styleData, TEX_W, TEX_H, THREE.RGBAFormat);
+    this.styleTexture.magFilter = this.styleTexture.minFilter = THREE.LinearFilter;
+    this.styleTexture.wrapS = THREE.RepeatWrapping;
+    this.styleDirty = true;
+    this.guideTexture = new THREE.DataTexture(this.guide, TEX_W, TEX_H, THREE.RedFormat);
+    this.guideTexture.magFilter = this.guideTexture.minFilter = THREE.LinearFilter;
+    this.guideTexture.wrapS = THREE.RepeatWrapping;
     this.texture.magFilter = THREE.LinearFilter;
     this.texture.minFilter = THREE.LinearFilter;
     this.texture.wrapS = THREE.RepeatWrapping;
@@ -295,6 +341,7 @@ export class HairSystem {
     this.mesh.parent?.remove(this.mesh);
     this.mesh.material.dispose();
     this.texture.dispose();
+    this.styleTexture?.dispose();
   }
 
   setColor(c) { this.color = c; this.mesh.material.uniforms.uColor.value.set(c); this.mesh.material.uniforms.uTip.value.set(c).offsetHSL(0, -0.05, 0.08); }
@@ -340,6 +387,7 @@ export class HairSystem {
         this.len[k] = clamp(v * n, 0, 1);
         this.wet[k] = 0;
         this.styled[k] = 0;
+        this.dirE[k] = 0; this.dirS[k] = 0; this.product[k] = 0; this.volume[k] = 0;
       }
     }
     this.dirty = true;
@@ -358,6 +406,20 @@ export class HairSystem {
     }
     this.texture.needsUpdate = true;
     this.dirty = false;
+    this.uploadStyle();
+  }
+
+  uploadStyle() {
+    if (!this.styleDirty) return;
+    const d = this.styleData;
+    for (let k = 0; k < this.len.length; k++) {
+      d[k * 4] = Math.round((clamp(this.dirE[k], -1, 1) * 0.5 + 0.5) * 255);
+      d[k * 4 + 1] = Math.round((clamp(this.dirS[k], -1, 1) * 0.5 + 0.5) * 255);
+      d[k * 4 + 2] = Math.round(clamp(this.product[k], 0, 1) * 255);
+      d[k * 4 + 3] = Math.round(clamp(this.volume[k], 0, 1) * 255);
+    }
+    this.styleTexture.needsUpdate = true;
+    this.styleDirty = false;
   }
 
   // fewer shells when the head is small on screen
@@ -385,6 +447,7 @@ export class HairSystem {
       this.dryT = 0;
     }
     this.upload();
+    this.uploadStyle();
   }
 
   setHighlight(regionName) {
@@ -482,21 +545,177 @@ export class HairSystem {
     });
   }
 
-  comb(phi, theta, radius = 0.025) {
-    // evens out lengths slightly toward the local average and lays the hair down
-    // along the style direction (stored in the alpha channel)
+  comb(phi, theta, radius = 0.025, de = 0, ds = 0) {
+    // evens out lengths slightly toward the local average and lays the hair down along the
+    // stroke (de, ds: east/down direction on the scalp) or the cut's style direction
     let sum = 0, n = 0;
     this.brush(phi, theta, radius, (k) => { if (this.region[k] !== REGION_ID.edges) { sum += this.len[k]; n++; } });
     if (!n) return 0;
     const avg = sum / n;
+    const dl = Math.hypot(de, ds);
     const r = this.brush(phi, theta, radius * 1.15, (k, w) => {
       if (this.region[k] === REGION_ID.edges) return;
       const c = this.len[k];
       if (c > avg) this.len[k] = c + (avg - c) * 0.04 * w;
-      this.styled[k] = Math.min(1, this.styled[k] + (0.06 + this.wet[k] * 0.06) * w);
+      // wet hair and product take the shape much better
+      const take = (0.06 + this.wet[k] * 0.08 + this.product[k] * 0.05) * w;
+      this.styled[k] = Math.min(1, this.styled[k] + take);
+      if (dl > 0.001) this.steer(k, de / dl, ds / dl, 0.25 * w + this.wet[k] * 0.15);
+      this.volume[k] = Math.max(0, this.volume[k] - 0.02 * w);
     });
-    this.dirty = true;
+    this.dirty = true; this.styleDirty = true;
     return r;
+  }
+
+  // turn a texel's combed direction toward (e, s)
+  steer(k, e, s, amt) {
+    const a = clamp(amt, 0, 1);
+    let ne = this.dirE[k] + (e - this.dirE[k]) * a, ns = this.dirS[k] + (s - this.dirS[k]) * a;
+    const l = Math.hypot(ne, ns);
+    if (l > 0.001) { ne /= l; ns /= l; }
+    this.dirE[k] = ne; this.dirS[k] = ns;
+  }
+
+  // the paddle brush: a wide stroke, sets direction firmly, a touch of volume
+  brushStroke(phi, theta, de, ds, radius = 0.045) {
+    const dl = Math.hypot(de, ds);
+    this.brush(phi, theta, radius, (k, w) => {
+      if (this.region[k] === REGION_ID.edges) return;
+      this.styled[k] = Math.min(1, this.styled[k] + (0.05 + this.wet[k] * 0.06) * w);
+      if (dl > 0.001) this.steer(k, de / dl, ds / dl, 0.3 * w + this.wet[k] * 0.2);
+      this.volume[k] = Math.min(0.45, this.volume[k] + 0.012 * w);
+    });
+    this.dirty = true; this.styleDirty = true;
+  }
+
+  // the dryer: dries the hair, sets it in the airflow direction while it's damp, adds lift
+  blowDry(phi, theta, de, ds, dt, radius = 0.05) {
+    const dl = Math.hypot(de, ds);
+    let dried = 0;
+    this.brush(phi, theta, radius, (k, w) => {
+      const wet = this.wet[k];
+      if (wet > 0) { const d = Math.min(wet, dt * 1.4 * w); this.wet[k] = wet - d; dried += d; }
+      if (this.region[k] === REGION_ID.edges) return;
+      const damp = 0.25 + wet * 0.75;
+      if (dl > 0.001) this.steer(k, de / dl, ds / dl, dt * 5.0 * w * damp);
+      this.styled[k] = Math.min(1, this.styled[k] + dt * 1.4 * w * damp);
+      this.volume[k] = Math.min(0.85, this.volume[k] + dt * 1.1 * w * damp);
+    });
+    this.dirty = true; this.styleDirty = true;
+    return dried;
+  }
+
+  // pomade / wax: hold and shine; powder: volume and texture
+  applyProduct(kind, phi, theta, dt, radius = 0.04) {
+    this.brush(phi, theta, radius, (k, w) => {
+      if (this.region[k] === REGION_ID.edges || this.len[k] < 0.03) return;
+      if (kind === 'pomade') {
+        this.product[k] = Math.min(1, this.product[k] + dt * 2.0 * w);
+        this.styled[k] = Math.min(1, this.styled[k] + dt * 0.35 * w);
+        this.volume[k] = Math.max(0, this.volume[k] - dt * 0.15 * w);
+      } else {
+        this.volume[k] = Math.min(1, this.volume[k] + dt * 1.8 * w);
+        this.product[k] = Math.max(0, this.product[k] - dt * 0.3 * w);
+        this.styled[k] = Math.max(0, this.styled[k] - dt * 0.4 * w);
+      }
+    });
+    this.dirty = true; this.styleDirty = true;
+  }
+
+  // the direction a target asks for, as east/down components at a scalp point
+  static tangentOf(phi, theta, T) {
+    const eE = [Math.cos(phi), 0, -Math.sin(phi)];
+    const eS = [Math.cos(theta) * Math.sin(phi), -Math.sin(theta), Math.cos(theta) * Math.cos(phi)];
+    const e = T[0] * eE[0] + T[1] * eE[1] + T[2] * eE[2], s = T[0] * eS[0] + T[1] * eS[1] + T[2] * eS[2];
+    const l = Math.hypot(e, s);
+    return l > 1e-4 ? [e / l, s / l] : [0, 0];
+  }
+
+  // how well the top/front is styled for a target { dir, product, volume }:
+  // dir: forward | back | left | right | part | center | up | messy
+  styleScore(t) {
+    if (!t) return null;
+    const VEC = { forward: [0, -0.35, 1], back: [0, -0.3, -1], left: [1, -0.5, 0], right: [-1, -0.5, 0], up: [0, 1, -0.35] };
+    let dirSum = 0, dirW = 0, prod = 0, vol = 0, msum = 0, n = 0, aw = 0;
+    let sx = 0, sy = 0;
+    for (let j = 0; j < TEX_H; j++) {
+      const theta = (j + 0.5) / TEX_H * THETA_MAX;
+      for (let i = 0; i < TEX_W; i++) {
+        const k = j * TEX_W + i;
+        const r = this.region[k];
+        if (r !== REGION_ID.top && r !== REGION_ID.front) continue;
+        if (this.len[k] < 0.04) continue;
+        const phi = (i + 0.5) / TEX_W * Math.PI * 2 - Math.PI;
+        // a quiff is about the front: the crown and back of the top don't count for 'up'
+        if (t.dir === 'up' && (Math.abs(phi) > 1.3 || theta < 0.2)) continue;
+        const a = this.area[k];
+        n += a; prod += this.product[k] * a; vol += this.volume[k] * a;
+        const st = clamp(this.styled[k] / 0.6, 0, 1);
+        if (t.dir && t.dir !== 'messy') {
+          let T = VEC[t.dir];
+          if (t.dir === 'part') T = phi > 0.35 ? VEC.left : VEC.right;          // parting over the left eye
+          if (t.dir === 'center') T = phi > 0 ? VEC.left : VEC.right;
+          const [te, ts] = HairSystem.tangentOf(phi, theta, T);
+          const al = (this.dirE[k] * te + this.dirS[k] * ts);
+          dirSum += clamp(al, 0, 1) * st * a; dirW += a;
+        }
+        if (t.dir === 'messy') { sx += this.dirE[k] * a; sy += this.dirS[k] * a; msum += Math.hypot(this.dirE[k], this.dirS[k]) * a; aw += a; }
+      }
+    }
+    if (!n) return 0;
+    const P = prod / n, Vv = vol / n;
+    const parts = [];
+    if (dirW) parts.push([dirSum / dirW, 0.6]);
+    if (t.dir === 'up') parts.push([clamp(Vv / 0.45, 0, 1), 0.35]);
+    // messy: lots of different directions plus volume
+    if (t.dir === 'messy' && aw) parts.push([clamp((1 - Math.hypot(sx, sy) / Math.max(1e-4, msum)) * 1.2 * clamp(msum / aw / 0.5, 0, 1), 0, 1), 0.4]);
+    if (t.product) parts.push([clamp(1 - Math.abs(P - t.product) / Math.max(0.3, t.product), 0, 1), 0.25]);
+    if (t.volume) parts.push([clamp(1 - Math.abs(Vv - t.volume) / Math.max(0.3, t.volume), 0, 1), 0.3]);
+    let sw = 0, sv = 0;
+    for (const [v, w] of parts) { sv += v * w; sw += w; }
+    return sw ? sv / sw : 0;
+  }
+
+  // mark where the guard should change on a fade, so a beginner can follow the lines
+  setGuides(fn) {
+    this.guide.fill(0);
+    if (fn) {
+      for (let i = 0; i < TEX_W; i++) {
+        const phi = (i + 0.5) / TEX_W * Math.PI * 2 - Math.PI;
+        let prev = null;
+        for (let j = TEX_H - 1; j >= 0; j--) {
+          const k = j * TEX_W + i;
+          const g = fn(phi, (j + 0.5) / TEX_H * THETA_MAX, this.region[k]);
+          if (g !== null && prev !== null && g !== prev) this.guide[k] = 255;
+          prev = g;
+        }
+      }
+    }
+    this.guideTexture.needsUpdate = true;
+    this.mesh.material.uniforms.uGuide.value = fn ? 1 : 0;
+    this.dirty = true;
+  }
+
+  // an employee styles the top towards a target, as well as their skill allows (q 0..1)
+  autoStyle(t, q) {
+    const VEC = { forward: [0, -0.35, 1], back: [0, -0.3, -1], left: [1, -0.5, 0], right: [-1, -0.5, 0], up: [0, 1, -0.35] };
+    for (let j = 0; j < TEX_H; j++) {
+      const theta = (j + 0.5) / TEX_H * THETA_MAX;
+      for (let i = 0; i < TEX_W; i++) {
+        const k = j * TEX_W + i;
+        const r = this.region[k];
+        if (r !== REGION_ID.top && r !== REGION_ID.front) continue;
+        const phi = (i + 0.5) / TEX_W * Math.PI * 2 - Math.PI;
+        let T = VEC[t.dir];
+        if (t.dir === 'part') T = phi > 0.35 ? VEC.left : VEC.right;
+        if (t.dir === 'center') T = phi > 0 ? VEC.left : VEC.right;
+        if (t.dir === 'messy') { const a = Math.random() * Math.PI * 2; this.steer(k, Math.cos(a), Math.sin(a), q); }
+        else if (T) { const [e, s] = HairSystem.tangentOf(phi, theta, T); this.steer(k, e, s, q); }
+        if (t.product) this.product[k] = t.product * (0.6 + 0.4 * q);
+        if (t.volume) this.volume[k] = t.volume * (0.6 + 0.4 * q);
+      }
+    }
+    this.styleDirty = true; this.dirty = true;
   }
 
   // where combed hair goes: 'back' (slick back), 'part' (side part on the customer's left), or the default
@@ -534,7 +753,9 @@ export class HairSystem {
   // per-texel error that shrinks with skill
   beginService(cut, skill, fadeTargetFn) {
     this._svcStart = this.len.slice();
-    this._svcStyle = cut.style ? 0.5 + skill * 0.5 : 0;
+    this._svcStyled = false;
+    this._svcStyle = cut.style || cut.styling ? 0.5 + skill * 0.5 : 0;
+    this._svcStyling = cut.styling || null;
     const T = this._svcTarget = new Float32Array(this.len.length);
     const names = [null, 'top', 'front', 'left', 'right', 'back', 'edges'];
     const err = (1 - skill) * 0.45;
@@ -546,7 +767,7 @@ export class HairSystem {
         const r = names[this.region[k]];
         let t = cut.target[r];
         if (t === undefined) { T[k] = this.len[k]; continue; }
-        if (cut.fade && ['left', 'right', 'back'].includes(r)) t = fadeTargetFn(cut.fade, hairline((i + 0.5) / TEX_W * Math.PI * 2 - Math.PI), theta);
+        if (cut.fade && ['left', 'right', 'back'].includes(r)) { const ph = (i + 0.5) / TEX_W * Math.PI * 2 - Math.PI; t = fadeTargetFn(cut.fade, hairline(ph), theta, ph); }
         T[k] = r === 'edges' ? this.len[k] * (Math.random() < skill ? 0 : 0.6) : Math.max(0, t * (1 + bias + (Math.random() - 0.5) * err));
       }
     }
@@ -559,6 +780,7 @@ export class HairSystem {
       if (b < a) this.len[k] = a + (b - a) * p;
       if (this._svcStyle && p > 0.7) this.styled[k] = Math.max(this.styled[k], (p - 0.7) / 0.3 * this._svcStyle);
     }
+    if (this._svcStyling && p >= 1 && !this._svcStyled) { this._svcStyled = true; this.autoStyle(this._svcStyling, this._svcStyle); }
     this.dirty = true;
   }
 
