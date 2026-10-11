@@ -205,7 +205,7 @@ export function makeMaterial(sys) {
           if (L < max(0.005, uBaseCut)) discard;
           float cov = smoothstep(0.0, 0.06, L);
           float n = texture2D(uNoise, vUv * vec2(512.0, 256.0)).r;
-          col = mix(uSkin * 0.86, uColor * 0.8, cov * (0.55 + 0.45 * n));
+          col = mix(uSkin * 0.86, uColor * 0.8, cov * (0.82 + 0.18 * n));
           col = mix(col, uDyeCol * 0.75, texture2D(uDyeTex, vUv).r * cov * 0.85);
           ao = mix(1.0, 0.4, smoothstep(0.08, 0.5, L));
         } else {

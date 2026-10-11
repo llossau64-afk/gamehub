@@ -41,11 +41,21 @@ export function buildTemplate(gltfScene) {
     g.applyMatrix4(m);
     const slot = (Array.isArray(o.material) ? o.material[0] : o.material).name.replace(/\.\d+$/, '');
     if (name.includes('__morph')) {
-      mouth = { geometry: toFloat(o.geometry.clone()), joint: jname, matrix: m, morphDict: o.morphTargetDictionary };
+      // The exported mouth is not used: gltfpack quantizes it, and its morph targets come out
+      // as absolute positions, so applying them as glTF deltas slid the mouth sideways next
+      // to the nose. A proper lip mesh is built below, anchored on the mouth cavity.
+      mouth = { joint: jname };
       return;
     }
     pieces.push({ name, geometry: g, joint: jname, slot, acc });
   });
+  if (mouth) {
+    // the cavity sits 4 mm below the lip line and 17 mm behind the lip surface (see characters.py)
+    const cav = pieces.find((p) => p.name.includes('MouthCavity'));
+    cav.geometry.computeBoundingBox();
+    const c = cav.geometry.boundingBox.getCenter(new THREE.Vector3());
+    mouth.center = new THREE.Vector3(c.x, c.y + 0.004, c.z + 0.0172);
+  }
   TEMPLATE = { joints, jointIndex, pieces, mouth };
   return TEMPLATE;
 }
@@ -136,17 +146,89 @@ export function createBody(colors, accessories = [], opts = {}) {
 
   let mouth = null;
   if (!opts.joints && T.mouth) {
-    const mg = T.mouth.geometry;
-    const mm = new THREE.MeshStandardMaterial({ color: colors.Mouth || '#4a1f1c', roughness: 0.5 });
-    mouth = new THREE.Mesh(mg, mm);
-    mouth.morphTargetInfluences = new Array(Object.keys(T.mouth.morphDict).length).fill(0);
-    mouth.morphTargetDictionary = T.mouth.morphDict;
-    const head = byName[T.mouth.joint];
-    // matrix (root space) -> head local
     const hw = TEMPLATE.joints[T.jointIndex.get(T.mouth.joint)].world;
-    mouth.applyMatrix4(T.mouth.matrix);
-    mouth.position.sub(hw);
-    head.add(mouth);
+    mouthGeo ||= buildMouthGeometry(T.mouth.center.clone().sub(hw));
+    const mm = new THREE.MeshStandardMaterial({ color: lipColor(colors), roughness: 0.55, vertexColors: true });
+    mouth = new THREE.Mesh(mouthGeo, mm);
+    mouth.morphTargetInfluences = new Array(MOUTH_SHAPES.length).fill(0);
+    mouth.morphTargetDictionary = Object.fromEntries(MOUTH_SHAPES.map((n, i) => [n, i]));
+    mouth.name = 'Mouth';
+    byName[T.mouth.joint].add(mouth);
   }
   return { mesh, bones: byName, palette, material, mouth };
+}
+
+// ---------------------------------------------------------------- mouth
+// Lips as a small curved grid on the face, in head-local space (+z out of the face, +y up).
+// Rows from the top of the upper lip to the bottom of the lower lip; the inner rows are dark
+// (vertex colour), so a closed mouth shows a fine line between the lips and an open one a
+// dark opening. Expressions are relative morph targets built from the same function.
+const MOUTH_SHAPES = ['Smile', 'Frown', 'Open', 'Wide', 'O', 'Smirk'];
+let mouthGeo = null;
+
+function lipColor(colors) {
+  const skin = new THREE.Color(colors.Skin || '#c48a64');
+  const lip = skin.clone().lerp(new THREE.Color('#b0454a'), 0.42).multiplyScalar(0.86);
+  return lip;
+}
+
+function buildMouthGeometry(center) {
+  const cols = 15, W = 0.044;
+  // row: [which lip, fraction] -> rows 0..6
+  const ROWS = 7;
+  const shape = (o) => {
+    const { width = 1, corner = 0, gap = 0.0006, up = 0.0034, lo = 0.0044, smirk = 0, round = 0, lift = 0 } = o;
+    const out = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < cols; c++) {
+        const s = -1 + 2 * c / (cols - 1);
+        const edge = Math.max(0, 1 - s * s);          // 1 in the middle, 0 at the corners
+        const roundW = 1 - round * 0.35 * (1 - edge);
+        const x = s * W / 2 * width * roundW;
+        // the line between the lips: corners curl up (smile) or down (frown), one side for a smirk
+        const line = corner * s * s + smirk * Math.max(0, s) * Math.abs(s) * 1.2 + lift;
+        const g = gap * (0.25 + 0.75 * Math.pow(edge, 0.7)) + 0.0004 * edge;
+        // a cupid's bow: the upper lip dips a little in the middle
+        const bow = up * (0.85 + 0.25 * Math.abs(s) * (1 - Math.abs(s)) * 4) * Math.pow(edge, 0.45);
+        const low = lo * Math.pow(edge, 0.5) * (1 + round * 0.3);
+        const ys = [line + g / 2 + bow, line + g / 2 + bow * 0.5, line + g / 2, line, line - g / 2, line - g / 2 - low * 0.55, line - g / 2 - low];
+        const y = ys[r];
+        // follow the curve of the face: further back towards the corners and below the lip line
+        const z = -Math.pow(x / 0.05, 2) * 0.022 - Math.max(0, -(y)) * 0.12 + (r === 3 ? -0.0015 * edge : 0.0008 * edge) + 0.0006;
+        out.push(center.x + x, center.y + y, center.z + z);
+      }
+    }
+    return out;
+  };
+  const basePos = shape({});
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(basePos, 3));
+  // dark inside, lip colour outside
+  const col = [];
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < cols; c++) {
+    const k = r === 3 ? 0.12 : (r === 2 || r === 4) ? 0.32 : r === 0 || r === 6 ? 0.92 : 1.0;
+    col.push(k, k, k);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  const idx = [];
+  for (let r = 0; r < ROWS - 1; r++) for (let c = 0; c < cols - 1; c++) {
+    const a = r * cols + c;
+    idx.push(a, a + cols, a + 1, a + 1, a + cols, a + cols + 1);
+  }
+  geo.setIndex(idx);
+  const targets = {
+    Smile: { width: 1.1, corner: 0.0062, up: 0.0028, lo: 0.0040, lift: 0.0006 },
+    Frown: { width: 0.94, corner: -0.0055, lo: 0.0048 },
+    Open: { gap: 0.013, width: 0.94, lo: 0.0040 },
+    Wide: { gap: 0.007, width: 1.18, corner: 0.0022 },
+    O: { gap: 0.011, width: 0.56, round: 1, up: 0.0038, lo: 0.0046 },
+    Smirk: { smirk: 0.0065 },
+  };
+  geo.morphAttributes.position = MOUTH_SHAPES.map((n) => {
+    const t = shape(targets[n]);
+    return new THREE.Float32BufferAttribute(t.map((v, i) => v - basePos[i]), 3);
+  });
+  geo.morphTargetsRelative = true;
+  geo.computeVertexNormals();
+  return geo;
 }

@@ -86,7 +86,8 @@ export function beardPoint(a, y, out = new THREE.Vector3(), inflate = 0.0012) {
 export function beardRegion(a, y) {
   const d = Math.abs(a) * 180 / Math.PI;
   if (d > 100) return 0;
-  const lips = d < 24 && y > 0.036 && y < 0.053;
+  // the mouth: a lip-shaped opening around the mouth mesh (centre 0.046, ±22°)
+  const lips = (d / 22) ** 2 + ((y - 0.0458) / 0.0092) ** 2 < 1;
   if (lips) return 0;
   if (y < 0.004) return BEARD_ID.neck;
   if (d < 30 && y >= 0.053 && y <= 0.064) return BEARD_ID.moustache;
@@ -190,6 +191,9 @@ export class BeardSystem {
       const y = Y0 + (Y1 - Y0) * (j + 0.5) / BH;
       if (reg === BEARD_ID.cheeks && y > 0.05) v *= clamp(1 - (y - 0.05) / 0.07, 0.35, 1);
       if (reg === BEARD_ID.neck) v *= 0.4 + 0.6 * Math.abs(Math.sin(i * 1.3 + j * 2.1));
+      // shorter right around the lips, so the mouth isn't buried in a hard-edged hole
+      const a = -A + 2 * A * (i + 0.5) / BW, dl = Math.sqrt(((Math.abs(a) * 180 / Math.PI) / 22) ** 2 + ((y - 0.0458) / 0.0092) ** 2);
+      if (reg) v *= clamp((dl - 1) / 0.6, 0.25, 1);
       v *= 1 + (r() - 0.5) * (spec.noise ?? 0.2);
       this.len[k] = clamp(v, 0, 1);
     }

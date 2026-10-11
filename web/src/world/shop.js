@@ -485,8 +485,9 @@ export class Shop {
       back.position.set((a0 + a1) / 2, 4.5, fz + 34); back.rotation.y = Math.PI; g.add(back);
       const cr = plane(a1 - a0, 20, rd); cr.rotation.x = -Math.PI / 2; cr.position.set((a0 + a1) / 2, -0.069, fz + 24); g.add(cr);
       for (const sx of [a0 - 0.6, a1 + 0.6]) {
-        const side = new THREE.Mesh(new THREE.BoxGeometry(1.2, 9, 20), new THREE.MeshStandardMaterial({ map: T.facadeTexture(93, [120, 104, 92]), roughness: 0.9 }));
-        side.position.set(sx + (sx < a0 ? -0.6 : 0.6), 4.5, fz + 24); g.add(side);
+        // starts just behind the far facades so the two never share a plane
+        const side = new THREE.Mesh(new THREE.BoxGeometry(1.2, 9, 19.6), new THREE.MeshStandardMaterial({ map: T.facadeTexture(93, [120, 104, 92]), roughness: 0.9 }));
+        side.position.set(sx + (sx < a0 ? -0.6 : 0.6), 4.5, fz + 24.25); g.add(side);
       }
     }
     this.buildStreetLife(g, fz);
@@ -609,9 +610,12 @@ export class Shop {
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(w, depth), texMat(this.tex.asphalt, { rough: 0.95 }));
     ground.rotation.x = -Math.PI / 2; ground.position.set(cx, -0.01, fz - depth / 2 + 0.2); g.add(ground);
     const wallMat = new THREE.MeshStandardMaterial({ map: T.facadeTexture(Math.round(a0) + 100, [120, 98, 84]), roughness: 0.92 });
+    // the first 6 m of each side are the neighbouring buildings' own side walls; only the
+    // part behind them needs a wall (sharing a plane with those buildings made them z-fight)
+    const behind = depth - 6;
     for (const sx of [a0, a1]) {
-      const side = new THREE.Mesh(new THREE.BoxGeometry(0.4, 8, depth), wallMat);
-      side.position.set(sx + (sx === a0 ? -0.2 : 0.2), 4, fz - depth / 2); g.add(side);
+      const side = new THREE.Mesh(new THREE.BoxGeometry(0.4, 8, behind), wallMat);
+      side.position.set(sx + (sx === a0 ? -0.2 : 0.2), 4, fz - 6 - behind / 2); g.add(side);
     }
     const back = new THREE.Mesh(new THREE.BoxGeometry(w + 0.8, 8, 0.4), wallMat);
     back.position.set(cx, 4, fz - depth); g.add(back);
@@ -621,9 +625,6 @@ export class Shop {
     lid.position.set(a0 + 1.2, 1.24, fz - depth + 0.95); lid.rotation.x = -0.12; g.add(lid);
     const crate = new THREE.MeshStandardMaterial({ color: '#8a6a44', roughness: 0.9 });
     for (const [dx, dz, y] of [[w - 1.0, -depth + 0.8, 0.3], [w - 1.5, -depth + 1.1, 0.3], [w - 1.2, -depth + 0.9, 0.9]]) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), crate); c.position.set(a0 + dx, y, fz + dz); c.rotation.y = dx; g.add(c); }
-    // fire escape on one wall
-    const metal = propMaterial('MetalDark');
-    for (const y of [3.2, 5.6]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 3), metal); p.position.set(a1 - 0.6, y, fz - 5); g.add(p); const r = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.9, 3), metal); r.position.set(a1 - 1.05, y + 0.45, fz - 5); g.add(r); }
     this.colliders.push(
       { x0: a0 - 1, x1: a0 + 0.05, z0: fz - depth - 1, z1: R0.z1 + 0.5, outside: true },
       { x0: a1 - 0.05, x1: a1 + 1, z0: fz - depth - 1, z1: R0.z1 + 0.5, outside: true },
