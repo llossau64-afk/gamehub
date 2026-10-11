@@ -29,8 +29,8 @@ export function detectIntent(text: string): Intent {
   if (/(pain|hurt|injur|sharp|ache|schmerz|verletz|tut weh)/.test(t)) return 'pain';
   if (/(replace|swap|substitut|alternative|instead of|ersetz|austausch|statt)/.test(t)) return 'replace';
   if (/(shorten|short on time|less time|quick|kürzer|kuerzer|wenig zeit|schneller)/.test(t)) return 'shorten';
-  if (/(how (do|to|should) i (do|perform)|technique|form|perform|ausführ|ausfuehr|technik|wie mache|wie geht)/.test(t)) return 'technique';
   if (/(decreas|weaker|plateau|stuck|regress|schwächer|schwaecher|stagn|weniger kraft|nachgelassen)/.test(t)) return 'decrease';
+  if (/(how (do|to|should) i (do|perform)|technique|form|perform|ausführ|ausfuehr|technik|wie mache|wie geht)/.test(t)) return 'technique';
   if (/(structure|my week|schedule|split|woche|wochenplan|aufteil)/.test(t)) return 'week';
   if (/(recover|rest day|sleep|sore|erhol|schlaf|muskelkater|ruhetag|pause)/.test(t)) return 'recovery';
   if (/(protein|eat|food|diet|nutrition|calorie|ernähr|ernaehr|essen|eiweiß|eiweiss|kalorien)/.test(t)) return 'nutrition';

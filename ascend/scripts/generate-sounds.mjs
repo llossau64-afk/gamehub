@@ -6,8 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'assets', 'sounds');
 mkdirSync(OUT, { recursive: true });
+const R = 22050;
 
-function wav(name, samples, rate) {
+function wav(name, samples, rate = R) {
   const n = samples.length;
   const buf = Buffer.alloc(44 + n * 2);
   buf.write('RIFF', 0);
@@ -31,7 +32,6 @@ function wav(name, samples, rate) {
   console.log(`${name}  ${(buf.length / 1024).toFixed(1)} KB`);
 }
 
-const R = 22050;
 const TAU = Math.PI * 2;
 const note = (n) => 440 * Math.pow(2, (n - 69) / 12); // MIDI → Hz
 let seed = 1;
