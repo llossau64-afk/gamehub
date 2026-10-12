@@ -1,0 +1,81 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"/vendor/three.module.min.js"}}</script></head><body>
+<script type="module">
+import * as THREE from 'three';
+import * as TX from '/src/gfx/textures.js';
+import { initMaterials, signMaterial } from '/src/gfx/materials.js';
+import { grandstandParts } from '/src/models/circuit.js';
+import { CARS } from '/src/data/cars.js';
+import { MAPS } from '/src/data/maps.js';
+import { MOUNTAINS } from '/src/data/mountains.js';
+const out = [];  // {name, url, w, h, linear, clamp}
+const put = (name, tex, extra = {}) => {
+  const c = tex.image || tex;
+  out.push({ name, url: c.toDataURL('image/png'), w: c.width, h: c.height,
+    linear: tex.colorSpace === THREE.NoColorSpace || tex.colorSpace === '' , clamp: tex.wrapS === THREE.ClampToEdgeWrapping, ...extra });
+};
+window.bake = async () => {
+  for (const w of [500, 600, 700]) {
+    const f = new FontFace('Barlow Condensed', `url(/fonts/barlow-condensed-latin-${w}-normal.woff2)`, { weight: String(w) });
+    await f.load(); document.fonts.add(f);
+  }
+  await document.fonts.ready;
+  const M = initMaterials();
+  for (const k of ['asphalt', 'damaged', 'gravel', 'dirt', 'snow', 'concrete']) put('road_' + k, TX.roadTexture(k), { height: true });
+  put('terrain_detail', TX.terrainDetail());
+  put('rock', TX.rockTexture(), { height: true });
+  put('bark', TX.barkTexture());
+  put('car_mask', TX.carMask());
+  put('crack', TX.crackTexture());
+  for (const k of ['street', 'perf', 'at', 'offroad', 'snow', 'race']) put('tire_' + k, TX.tireTexture(k), { height: true });
+  put('grille', TX.grilleTexture());
+  const plateText = (id) => { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0; const L = 'ACDEFHKLMNPRSTVWX'; return `${L[h % 17]}${L[(h >>> 5) % 17]} ${100 + (h % 900)}`; };
+  for (const car of CARS) put('plate_' + car.id, TX.plateTexture(plateText(car.id)), { text: plateText(car.id) });
+  put('soft_sprite', TX.softSprite());
+  put('puddle', TX.puddleTexture());
+  put('mud', TX.mudTexture());
+  put('ice', TX.iceTexture());
+  for (const [s, t] of [[3, 1], [4, 0.7], [5, 1.35], [9, 1], [7, 0.25]]) put(`concrete_${s}_${t}`, TX.concreteTexture(s, t));
+  for (let L = 0; L <= 5; L++) { const t = L >= 4 ? 0.55 : L >= 3 ? 1.05 : 0.85; put(`concrete_${20 + L}_${t}`, TX.concreteTexture(20 + L, t), { garageLevel: L }); }
+  put('oil_stains', TX.oilStains());
+  for (const c of [[120, 92, 62], [82, 62, 44], [96, 56, 44], [62, 64, 68], [150, 118, 74]]) put('planks_' + c.join('_'), TX.planksTexture(c));
+  for (const c of [[132, 128, 118], [206, 204, 198]]) put('blocks_' + c.join('_'), TX.blockWallTexture(c));
+  put('corrugated', TX.corrugatedTexture());
+  put('pegboard', TX.pegboardTexture());
+  put('carbon', TX.carbonTexture());
+  for (const s of ['curveL', 'curveR', 'hairpinL', 'hairpinR', 'chevL', 'chevR', 'bump', 'rockfall', 'ice', 'tunnel', 'shortcut']) put('sign_' + s, TX.signTexture(s));
+  for (let km = 1; km <= 30; km++) put('sign_km_' + km, TX.signTexture('km', String(km)), { text: String(km) });
+  const regions = new Set();
+  for (const m of [...MOUNTAINS, ...MAPS]) for (const b of (m.biomes || [])) if (b && b.name) regions.add(b.name);
+  for (const r of regions) put('sign_region_' + r.replace(/[^A-Za-z0-9]+/g, '_'), TX.signTexture('region', r), { text: r });
+  put('noise', TX.noiseTexture());
+  put('water', TX.waterTexture());
+  for (const k of ['map', 'oil', 'race']) put('poster_' + k, TX.posterTexture(k));
+  put('light_glow', TX.lightGlowTexture());
+  for (const s of ['steel', 'offroad', 'hubcap', 'alloy', 'rally', 'dish', 'beadlock']) put('rim_' + s, TX.rimTexture(s));
+  put('lamp_head', M.headlight.map); put('lamp_head_glow', M.headlight.emissiveMap);
+  put('lamp_tail', M.taillight.map); put('lamp_tail_glow', M.taillight.emissiveMap);
+  put('crowd', grandstandParts()[1].material.map);
+  // world.js / garage.js inline canvases (not exported): same drawing code
+  const banner = (text) => {
+    const c = document.createElement('canvas'); c.width = 1024; c.height = 128;
+    const g = c.getContext('2d');
+    g.fillStyle = '#2b2a27'; g.fillRect(0, 0, 1024, 128);
+    g.strokeStyle = '#d8d2c0'; g.lineWidth = 6; g.strokeRect(10, 10, 1004, 108);
+    g.fillStyle = '#e8e2d0'; g.font = '600 72px "Barlow Condensed", Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(text, 512, 68);
+    return c;
+  };
+  for (const t of ['BOTTOM OF THE MOUNTAIN', 'START · FINISH', 'FINISH']) put('banner_' + t.replace(/[^A-Za-z0-9]+/g, '_'), banner(t), { text: t });
+  { const c = document.createElement('canvas'); c.width = 256; c.height = 32; const x = c.getContext('2d');
+    for (let i = 0; i < 16; i++) for (let jj = 0; jj < 2; jj++) { x.fillStyle = (i + jj) % 2 ? '#111' : '#eee'; x.fillRect(i * 16, jj * 16, 16, 16); }
+    put('checker_line', c); }
+  { const c = document.createElement('canvas'); c.width = 1024; c.height = 160; const x2 = c.getContext('2d');
+    x2.fillStyle = '#16171a'; x2.fillRect(0, 0, 1024, 160);
+    x2.fillStyle = '#f2ede2'; x2.font = '600 92px "Barlow Condensed", Arial'; x2.textAlign = 'center'; x2.textBaseline = 'middle';
+    x2.fillText('MONTAGNA  MOTORS', 512, 84);
+    put('dealer_sign', c); }
+  return out;
+};
+window.bakeReady = true;
+</script></body></html>

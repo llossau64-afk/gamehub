@@ -63,11 +63,13 @@ namespace Downfall.EditorTools
                 r.sharedMaterials = mats;
                 r.receiveShadows = true;
                 bool noShadow = carId != null && ArtIndex.CarNoShadow.Contains(part);
+                bool allClear = mats.Length > 0;
                 foreach (var m in mats)
                 {
                     var d = m != null ? MatDefs.Find(MatName(m)) : null;
-                    if (d != null && (d.noShadows || d.surface == MatSurface.Transparent)) noShadow = noShadow || mats.Length == 1;
+                    if (d == null || !(d.noShadows || d.surface == MatSurface.Transparent)) allClear = false;
                 }
+                noShadow |= allClear;
                 r.shadowCastingMode = noShadow ? ShadowCastingMode.Off : ShadowCastingMode.On;
                 if (r is SkinnedMeshRenderer smr) smr.updateWhenOffscreen = true; // JS: frustumCulled = false
             }
@@ -80,13 +82,14 @@ namespace Downfall.EditorTools
                 inst.name = "model";
                 inst.transform.SetParent(root.transform, false);
                 inst.transform.localScale = inst.transform.localScale * FoxScale;
-                var anim = inst.GetComponent<Animator>() ?? inst.AddComponent<Animator>();
+                var anim = inst.GetComponent<Animator>();
+                if (anim == null) anim = inst.AddComponent<Animator>();
                 anim.runtimeAnimatorController = FoxController(dir, modelPath);
                 anim.applyRootMotion = false;
                 anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
             }
 
-            PrefabUtility.SaveAsPrefabAsset(root, dir + "/" + name + ".prefab");
+            EditorCompat.SaveAsPrefab(root, dir + "/" + name + ".prefab");
             Object.DestroyImmediate(root);
         }
 

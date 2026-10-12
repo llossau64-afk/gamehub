@@ -59,12 +59,12 @@ namespace Downfall.EditorTools
             mi.importVisibility = false;
             mi.importBlendShapes = false;
             mi.preserveHierarchy = false;
-            mi.sortHierarchyByName = false;
+            EditorCompat.Set(mi, "sortHierarchyByName", false);
             mi.generateSecondaryUV = false;
             mi.isReadable = readable;
             mi.meshCompression = ModelImporterMeshCompression.Off;
-            mi.optimizeMeshPolygons = true;
-            mi.optimizeMeshVertices = true;
+            EditorCompat.Set(mi, "optimizeMeshPolygons", true);
+            EditorCompat.Set(mi, "optimizeMeshVertices", true);
             mi.weldVertices = true;
             mi.importNormals = ModelImporterNormals.Import;
             mi.importTangents = ModelImporterTangents.CalculateMikk;
@@ -72,13 +72,13 @@ namespace Downfall.EditorTools
             mi.swapUVChannels = false;
             // materials: embedded (named after the Blender materials); the prefab builder swaps them
             // for the registry materials in Resources/Materials.
-            mi.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
+            EditorCompat.Set(mi, "materialImportMode", "ImportViaMaterialDescription");
             mi.materialLocation = ModelImporterMaterialLocation.InPrefab;
 
             if (fox)
             {
                 mi.animationType = ModelImporterAnimationType.Generic;
-                mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+                EditorCompat.Set(mi, "avatarSetup", "CreateFromThisModel");
                 mi.importAnimation = true;
                 mi.optimizeGameObjects = false;
                 mi.animationCompression = ModelImporterAnimationCompression.KeyframeReduction;
