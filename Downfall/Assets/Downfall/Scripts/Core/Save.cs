@@ -21,7 +21,7 @@ namespace Downfall
         public bool assist = true, showFps;
     }
 
-    public sealed class SaveData
+    public sealed class SaveData : IAchSave
     {
         public int version = SaveManager.SAVE_VERSION;
         public double created = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -45,6 +45,14 @@ namespace Downfall
         public List<string> usedCodes = new List<string>();
 
         public double Stat(string k) => stats.TryGetValue(k, out var v) ? v : 0;
+
+        IList<string> IAchSave.completed => completed;
+        IList<string> IAchSave.owned => owned;
+        int IAchSave.garageLevel => garageLevel;
+        double IAchSave.totalEarned => totalEarned;
+        double IAchSave.statUpgrades => Stat("upgrades");
+        double IAchSave.statTopSpeed => Stat("topSpeed");
+        double IAchSave.statShortcuts => Stat("shortcuts");
     }
 
     public sealed class SaveManager
