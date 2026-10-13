@@ -1,0 +1,68 @@
+# VELQIN AI with Docker (Linux or Windows + WSL2 + Docker Desktop, NVIDIA Container Toolkit for GPU).
+#   docker compose up -d                      # VELQIN + Ollama + SearXNG
+#   docker compose --profile comfyui up -d    # + ComfyUI (images/videos)
+# Only VELQIN's port 8080 is published to the network. Ollama and ComfyUI publish no ports at all
+# (reachable only by the velqin container); SearXNG is published on 127.0.0.1 only, so the
+# non-Docker Windows setup can use it. Image tags: pin them to the versions you tested.
+name: velqin
+
+services:
+  velqin:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      VELQIN_OLLAMA_URL: http://ollama:11434
+      VELQIN_COMFYUI_URL: http://comfyui:8188
+      VELQIN_SEARXNG_URL: http://searxng:8080
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - velqin-data:/data
+    depends_on: [ollama, searxng]
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    environment:
+      OLLAMA_FLASH_ATTENTION: "1"
+      OLLAMA_KV_CACHE_TYPE: q8_0
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "2"
+    volumes:
+      - ollama-models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices: [{ driver: nvidia, count: all, capabilities: [gpu] }]
+
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-please-change-this-secret}
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    # For the Windows (non-Docker) VELQIN setup, publish SearXNG on localhost only:
+    ports:
+      - "127.0.0.1:8888:8080"
+
+  comfyui:
+    profiles: [comfyui]
+    build: ai/comfyui
+    restart: unless-stopped
+    volumes:
+      - comfyui-models:/opt/ComfyUI/models
+      - comfyui-output:/opt/ComfyUI/output
+    deploy:
+      resources:
+        reservations:
+          devices: [{ driver: nvidia, count: all, capabilities: [gpu] }]
+
+volumes:
+  velqin-data:
+  ollama-models:
+  comfyui-models:
+  comfyui-output:

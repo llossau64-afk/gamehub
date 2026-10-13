@@ -169,7 +169,7 @@ function ImageStudio() {
                     <button key={p.id} onClick={() => setPreset(p.id)} disabled={!p.available}
                       className={cn("w-full rounded-2xl border p-3 text-left transition disabled:cursor-not-allowed", preset === p.id ? "border-accent bg-accent-soft/40" : "border-line hover:border-line-strong", !p.available && "opacity-60")}>
                       <div className="text-sm font-medium">{p.name}</div>
-                      <div className="mt-0.5 text-xs text-subtle">{p.available ? p.description : `Not installed: ${p.missing.join(", ")}`}</div>
+                      <div className="mt-0.5 text-xs text-subtle">{p.available ? p.description : presets.comfyui_online ? `Missing: ${p.missing.join(", ")}` : "Unavailable while ComfyUI is offline"}</div>
                     </button>
                   )) : <Skeleton className="h-16" />}
                 </div>

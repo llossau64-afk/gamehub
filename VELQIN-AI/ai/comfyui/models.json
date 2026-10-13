@@ -1,0 +1,47 @@
+{
+  "_comment": "Model files for VELQIN Image Studio and VELQIN Motion. Used by scripts/download_models.py. Sizes are approximate.",
+  "groups": {
+    "image": {
+      "description": "SDXL base + SDXL-Lightning (fast, ~1 MP images on 8 GB VRAM)",
+      "files": [
+        {"name": "sd_xl_base_1.0.safetensors", "folder": "checkpoints", "size_gb": 6.9, "license": "CreativeML Open RAIL++-M",
+         "url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors"},
+        {"name": "sdxl_lightning_4step_lora.safetensors", "folder": "loras", "size_gb": 0.39, "license": "OpenRAIL++",
+         "url": "https://huggingface.co/ByteDance/SDXL-Lightning/resolve/main/sdxl_lightning_4step_lora.safetensors"},
+        {"name": "sdxl_lightning_8step_lora.safetensors", "folder": "loras", "size_gb": 0.39, "license": "OpenRAIL++",
+         "url": "https://huggingface.co/ByteDance/SDXL-Lightning/resolve/main/sdxl_lightning_8step_lora.safetensors"}
+      ]
+    },
+    "flux": {
+      "description": "FLUX.1-schnell, Q4 GGUF (needs the ComfyUI-GGUF custom node — installed by install-comfyui)",
+      "files": [
+        {"name": "flux1-schnell-Q4_K_S.gguf", "folder": "unet", "size_gb": 6.8, "license": "Apache-2.0",
+         "url": "https://huggingface.co/city96/FLUX.1-schnell-gguf/resolve/main/flux1-schnell-Q4_K_S.gguf"},
+        {"name": "t5xxl_fp8_e4m3fn.safetensors", "folder": "text_encoders", "size_gb": 4.9, "license": "Apache-2.0",
+         "url": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors"},
+        {"name": "clip_l.safetensors", "folder": "text_encoders", "size_gb": 0.25, "license": "MIT",
+         "url": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors"},
+        {"name": "ae.safetensors", "folder": "vae", "size_gb": 0.33, "license": "Apache-2.0",
+         "url": "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors"}
+      ]
+    },
+    "upscale": {
+      "description": "Real-ESRGAN x4plus upscaler",
+      "files": [
+        {"name": "RealESRGAN_x4plus.pth", "folder": "upscale_models", "size_gb": 0.07, "license": "BSD-3-Clause",
+         "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth"}
+      ]
+    },
+    "video": {
+      "description": "Wan 2.2 TI2V 5B (text/image to video, 24 fps). URLs from the official ComfyUI workflow template.",
+      "files": [
+        {"name": "wan2.2_ti2v_5B_fp16.safetensors", "folder": "diffusion_models", "size_gb": 10.0, "license": "Apache-2.0",
+         "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors"},
+        {"name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "folder": "text_encoders", "size_gb": 6.7, "license": "Apache-2.0",
+         "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors"},
+        {"name": "wan2.2_vae.safetensors", "folder": "vae", "size_gb": 1.4, "license": "Apache-2.0",
+         "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan2.2_vae.safetensors"}
+      ]
+    }
+  }
+}
