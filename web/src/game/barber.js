@@ -30,6 +30,13 @@ const SMALLTALK = [
   'So... how long have you been cutting hair?', 'Nice weather today, huh?', 'Is that chair supposed to squeak?',
   'My cousin used to come here. Years ago.', 'You see the game last night?', 'I like the vibe in here. Kind of.',
   'Do you do beards too?', 'Not too short, okay?',
+  'Did you hear? Someone stole Bruno’s baguettes. In broad daylight!', 'That Fresh Mart guy yelled at a pigeon yesterday. A pigeon.',
+  'You know the old barber, Albrecht? He still sits on that bench every morning.', 'My ex works at Fresh Mart. Don’t ask.',
+  'Is it true you cut a celebrity last week?', 'I watched a tutorial on fades once. Twelve hours. Learned nothing.',
+  'This street used to be so quiet. Now there’s a raccoon guy stealing bread.', 'Do people ever fall asleep in this chair? Asking for me.',
+  'Careful with my ears. I need those.', 'My mom says I have a strong forehead. Work with it.',
+  'Kowalski offered me a job too. I said no. Obviously.', 'Bruno’s cinnamon rolls are illegal. In a good way.',
+  'Can I get a drink after this? I’m parched.', 'If this turns out good I’m telling everyone.',
 ];
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _m = new THREE.Matrix4();

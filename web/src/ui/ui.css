@@ -935,3 +935,79 @@
 .slapbtn small { position: absolute; top: 8px; right: 14px; font-size: 11px; font-weight: 800; background: rgba(255,255,255,.2); border-radius: 5px; padding: 1px 5px; }
 @keyframes slapPulse { 50% { box-shadow: 0 10px 30px rgba(0,0,0,.45), 0 0 0 10px rgba(232,106,80,.25), inset 0 -4px 0 rgba(0,0,0,.25); } }
 @media (max-height: 520px) { .slapbtn { width: 80px; height: 80px; bottom: calc(70px + var(--safe-b)); } .slapbtn span { font-size: 28px; } .slapbtn b { font-size: 13px; } }
+
+/* barber mode: dialogue sits at the top under the clock, never behind the tool dock */
+.in-barber .subs { bottom: auto !important; top: calc(76px + var(--safe-t)) !important; width: min(560px, 56vw) !important; }
+.in-barber .tip { top: calc(150px + var(--safe-t)) !important; bottom: auto !important; }
+@media (max-height: 520px) {
+  .in-barber .subs { top: calc(58px + var(--safe-t)) !important; width: min(440px, 52vw) !important; }
+  .in-barber .subs .line { font-size: 13px; }
+  .in-barber .tip { top: calc(112px + var(--safe-t)) !important; }
+}
+
+/* ---------------------------------------------------------------- story: quest tracker */
+.qtrack { position: absolute; left: calc(18px + var(--safe-l)); top: calc(100px + var(--safe-t)); width: 260px; padding: 10px 12px 10px; border-radius: 12px; background: linear-gradient(180deg, rgba(20,15,12,.72), rgba(20,15,12,.52)); box-shadow: 0 8px 24px rgba(0,0,0,.28), inset 0 0 0 1px rgba(209,169,86,.18); color: var(--paper); pointer-events: none; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); transition: opacity .3s, transform .3s; }
+.qtrack.hidden { opacity: 0; transform: translateX(-12px); }
+.qtrack.pulse { animation: qtPulse .9s ease; }
+@keyframes qtPulse { 30% { box-shadow: 0 0 0 3px rgba(242,207,124,.55), 0 8px 24px rgba(0,0,0,.28); } }
+.qt-ch { font-family: var(--cond); font-size: 10.5px; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: var(--brass-2); margin-bottom: 6px; }
+.qt-q { position: relative; padding-left: 16px; margin: 6px 0 8px; }
+.qt-q::before { content: '!'; position: absolute; left: 0; top: 1px; width: 11px; height: 11px; border-radius: 50%; background: #f2cf7c; color: #2a1a0c; font: 900 9px/11px var(--cond); text-align: center; }
+.qt-k { font-family: var(--cond); font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.qt-t { font-size: 13px; line-height: 1.3; color: rgba(239,228,207,.85); }
+.qt-d { border-top: 1px solid rgba(239,228,207,.12); padding-top: 6px; margin-top: 4px; display: grid; gap: 3px; }
+.qt-d > div { display: grid; grid-template-columns: 10px 1fr auto; gap: 7px; align-items: center; font-size: 12px; color: rgba(239,228,207,.78); }
+.qt-d i { width: 8px; height: 8px; border-radius: 2px; border: 1.5px solid rgba(239,228,207,.5); }
+.qt-d b { font-family: var(--cond); font-size: 12px; color: var(--paper); }
+.qt-d .done { color: rgba(239,228,207,.42); text-decoration: line-through; }
+.qt-d .done i { background: #6cd07a; border-color: #6cd07a; }
+.qt-d .done b { color: #6cd07a; }
+.in-barber .qtrack { display: none; }
+@media (max-height: 520px), (max-width: 760px) { .qtrack { width: 200px; top: calc(86px + var(--safe-t)); padding: 7px 9px; } .qt-t { font-size: 11.5px; } .qt-d > div { font-size: 10.5px; } .qt-k { font-size: 12px; } }
+.journal-btn svg { fill: none; }
+
+/* ---------------------------------------------------------------- story: journal */
+.qlog .ql-cols { display: grid; grid-template-columns: 0.9fr 1.3fr; gap: 22px; }
+.qlog h4 { font-family: var(--cond); font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: var(--ink-2); margin: 4px 0 10px; }
+.ql-ch { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 10px; margin-bottom: 6px; background: var(--paper-2); }
+.ql-ch b { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-family: var(--cond); font-size: 16px; background: #d9cdb2; color: var(--ink); }
+.ql-ch .t { font-family: var(--cond); font-size: 16px; font-weight: 800; letter-spacing: .04em; }
+.ql-ch .s { font-size: 12.5px; color: var(--ink-2); }
+.ql-ch.now { box-shadow: inset 0 0 0 2px var(--brass); } .ql-ch.now b { background: var(--brass); color: #fff; }
+.ql-ch.done b { background: #3f7d4e; color: #fff; }
+.ql-ch.lock { opacity: .5; }
+.ql-q { padding: 10px 12px; border-radius: 10px; background: var(--paper-2); margin-bottom: 8px; }
+.ql-q .h { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--cond); font-size: 17px; font-weight: 800; }
+.ql-q .h small { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); }
+.ql-q ol { margin: 6px 0 4px 18px; padding: 0; font-size: 13px; color: var(--ink-2); }
+.ql-q li.ok { color: #3f7d4e; text-decoration: line-through; } .ql-q li.cur { color: var(--ink); font-weight: 700; }
+.ql-q .rw { font-size: 12px; color: var(--brass); font-weight: 700; }
+.ql-q.done { opacity: .6; }
+.ql-d { display: grid; grid-template-columns: 1fr 90px; gap: 2px 10px; align-items: center; padding: 6px 0; border-bottom: 1px dashed rgba(0,0,0,.12); font-size: 13.5px; }
+.ql-d .bar { height: 6px; border-radius: 3px; background: rgba(0,0,0,.1); overflow: hidden; } .ql-d .bar i { display: block; height: 100%; background: var(--brass); }
+.ql-d small { grid-column: 1 / -1; font-size: 11.5px; color: var(--ink-2); }
+.ql-d.done span { text-decoration: line-through; color: var(--ink-2); } .ql-d.done .bar i { background: #3f7d4e; }
+.ql-bag { display: flex; flex-wrap: wrap; gap: 8px; }
+.ql-inv { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 8px; background: var(--paper-2); } .ql-inv svg { width: 18px; height: 30px; } .ql-inv b { font-family: var(--cond); }
+.ql-empty { color: var(--ink-2); font-size: 13px; }
+@media (max-width: 760px) { .qlog .ql-cols { grid-template-columns: 1fr; } }
+
+/* ---------------------------------------------------------------- Fresh Mart cooler */
+.mart-lead { font-size: 14px; color: var(--ink-2); margin: 0 0 14px; }
+.mart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.mart-card { position: relative; padding: 12px 12px 10px; border-radius: 14px; background: linear-gradient(180deg, #fbf6ea, #efe5cf); box-shadow: inset 0 0 0 1px rgba(0,0,0,.06), 0 4px 10px rgba(0,0,0,.08); text-align: center; overflow: hidden; }
+.mart-card::before { content: ''; position: absolute; inset: 0 0 auto; height: 92px; background: radial-gradient(ellipse at 50% 80%, rgba(160,210,255,.45), transparent 70%); }
+.mart-card .art { position: relative; height: 88px; display: grid; place-items: center; }
+.mart-card .art svg { height: 84px; filter: drop-shadow(0 6px 6px rgba(0,0,0,.25)); transition: transform .25s; }
+.mart-card:hover .art svg { transform: translateY(-4px) rotate(-4deg); }
+.mart-card .nm { font-family: var(--cond); font-size: 17px; font-weight: 800; margin-top: 6px; }
+.mart-card .fx { font-size: 11.5px; color: #3f7d4e; font-weight: 700; margin: 2px 0 8px; }
+.mart-card .row { display: flex; justify-content: space-between; align-items: center; }
+.mart-card .row b { font-family: var(--cond); font-size: 20px; }
+.mart-card .qty { display: flex; align-items: center; gap: 6px; }
+.mart-card .qty button { width: 28px; height: 28px; border-radius: 8px; border: 0; background: var(--ink); color: var(--paper); font-size: 18px; font-weight: 800; line-height: 1; }
+.mart-card .qty span { min-width: 16px; font-family: var(--cond); font-size: 18px; font-weight: 800; }
+.mart-card .own { font-size: 11px; color: var(--ink-2); margin-top: 6px; }
+.mart-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,.1); font-size: 14px; }
+.mart-pay { border: 0; border-radius: 12px; padding: 12px 20px; background: #c3201c; color: #fff; font-family: var(--cond); font-size: 18px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; box-shadow: 0 4px 0 #861612; }
+.mart-pay:disabled { opacity: .4; box-shadow: none; }

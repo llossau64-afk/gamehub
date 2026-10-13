@@ -26,6 +26,7 @@ import { playTutorial } from './tutorial.js';
 import { UPGRADES, byId, effects, xpFor, ACHIEVEMENTS, EVENTS } from '../world/upgrades.js';
 import { Street } from './street.js';
 import { Supermarket } from './supermarket.js';
+import { Story, CHAPTERS } from './story.js';
 import { Employee } from './employee.js';
 import { availableHaircuts } from '../hair/styles.js';
 import { audio } from '../audio/audio.js';
@@ -62,6 +63,9 @@ export class Game {
     this.barber = new BarberMode(this);
     this.street = new Street(this);
     this.supermarket = new Supermarket(this);
+    this.netOut = [];
+    this.story = new Story(this);
+    this.story.build();
     this.online = new Online(this);
     this.save = store.data;
     this.settings = store.settings;
@@ -118,6 +122,7 @@ export class Game {
   bindUI() {
     audio.onTrack = (T, style) => { if (style !== 'menu' && this.state !== 'menu') this.ui.nowPlaying?.(T); };
     this.ui.onDecline = (c) => this.declineCustomer(c);
+    this.ui.onJournal = () => { if (this.state === 'play' && !this.ui.openPanel) this.story.openLog(); };
     this.ui.upBtn.addEventListener('click', () => this.openUpgrades());
     this.ui.pauseBtn.addEventListener('click', () => this.pause());
     this.ui.trophyBtn.addEventListener('click', () => { if (this.state === 'play') this.openAchievements(); });
@@ -246,6 +251,12 @@ export class Game {
   // ------------------------------------------------------------------ interactables
   registerInteractables() {
     const I = (def) => this.shop.addInteractable(def);
+    this.story.interactables(I);
+    I({
+      id: 'martjob', label: () => this.supermarket.jobLabel(),
+      pos: () => (this.supermarket.job.carrying ? this.supermarket.doorPos().add(V(0, 1.2, 0)) : this.supermarket.job.pal.position.clone().add(V(0, 0.8, 0))), radius: 3.2,
+      action: () => { this.supermarket.jobAction(); return 'martjob'; },
+    });
     I({
       id: 'chair', label: () => {
         const c = this.customers.inChair;
@@ -271,7 +282,7 @@ export class Game {
     I({
       id: 'opensign', label: () => (this.state === 'play' && !this.clock.open && !this.tutorialActive ? 'Open the shop' : null),
       pos: () => V(1.9, 1.5, 2.45), radius: 3.4,
-      action: () => { this.clock.openShop(); this.customers.enabled = true; this.customers.spawnT = 2.5; this.ui.objective('', ''); this.showEvent(); return 'opensign'; },
+      action: () => { this.clock.openShop(); this.customers.enabled = true; this.customers.spawnT = 2.5; this.ui.objective('', ''); this.showEvent(); this.netOut.push({ o: 1 }); return 'opensign'; },
     });
     I({
       id: 'parcel', label: () => (this.state === 'play' && this.deliveries.nearest() ? 'Open parcel' : null),
@@ -320,6 +331,7 @@ export class Game {
       let label = null, action = null;
       if (c.state === 'waitingTalk' || (c.state === 'looking' && !c.tutorial) || (c.state === 'waiting' && !c.talked)) { label = 'Talk'; action = () => { if (!c.tutorial) this.customers.talk(c); return 'customer'; }; }
       else if (c.talked && ['waiting', 'standing'].includes(c.state) && !this.customers.inChair) { label = `Call ${c.name}`; action = () => { this.customers.toChair(c); return 'callNext'; }; }
+      else if (c.talked && ['waiting', 'standing', 'seated'].includes(c.state) && !c.drink && !c.tutorial && this.story.hasDrinks()) { label = 'Offer a drink'; action = () => { this.story.giveDrink(c).catch((e) => console.error(e)); return 'drink'; }; }
       if (label) consider(c.headPos().add(V(0, -0.15, 0)), 2.8, label, action, 'customer');
     }
     return best;
@@ -490,6 +502,16 @@ export class Game {
     this.ui.setLevel(this.save.level, this.save.xp);
   }
 
+  // a colleague closed the day: everyone starts the next morning together
+  onTeamNewDay(nick) {
+    if (!this.clock?.open) return;
+    this.clock.morning();
+    this.shop.setOpenSign(false);
+    this.customers.enabled = false;
+    this.ui.toast(`${nick} closed the day. New day — flip the sign together.`, 'Team');
+    this.ui.objective('Morning', 'Flip the door sign to OPEN');
+  }
+
   onTeamUpgrade(id, nick) {
     const u = byId[id];
     this.fx = effects(this.save.owned);
@@ -513,7 +535,7 @@ export class Game {
     const s = this.save;
     this.ui.showMenu({
       hasSave: store.hasProgress,
-      saveInfo: store.hasProgress ? `Lv ${s.level} · ${formatMoney(s.money)}` : '',
+      saveInfo: store.hasProgress ? `Chapter ${(s.story?.ch || 0) + 1} · ${CHAPTERS[s.story?.ch || 0]?.title || ''} · Lv ${s.level}` : '',
       stats: store.hasProgress ? { day: s.day, served: s.stats.served, stars: s.stats.fiveStars, money: s.money, level: s.level, rep: s.reputation } : null,
       track: 'Hot Towel — Velvet Razor',
       onContinue: () => this.continueGame(),
@@ -883,6 +905,7 @@ export class Game {
   addMoney(v) {
     this.save.money += v;
     this.save.stats.earned += Math.max(0, v);
+    if (v > 0) this.story?.on('earn', { amount: v });
     this.ui.setMoney(this.save.money);
     this.checkAchievements();
   }
@@ -1271,7 +1294,8 @@ export class Game {
     const result = evaluate(c, c.cutId, c.tutorial ? Math.min(secs, HAIRCUTS[c.cutId].par) : secs);
     // shop comfort and a dirty floor nudge the rating
     const floorPenalty = this.clippings.floorCount > 250 ? 0.04 : 0;
-    result.overall = clamp(result.overall + this.fx.sat * 0.25 + groom * 0.035 - floorPenalty, 0, 1);
+    result.overall = clamp(result.overall + this.fx.sat * 0.25 + groom * 0.035 + (c.drinkBonus || 0) - floorPenalty, 0, 1);
+    if (c.drinkBonus) result.drink = c.drinkBonus;
     result.groom = groom;
     if (c.dyeReq) {
       result.dye = this.barber.dyeCoverage();
@@ -1288,6 +1312,7 @@ export class Game {
     const pay = payment(c.cutId, result, c.personality, { tips: this.fx.tips * (1 + Math.min(3, this.save.stats.streak) * 0.05) * (this.event?.id === 'doubleTips' ? 2 : 1) });
     if (this.event?.id === 'fadeChallenge' && c.cut.fade && result.stars >= 4) { pay.tip += 25; this.ui.toast('Fade Challenge bonus +$25', 'Event'); }
     if (c.dyeReq) pay.pay += Math.round(c.dyeReq.bonus * result.dye);
+    if (c.tipBonus) pay.tip += c.tipBonus;
     const s = this.save;
     const xpBefore = s.xp, needBefore = xpFor(s.level), lvlBefore = s.level;
     this.ui.showHud(true, { crosshair: false });
@@ -1303,6 +1328,7 @@ export class Game {
     });
     // stats
     s.stats.served++;
+    if (!c.tutorial) this.story.on('cut', { c, result, secs });
     if (result.stars >= 4) { s.stats.streak++; s.stats.bestStreak = Math.max(s.stats.bestStreak, s.stats.streak); } else s.stats.streak = 0;
     if (result.stars === 5) { s.stats.fiveStars++; platform.happyTime(); }
     s.stats.cuts ||= {};
@@ -1471,6 +1497,19 @@ export class Game {
     }
     if (this.paused) { input.endFrame(); return; }
     if (input.pressed('upgrades') && this.state === 'play' && !this.ui.openPanel) this.openUpgrades();
+    if (input.pressed('journal') && this.state === 'play' && !this.ui.openPanel) this.story.openLog();
+    if (input.pressed('drink') && this.state === 'play' && !this.ui.openPanel && this.player.control && this.story.hasDrinks()) {
+      const f = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+      let best = null, bs = 0.8;
+      for (const c of this.customers.list) {
+        if (c.tutorial || c.drink || !['waiting', 'waitingTalk', 'standing', 'seated', 'looking'].includes(c.state)) continue;
+        const d = c.headPos().sub(this.camera.position);
+        const dist = d.length(); d.normalize();
+        const sc = d.dot(f) - dist * 0.04;
+        if (dist < 4 && sc > bs) { bs = sc; best = c; }
+      }
+      if (best) this.story.giveDrink(best).catch((e) => console.error(e));
+    }
     if (input.pressed('decline') && this.state === 'play' && !this.ui.openPanel) {
       // the customer you are looking at, or the one whose request is on screen
       const f = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
@@ -1492,6 +1531,7 @@ export class Game {
     this.customers.update(dt);
     this.street.update(dt);
     this.supermarket.update(dt);
+    this.story.update(dt);
     for (const e of this.staff) e.update(dt);
     this.updateItems(dt);
     this.clippings.update(dt);

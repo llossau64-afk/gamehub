@@ -241,6 +241,8 @@ const ACTIONS = {
   power: ['Space'],
   finish: ['KeyF'],
   slap: ['KeyG'],
+  drink: ['KeyF'],
+  journal: ['KeyJ'],
   sprint: ['ShiftLeft', 'ShiftRight'],
   skip: ['Space', 'Enter', 'Escape'],
   upgrades: ['KeyU', 'Tab'],

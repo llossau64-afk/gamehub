@@ -1,7 +1,7 @@
-// Online co-op: up to three barbers in one shop. Everyone plays their own game (own
-// customers, own money, own day) at their own chair; the others appear as barbers walking
-// around your shop and working at the extra chairs, with the customer they're cutting and
-// that customer's hair as it gets shorter.
+// Online co-op: up to three barbers in one shop. Everyone serves their own customers at
+// their own chair; the others appear as barbers walking around your shop and working at the
+// extra chairs. The team shares one wallet, every upgrade, the day and the clock (one of you
+// flips the sign and the shop opens for all), and the story quests.
 //
 // Transport: the artifact runtime's `room` capability, presence only (no event topics, so
 // Viewers can play too). Each player's presence is one small object:
@@ -15,6 +15,7 @@ import { spawnProp } from '../world/props.js';
 import { clamp } from '../core/util.js';
 import { joinRelay } from './relay.js';
 import { xpFor } from '../world/upgrades.js';
+import { QUESTS } from '../game/story.js';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // all the XP ever earned (level + progress), so XP changes add up across level-ups
@@ -384,9 +385,11 @@ export class Online {
     const dm = s.money - b.money, dx = totalXp(s) - b.xp;
     const bought = s.owned.filter((id) => !b.owned.has(id));
     const day = s.day > b.day ? s.day : 0;
-    if (!dm && !dx && !bought.length && !day) return;
+    // shop sign, clock and story steps ride along with the money
+    const ex = g.netOut?.length ? g.netOut.splice(0, 12) : [];
+    if (!dm && !dx && !bought.length && !day && !ex.length) return;
     b.money = s.money; b.xp = totalXp(s); bought.forEach((id) => b.owned.add(id)); b.day = Math.max(b.day, s.day);
-    this.evLog.push([++this.seq, dm, dx, bought, day]);
+    this.evLog.push([++this.seq, dm, dx, bought, day, ex]);
     if (this.evLog.length > 24) this.evLog.shift();
     this.room.presence({ ev: this.evLog }).catch(() => {});
     this.hostSnapshot();
@@ -410,7 +413,18 @@ export class Online {
         g.save.owned.push(id); b.owned.add(id);
         g.onTeamUpgrade?.(id, nick);
       }
-      if (day > g.save.day) { g.save.day = day; b.day = day; }
+      if (day > g.save.day) { g.save.day = day; b.day = day; g.onTeamNewDay?.(nick); }
+      const ex = Array.isArray(e[5]) ? e[5].slice(0, 12) : [];
+      for (const x of ex) {
+        if (!x || typeof x !== 'object') continue;
+        if (x.o === 1 && g.clock && !g.clock.open && g.state !== 'menu' && g.save.tutorialDone) {
+          g.clock.openShop(); g.customers.enabled = true; g.customers.spawnT = 2.5; g.ui.objective('', '');
+          g.ui.toast(`${nick} flipped the sign — the shop is open`, 'Team');
+        }
+        if (typeof x.h === 'number' && g.clock?.open) { const h = num(x.h, 8, 22.5); if (h > g.clock.hour + 0.03) g.clock.hour = h; }
+        if (Array.isArray(x.q) && typeof x.q[0] === 'string' && QUESTS[x.q[0]]) g.story?.merge(x.q[0], num(x.q[1], 0, 9));
+        if (typeof x.ch === 'number' && g.story) { const c = num(x.ch, 0, 5); if (c > g.story.s.ch) g.story.setChapter(c); }
+      }
     }
     if (top > last) { this.seen.set(p.peer, top); g.persist(); this.hostSnapshot(); }
   }

@@ -296,6 +296,12 @@ export class CustomerManager {
         c.patience -= dt * rate;
         if (c.patience < c.patienceMax * 0.35 && !c.sighed) { c.sighed = true; c.ch.gesture('sigh'); c.ch.setEmotion('annoyed', 2); g.exclaim.show(c.ch, 2.5, 'anger'); if (chance(0.6)) c.say(pick(c.personality.wait), 'annoyed'); }
         if (c.patience < c.patienceMax * 0.12 && !c.fuming) { c.fuming = true; c.ch.setEmotion('furious', 3); c.ch.flush('#d8402c', 0.4, 4); g.exclaim.show(c.ch, 2, 'steam'); }
+        // thirsty: asks for a drink once (a drink then counts double)
+        if (c.talked && !c.drink && !c.askedDrink && g.save.story?.ch >= 2 && c.patience < c.patienceMax * 0.7 && Math.random() < dt * 0.04) {
+          c.askedDrink = true; c.wantsDrink = true;
+          c.say(pick(['Got anything to drink? I’m dying here.', 'Any chance of a cold drink?', 'Is there like... water? Anything?', 'I’d kill for a soda right now.']), 'neutral');
+          g.exclaim.show(c.ch, 2, '?');
+        }
         if (c.patience <= 0) this.leaveAngry(c);
       }
       // waiting customers occasionally glance around

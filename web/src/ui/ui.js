@@ -92,7 +92,7 @@ export class UI {
       </div>` : ''}
       <div class="menu-np"><div class="np-disc"></div><span>${opts.track || ''}</span></div>
       <div class="ticker"><div class="tk-in">${[...ticker, ...ticker].map((t) => `<span>${t}</span><i>✂</i>`).join('')}</div></div>
-      <div class="foot">v0.2 · made with Blender & three.js</div>
+      <div class="foot">v1.0 · Final Update · made with Blender & three.js</div>
     </div>`);
     const btns = el.querySelector('.btns');
     const add = (label, cb, cls = '', small = '') => {
@@ -101,8 +101,8 @@ export class UI {
       btns.append(b);
       return b;
     };
-    if (opts.hasSave) add('Continue', opts.onContinue, 'primary', opts.saveInfo);
-    add('New Game', opts.onNew, opts.hasSave ? '' : 'primary');
+    if (opts.hasSave) add('Story Mode', opts.onContinue, 'primary', opts.saveInfo || 'continue');
+    add(opts.hasSave ? 'New Story' : 'Story Mode', opts.onNew, opts.hasSave ? '' : 'primary', opts.hasSave ? '' : 'start a new story');
     if (opts.onOnline) add(opts.online ? `Online · ${opts.online}` : 'Play Online', opts.onOnline, opts.online ? 'online on' : 'online', opts.online ? 'lobby' : 'co-op · 3 barbers');
     add('Upgrades', opts.onUpgrades);
     add('Achievements', opts.onAchievements);
@@ -613,7 +613,8 @@ export class UI {
         <div class="lvl"><div class="l"><span>Shop level</span><b>1</b></div><div class="bar"><i></i></div></div></div>
       <div class="goal hidden"></div>
       <div class="objective off"><div class="k"></div><div class="t"></div></div>
-      <div class="hud-tr"><button class="ibtn trophy-btn" title="Achievements">${ICON.trophy}<span class="badge"></span></button><button class="ibtn up-btn" title="Upgrades (U)">${ICON.shop}<span class="dot"></span></button><button class="ibtn pause-btn" title="Pause (Esc)">${ICON.pause}</button></div>
+      <div class="qtrack hidden"></div>
+      <div class="hud-tr"><button class="ibtn journal-btn" title="Journal (J)"><svg viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11M9 8h6M9 11h4"/></svg></button><button class="ibtn trophy-btn" title="Achievements">${ICON.trophy}<span class="badge"></span></button><button class="ibtn up-btn" title="Upgrades (U)">${ICON.shop}<span class="dot"></span></button><button class="ibtn pause-btn" title="Pause (Esc)">${ICON.pause}</button></div>
       <div class="crosshair"></div>
       <div class="prompt off"></div>
       <div class="tip off"></div>
@@ -637,6 +638,8 @@ export class UI {
     this.clockEl = el.querySelector('.clock');
     this.trophyBtn = el.querySelector('.trophy-btn');
     this.pauseBtn = el.querySelector('.pause-btn');
+    this.qtrackEl = el.querySelector('.qtrack');
+    el.querySelector('.journal-btn').addEventListener('click', () => this.onJournal?.());
     this.interactBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); this.input.press('interact'); });
     if (!this.touch) this.interactBtn.classList.add('hidden');
     this.shownMoney = 0;
@@ -678,6 +681,22 @@ export class UI {
   setLevel(level, xp) {
     this.lvlB.textContent = level;
     this.lvlBar.style.width = Math.round(clamp(xp / xpFor(level), 0, 1) * 100) + '%';
+  }
+
+  // the story tracker under the goal line: chapter, up to two quests and today's jobs
+  questTracker(d) {
+    const el = this.qtrackEl;
+    if (!el) return;
+    const key = JSON.stringify(d);
+    if (key === this._qtKey) return;
+    const changed = this._qtKey !== undefined;
+    this._qtKey = key;
+    if (!d.chapter && !d.quests.length) { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden');
+    el.innerHTML = `${d.chapter ? `<div class="qt-ch">${d.chapter}</div>` : ''}
+      ${d.quests.map((q) => `<div class="qt-q"><div class="qt-k">${q.k}</div><div class="qt-t">${q.t}</div></div>`).join('')}
+      ${d.daily.length ? `<div class="qt-d">${d.daily.map((j) => `<div class="${j.done ? 'done' : ''}"><i></i><span>${j.t}</span><b>${j.done ? '✓' : `${j.p}/${j.n}`}</b></div>`).join('')}</div>` : ''}`;
+    if (changed) { el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
   }
 
   setGoal(text) {

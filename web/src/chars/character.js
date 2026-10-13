@@ -1025,7 +1025,8 @@ export const GESTURES = {
   },
   presentL: {
     dur: 1.8, channel: 'armL',
-    start(ch, inst) { inst.target = inst.opts.target.clone(); },
+    // no target: hold the hand out in front
+    start(ch, inst) { inst.target = inst.opts.target?.clone?.() || ch.root.localToWorld(new THREE.Vector3(0.1, 1.3, 1.2)); },
     update(ch, u, inst) {
       const w = env(u, 0.22, 0.25);
       const sh = ch.bones.UpperArmL.getWorldPosition(new THREE.Vector3());

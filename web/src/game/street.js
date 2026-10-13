@@ -127,6 +127,7 @@ export class Street {
       if (this.walkers.length < this.max) this.spawn();
     }
     if (active) this.updateCars(dt);
+    this.chatCD = Math.max(0, (this.chatCD || 0) - dt);
     for (let i = this.walkers.length - 1; i >= 0; i--) {
       const w = this.walkers[i];
       const ch = w.ch;
@@ -139,6 +140,20 @@ export class Street {
         ch.lookAt(new THREE.Vector3(-0.9, 1.2, -1.4), 1);
         if (chance(0.5)) ch.gesture('scratchHead');
         g.dir.wait(rand(2, 4)).then(() => { ch.lookAt(null); ch.walkTo([target], 'walk'); }).catch(() => {});
+      }
+      // people talk to you when you pass them
+      w.chatT = (w.chatT ?? rand(0, 3)) - dt;
+      if (g.state === 'play' && w.chatT < 0 && ch.root.position.distanceTo(g.player.pos) < 2.2 && (this.chatCD || 0) <= 0) {
+        w.chatT = 999;
+        this.chatCD = 7;
+        const f = g.save.flags || {};
+        const lines = ['Hey, you’re the new barber, right?', 'Nice shop! I’ll come by next week.', 'Watch out, cars don’t stop here.', 'Is it true you slap customers?',
+          'Bruno’s bread is the best on the street.', 'You should get a coffee machine in there.', 'Love the pole. Very retro.', 'Morning!', 'Your sign is crooked. Just saying.',
+          ...(f.superJob === 'robbed' ? ['Wait... aren’t you the guy who robbed Fresh Mart?', 'Legend. Kowalski deserved it.'] : []),
+          ...(g.story?.step('thief') === 1 ? ['A guy in a beanie just ran past with a bag of bread!', 'Thief! He went that way!'] : [])];
+        const line = pick(lines);
+        ch.say(line); ch.lookAt(g.camera, 1); g.showLine('Passer-by', line, 2.4);
+        setTimeout(() => ch.lookAt(null), 2600);
       }
       // cheap: skip animation when far away or hidden behind the facade
       const d = ch.root.position.distanceTo(g.camera.position);

@@ -114,6 +114,13 @@ export const ACHIEVEMENTS = [
   { id: 'fadeLegend', cat: 'craft', tier: 'gold', icon: 'clipper', name: 'Fade Legend', desc: 'Ten five-star fades.', goal: 10, progress: st('fades5'), reward: { money: 200, xp: 300 } },
   { id: 'repertoire', cat: 'craft', tier: 'gold', icon: 'scissors', name: 'Full Repertoire', desc: 'Do every haircut on the list at least once.', goal: 19, progress: (s) => Object.keys(s.stats.cuts || {}).length, reward: { money: 250, xp: 300 } },
   { id: 'perfect50', cat: 'craft', tier: 'gold', icon: 'crown', name: 'Master Barber', desc: 'Earn fifty five-star ratings.', goal: 50, progress: st('fiveStars'), reward: { money: 300, xp: 400 } },
+  // ---- story
+  { id: 'breadHero', cat: 'business', tier: 'bronze', icon: 'fist', name: 'Bread Hero', desc: 'Catch the thief who robbed the bakery.', goal: 1, progress: st('thievesCaught'), reward: { money: 30, xp: 50 } },
+  { id: 'hydration', cat: 'business', tier: 'silver', icon: 'coffee', name: 'Hydration Station', desc: 'Hand out 10 drinks to customers.', goal: 10, progress: st('drinks'), reward: { money: 60, xp: 80 } },
+  { id: 'insideJob', cat: 'secret', tier: 'gold', icon: 'cash', name: 'Inside Job', desc: 'Work one shift at Fresh Mart. Rob the register.', goal: 1, progress: st('robberies'), reward: { money: 50, xp: 100 } },
+  { id: 'dailyGrind', cat: 'business', tier: 'silver', icon: 'calendar', name: 'Daily Grind', desc: 'Finish all daily jobs on 5 days.', goal: 5, progress: st('dailySweeps'), reward: { money: 120, xp: 150 } },
+  { id: 'theDeed', cat: 'business', tier: 'gold', icon: 'crown', name: 'The Deed', desc: 'Finish the story. The shop is yours.', goal: 1, progress: st('storyDone'), reward: { money: 300, xp: 300 } },
+  { id: 'questGiver', cat: 'business', tier: 'bronze', icon: 'star', name: 'Good Neighbour', desc: 'Complete 3 quests.', goal: 3, progress: st('quests'), reward: { money: 40, xp: 60 } },
   // ---- business
   { id: 'tenServed', cat: 'business', tier: 'bronze', icon: 'users', name: 'Regulars', desc: 'Serve 10 customers.', goal: 10, progress: st('served'), reward: { money: 30, xp: 50 } },
   { id: 'rich', cat: 'business', tier: 'bronze', icon: 'cash', name: 'Cash Drawer', desc: 'Earn $500 in total.', goal: 500, progress: st('earned'), reward: { money: 25, xp: 40 }, money: true },

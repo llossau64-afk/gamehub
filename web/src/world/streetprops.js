@@ -108,8 +108,8 @@ export function buildStreetProps(shop, g, fz, STREET) {
     add(new THREE.TorusGeometry(0.3, 0.012, 4, 20), M('#1c1b1a', 0.8), x, -0.048, fz + z, 0, Math.PI / 2);
   }
   for (const x of [-2.2, 20.5, -18.7, 30.5, -40]) add(B(0.7, 0.12, 0.05), iron, x, -0.01, fz + 3.13);
-  const wet = new THREE.MeshStandardMaterial({ color: '#3b3f43', roughness: 0.12, metalness: 0.05 });
-  const wetSw = new THREE.MeshStandardMaterial({ color: '#86837c', roughness: 0.15, metalness: 0.05 });
+  const wet = new THREE.MeshStandardMaterial({ color: '#34373a', roughness: 0.32, metalness: 0.0, envMapIntensity: 0.3 });
+  const wetSw = new THREE.MeshStandardMaterial({ color: '#7a776f', roughness: 0.35, metalness: 0.0, envMapIntensity: 0.3 });
   const r = rng(77);
   for (const [x, z] of [[-7.2, 3.6], [4.5, 5.0], [17.5, 9.8], [-30, 4.0], [11.2, 2.2], [-22.8, 1.6], [38, 12.6]]) {
     const p = add(new THREE.CircleGeometry(1, 20), z < 3 || z > 11 ? wetSw : wet, x, z < 3 || z > 11 ? 0.004 : -0.062, fz + z, 0, -Math.PI / 2);
