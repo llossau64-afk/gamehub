@@ -2,7 +2,7 @@
 // pickups, flames, podium, garage room). The builders mirror the three.js geometries the web
 // build uses (BoxGeometry, CylinderGeometry, LatheGeometry, TorusGeometry, ...), with the same
 // parameters and axis conventions, and work in *simulation space* (right-handed, +x = left).
-// Geo.ToMesh() crosses into Unity through Coord.ApplyToMesh (mirrors x, flips the winding).
+// MGeo.ToMesh() crosses into Unity through Coord.ApplyToMesh (mirrors x, flips the winding).
 //
 // Quaternion.AngleAxis / FromToRotation / q * v are used here as plain quaternion maths on
 // simulation-space vectors (the component formulas are handedness free); a simulation-space
@@ -17,7 +17,7 @@ namespace Downfall
     {
         const float PI = Mathf.PI;
 
-        public sealed class Geo
+        public sealed class MGeo
         {
             public List<Vector3> v = new List<Vector3>(), n = new List<Vector3>();
             public List<Vector2> uv = new List<Vector2>();
@@ -25,20 +25,20 @@ namespace Downfall
 
             public int Count => v.Count;
 
-            public Geo Clone()
+            public MGeo Clone()
             {
-                var g = new Geo();
+                var g = new MGeo();
                 g.v.AddRange(v); g.n.AddRange(n); g.uv.AddRange(uv); g.t.AddRange(t);
                 return g;
             }
 
-            public Geo Translate(double x, double y, double z)
+            public MGeo Translate(double x, double y, double z)
             {
                 var d = new Vector3((float)x, (float)y, (float)z);
                 for (int i = 0; i < v.Count; i++) v[i] += d;
                 return this;
             }
-            public Geo Scale(double x, double y, double z)
+            public MGeo Scale(double x, double y, double z)
             {
                 var s = new Vector3((float)x, (float)y, (float)z);
                 for (int i = 0; i < v.Count; i++) v[i] = Vector3.Scale(v[i], s);
@@ -51,16 +51,16 @@ namespace Downfall
                 if (s.x * s.y * s.z < 0) FlipWinding();
                 return this;
             }
-            public Geo Rotate(Quaternion q)
+            public MGeo Rotate(Quaternion q)
             {
                 for (int i = 0; i < v.Count; i++) v[i] = q * v[i];
                 for (int i = 0; i < n.Count; i++) n[i] = q * n[i];
                 return this;
             }
-            public Geo RotateX(double a) => Rotate(Quaternion.AngleAxis((float)(a * Mathf.Rad2Deg), Vector3.right));
-            public Geo RotateY(double a) => Rotate(Quaternion.AngleAxis((float)(a * Mathf.Rad2Deg), Vector3.up));
-            public Geo RotateZ(double a) => Rotate(Quaternion.AngleAxis((float)(a * Mathf.Rad2Deg), Vector3.forward));
-            public Geo Apply(Matrix4x4 m)
+            public MGeo RotateX(double a) => Rotate(Quaternion.AngleAxis((float)(a * Mathf.Rad2Deg), Vector3.right));
+            public MGeo RotateY(double a) => Rotate(Quaternion.AngleAxis((float)(a * Mathf.Rad2Deg), Vector3.up));
+            public MGeo RotateZ(double a) => Rotate(Quaternion.AngleAxis((float)(a * Mathf.Rad2Deg), Vector3.forward));
+            public MGeo Apply(Matrix4x4 m)
             {
                 for (int i = 0; i < v.Count; i++) v[i] = m.MultiplyPoint3x4(v[i]);
                 var nm = m.inverse.transpose;
@@ -68,19 +68,19 @@ namespace Downfall
                 if (m.determinant < 0) FlipWinding();
                 return this;
             }
-            public Geo FlipWinding()
+            public MGeo FlipWinding()
             {
                 for (int i = 0; i + 2 < t.Count; i += 3) { int k = t[i + 1]; t[i + 1] = t[i + 2]; t[i + 2] = k; }
                 return this;
             }
-            public Geo SwapUV()
+            public MGeo SwapUV()
             {
                 for (int i = 0; i < uv.Count; i++) uv[i] = new Vector2(uv[i].y, uv[i].x);
                 return this;
             }
 
             // three.js computeVertexNormals: area weighted face normals summed per vertex index
-            public Geo ComputeNormals()
+            public MGeo ComputeNormals()
             {
                 var acc = new Vector3[v.Count];
                 for (int i = 0; i + 2 < t.Count; i += 3)
@@ -94,7 +94,7 @@ namespace Downfall
                 return this;
             }
 
-            public Geo Append(Geo o)
+            public MGeo Append(MGeo o)
             {
                 int b = v.Count;
                 v.AddRange(o.v);
@@ -123,20 +123,20 @@ namespace Downfall
             }
         }
 
-        public static Geo Merge(IEnumerable<Geo> parts)
+        public static MGeo Merge(IEnumerable<MGeo> parts)
         {
-            var g = new Geo();
+            var g = new MGeo();
             foreach (var p in parts) if (p != null) g.Append(p);
             return g;
         }
-        public static Geo Merge(params Geo[] parts) => Merge((IEnumerable<Geo>)parts);
+        public static MGeo Merge(params MGeo[] parts) => Merge((IEnumerable<MGeo>)parts);
 
         // ------------------------------------------------------------------ primitives (three.js layouts)
 
         // BoxGeometry(width, height, depth, wSeg, hSeg, dSeg)
-        public static Geo Box(double w, double h, double d, int ws = 1, int hs = 1, int ds = 1)
+        public static MGeo Box(double w, double h, double d, int ws = 1, int hs = 1, int ds = 1)
         {
-            var g = new Geo();
+            var g = new MGeo();
             void Plane(int u, int vv, int ww, float udir, float vdir, float width, float height, float depth, int gx, int gy)
             {
                 float segW = width / gx, segH = height / gy, wh = width / 2, hh = height / 2, dh = depth / 2;
@@ -173,9 +173,9 @@ namespace Downfall
         }
 
         // CylinderGeometry(radiusTop, radiusBottom, height, radialSegments, heightSegments, openEnded, thetaStart, thetaLength)
-        public static Geo Cylinder(double rt, double rb, double h, int rs = 32, int hsg = 1, bool open = false, double th0 = 0, double thL = Math.PI * 2)
+        public static MGeo Cylinder(double rt, double rb, double h, int rs = 32, int hsg = 1, bool open = false, double th0 = 0, double thL = Math.PI * 2)
         {
-            var g = new Geo();
+            var g = new MGeo();
             float hh = (float)h / 2;
             var grid = new List<int[]>();
             float slope = (float)((rb - rt) / h);
@@ -230,12 +230,12 @@ namespace Downfall
             return g;
         }
 
-        public static Geo Cone(double r, double h, int rs = 32, int hsg = 1, bool open = false) => Cylinder(0, r, h, rs, hsg, open);
+        public static MGeo Cone(double r, double h, int rs = 32, int hsg = 1, bool open = false) => Cylinder(0, r, h, rs, hsg, open);
 
         // SphereGeometry(radius, widthSegments, heightSegments)
-        public static Geo Sphere(double rad, int ws = 32, int hs = 16)
+        public static MGeo Sphere(double rad, int ws = 32, int hs = 16)
         {
-            var g = new Geo();
+            var g = new MGeo();
             float r = (float)rad;
             var grid = new List<int[]>();
             for (int iy = 0; iy <= hs; iy++)
@@ -262,9 +262,9 @@ namespace Downfall
         }
 
         // TorusGeometry(radius, tube, radialSegments, tubularSegments, arc): ring in the xy plane
-        public static Geo Torus(double R, double tube, int radial = 12, int tubular = 48, double arc = Math.PI * 2)
+        public static MGeo Torus(double R, double tube, int radial = 12, int tubular = 48, double arc = Math.PI * 2)
         {
-            var g = new Geo();
+            var g = new MGeo();
             for (int j = 0; j <= radial; j++)
                 for (int i = 0; i <= tubular; i++)
                 {
@@ -284,9 +284,9 @@ namespace Downfall
         }
 
         // LatheGeometry(points (x = radius, y = height), segments): revolved around y
-        public static Geo Lathe(IList<Vector2> pts, int segments = 12, double phiStart = 0, double phiLength = Math.PI * 2)
+        public static MGeo Lathe(IList<Vector2> pts, int segments = 12, double phiStart = 0, double phiLength = Math.PI * 2)
         {
-            var g = new Geo();
+            var g = new MGeo();
             int pl = pts.Count;
             for (int i = 0; i <= segments; i++)
             {
@@ -311,9 +311,9 @@ namespace Downfall
         }
 
         // PlaneGeometry(width, height): xy plane facing +z
-        public static Geo Plane(double w, double h)
+        public static MGeo Plane(double w, double h)
         {
-            var g = new Geo();
+            var g = new MGeo();
             float hw = (float)w / 2, hh = (float)h / 2;
             g.v.Add(new Vector3(-hw, hh, 0)); g.v.Add(new Vector3(hw, hh, 0)); g.v.Add(new Vector3(-hw, -hh, 0)); g.v.Add(new Vector3(hw, -hh, 0));
             for (int i = 0; i < 4; i++) g.n.Add(Vector3.forward);
@@ -323,9 +323,9 @@ namespace Downfall
         }
 
         // CircleGeometry(radius, segments): xy plane facing +z
-        public static Geo Circle(double r, int seg = 32)
+        public static MGeo Circle(double r, int seg = 32)
         {
-            var g = new Geo();
+            var g = new MGeo();
             g.v.Add(Vector3.zero); g.n.Add(Vector3.forward); g.uv.Add(new Vector2(0.5f, 0.5f));
             for (int s = 0; s <= seg; s++)
             {
@@ -341,7 +341,7 @@ namespace Downfall
         // carModel.js roundedBox(w, h, d, r, seg): three.js extrudes a rounded rectangle with a bevel.
         // Closest equivalent: a subdivided box whose vertices are pushed onto the rounded hull
         // (every edge rounded with radius r), same outer dimensions.
-        public static Geo RoundedBox(double w, double h, double d, double r = 0.04, int seg = 2)
+        public static MGeo RoundedBox(double w, double h, double d, double r = 0.04, int seg = 2)
         {
             int n = Math.Max(1, seg) * 2 + 1;
             var g = Box(w, h, d, n, n, n);
@@ -373,7 +373,7 @@ namespace Downfall
         }
 
         // carModel.js beam(a, b, rad, seg): cylinder between two points
-        public static Geo Beam(double[] a, double[] b, double rad, int seg = 6)
+        public static MGeo Beam(double[] a, double[] b, double rad, int seg = 6)
         {
             var A = V(a), B = V(b);
             float len = Vector3.Distance(A, B);
@@ -384,9 +384,9 @@ namespace Downfall
         }
 
         // carModel.js loft(sections, {flip}): consecutive rings joined into quads
-        public static Geo Loft(IList<double[][]> sections, bool flip = false)
+        public static MGeo Loft(IList<double[][]> sections, bool flip = false)
         {
-            var g = new Geo();
+            var g = new MGeo();
             int ns = sections.Count, nr = sections[0].Length;
             double along = 0;
             for (int i = 0; i < ns; i++)
@@ -412,9 +412,9 @@ namespace Downfall
         }
 
         // carModel.js fan(ring, flip): a cap over a closed ring (flip = faces -z)
-        public static Geo Fan(IList<double[]> ring, bool flip)
+        public static MGeo Fan(IList<double[]> ring, bool flip)
         {
-            var g = new Geo();
+            var g = new MGeo();
             double cx = 0, cy = 0, cz = 0;
             foreach (var p in ring) { cx += p[0]; cy += p[1]; cz += p[2]; }
             cx /= ring.Count; cy /= ring.Count; cz /= ring.Count;
@@ -452,7 +452,7 @@ namespace Downfall
             return go;
         }
 
-        public static GameObject Obj(string name, Transform parent, Geo g, Material m, bool castShadow = true, bool receive = true)
+        public static GameObject Obj(string name, Transform parent, MGeo g, Material m, bool castShadow = true, bool receive = true)
         {
             var go = Node(name, parent);
             go.AddComponent<MeshFilter>().sharedMesh = g.ToMesh(name);

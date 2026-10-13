@@ -175,8 +175,8 @@ namespace Downfall
                 return pts.Select(p => new[] { p[0] * w, y1 + p[1], z }).ToArray();
             }
             List<double> us(double u0, double u1, int n) { var o = new List<double>(); for (int i = 0; i <= n; i++) o.Add(U.Lerp(u0, u1, i / (double)n)); return o; }
-            Geo sideLoft(double u0, double u1, double sgn, int n = 10) => Loft(us(u0, u1, n).Select(u => sideRing(u, sgn)).ToList(), sgn < 0);
-            Geo topLoft(double u0, double u1, int n = 10) => Loft(us(u0, u1, n).Select(u => topRing(u)).ToList());
+            MGeo sideLoft(double u0, double u1, double sgn, int n = 10) => Loft(us(u0, u1, n).Select(u => sideRing(u, sgn)).ToList(), sgn < 0);
+            MGeo topLoft(double u0, double u1, int n = 10) => Loft(us(u0, u1, n).Select(u => topRing(u)).ToList());
 
             double ws = T.ws;
             exhaustGroup = Node("exhaust", group).transform;
@@ -244,10 +244,10 @@ namespace Downfall
                 var roofSecs = gh.Where((_, i) => { double u = U.Lerp(ghBase, ws, i / 22.0); return u >= T.roofR - 0.02 && u <= T.roofF + 0.02; })
                     .Select(ring => ring.Skip(2).Take(5).Select(p => new[] { p[0] * 1.01, p[1] + 0.008, p[2] }).ToArray()).ToList();
                 if (roofSecs.Count > 1) Add("roof", Loft(roofSecs), paintMat);
-                Geo pillar(double u0, double u1, double thick)
+                MGeo pillar(double u0, double u1, double thick)
                 {
                     int i0 = (int)Math.Round((u0 - ghBase) / (ws - ghBase) * 22), i1 = (int)Math.Round((u1 - ghBase) / (ws - ghBase) * 22);
-                    var geos = new List<Geo>();
+                    var geos = new List<MGeo>();
                     foreach (var sgn in new[] { 1, -1 })
                     {
                         var Ar = gh[Math.Max(0, Math.Min(22, i0))]; var Br = gh[Math.Max(0, Math.Min(22, i1))];
@@ -256,7 +256,7 @@ namespace Downfall
                     }
                     return Merge(geos);
                 }
-                var pillars = new List<Geo> { pillar(ws, T.roofF, 0.045), pillar(T.bed != 0 ? ghBase + 0.005 : ghBase + 0.01, T.roofR, T.back < 0.05 ? 0.07 : 0.05) };
+                var pillars = new List<MGeo> { pillar(ws, T.roofF, 0.045), pillar(T.bed != 0 ? ghBase + 0.005 : ghBase + 0.01, T.roofR, T.back < 0.05 ? 0.07 : 0.05) };
                 if (T.roofF - T.roofR > 0.18)
                 {
                     double um = U.Lerp(T.roofR, T.roofF, 0.42);
@@ -274,18 +274,18 @@ namespace Downfall
                     double zb = uz(T.back), wB = width(zR + 0.3) - 0.07;
                     double floorY = bottom + (yBelt - bottom) * 0.35;
                     double bedLen = zb - zR - 0.05;
-                    var g = new List<Geo>();
+                    var g = new List<MGeo>();
                     g.Add(Box(wB * 2, 0.04, bedLen).Translate(0, floorY, zR + 0.05 + bedLen / 2));
                     foreach (var sgn in new[] { 1, -1 }) g.Add(Box(0.04, yBelt - floorY, bedLen).Translate(sgn * wB, (yBelt + floorY) / 2, zR + 0.05 + bedLen / 2));
                     g.Add(Box(wB * 2, yBelt - floorY, 0.04).Translate(0, (yBelt + floorY) / 2, zb - 0.02));
                     Add("bed", Merge(g), trimMat);
-                    var rails = new List<Geo>();
+                    var rails = new List<MGeo>();
                     foreach (var sgn in new[] { 1, -1 }) rails.Add(Box(0.1, 0.04, bedLen + 0.04).Translate(sgn * (wB + 0.02), yBelt + 0.01, zR + 0.05 + bedLen / 2));
                     Add("bedRails", Merge(rails), paintMat);
                 }
 
                 // wheel wells + underbody
-                var wells = new List<Geo>();
+                var wells = new List<MGeo>();
                 foreach (var ax in axles) foreach (var sgn in new[] { 1, -1 })
                     {
                         double ww = Math.Max(0.3, r * 0.95);
@@ -310,13 +310,13 @@ namespace Downfall
                 double ly = Math.Max(bottom + bh + 0.1, yNose - 0.12), lx = half - cr * 0.55 - 0.12;
                 foreach (var (sgn, sfx, mm) in new[] { (1.0, "L", lightMatL), (-1.0, "R", lightMatR) })
                 {
-                    Geo geo = old ? Cylinder(0.085, 0.085, 0.05, 18).RotateX(Math.PI / 2) : RoundedBox(0.3, 0.09, 0.05, 0.02, 1);
+                    MGeo geo = old ? Cylinder(0.085, 0.085, 0.05, 18).RotateX(Math.PI / 2) : RoundedBox(0.3, 0.09, 0.05, 0.02, 1);
                     geo.Translate(sgn * lx, ly, zF - 0.01 - (hyper ? 0.05 : 0));
                     SetShadows(Add("light" + sfx, geo, mm).go, false);
                 }
                 headPos = new[] { lx, ly, zF };
                 tailMat = Own(Mats.Clone("taillight"));
-                var tl = new List<Geo>();
+                var tl = new List<MGeo>();
                 foreach (var sgn in new[] { 1, -1 }) tl.Add(RoundedBox(0.24, 0.1, 0.04, 0.015, 1).Translate(sgn * (half - cr * 0.5 - 0.1), Math.Max(bottom + bh + 0.08, yTail - 0.12), zR + 0.012));
                 SetShadows(Add("tail", Merge(tl), tailMat).go, false);
                 // plates
@@ -324,19 +324,19 @@ namespace Downfall
                 SetShadows(Add("plateF", Plane(0.42, 0.11).Translate(0, bottom + bh * 0.62, zF + 0.06), plateMat).go, false);
                 SetShadows(Add("plateR", Plane(0.42, 0.11).RotateY(Math.PI).Translate(0, bottom + bh + 0.1, zR - 0.004), plateMat).go, false);
                 // mirrors
-                var mg = new List<Geo>();
+                var mg = new List<MGeo>();
                 foreach (var sgn in new[] { 1, -1 })
                 {
                     mg.Add(RoundedBox(0.16, 0.1, 0.07, 0.02, 1).Translate(sgn * (width(uz(ws)) + 0.08), yBelt + 0.1, uz(ws) - 0.12));
                     mg.Add(Box(0.1, 0.03, 0.03).Translate(sgn * (width(uz(ws)) + 0.02), yBelt + 0.07, uz(ws) - 0.12));
                 }
                 Add("mirrors", Merge(mg), trimMat);
-                var dh = new List<Geo>();
+                var dh = new List<MGeo>();
                 foreach (var sgn in new[] { 1, -1 }) dh.Add(Box(0.02, 0.03, 0.14).Translate(sgn * (half + 0.005), yBelt - 0.08, uz(U.Lerp(doorR, fenderStart, 0.25))));
                 SetShadows(Add("handles", Merge(dh), M("chrome")).go, false);
 
                 // interior
-                var ig = new List<Geo>();
+                var ig = new List<MGeo>();
                 double zDash = uz(ws) - 0.25;
                 ig.Add(Box(W * 0.84, 0.18, 0.35).Translate(0, yBelt - 0.02, zDash));
                 foreach (var sgn in new[] { 1, -1 })
@@ -369,7 +369,7 @@ namespace Downfall
                 wheels.Add(w);
             }
             // suspension struts
-            var strut = new List<Geo>();
+            var strut = new List<MGeo>();
             foreach (var w in wheels)
             {
                 var p = SimLocalPos(w.pivot);
@@ -391,7 +391,7 @@ namespace Downfall
             enginePos = V(0, yNose + 0.05, U.Lerp(uz(ws), zF, 0.5));
         }
 
-        Part Add(string name, Geo geo, Material mat, Transform parent = null)
+        Part Add(string name, MGeo geo, Material mat, Transform parent = null)
         {
             var go = Obj(name, parent ?? group, geo, mat, true, true);
             var p = new Part { name = name, go = go, mf = go.GetComponent<MeshFilter>(), mr = go.GetComponent<MeshRenderer>() };
@@ -506,8 +506,8 @@ namespace Downfall
                 headPos = new double[] { b.center.x, b.center.y, b.max.z };
             }
             else headPos = new[] { dims.half * 0.6, dims.yNose, dims.zF };
-            if (!parts.ContainsKey("bumperF")) Add("bumperF", new Geo(), bumperMat);
-            if (!parts.ContainsKey("bumperR")) Add("bumperR", new Geo(), bumperMat);
+            if (!parts.ContainsKey("bumperF")) Add("bumperF", new MGeo(), bumperMat);
+            if (!parts.ContainsKey("bumperR")) Add("bumperR", new MGeo(), bumperMat);
             _ = art;
         }
 
@@ -591,7 +591,7 @@ namespace Downfall
                     }
                 }
                 if (outV.Count == 0) continue;
-                var g = new Geo(); g.v.AddRange(outV); for (int i = 0; i < outV.Count; i++) g.t.Add(i); g.ComputeNormals();
+                var g = new MGeo(); g.v.AddRange(outV); for (int i = 0; i < outV.Count; i++) g.t.Add(i); g.ComputeNormals();
                 SetShadows(Obj("livery_" + name, part.go.transform, g, mat), false);
             }
         }
@@ -701,9 +701,9 @@ namespace Downfall
             ["offroad"] = new Rim3D { spokes = 6, dish = 0.6, mat = "rim3d_offroad", thick = 1.5 },
         };
 
-        static Geo RimGeometry(Rim3D st, double rr, double w, bool sport)
+        static MGeo RimGeometry(Rim3D st, double rr, double w, bool sport)
         {
-            var parts = new List<Geo>();
+            var parts = new List<MGeo>();
             double xFace = w * 0.6, dish = st.dish;
             int n = sport && st.thick == 0 ? 5 : st.spokes; bool twin = sport && st.thick == 0;
             double r0 = rr * 0.2, r1 = rr * 0.92;
@@ -751,7 +751,7 @@ namespace Downfall
             return Merge(parts);
         }
 
-        static Mesh Cached(Geo g, string name) { var m = g.ToMesh(name); MarkCached(m); return m; }
+        static Mesh Cached(MGeo g, string name) { var m = g.ToMesh(name); MarkCached(m); return m; }
 
         // buildWheel(r, width, rimStyle, tireKind, sport)
         public WheelView BuildWheel(double r, double width, string rimStyle, string tireKind, bool sport, Transform parent)
@@ -794,7 +794,7 @@ namespace Downfall
             var d = dims;
             if (md.rack)
             {
-                var rg = new List<Geo>();
+                var rg = new List<MGeo>();
                 double y = d.roof + 0.06;
                 double z0 = uz(T.roofR + 0.02), z1 = uz(T.roofF - 0.03), w = d.half * T.tumble * 0.9;
                 foreach (var sgn in new[] { 1, -1 }) rg.Add(Beam(new[] { sgn * w, y, z0 }, new[] { sgn * w, y, z1 }, 0.018, 5));
@@ -812,7 +812,7 @@ namespace Downfall
             if (md.wing != 0)
             {
                 bool big = md.wing == 2;
-                var wg = new List<Geo>();
+                var wg = new List<MGeo>();
                 double zt = d.zR + (big ? 0.25 : 0.12), yt = (T.back > 0.05 ? d.yTail : d.roof - 0.05) + (big ? 0.32 : 0.06);
                 wg.Add(RoundedBox(d.W * (big ? 0.95 : 0.9), 0.03, big ? 0.32 : 0.24, 0.012, 1).Translate(0, yt, zt));
                 foreach (var sgn in new[] { 1, -1 })
@@ -824,7 +824,7 @@ namespace Downfall
             }
             if (md.flares != 0 || md.type == "baja" || md.type == "beast")
             {
-                var fg = new List<Geo>();
+                var fg = new List<MGeo>();
                 foreach (var ax in new[] { d.a, -d.b }) foreach (var sgn in new[] { 1, -1 })
                         fg.Add(Torus(d.archR * 1.02, 0.045, 5, 12, Math.PI).Scale(1, 1, 1.6).RotateY(Math.PI / 2).Translate(sgn * (d.half + 0.02), d.wcY, ax));
                 Obj("flares", extras, Merge(fg), M("plastic"));
@@ -846,8 +846,8 @@ namespace Downfall
             {
                 int col = md.livery != 0 ? md.livery : md.stripes;
                 var mat = Own(Mats.Clone("car_paint")); SetColor(mat, Hex(col)); SetPbr(mat, 0.35f, 0.05f);
-                var segs = new List<Geo>();
-                Geo strip(double u0, double u1, double x0, double x1)
+                var segs = new List<MGeo>();
+                MGeo strip(double u0, double u1, double x0, double x1)
                 {
                     var secs = new List<double[][]>();
                     for (int i = 0; i <= 8; i++) { double u = U.Lerp(u0, u1, i / 8.0), z = uz(u), y = topY(u) + 0.03; secs.Add(new[] { new[] { x1, y, z }, new[] { x0, y, z } }); }
@@ -874,14 +874,14 @@ namespace Downfall
             var g = upg;
             var metal = M("darkSteel");
             int armor = L("armor"), eng = L("engine"), fuel = L("fuel"), cool = L("cooling"), turbo = L("turbo"), wgt = L("weight"), br = L("brakes");
-            Transform add(Geo geo, Material mat, bool cast = true) => Obj("p", g, geo, mat, cast).transform;
+            Transform add(MGeo geo, Material mat, bool cast = true) => Obj("p", g, geo, mat, cast).transform;
             // armour
             var bm = armor >= 1 ? (armor >= 13 ? M("darkSteel") : bumperMat == M("chrome") && armor < 3 ? M("chrome") : M("galv")) : bumperMat;
             SetPartMat("bumperF", bm); SetPartMat("bumperR", bm);
             if (armor >= 2) add(Box(d.W * 0.7, 0.02, 0.9).Translate(0, d.bottom + 0.005, d.zF - 0.55), M("galv"));
             if (armor >= 4)
             {
-                var bb = new List<Geo>();
+                var bb = new List<MGeo>();
                 double y0 = d.bottom + 0.1, y1 = d.yNose + 0.05, z = d.zF + 0.16, w = d.half * 0.75;
                 foreach (var sgn in new[] { 1, -1 })
                 {
@@ -894,7 +894,7 @@ namespace Downfall
             }
             if (armor >= 6 || cageForced)
             {
-                var cg = new List<Geo>();
+                var cg = new List<MGeo>();
                 double[] zs = { GhZ(T.roofR + 0.03), GhZ(T.roofF - 0.02) };
                 double yb = d.yBelt - 0.25, yt = d.roof - 0.06, w = d.half * T.tumble * 0.85;
                 bool full = armor >= 8 || cageForced;

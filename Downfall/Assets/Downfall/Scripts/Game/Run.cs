@@ -876,7 +876,7 @@ namespace Downfall
         public static Transform BuildPickup(string type, Transform parent)
         {
             var g = Node("item", parent).transform;
-            Transform add(Geo geo, string mat, double x, double y, double z, Quaternion? rot = null)
+            Transform add(MGeo geo, string mat, double x, double y, double z, Quaternion? rot = null)
             {
                 var o = Obj("m", g, geo, Mats.Get(mat)).transform;
                 SetSimLocal(o, x, y, z); if (rot.HasValue) o.localRotation = rot.Value;
@@ -1070,7 +1070,7 @@ namespace Downfall
             var L = g.env?.look;
             double tun = g.env != null ? g.env.tunnel : 0;
             double wf = g.world != null ? g.world.NearestWaterfall(v.pos) : double.PositiveInfinity;
-            a.ambience?.Update((float)dt, (float)((L != null && L.wind != 0 ? L.wind : 0.3) * 0.8 + 0.1), (float)((L?.birds ?? 0) * (1 - tun)), 0.6f, (float)U.Clamp(1 - wf / 140, 0, 1), (float)((L != null && L.weather == "rain" ? 1 : 0) * (1 - tun)));
+            a.ambience?.Update((float)dt, (float)((L != null && L.wind != 0 ? L.wind : 0.3) * 0.8 + 0.1), (float)((L?.birds ?? 0) * (1 - tun)), 0.6f, (float)U.Clamp(1 - wf / 140, 0, 1), (float)((L == null ? 0 : L.weather == "rain" ? 1 : L.weather == "storm" ? 0.7 : 0) * (1 - tun)));
             a.SetReverb((float)(tun * 0.7));
             g.env?.TakeEvents((type, power, delay) => { if (type == "thunder") timers.After(delay * 1000, () => Au?.Thunder((float)power)); });
             // music intensity: speed, danger, record chase
