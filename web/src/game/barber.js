@@ -104,12 +104,19 @@ export class BarberMode {
     this.c = customer;
     this.active = true;
     this.time = 0;
+    this.leaving = false;
     this.tool = opts.tool || null;
     this.power = false;
     this.guard = guardIndex('3');
     this.warned = false;
     this.combed = new Set();
     this.smalltalkT = rand(14, 22);
+    // every so often the customer has to scratch: hand in the way until it stops (or a slap)
+    this.itchT = rand(16, 30);
+    this.itching = 0;
+    this.slapJolt = 0;
+    this.slapCD = 0;
+    customer.slaps ||= 0;
     this.lastSnip = 0;
     // camera: orbits the head in "rotate" mode (left panel / right mouse / A D W S); the chair stays put
     const beardOnly = customer.cut.beard && !('top' in customer.cut.target);
@@ -143,6 +150,7 @@ export class BarberMode {
       refImg: customer.refImg,
       onRef: () => this.game.ui.showReference(customer.cut, customer.refImg),
       onClose: () => this.toggleClose(),
+      onSlap: () => this.slap(),
     });
     this.game.setChairAngle(0, 3);
     this.game.ui.setBarberMode?.(this.mode, this.close);
@@ -199,6 +207,68 @@ export class BarberMode {
     if (tips.length) g.persist();
   }
 
+  updateItch(dt) {
+    const c = this.c, g = this.game;
+    this.slapCD = Math.max(0, this.slapCD - dt);
+    this.slapJolt = Math.max(0, this.slapJolt - dt * 1.6);
+    if (c.tutorial || this.leaving) return;
+    if (this.itching > 0) {
+      this.itching -= dt;
+      // the fingers wreck whatever is under them
+      c.hair.mess(-0.65, 0.55, dt);
+      if (this.itching <= 0) { this.itching = 0; g.ui.setSlap?.(false); this.itchT = rand(28, 48); }
+      return;
+    }
+    this.itchT -= dt;
+    if (this.itchT <= 0) {
+      this.itching = rand(3.5, 5.5);
+      c.ch.gesture('scratchHead', { dur: this.itching });
+      c.say(pick(['Sorry, it itches like crazy.', 'Hold on... itchy.', 'Ugh, these little hairs!', 'One second, one second.', 'Mmh, right there...']), null);
+      g.ui.setSlap?.(true);
+      const seen = (g.save.hints ||= []);
+      if (!seen.includes('itch')) { seen.push('itch'); g.ui.tip(g.input.touch ? 'He’s scratching his head — wait, or tap SLAP to stop him' : 'He’s scratching his head — wait, or slap him with G'); setTimeout(() => this.active && g.ui.tip(null), 4200); g.persist(); }
+    }
+  }
+
+  // an open hand across the cheek: stops the scratching, three of them and he's gone
+  slap() {
+    const c = this.c, g = this.game, ch = c.ch;
+    if (!this.active || this.slapCD > 0 || this.leaving) return;
+    this.slapCD = 0.9;
+    const L = g.player.arms.L;
+    // aim at the cheek facing the camera (camera space), swing in from the left
+    const cheek = () => ch.headWorld(new THREE.Vector3()).add(new THREE.Vector3(0, -0.04, 0)).applyMatrix4(g.camera.matrixWorldInverse);
+    const c0 = cheek();
+    L.set({ visible: true, pos: c0.clone().add(new THREE.Vector3(-0.32, 0.06, 0.12)), fingers: new THREE.Vector3(0.3, 1, -0.2), palm: new THREE.Vector3(1, 0, -0.3), pose: 'open', speed: 40 });
+    setTimeout(() => {
+      if (!this.active) return;
+      L.set({ pos: cheek().add(new THREE.Vector3(-0.02, 0, 0.09)), speed: 60 });
+    }, 110);
+    setTimeout(() => {
+      if (!this.active) return;
+      audio.slap();
+      this.slapJolt = 1;
+      ch.flush('#e0412f', 0.6, 3);
+      g.shake?.(0.15);
+      const wasItching = this.itching > 0;
+      if (wasItching) { this.itching = 0; ch.endGesture('armR'); g.ui.setSlap?.(false); this.itchT = rand(30, 50); }
+      c.slaps = (c.slaps || 0) + 1;
+      g.save.stats.slaps = (g.save.stats.slaps || 0) + 1;
+      const n = c.slaps;
+      if (n >= 3) { this.leaving = true; g.slapOut(c); return; }
+      ch.setEmotion(n === 1 ? 'surprised' : 'furious', 2.5);
+      g.exclaim.show(ch, 1.6, n === 1 ? '!' : 'anger');
+      setTimeout(() => {
+        if (!this.active) return;
+        const line = n === 1 ? (wasItching ? pick(['OW! Okay, okay, I’ll stop!', 'Hey! It ITCHED!', 'Did you just... slap me?!']) : pick(['OW! What was that for?!', 'Excuse me?!']))
+          : pick(['Do that ONE more time and I’m out of here!', 'That’s two. TWO!', 'Last warning, scissor man!']);
+        c.say(line, n === 1 ? 'surprised' : 'furious');
+      }, 350);
+    }, 210);
+    setTimeout(() => { if (this.active) L.set({ pos: cheek().add(new THREE.Vector3(-0.3, -0.25, 0.15)), speed: 12 }); }, 420);
+    setTimeout(() => { if (this.active) L.set({ visible: false }); }, 800);
+  }
+
   // live styling meter (throttled: the full scan is not free)
   styleLive() {
     const now = performance.now();
@@ -215,6 +285,9 @@ export class BarberMode {
     if (this.motor) { this.motor.stop(); this.motor = null; }
     if (this.dryerSnd) { this.dryerSnd.stop(); this.dryerSnd = null; }
     this.c?.hair.setGuides(null);
+    this.itching = 0;
+    this.game.ui.setSlap?.(false);
+    this.game.player.arms.L.set({ visible: false });
     this.power = false;
     for (const o of Object.values(this.toolObjs)) { o.parent?.remove(o); }
     this.toolObjs = {};
@@ -318,6 +391,8 @@ export class BarberMode {
       if (input.pressed('guardUp')) this.setGuard(this.guard + 1);
     }
     if (input.pressed('finish')) this.requestFinish();
+    if (input.pressed('slap')) this.slap();
+    this.updateItch(dt);
 
     if (input.pressed('rotateMode')) this.setMode(this.mode === 'rotate' ? 'cut' : 'rotate');
     if (input.pressed('closeView')) this.toggleClose();
@@ -471,7 +546,8 @@ export class BarberMode {
       g.player.arms.R.set({ visible: false, pos: gp, fingers: fd.clone().multiplyScalar(0.6).add(up.clone().multiplyScalar(-0.4)), palm: up.clone().negate(), pose: this.tool === 'scissors' ? 'scissors' : 'grip', speed: 30 });
 
       // ---- cutting
-      if (hit && p.down && !this.dragging && this.mode === 'cut') {
+      if (hit && p.down && this.itching > 0 && p.justDown) { audio.error?.(); g.ui.tip(g.input.touch ? 'His hand is in the way! Wait, or SLAP him' : 'His hand is in the way! Wait, or slap him (G)'); setTimeout(() => g.ui.tip(null), 1800); }
+      if (hit && p.down && !this.dragging && this.mode === 'cut' && !(this.itching > 0)) {
         cutting = true;
         this.cutting = true;
         const fx = g.fx;
@@ -598,8 +674,10 @@ export class BarberMode {
     else ch.lookAt(this.toolPos, cutting ? 0.25 : 0.5);
     ch.headTurnSpeed = 2;
     const b = smooth(this.bow);
-    ch.extra.Neck = [0.34 * b, 0, 0];
-    ch.extra.Head = [0.3 * b, 0, 0];
+    // a slap snaps the head round, then it wobbles back
+    const j = this.slapJolt * Math.cos((1 - this.slapJolt) * 9);
+    ch.extra.Neck = [0.34 * b, -0.35 * j, 0.1 * j];
+    ch.extra.Head = [0.3 * b, -0.45 * j, 0.25 * j];
     ch.extra.Chest = [0.08 * b, 0, 0];
   }
 

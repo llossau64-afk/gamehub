@@ -7,6 +7,8 @@ import { propMaterial, addDetail, shared } from '../render/materials.js';
 const propColor = (n) => propMaterial(n).color;
 import * as T from '../render/textures.js';
 import { SHOPS, SUPERMARKET, shopWindowTexture, shopSignTexture } from '../render/shopfronts.js';
+import { Facades } from './facade.js';
+import { buildStreetProps } from './streetprops.js';
 
 // the street runs from STREET.x0 to STREET.x1; side alleys cut into our block
 export const STREET = { x0: -46, x1: 46, alleys: [[-27.5, -21.5], [21.5, 27.5]] };
@@ -379,22 +381,15 @@ export class Shop {
     const ledge = new THREE.Mesh(new THREE.BoxGeometry(X1 - X0, 0.12, 0.2), stone);
     ledge.position.set((X0 + X1) / 2, 3.95, fz + 0.06);
     g.add(ledge);
-    const winMat = new THREE.MeshStandardMaterial({ color: '#3c4a55', roughness: 0.15, metalness: 0.3 });
-    const frameMat = propMaterial('PaintedWood');
-    for (let i = 0; i < 3; i++) {
-      const x = -2.2 + i * 2.2;
-      const fr = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.3, 0.06), frameMat);
-      fr.position.set(x, 5.0, fz + 0.01);
-      const gl = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 1.16), winMat);
-      gl.position.set(x, 5.0, fz + 0.045);
-      const sill = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.06, 0.14), stone);
-      sill.position.set(x, 4.32, fz + 0.06);
-      g.add(fr, gl, sill);
-    }
+    // upper floor: the flat the old owner rented out (same window kit as the neighbours)
+    const fac = this.facades = new Facades(g);
+    const FF = { x: (u) => u, z: (n) => fz + n };
+    const wr = T.rng(5);
+    for (let i = 0; i < 3; i++) fac.window(FF, -2.2 + i * 2.2, 5.0, 0.95, 1.3, fac.frame[1], fac.stone[0], wr, i === 1);
     // neighbours
     const nb = (x0, x1, tint, seed, h, shopIdx) => {
-      const t = T.facadeTexture(seed, tint);
-      t.repeat.set(1, 1);
+      const t = T.facadeTexture(seed, tint, true);
+      t.repeat.set((x1 - x0) / 6, h / 6);
       const m = new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 });
       // a single material (multi-material boxes vanish in the static batching)
       const box = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, h, 6), m);
@@ -421,6 +416,7 @@ export class Shop {
       const aw = new THREE.Mesh(new THREE.BoxGeometry(w - 0.8, 0.05, 0.9), new THREE.MeshStandardMaterial({ color: ['#b8302b', '#3e6b4a', '#c9922e', '#24344d'][seed % 4], roughness: 0.8 }));
       aw.position.set(cx, 2.68, fz + 0.45); aw.rotation.x = 0.3;
       g.add(aw);
+      fac.building({ x0, x1, h, z: fz + 0.02, dir: 1, seed, groundTop: 3.3 });
     };
     nb(X0 - 6, X0, [140, 132, 116], 21, 7.5, 5);
     nb(X1, X1 + 5.5, [96, 104, 98], 33, 5.8, 0);
@@ -463,11 +459,13 @@ export class Shop {
     }
     // opposite side
     const opp = (x0, x1, tint, seed, h) => {
-      const t = T.facadeTexture(seed, tint);
+      const t = T.facadeTexture(seed, tint, true);
+      t.repeat.set((x1 - x0) / 6, h / 6);
+      fac.building({ x0, x1, h, z: fz + 14, dir: -1, seed, groundTop: 3.75 });
       const m = new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 });
-      const p = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, h), m);
-      p.position.set((x0 + x1) / 2, h / 2, fz + 14);
-      p.rotation.y = Math.PI;
+      // a real block with depth, so it doesn't turn into a sheet of paper from the side
+      const p = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, h, 6), m);
+      p.position.set((x0 + x1) / 2, h / 2, fz + 14 + 3);
       g.add(p);
     };
     // the far side: shops, a cross street opposite each alley, and the supermarket across from us
@@ -486,11 +484,13 @@ export class Shop {
       const cr = plane(a1 - a0, 20, rd); cr.rotation.x = -Math.PI / 2; cr.position.set((a0 + a1) / 2, -0.069, fz + 24); g.add(cr);
       for (const sx of [a0 - 0.6, a1 + 0.6]) {
         // starts just behind the far facades so the two never share a plane
-        const side = new THREE.Mesh(new THREE.BoxGeometry(1.2, 9, 19.6), new THREE.MeshStandardMaterial({ map: T.facadeTexture(93, [120, 104, 92]), roughness: 0.9 }));
-        side.position.set(sx + (sx < a0 ? -0.6 : 0.6), 4.5, fz + 24.25); g.add(side);
+        // starts behind the far-side blocks (which are 6 m deep) so no faces are shared
+        const side = new THREE.Mesh(new THREE.BoxGeometry(1.2, 9, 13.8), new THREE.MeshStandardMaterial({ map: T.facadeTexture(93, [120, 104, 92]), roughness: 0.9 }));
+        side.position.set(sx + (sx < a0 ? -0.6 : 0.6), 4.5, fz + 27.15); g.add(side);
       }
     }
     this.buildStreetLife(g, fz);
+    buildStreetProps(this, g, fz, STREET);
     const swo = plane(STREET.x1 - STREET.x0 + 8, 3.5, sw); swo.rotation.x = -Math.PI / 2; swo.position.set(0, 0, fz + 12.3); g.add(swo);
 
     // street props
@@ -592,8 +592,6 @@ export class Shop {
   // a shopfront on the far side of the road (facing us): window, door, awning, sign, cornice
   oppShopfront(g, x, w, hgt, z, shop, i) {
     const box = (bw, bh, bd, mat, px, py, pz) => { const m = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), typeof mat === 'string' ? propMaterial(mat) : mat); m.position.set(px, py, pz); g.add(m); return m; };
-    box(w + 1, 0.25, 0.4, 'Concrete', x, hgt - 0.1, z - 0.2);
-    box(w + 1, 0.18, 0.3, 'Concrete', x, 3.15, z - 0.15);
     const awn = ['#7a2a26', '#24344d', '#3e6b4a', '#b58a3c'];
     const aw = new THREE.Mesh(new THREE.BoxGeometry(w - 0.6, 0.06, 1.1), new THREE.MeshStandardMaterial({ color: awn[i % 4], roughness: 0.8 }));
     aw.position.set(x, 2.85, z - 0.55); aw.rotation.x = -0.32; g.add(aw);
@@ -601,7 +599,12 @@ export class Shop {
     win.position.set(x, 1.4, z - 0.02); win.rotation.y = Math.PI; g.add(win);
     const sgn = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(w - 0.4, 3.6), 0.52), new THREE.MeshStandardMaterial({ map: shopSignTexture(shop), roughness: 0.6 }));
     sgn.position.set(x, 3.55, z - 0.32); sgn.rotation.y = Math.PI; g.add(sgn);
-    box(1.4, 0.8, 1.2, 'MetalPainted', x - w * 0.3, hgt + 0.4, z + 1);
+    box(Math.min(w - 0.4, 3.6) + 0.14, 0.64, 0.3, new THREE.MeshStandardMaterial({ color: '#2a2622', roughness: 0.6 }), x, 3.55, z - 0.16);
+    // shop window frame
+    const fr = propMaterial('PaintedWood');
+    box(w - 0.2, 0.1, 0.1, fr, x, 2.33, z - 0.05); box(w - 0.2, 0.1, 0.1, fr, x, 0.47, z - 0.05);
+    box(0.1, 1.95, 0.1, fr, x - (w - 0.3) / 2, 1.4, z - 0.05); box(0.1, 1.95, 0.1, fr, x + (w - 0.3) / 2, 1.4, z - 0.05);
+    box(w + 0.2, 0.42, 0.12, 'Stone', x, 0.21, z - 0.06);
   }
 
   // a narrow side street between two blocks: a back wall, a dumpster, crates, a fire escape
@@ -711,6 +714,7 @@ export class Shop {
 
   setDusk(k) {
     for (const L of this.streetLights || []) L.intensity = k * 6;
+    this.facades?.setDusk(k);
     if (this.nightWindowMat) this.nightWindowMat.emissiveIntensity = 0.05 + k * 0.9;
     for (const m of this.shopWinMats || []) m.emissiveIntensity = 0.1 + k * 0.7;
     const lamps = this.exterior ? [] : [];

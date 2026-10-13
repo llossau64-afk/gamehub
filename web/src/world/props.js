@@ -1,5 +1,6 @@
 // Prop library: Blender props (P_<Name>) with materials assigned by name.
 import * as THREE from 'three';
+import { makeCape } from '../chars/cape.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { propMaterial } from '../render/materials.js';
 
@@ -131,6 +132,8 @@ export function planarUV(g) {
 const prepared = new Map();
 
 export function spawnProp(name, opts = {}) {
+  // the worn cape is built in code to fit the seated pose (see chars/cape.js)
+  if (name === 'Cape') return makeCape();
   if (!prepared.has(name)) {
     const src = library.get(name);
     if (!src) throw new Error('Unknown prop ' + name);

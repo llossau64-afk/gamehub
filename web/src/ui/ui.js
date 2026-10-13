@@ -853,6 +853,11 @@ export class UI {
     closeBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); cfg.onClose?.(); });
     tools.append(closeBtn);
     this.closeBtn = closeBtn;
+    // slap button: pops up while the customer is scratching
+    const slapB = h(`<button class="slapbtn" title="Slap (G)"><span>✋</span><b>SLAP</b>${this.touch ? '' : '<small>G</small>'}</button>`);
+    slapB.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); cfg.onSlap?.(); });
+    el.append(slapB);
+    this.slapBtn = slapB;
     el.querySelector('.barber-help').innerHTML = this.touch ? '' :
       '<div><span class="key">LMB</span>cut</div><div><span class="key">RMB</span><span class="key">R</span>rotate</div><div><span class="key">C</span>close-up</div>';
   }
@@ -878,6 +883,8 @@ export class UI {
     this.barberEl?.classList.toggle('rotating', mode === 'rotate');
     document.querySelector('canvas').style.cursor = mode === 'rotate' ? 'grab' : '';
   }
+
+  setSlap(on) { this.slapBtn?.classList.toggle('show', !!on); }
 
   hideBarber() {
     this.root.classList.remove('in-barber');

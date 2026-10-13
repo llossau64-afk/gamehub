@@ -926,3 +926,12 @@
 @media (max-height: 520px) {
   .in-barber .tip { top: calc(64px + var(--safe-t)) !important; bottom: auto !important; max-width: 50vw; font-size: 13px; }
 }
+
+/* slap: a big red palm button that only shows while the customer scratches */
+.slapbtn { position: absolute; right: calc(20px + var(--safe-r)); bottom: calc(96px + var(--safe-b)); width: 104px; height: 104px; border-radius: 50%; border: 0; background: radial-gradient(circle at 35% 30%, #e86a50, #b8302b 70%); color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,.45), inset 0 -4px 0 rgba(0,0,0,.25); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; pointer-events: auto; opacity: 0; transform: scale(.4) rotate(-20deg); transition: opacity .2s, transform .25s cubic-bezier(.2,1.6,.4,1); visibility: hidden; }
+.slapbtn.show { opacity: 1; transform: none; visibility: visible; animation: slapPulse 0.9s infinite; }
+.slapbtn span { font-size: 38px; line-height: 1; }
+.slapbtn b { font-family: var(--cond); font-size: 17px; letter-spacing: .16em; }
+.slapbtn small { position: absolute; top: 8px; right: 14px; font-size: 11px; font-weight: 800; background: rgba(255,255,255,.2); border-radius: 5px; padding: 1px 5px; }
+@keyframes slapPulse { 50% { box-shadow: 0 10px 30px rgba(0,0,0,.45), 0 0 0 10px rgba(232,106,80,.25), inset 0 -4px 0 rgba(0,0,0,.25); } }
+@media (max-height: 520px) { .slapbtn { width: 80px; height: 80px; bottom: calc(70px + var(--safe-b)); } .slapbtn span { font-size: 28px; } .slapbtn b { font-size: 13px; } }

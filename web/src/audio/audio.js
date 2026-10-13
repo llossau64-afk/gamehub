@@ -524,6 +524,13 @@ class AudioEngine {
     };
   }
 
+  // an open-handed slap: sharp crack of skin plus a dull thump
+  slap() {
+    this.noiseBurst(0.06, { vol: 0.55, type: 'highpass', freq: 1800, attack: 0.001, room: 0.25 });
+    this.noiseBurst(0.12, { vol: 0.3, type: 'bandpass', freq: 900, q: 1.2, attack: 0.001, room: 0.2 });
+    this.tone(140, 0.09, { vol: 0.25, slide: 0.5, room: 0.15 });
+  }
+
   // hair dryer: fan whine + rushing air; returns { stop }
   dryer() {
     if (!this.ctx) return { stop() {} };

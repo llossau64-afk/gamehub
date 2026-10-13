@@ -1077,6 +1077,31 @@ export class Game {
     else this.ui.objective('', '');
   }
 
+  // the third slap: he rips the cape off and storms out without paying
+  async slapOut(c) {
+    const ch = c.ch;
+    ch.setEmotion('furious', 5);
+    this.exclaim.show(ch, 2.6, 'anger');
+    ch.flush('#d8402c', 0.7, 5);
+    c.say(pick(['THAT’S IT! I’m OUT of here!', 'THREE slaps?! You’re insane!', 'Keep your stupid haircut!', 'I’m telling everyone about this place!']), 'furious', 3);
+    await this.dir.wait(1.0).catch(() => {});
+    this.barber.exit();
+    this.ui.hideRequest();
+    this.removeCape(c);
+    if (this.customers.inChair === c) this.customers.inChair = null;
+    c.seatedInChair = false;
+    this.state = 'play';
+    this.enterFP();
+    this.save.stats.slappedOut = (this.save.stats.slappedOut || 0) + 1;
+    this.loseCustomer(c);
+    this.customers.stopIdle?.(c);
+    c.state = 'leaving';
+    ch.gesture('rage', { dur: 1.2 });
+    if (ch.sitW > 0) await ch.standUp();
+    c.seat = null;
+    await this.customers.walkOut(c, 'storm');
+  }
+
   loseCustomer(c) {
     this.save.stats.lost++;
     this.checkAchievements();

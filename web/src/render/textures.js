@@ -340,7 +340,8 @@ export function sidewalkTexture() {
 }
 
 // facade of the building across the street (seen through the window)
-export function facadeTexture(seed, tint) {
+export function facadeTexture(seed, tint, plain = false) {
+  if (plain) return wallFacade(seed, tint);
   const W = 512, H = 512;
   const c = canvas(W, H), ctx = c.getContext('2d');
   const r = rng(seed);
@@ -374,6 +375,45 @@ export function facadeTexture(seed, tint) {
       }
     }
   }
+  return tex(c);
+}
+
+// a facade with no windows painted on (the 3D ones go on top): brick courses or render
+function wallFacade(seed, tint) {
+  const W = 512, H = 512;
+  const c = canvas(W, H), ctx = c.getContext('2d');
+  const r = rng(seed);
+  const n = makeNoise(64, seed);
+  const brick = seed % 3 !== 0;
+  const img = ctx.createImageData(W, H);
+  const bh = 9, bw = 24;
+  for (let y = 0; y < H; y++) {
+    const row = Math.floor(y / bh);
+    for (let x = 0; x < W; x++) {
+      let k = 0.86 + 0.2 * fbm(n, x / W * 8, y / H * 8, 4);
+      if (brick) {
+        const off = row % 2 ? bw / 2 : 0;
+        const col = Math.floor((x + off) / bw);
+        const mortar = y % bh === 0 || (x + off) % bw === 0;
+        // each brick a slightly different shade
+        const h = Math.sin(row * 12.9898 + col * 78.233) * 43758.5453;
+        k *= mortar ? 1.18 : 0.9 + (h - Math.floor(h)) * 0.16;
+      }
+      const i = (y * W + x) * 4;
+      img.data[i] = tint[0] * k; img.data[i + 1] = tint[1] * k; img.data[i + 2] = tint[2] * k; img.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  // grime streaks running down from the top and soot near the ground
+  for (let k = 0; k < 10; k++) {
+    const x = r() * W, w = 6 + r() * 20, len = 60 + r() * 200;
+    const g = ctx.createLinearGradient(0, 0, 0, len);
+    g.addColorStop(0, 'rgba(30,24,20,0.22)'); g.addColorStop(1, 'rgba(30,24,20,0)');
+    ctx.fillStyle = g; ctx.fillRect(x, 0, w, len);
+  }
+  const gg = ctx.createLinearGradient(0, H - 70, 0, H);
+  gg.addColorStop(0, 'rgba(25,20,18,0)'); gg.addColorStop(1, 'rgba(25,20,18,0.3)');
+  ctx.fillStyle = gg; ctx.fillRect(0, H - 70, W, 70);
   return tex(c);
 }
 

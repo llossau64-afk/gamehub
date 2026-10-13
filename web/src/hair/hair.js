@@ -605,6 +605,18 @@ export class HairSystem {
     return dried;
   }
 
+  // a customer's fingers digging in: the style comes undone around the spot
+  mess(phi, theta, dt, radius = 0.06) {
+    this.brush(phi, theta, radius, (k, w) => {
+      if (this.region[k] === REGION_ID.edges) return;
+      this.styled[k] = Math.max(0, this.styled[k] - dt * 0.9 * w);
+      const a = Math.random() * Math.PI * 2;
+      this.steer(k, Math.cos(a), Math.sin(a), dt * 2 * w);
+      this.volume[k] = Math.min(1, this.volume[k] + dt * 0.3 * w);
+    });
+    this.dirty = true; this.styleDirty = true;
+  }
+
   // pomade / wax: hold and shine; powder: volume and texture
   applyProduct(kind, phi, theta, dt, radius = 0.04) {
     this.brush(phi, theta, radius, (k, w) => {

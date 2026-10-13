@@ -240,6 +240,7 @@ const ACTIONS = {
   guardDown: ['KeyQ'], guardUp: ['KeyE'],
   power: ['Space'],
   finish: ['KeyF'],
+  slap: ['KeyG'],
   sprint: ['ShiftLeft', 'ShiftRight'],
   skip: ['Space', 'Enter', 'Escape'],
   upgrades: ['KeyU', 'Tab'],
