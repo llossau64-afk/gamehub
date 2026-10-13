@@ -375,7 +375,7 @@ namespace Downfall
         // carModel.js beam(a, b, rad, seg): cylinder between two points
         public static MGeo Beam(double[] a, double[] b, double rad, int seg = 6)
         {
-            var A = V(a), B = V(b);
+            Vector3 A = V(a), B = V(b);
             float len = Vector3.Distance(A, B);
             var g = Cylinder(rad, rad, len, seg, 1);
             g.Rotate(Quaternion.FromToRotation(Vector3.up, (B - A).normalized));

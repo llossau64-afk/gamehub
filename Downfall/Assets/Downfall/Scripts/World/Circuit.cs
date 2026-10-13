@@ -94,11 +94,11 @@ namespace Downfall
             var g = new List<Geo>();
             for (int k = 0; k < 3; k++) g.Add(Geo.Torus(0.31, 0.12, 6, 12).RotateX(Mathf.PI / 2).Translate(0, 0.12 + k * 0.24, 0));
             return Geo.Merge(g);
-        }, WorldMats.Color("tyreRubber", 0x1c1c1e, 0.9f));
+        }, WorldMats.Solid("tyreRubber", 0x1c1c1e, 0.9f));
 
         // One kerb block: 1.6 m long (z), 1 m wide (x), red or white.
         public static PartSet KerbParts(bool red) => Parts.FromGeo(red ? "kerb1" : "kerb0", () => Geo.Box(1, 0.1, 1.6),
-            red ? WorldMats.Color("kerbRed", 0xc0281e, 0.6f) : WorldMats.Color("kerbWhite", 0xe8e6e0, 0.6f));
+            red ? WorldMats.Solid("kerbRed", 0xc0281e, 0.6f) : WorldMats.Solid("kerbWhite", 0xe8e6e0, 0.6f));
 
         // City block: a unit box (origin at the base) scaled per instance; windows come from the
         // world position in the Downfall/CityBlock shader so every scale looks right.
@@ -109,7 +109,7 @@ namespace Downfall
             Material m;
             var sh = WorldMats.Find("Downfall/CityBlock");
             if (sh != null) m = new Material(sh) { name = "cityBlock", enableInstancing = true };
-            else m = WorldMats.Color("cityBlock", 0xb8b2a6, 0.8f, 0.05f);
+            else m = WorldMats.Solid("cityBlock", 0xb8b2a6, 0.8f, 0.05f);
             return blockSet = Parts.FromGeo("block",() => Geo.Box(1, 1, 1).Translate(0, 0.5, 0), m);
         }
     }

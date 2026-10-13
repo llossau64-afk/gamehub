@@ -645,7 +645,7 @@ namespace Downfall
         }
 
         // ------------------------------------------------------------------ camera
-        protected void ApplyCamera(Vector3 pos, Vector3 look, Vector3 up)
+        public void ApplyCamera(Vector3 pos, Vector3 look, Vector3 up)
         {
             var cam = g.camera; if (!cam) return;
             var p = Coord.ToUnity(pos);

@@ -35,7 +35,7 @@ namespace Downfall
         static readonly Dictionary<string, Material> cache = new Dictionary<string, Material>();
 
         static Texture BaseTex(Material m) => m == null ? null : m.HasProperty("_BaseMap") ? m.GetTexture("_BaseMap") : m.HasProperty("_MainTex") ? m.mainTexture : null;
-        static Color BaseCol(Material m) => m == null ? Color.white : m.HasProperty("_BaseColor") ? m.GetColor("_BaseColor") : m.HasProperty("_Color") ? m.color : Color.white;
+        static UnityEngine.Color BaseCol(Material m) => m == null ? UnityEngine.Color.white : m.HasProperty("_BaseColor") ? m.GetColor("_BaseColor") : m.HasProperty("_Color") ? m.color : UnityEngine.Color.white;
 
         /// <summary>Vertex-coloured version of a registry material (the MatDefs VC() flag: terrain, rock,
         /// foliage, standStruct). Falls back to the plain registry material.</summary>
@@ -58,7 +58,7 @@ namespace Downfall
         }
 
         /// <summary>Plain colour material (Lit), cached by name.</summary>
-        public static Material Color(string name, int hex, float rough, float metal = 0, bool twoSided = false)
+        public static Material Solid(string name, int hex, float rough, float metal = 0, bool twoSided = false)
         {
             if (cache.TryGetValue(name, out var m) && m) return m;
             var d = MatDefs.Find(name);

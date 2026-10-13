@@ -79,7 +79,7 @@ namespace Downfall
         readonly List<int> tmpKeys = new List<int>();
         readonly Plane[] planes = new Plane[6];
         double sortS;
-        readonly Comparison<int> cmpLinear;
+        readonly Comparison<int> cmpLinear, cmpWant;
         readonly TrackQuery q = new TrackQuery(), qr = new TrackQuery();
 
         public World(Track track, string quality = "medium", Transform parent = null)
@@ -91,6 +91,7 @@ namespace Downfall
             SetQuality(quality);
             track.extraCol = new Dictionary<int, List<WorldCollider>>();
             splat = WorldMats.Terrain(quality);
+            cmpWant = (a, b) => want[a].CompareTo(want[b]);
             cmpLinear = (a, b) => Math.Abs(a * CHUNK + 50 - sortS).CompareTo(Math.Abs(b * CHUNK + 50 - sortS));
         }
 
@@ -134,7 +135,7 @@ namespace Downfall
                 tmpKeys.Clear(); tmpKeys.AddRange(chunks.Keys);
                 foreach (var k in tmpKeys) if (!want.ContainsKey(k)) Unload(k);
                 foreach (var kv in want) if (!chunks.ContainsKey(kv.Key)) order.Add(kv.Key);
-                order.Sort((a, b) => want[a].CompareTo(want[b]));
+                order.Sort(cmpWant);
             }
             else
             {
@@ -401,6 +402,7 @@ namespace Downfall
                     g.Tri(p, qq, r); g.Tri(qq, s, r);
                 }
             }
+            if (mats.Count == 0) return;
             g.ComputeNormals();
             var mesh = SubMesh(g, subs, "road" + ch.k);
             var o = AddMesh(ch, mesh, mats[0], false, true, "road");
@@ -1045,7 +1047,7 @@ namespace Downfall
                             fenceCols.Add(new WorldCollider { t = "b", x = (a.x + bq.x) / 2, y = a.y + 0.55, z = (a.z + bq.z) / 2, hx = 1.3 * sl, hy = 0.6, hz = 0.1, yaw = yaw, s = pr.s + Lerp(e[0], e[2], (double)k / n), brk = 0, slow = 0.015, vis = new[] { h }, kind = "fence" });
                         }
                     }
-                    if (!hay) hay = WorldMats.Color("hay", 0xc8a356, 1f);
+                    if (!hay) hay = WorldMats.Solid("hay", 0xc8a356, 1f);
                     for (int k = 0; k < 4; k++)
                     {
                         var c = P(-w * 0.5 + 2 + k * 1.7, pr.dpt / 2 + 3.5);
@@ -1167,7 +1169,7 @@ namespace Downfall
         {
             var M = G.TRS(pr.x, pr.y, pr.z, G.Yaw(pr.yaw));
             double W = pr.w + 3;
-            if (!gantrySteel) gantrySteel = WorldMats.Color("gantry", 0x3a3e44, 0.45f, 0.7f);
+            if (!gantrySteel) gantrySteel = WorldMats.Solid("gantry", 0x3a3e44, 0.45f, 0.7f);
             foreach (int sd in new[] { -1, 1 }) ch.mg.Add(Geo.Box(0.7, 7.2, 0.7).Translate(sd * W / 2, 3.6, 0), gantrySteel, M);
             ch.mg.Add(Geo.Box(W + 0.7, 1.9, 0.9).Translate(0, 6.6, 0), gantrySteel, M);
             var bm = Banner(pr.text ?? "FINISH");
