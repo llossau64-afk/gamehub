@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { Shop, SPOTS, ROOM, DOOR } from '../world/shop.js';
 import { cloud } from '../core/cloud.js';
 import { Online, randomCode } from '../net/online.js';
+import { account } from '../net/account.js';
+import { accountPanel } from '../ui/accountui.js';
 import { spawnProp, part } from '../world/props.js';
 import { Player } from './player.js';
 import { Character } from '../chars/character.js';
@@ -27,6 +29,7 @@ import { UPGRADES, byId, effects, xpFor, ACHIEVEMENTS, EVENTS } from '../world/u
 import { Street } from './street.js';
 import { Supermarket } from './supermarket.js';
 import { Story, CHAPTERS } from './story.js';
+import { Mart } from './mart.js';
 import { Employee } from './employee.js';
 import { availableHaircuts } from '../hair/styles.js';
 import { audio } from '../audio/audio.js';
@@ -66,6 +69,10 @@ export class Game {
     this.netOut = [];
     this.story = new Story(this);
     this.story.build();
+    this.mart = new Mart(this);
+    // stay signed in on this device: resume the account in the background
+    window.__account = account;
+    account.resume().then((ok) => { if (ok) { this.adoptAccountSave(true); if (this.state === 'menu') this.showMainMenu(); } }).catch(() => {});
     this.online = new Online(this);
     this.save = store.data;
     this.settings = store.settings;
@@ -252,6 +259,7 @@ export class Game {
   registerInteractables() {
     const I = (def) => this.shop.addInteractable(def);
     this.story.interactables(I);
+    this.mart.interactables(I);
     I({
       id: 'martjob', label: () => this.supermarket.jobLabel(),
       pos: () => (this.supermarket.job.carrying ? this.supermarket.doorPos().add(V(0, 1.2, 0)) : this.supermarket.job.pal.position.clone().add(V(0, 0.8, 0))), radius: 3.2,
@@ -383,6 +391,7 @@ export class Game {
     if (!first) await this.ui.fade(false, 700); else this.ui.fade(false, 1200);
     this.showMainMenu();
     if (first) this.syncCloud();
+
   }
 
   // the cloud save for this link: newer than what this browser has -> take it
@@ -405,10 +414,14 @@ export class Game {
   // ---------------------------------------------------------------- online co-op
   // Play Online: create a lobby (fresh one-time code) or join one by code; the host presses
   // PLAY and everybody goes into the shop together
-  openOnline() {
+  openOnline(opt = {}) {
     const ui = this.ui, on = this.online;
+    if (ui.openPanel) ui.closePanel();
     const view = ui.onlinePanel({
-      nick: this.settings.nick || '',
+      nick: account.user || this.settings.nick || '',
+      fixedNick: !!account.user,
+      autoJoin: opt.join || null,
+      autoHost: !!opt.host,
       lobby: on.active ? { code: on.code, host: on.host, started: on.started, players: on.players, team: on.teamSummary() } : null,
       onCreate: async (nick) => {
         this.saveNick(nick);
@@ -441,6 +454,36 @@ export class Game {
   }
 
   saveNick(nick) { this.settings.nick = nick; store.saveSettings(); }
+
+  // ---------------------------------------------------------------- account
+  openAccount() {
+    if (this.ui.openPanel) this.ui.closePanel();
+    accountPanel(this.ui, {
+      onSignedIn: () => { this.ui.toast(`Signed in as ${account.user}`, 'Account'); this.adoptAccountSave(true); if (this.state === 'menu') this.showMainMenu(); },
+      onSignedOut: () => { if (this.state === 'menu') this.showMainMenu(); },
+      canLoadSave: () => this.state === 'menu' && !this.coopKey,
+      onLoadSave: () => { this.adoptAccountSave(false, true); this.ui.closePanel(); },
+      onJoin: (code) => { this.ui.closePanel(); this.openOnline({ join: code }); },
+      onHost: () => { this.ui.closePanel(); this.openOnline({ host: true }); },
+    });
+  }
+
+  // the account's story save is newer than this device's: take it (or always, when asked)
+  adoptAccountSave(onlyIfNewer, force = false) {
+    const acc = account.data?.save;
+    if (!acc || this.state !== 'menu' || this.coopKey) return;
+    const localAt = this.save.savedAt || 0;
+    if (!force && !(onlyIfNewer && (acc.savedAt || account.data.savedAt || 0) > localAt + 1000)) {
+      if (store.hasProgress) account.saveSolo(this.save);
+      return;
+    }
+    store.adopt(acc, null);
+    this.save = store.data;
+    this.fx = effects(this.save.owned);
+    this.shop.applyState(new Set(this.save.owned));
+    this.showMainMenu();
+    this.ui.toast(`Story save loaded from your account — Day ${this.save.day}`, 'Account');
+  }
 
   // everybody into the shop: your own save, or a quick fresh start (intro and tutorial skipped)
   startOnline(team) {
@@ -544,6 +587,9 @@ export class Game {
       onAchievements: () => this.openAchievements(),
       onSettings: () => this.openSettings(),
       onOnline: () => this.openOnline(),
+      onAccount: () => this.openAccount(),
+      account: account.user,
+      friendsOnline: account.user ? account.data.friends.filter((f) => account.online(f)).length : 0,
       online: this.online.active ? this.online.code : null,
       onlineStarted: this.online.started,
     });
@@ -1026,14 +1072,18 @@ export class Game {
   persist() {
     // the time of day goes into the save too, so a reload puts you back in the same afternoon
     if (this.clock && ['play', 'barber', 'reaction'].includes(this.state)) this.save.clock = { day: this.save.day, hour: this.clock.hour, open: this.clock.open };
+    account.level = this.save.level;
     if (this.coopKey) {
       this.save.savedAt = Date.now();
       try { platform.save('coop:' + this.coopKey, JSON.stringify(this.save)); } catch (e) { /* storage blocked */ }
+      // signed in: the team shop also goes into your account, listed with who you played with
+      account.saveTeam(this.coopKey, Online.slim(this.save), this.online.members());
       return;
     }
     store.data = this.save;
     store.save();
     cloud.push(this.save, this.settings);
+    if (this.save.started) account.saveSolo(this.save);
   }
 
   updateGoal() {
@@ -1532,6 +1582,7 @@ export class Game {
     this.street.update(dt);
     this.supermarket.update(dt);
     this.story.update(dt);
+    this.mart.update(dt);
     for (const e of this.staff) e.update(dt);
     this.updateItems(dt);
     this.clippings.update(dt);

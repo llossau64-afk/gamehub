@@ -104,6 +104,7 @@ export class UI {
     if (opts.hasSave) add('Story Mode', opts.onContinue, 'primary', opts.saveInfo || 'continue');
     add(opts.hasSave ? 'New Story' : 'Story Mode', opts.onNew, opts.hasSave ? '' : 'primary', opts.hasSave ? '' : 'start a new story');
     if (opts.onOnline) add(opts.online ? `Online · ${opts.online}` : 'Play Online', opts.onOnline, opts.online ? 'online on' : 'online', opts.online ? 'lobby' : 'co-op · 3 barbers');
+    if (opts.onAccount) add(opts.account ? `@${opts.account}` : 'Account', opts.onAccount, 'account', opts.account ? (opts.friendsOnline ? `${opts.friendsOnline} friend${opts.friendsOnline > 1 ? 's' : ''} online` : 'friends & saves') : 'sign in · friends');
     add('Upgrades', opts.onUpgrades);
     add('Achievements', opts.onAchievements);
     add('Settings', opts.onSettings);
@@ -142,6 +143,7 @@ export class UI {
       const nick = body.querySelector('.op-nick');
       nick.value = nickVal;
       nick.addEventListener('input', () => { nickVal = nick.value; });
+      if (o.fixedNick) { nick.disabled = true; nick.closest('.op-f').querySelector('span').textContent = 'Signed in as'; }
       const code = body.querySelector('.op-code-in');
       code.addEventListener('input', () => { code.value = code.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
       code.addEventListener('keydown', (e) => { if (e.key === 'Enter') body.querySelector('.op-join').click(); });
@@ -199,7 +201,12 @@ export class UI {
           : 'Waiting for the host to press Play…';
     };
 
-    if (o.lobby) lobby(o.lobby); else choose();
+    if (o.lobby) lobby(o.lobby); else {
+      choose();
+      // from the friend list: straight into a friend's lobby, or host a saved team game
+      if (o.autoJoin) { body.querySelector('.op-code-in').value = o.autoJoin; setTimeout(() => body.querySelector('.op-join').click(), 50); }
+      else if (o.autoHost) setTimeout(() => body.querySelector('.op-create').click(), 50);
+    }
     body.addEventListener('keydown', (e) => e.stopPropagation());
     this.panel('Co-op', 'Play Online', body);
     return { update: (L) => { if (body.isConnected) lobby(L); } };

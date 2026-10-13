@@ -6,7 +6,7 @@
 // The object returned by joinRelay() mimics the bits of the artifact runtime's named room
 // that online.js uses: presence(patch), peers(), onPeers(fn), leave().
 
-const BROKERS = [
+export const BROKERS = [
   'wss://broker.emqx.io:8084/mqtt',
   'wss://broker.hivemq.com:8884/mqtt',
 ];
@@ -25,8 +25,8 @@ function varint(n) {
 function str(s) { const b = enc.encode(s); return [b.length >> 8, b.length & 255, ...b]; }
 function packet(type, body) { return new Uint8Array([type, ...varint(body.length), ...body]); }
 
-class Mqtt {
-  constructor(url) { this.url = url; this.onMessage = null; this.onClose = null; this.buf = new Uint8Array(0); this.pid = 1; }
+export class Mqtt {
+  constructor(url, max = MAX_MSG) { this.url = url; this.max = max; this.onMessage = null; this.onClose = null; this.buf = new Uint8Array(0); this.pid = 1; }
 
   connect(clientId, will) {
     return new Promise((resolve, reject) => {
@@ -83,13 +83,14 @@ class Mqtt {
     const topic = dec.decode(body.subarray(2, 2 + tl));
     let p = 2 + tl;
     if ((this.flags >> 1) & 3) p += 2;  // QoS > 0 carries a packet id
-    if (body.length - p > MAX_MSG) return;
+    if (body.length - p > this.max) return;
     this.onMessage?.(topic, dec.decode(body.subarray(p)));
   }
 
   send(bytes) { if (this.ws?.readyState === 1) this.ws.send(bytes); }
   subscribe(filter) { const id = this.pid++; this.send(packet(0x82, [id >> 8, id & 255, ...str(filter), 0])); }
-  publish(topic, payload) { this.send(packet(0x30, [...str(topic), ...enc.encode(payload)])); }
+  publish(topic, payload, retain = false) { this.send(packet(retain ? 0x31 : 0x30, [...str(topic), ...enc.encode(payload)])); }
+  unsubscribe(filter) { const id = this.pid++; this.send(packet(0xa2, [id >> 8, id & 255, ...str(filter)])); }
   close() { clearInterval(this.ping); this.send(packet(0xe0, [])); try { this.ws.close(); } catch (e) { /* */ } }
 }
 

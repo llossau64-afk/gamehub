@@ -14,6 +14,7 @@ import { SPOTS, STATION2, STATION3 } from '../world/shop.js';
 import { spawnProp } from '../world/props.js';
 import { clamp } from '../core/util.js';
 import { joinRelay } from './relay.js';
+import { account } from './account.js';
 import { xpFor } from '../world/upgrades.js';
 import { QUESTS } from '../game/story.js';
 
@@ -283,6 +284,7 @@ export class Online {
     this.last = {};
     this.unsub = room.onPeers((ch) => this.onPeers(ch.peers));
     this.teamTs = null;
+    account.setLobby(code);
     await room.presence({ v: 1, nick, pid: this.pid, st: 'menu', p: null, cu: null, hr: null, ...extra }).catch(() => {});
     this.onPeers(room.peers());
   }
@@ -303,9 +305,17 @@ export class Online {
 
   // ---- the team: who's playing, and the save we share
   get pid() {
+    // signed in: your username is your id, so the same friends find the same team shop on any device
+    if (account.user) return 'u' + account.user;
     const st = this.game.settings;
     if (!st.pid) { st.pid = Math.random().toString(36).slice(2, 12); this.game.saveSettings?.(); }
     return st.pid;
+  }
+
+  // the signed-in usernames playing right now (for the account's list of team saves)
+  members() {
+    const ids = [this.pid, ...(this.room ? this.othersIn(this.room) : []).map((p) => String(p.presence.pid || ''))];
+    return [...new Set(ids.filter((x) => /^u[a-z0-9]{3,15}$/.test(x)).map((x) => x.slice(1)))].sort();
   }
 
   teamKey() {
@@ -348,6 +358,8 @@ export class Online {
     if (this.teamTs?.k === k) return;
     const local = this.game.loadTeam(k);
     this.teamTs = { k, at: local?.savedAt || 0, s: local ? Online.slim(local) : null };
+    const acc = account.team(k);
+    if (acc?.s && (acc.at || 0) > this.teamTs.at) this.teamTs = { k, at: acc.at, s: acc.s };
     this.room.presence({ ts: this.teamTs }).catch(() => {});
   }
 
@@ -436,6 +448,7 @@ export class Online {
 
   async leave() {
     const r = this.room;
+    account.setLobby(null);
     this.base = null;
     this.room = null;
     this.host = false;

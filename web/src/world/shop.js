@@ -9,6 +9,7 @@ import * as T from '../render/textures.js';
 import { SHOPS, SUPERMARKET, shopWindowTexture, shopSignTexture } from '../render/shopfronts.js';
 import { Facades } from './facade.js';
 import { buildStreetProps } from './streetprops.js';
+import { buildMartInterior } from './martinterior.js';
 
 // the street runs from STREET.x0 to STREET.x1; side alleys cut into our block
 export const STREET = { x0: -46, x1: 46, alleys: [[-27.5, -21.5], [21.5, 27.5]] };
@@ -338,7 +339,10 @@ export class Shop {
       { x0: DOOR.x - DOOR.w / 2, x1: DOOR.x + DOOR.w / 2, z0: R.z1 - 0.12, z1: R.z1 + 0.2, active: () => this.doorSpring.value < 0.55 },
       // the street: pavement, road, the far pavement; the other shops are closed to you
       { x0: -199, x1: STREET.x0, z0: -99, z1: 99 }, { x0: STREET.x1, x1: 199, z0: -99, z1: 99 },
-      { x0: -99, x1: 99, z0: R.z1 + 13.8, z1: 99 },
+      // the far side is closed, except through Fresh Mart's sliding doors
+      { x0: -99, x1: SUPER.x0, z0: R.z1 + 13.8, z1: 99 }, { x0: SUPER.x1, x1: 99, z0: R.z1 + 13.8, z1: 99 },
+      { x0: SUPER.x0 - 0.1, x1: SUPER.door - 1.25, z0: R.z1 + 13.8, z1: R.z1 + 14.62 },
+      { x0: SUPER.door + 1.25, x1: SUPER.x1 + 0.1, z0: R.z1 + 13.8, z1: R.z1 + 14.62 },
     );
   }
 
@@ -667,8 +671,8 @@ export class Shop {
       g.add(d);
       this.superDoors.push({ obj: d, base: S.door + sx * 0.64, dir: sx, open: 0 });
     }
-    const inside = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.8), new THREE.MeshStandardMaterial({ color: '#fff7e6', emissive: new THREE.Color('#fff1d6'), emissiveIntensity: 0.35, roughness: 0.9 }));
-    inside.position.set(S.door, 1.42, z + 0.6); inside.rotation.y = Math.PI; g.add(inside);
+    // a real store behind the doors: walk in and shop
+    buildMartInterior(g, this, { x0: S.x0 + 0.05, x1: S.x1 - 0.05, z0: z, z1: z + 9.5, door: S.door });
     // the big sign, lit at night
     const st = shopSignTexture(sm);
     const signM = new THREE.MeshStandardMaterial({ map: st, emissiveMap: st, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.25, roughness: 0.5 });
@@ -706,7 +710,7 @@ export class Shop {
 
   updateSupermarket(dt, who) {
     for (const d of this.superDoors || []) {
-      const near = who.some((p) => Math.abs(p.x - SUPER.door) < 1.6 && p.z > ROOM.z1 + 0.24 + 11.5);
+      const near = who.some((p) => Math.abs(p.x - SUPER.door) < 1.6 && p.z > ROOM.z1 + 0.24 + 11.5 && p.z < ROOM.z1 + 0.24 + 16.2);
       d.open += ((near ? 1 : 0) - d.open) * Math.min(1, dt * 5);
       d.obj.position.x = d.base + d.dir * d.open * 1.2;
     }

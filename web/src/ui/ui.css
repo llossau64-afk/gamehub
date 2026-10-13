@@ -1011,3 +1011,38 @@
 .mart-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,.1); font-size: 14px; }
 .mart-pay { border: 0; border-radius: 12px; padding: 12px 20px; background: #c3201c; color: #fff; font-family: var(--cond); font-size: 18px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; box-shadow: 0 4px 0 #861612; }
 .mart-pay:disabled { opacity: .4; box-shadow: none; }
+
+/* ---------------------------------------------------------------- account */
+.acc { max-width: 560px; }
+.acc-tabs { display: flex; gap: 6px; margin-bottom: 12px; background: var(--paper-2); padding: 4px; border-radius: 12px; }
+.acc-tabs button { flex: 1; border: 0; border-radius: 9px; padding: 10px; background: transparent; font-family: var(--cond); font-size: 16px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.acc-tabs button.on { background: var(--ink); color: var(--paper); }
+.acc-lead { font-size: 14px; color: var(--ink-2); margin: 0 0 12px; }
+.acc-f { display: grid; gap: 4px; margin-bottom: 10px; }
+.acc-f span { font-family: var(--cond); font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-2); }
+.acc-f input, .acc-add input { border: 0; border-radius: 10px; padding: 12px 14px; font-size: 17px; background: #fff; box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.14); color: var(--ink); }
+.acc-f input:focus, .acc-add input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--brass); }
+.acc-chk { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-2); margin: 4px 0 10px; }
+.acc-err { min-height: 18px; color: #b1452f; font-size: 13.5px; font-weight: 700; margin-bottom: 8px; }
+.acc-go { width: 100%; border: 0; border-radius: 12px; padding: 14px; background: var(--ink); color: var(--paper); font-family: var(--cond); font-size: 19px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; box-shadow: 0 4px 0 #000; }
+.acc-note { font-size: 12px; color: var(--ink-2); margin: 12px 0 0; }
+.acc-me { display: grid; grid-template-columns: 48px 1fr auto; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: var(--paper-2); }
+.acc-me .av { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--brass-2), var(--brass)); color: #fff; display: grid; place-items: center; font-family: var(--cond); font-size: 24px; font-weight: 800; }
+.acc-me b { font-family: var(--cond); font-size: 20px; } .acc-me small { display: block; font-size: 12.5px; color: var(--ink-2); }
+.acc-out { border: 0; border-radius: 9px; padding: 8px 12px; background: transparent; box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.2); font-weight: 700; color: var(--ink-2); }
+.acc h4 { font-family: var(--cond); font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: var(--ink-2); margin: 16px 0 8px; }
+.acc-add { display: flex; gap: 8px; } .acc-add input { flex: 1; font-size: 15px; padding: 10px 12px; }
+.acc-add button, .acc-fr button, .acc-req button, .acc-team button { border: 0; border-radius: 9px; padding: 9px 14px; background: var(--ink); color: var(--paper); font-family: var(--cond); font-size: 15px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.acc-msg { min-height: 16px; font-size: 13px; color: var(--ink-2); margin: 6px 0; }
+.acc-fr { display: grid; grid-template-columns: 12px 1fr auto auto; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 10px; background: var(--paper-2); margin-bottom: 6px; }
+.acc-fr i { width: 10px; height: 10px; border-radius: 50%; background: #b9ad94; }
+.acc-fr.on i { background: #3fbf5a; box-shadow: 0 0 0 3px rgba(63,191,90,.2); }
+.acc-fr b { font-size: 15px; } .acc-fr small { display: block; font-size: 12px; color: var(--ink-2); }
+.acc-fr .join { background: #3f7d4e; }
+.acc-fr .rm { background: transparent; color: var(--ink-2); font-size: 20px; padding: 4px 8px; }
+.acc-req { display: flex; gap: 8px; align-items: center; padding: 9px 10px; border-radius: 10px; background: #fff3d6; margin-bottom: 6px; } .acc-req span { flex: 1; font-size: 14px; }
+.acc-req .no { background: transparent; color: var(--ink-2); box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.2); }
+.acc-team { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: var(--paper-2); margin-bottom: 6px; }
+.acc-team > div { flex: 1; } .acc-team b { font-size: 15px; } .acc-team small { display: block; font-size: 12px; color: var(--ink-2); }
+.acc-empty { font-size: 13px; color: var(--ink-2); margin: 4px 0; }
+.mbtn.account small { color: #7fd38f; }

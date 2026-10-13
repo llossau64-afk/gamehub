@@ -30,7 +30,7 @@ export const QUESTS = {
   thief: { title: 'Stop, Thief!', ch: 3, giver: 'Bruno the baker', reward: { money: 45, xp: 70 },
     steps: ['Talk to Bruno outside the bakery', 'Catch the bread thief', 'Pick up the stolen bread', 'Bring the bread back to Bruno'] },
   drinks: { title: 'Thirsty Customers', ch: 3, giver: 'Fresh Mart', reward: { money: 15, xp: 40 },
-    steps: ['Buy a drink at the Fresh Mart cooler', 'Give a drink to a waiting customer (F)'] },
+    steps: ['Buy a drink inside Fresh Mart (pay Jess at the till)', 'Give a drink to a waiting customer (F)'] },
   martJob: { title: 'One Shift at Fresh Mart', ch: 4, giver: 'Mr. Kowalski', reward: { money: 0, xp: 0 },
     steps: ['Talk to Mr. Kowalski across the street', 'Carry 8 boxes into Fresh Mart', 'Collect your “pay”'] },
   deed: { title: 'The Deed', ch: 5, giver: 'Mr. Albrecht', reward: { money: 250, xp: 200 },
@@ -49,7 +49,7 @@ const DAILY_POOL = [
 ];
 
 // ------------------------------------------------------------------ a person on the street
-class StreetNPC {
+export class StreetNPC {
   constructor(game, { name, look, hair, voice, hat }) {
     this.game = game;
     this.name = name;
@@ -142,11 +142,8 @@ export class Story {
     br.home = V(5.1, 0, FZ + 0.6);
     br.ch.place(br.home, 0);
     // the cooler outside Fresh Mart: buy drinks here
-    const fr = this.fridge = makeFridge();
-    fr.position.set(SUPER.x1 - 1.3, 0, FZ + 13.62);
-    fr.rotation.y = Math.PI;
-    g.scene.add(fr);
-    g.shop.colliders.push({ x0: fr.position.x - 0.55, x1: fr.position.x + 0.55, z0: fr.position.z - 0.4, z1: fr.position.z + 0.4, outside: true });
+    // (the drinks are sold inside Fresh Mart now)
+    this.fridge = null;
   }
 
   interactables(I) {
@@ -160,8 +157,7 @@ export class Story {
       pos: () => this.thief.ch.headWorld(V()), radius: 3.2, action: () => { this.tackleThief().catch((e) => console.error(e)); return 'thief'; } });
     I({ id: 'bread', label: () => (play() && this.bag && !this.carrying && this.bag.position.distanceTo(g.player.pos) < 2.0 ? 'Pick up the stolen bread' : null),
       pos: () => this.bag.position.clone().add(V(0, 0.2, 0)), radius: 2.6, action: () => { this.pickBread(); return 'bread'; } });
-    I({ id: 'fridge', label: () => (play() && this.fridge && this.fridge.position.distanceTo(g.player.pos) < 2.4 ? 'Buy drinks · Fresh Mart' : null),
-      pos: () => this.fridge.position.clone().add(V(0, 1.1, -0.3)), radius: 3.2, action: () => { this.openShop(); return 'fridge'; } });
+    // the cooler outside is just for show now: shopping happens inside the store
   }
 
   // ---------------------------------------------------------------- progress
