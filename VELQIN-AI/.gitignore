@@ -10,3 +10,4 @@ frontend/.next/
 frontend/out/
 .pytest_cache/
 *.log
+frontend/tsconfig.tsbuildinfo
