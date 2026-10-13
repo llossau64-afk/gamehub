@@ -49,7 +49,7 @@ namespace Downfall
         public HashSet<TrackRockfall> rockfallsDone = new HashSet<TrackRockfall>();
         public List<WorldCollider> dynamic = new List<WorldCollider>();
         readonly Dictionary<WorldCollider, Vector2> spinRot = new Dictionary<WorldCollider, Vector2>();
-        public IRunAnimals animals;
+        public Animals animals;
         public double camIntro;
         public int cdToken;
         public Action startCountdownNow;
@@ -150,8 +150,9 @@ namespace Downfall
             dynamic = new List<WorldCollider>();
             v.dynamic = dynamic;
             g.world?.ResetBreakables();
-            if (animals == null) animals = g.CreateAnimals();
-            animals?.Reset(maxS);
+            if (animals == null || animals.track != track) { animals?.Dispose(); animals = new Animals(track, g.worldScene); }
+            animals.feed = (text, amount) => g.ui.Feed(text, amount);
+            animals.Reset(maxS);
             v.animalCols = animals?.cols;
             foreach (var m in pickMeshes.Values) DestroyTree(m);
             pickMeshes.Clear(); pickInfo.Clear();
@@ -236,7 +237,7 @@ namespace Downfall
             if (!countdown || go) v.Update(dt);
             else { v.Update(dt * 0.5); v.vel.x = 0; v.vel.z = 0; v.angVel.y = 0; }
             UpdateDynamic(dt);
-            animals?.Update(dt, v, maxS);
+            animals?.Update((float)dt, v, maxS);
             // progress
             var q = v.lastQuery;
             if (q.dist < q.halfW + 30 && q.s > maxS && Math.Abs(v.pos.y - t.RoadY(q.s)) < 12)
@@ -342,8 +343,8 @@ namespace Downfall
                             var mesh = g.world?.BreakRail(e.idx, e.side);
                             if (mesh)
                             {
-                                var clone = UnityEngine.Object.Instantiate(mesh.gameObject, mesh.position, mesh.rotation);
-                                clone.transform.localScale = mesh.lossyScale;
+                                var clone = UnityEngine.Object.Instantiate(mesh, mesh.transform.position, mesh.transform.rotation);
+                                clone.transform.localScale = mesh.transform.lossyScale;
                                 clone.SetActive(true);
                                 g.debris.Add(clone.transform, V(v.vel.x * 0.4, 2, v.vel.z * 0.4), V(Random.value, Random.value * 2, Random.value));
                             }
@@ -372,16 +373,17 @@ namespace Downfall
             {
                 // a short, sharp explosion: flash, fireball, smoke, tufts -- and the animal is gone
                 animals?.Explode(o);
-                string kind = animals?.KindOf(o);
+                string kind = (o.animal as Animal)?.kind;
                 Explosion(o.x, o.y + 0.3, o.z, e.vx, e.vz, kind == "cow" ? 1.3 : kind == "fox" ? 0.6 : 1, near);
                 if (isPlayer) shake = Math.Max(shake, 0.35 * ShakeSetting);
                 return;
             }
-            var parts = g.world?.Smash(o) ?? new List<Transform>();
+            var parts = g.world?.Smash(o) ?? new List<GameObject>();
             var dir = V(e.vx, 0, e.vz).normalized;
-            foreach (var grp in parts)
+            foreach (var go in parts)
             {
-                if (!grp) continue;
+                if (!go) continue;
+                var grp = go.transform;
                 if (o.kind == "sapling")
                 {
                     // snaps and topples away from the car
@@ -585,7 +587,7 @@ namespace Downfall
                     else
                     {
                         var L = g.env?.look;
-                        var col = L != null ? Hex(L.dirt) : Hex(0x8a7a60);
+                        var col = L != null ? L.dirt : Hex(0x8a7a60);
                         P.Dust((float)w.gx, cy, (float)w.gz, (float)v.vel.x, (float)v.vel.z, (float)(si.dust * dt * U.Clamp(speed / 6, 0, 3) * 3), col);
                     }
                     dirty += si.dust;
@@ -1069,10 +1071,10 @@ namespace Downfall
             road.Update((float)v.speed, (float)(v.wheelsOnGround != 0 ? paved : 0), (float)loose, rsi != null ? (float)rsi.rough : 0, rsi != null ? rsi.group : 0, rsi != null && rsi.snow != 0, (float)v.scrape, (float)inWater, ended ? 0.5f : 1);
             var L = g.env?.look;
             double tun = g.env != null ? g.env.tunnel : 0;
-            double wf = g.world != null ? g.world.NearestWaterfall(v.pos) : double.PositiveInfinity;
-            a.ambience?.Update((float)dt, (float)((L != null && L.wind != 0 ? L.wind : 0.3) * 0.8 + 0.1), (float)((L?.birds ?? 0) * (1 - tun)), 0.6f, (float)U.Clamp(1 - wf / 140, 0, 1), (float)((L == null ? 0 : L.weather == "rain" ? 1 : L.weather == "storm" ? 0.7 : 0) * (1 - tun)));
+            double wf = g.world != null ? g.world.NearestWaterfall(V(v.pos.x, v.pos.y, v.pos.z)) : double.PositiveInfinity;
+            a.ambience?.Update((float)dt, (float)((L != null && L.wind != 0 ? L.wind : 0.3) * 0.8 + 0.1), (float)((L?.birds ?? 0) * (1 - tun)), 0.6f, (float)U.Clamp(1 - wf / 140, 0, 1), (float)((L?.rain ?? 0) * (1 - tun)));
             a.SetReverb((float)(tun * 0.7));
-            g.env?.TakeEvents((type, power, delay) => { if (type == "thunder") timers.After(delay * 1000, () => Au?.Thunder((float)power)); });
+            // thunder: Env plays its scheduled events itself (env.autoThunder)
             // music intensity: speed, danger, record chase
             double danger = (1 - v.hp / v.p.hpPool) * 0.4 + (v.fuel / v.p.fuel < 0.15 ? 0.25 : 0);
             double inten = U.Clamp(v.speed / 45, 0, 1) * 0.6 + danger + (record ? 0.15 : 0) + (best > 0 && maxS - startS > best - 300 && !record ? 0.2 : 0);

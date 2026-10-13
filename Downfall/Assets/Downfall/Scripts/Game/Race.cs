@@ -213,7 +213,7 @@ namespace Downfall
             UpdateDynamic(dt);
             if (go && !ended) raceTime += dt;
             ProgressAll();
-            animals?.Update(dt, v, me.progress + startS);
+            animals?.Update((float)dt, v, me.progress + startS);
             maxS = v.lastQuery.s;
             HandleEvents();
             BotEvents();

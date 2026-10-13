@@ -210,7 +210,7 @@ namespace Downfall
         readonly Material mat;
         int cursor;
         bool dirty;
-        readonly float[][] last = new float[4][];
+        readonly float[][] last = new float[64][];
 
         public SkidMarks(int max = 6000)
         {
@@ -264,7 +264,7 @@ namespace Downfall
         public void Clear()
         {
             for (int i = 0; i < col.Length; i++) { col[i] = Color.white; pos[i] = Vector3.zero; }
-            for (int i = 0; i < 4; i++) last[i] = null;
+            for (int i = 0; i < last.Length; i++) last[i] = null;
             dirty = true;
         }
     }

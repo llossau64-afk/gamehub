@@ -4,7 +4,13 @@
     "references": [
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.Universal.Runtime",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Unity.Collections",
+        "Unity.Services.Core",
+        "Unity.Services.Authentication",
+        "Unity.Services.Multiplayer",
+        "Unity.Netcode.Runtime",
+        "Unity.Networking.Transport"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -14,7 +20,8 @@
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [
-        { "name": "com.unity.render-pipelines.universal", "expression": "17.0.0", "define": "DOWNFALL_URP" }
+        { "name": "com.unity.render-pipelines.universal", "expression": "17.0.0", "define": "DOWNFALL_URP" },
+        { "name": "com.unity.services.multiplayer", "expression": "1.0.0", "define": "DOWNFALL_UGS" }
     ],
     "noEngineReferences": false
 }

@@ -15,8 +15,8 @@ namespace Downfall
         SaveManager save { get; }
         IGameUI ui { get; }
         Track track { get; }
-        IRunWorld world { get; }
-        IRunEnv env { get; }
+        World world { get; }               // World/World.cs
+        Env env { get; }                   // World/Environment.cs
         GameInput input { get; }
         Camera camera { get; }
         Particles particles { get; }
@@ -27,7 +27,6 @@ namespace Downfall
         Light flashLight { get; }          // explosion / nitro flash point light (JS g.flashLight)
         RunDebug debug { get; }            // ?bot / ?s= (may be null)
         bool onlineIsHost { get; }         // g.online && g.online.isHost
-        IRunAnimals CreateAnimals();       // new Animals(g)
         void CheckAchievements(RunInfo run);
         string NextGoalText();
         string CheckFreeCar();             // null when nothing was unlocked
@@ -60,37 +59,6 @@ namespace Downfall
         void Podium(PodiumData d);
         void PodiumHide();
         void RaceResults(RaceResultsData d);
-    }
-
-    // world.js
-    public interface IRunWorld
-    {
-        void Update(double s, double budget);
-        void ResetRails();
-        Transform BreakRail(int idx, int side);         // hides the rail segment, returns it (cloned for debris) or null
-        void ResetBreakables();
-        List<Transform> Smash(WorldCollider o);         // removes a breakable, returns its parts (world space) for debris
-        double NearestWaterfall(Vehicle.Vec3 pos);
-    }
-
-    // env.js
-    public interface IRunEnv
-    {
-        double tunnel { get; }
-        LookDef look { get; }                           // may be null
-        // env.events: hands every pending event (type, power, delay) to `each`, then clears the list
-        void TakeEvents(Action<string, double, double> each);
-    }
-
-    // animals.js
-    public interface IRunAnimals
-    {
-        List<WorldCollider> cols { get; }
-        void Reset(double s0);
-        void Update(double dt, Vehicle v, double sProg);
-        void Explode(WorldCollider o);
-        void Clear();
-        string KindOf(WorldCollider o);                 // o.animal.kind ('cow', 'fox', ...)
     }
 
     // online.js race handle (cfg.net)
