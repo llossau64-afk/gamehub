@@ -1,0 +1,158 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/sora";
+@import "@fontsource-variable/jetbrains-mono";
+@import "katex/dist/katex.min.css";
+@import "./code.css";
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* ------------------------------------------------------------------------------------------
+   VELQIN design tokens
+   ------------------------------------------------------------------------------------------ */
+:root {
+  --bg: #f7f7fa;
+  --bg-soft: #f0f0f5;
+  --surface: #ffffff;
+  --surface-2: #f4f4f8;
+  --elevated: #ffffff;
+  --line: rgb(20 20 40 / 0.08);
+  --line-strong: rgb(20 20 40 / 0.14);
+  --fg: #15151c;
+  --fg-muted: #5c5c6e;
+  --fg-subtle: #8e8ea0;
+  --silver: #9aa0b4;
+  --danger: #e5484d;
+  --success: #2fa36b;
+  --warning: #d9930d;
+  --shadow: 0 1px 2px rgb(16 16 32 / 0.05), 0 8px 24px -12px rgb(16 16 32 / 0.12);
+  --shadow-lg: 0 2px 6px rgb(16 16 32 / 0.06), 0 24px 60px -24px rgb(16 16 32 / 0.25);
+  --glow: rgb(110 90 250 / 0.08);
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg: #0a0a0f;
+  --bg-soft: #0e0e15;
+  --surface: #13131b;
+  --surface-2: #181822;
+  --elevated: #1c1c27;
+  --line: rgb(255 255 255 / 0.07);
+  --line-strong: rgb(255 255 255 / 0.12);
+  --fg: #ececf3;
+  --fg-muted: #a0a0b2;
+  --fg-subtle: #6e6e80;
+  --silver: #c4c8d6;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  --shadow-lg: 0 2px 6px rgb(0 0 0 / 0.45), 0 30px 70px -30px rgb(0 0 0 / 0.8);
+  --glow: rgb(120 100 255 / 0.10);
+  color-scheme: dark;
+}
+
+/* accent palettes (subtle violet / blue / silver identity) */
+:root, [data-accent="violet"] { --accent: #7c6cf2; --accent-2: #4f7cff; --accent-fg: #ffffff; --accent-soft: rgb(124 108 242 / 0.12); }
+[data-theme="dark"], [data-theme="dark"][data-accent="violet"] { --accent: #9486f7; --accent-2: #6b93ff; --accent-soft: rgb(148 134 247 / 0.14); }
+[data-accent="blue"] { --accent: #3d74f5; --accent-2: #39a0e8; --accent-soft: rgb(61 116 245 / 0.12); }
+[data-theme="dark"][data-accent="blue"] { --accent: #6b93ff; --accent-2: #5cc2f2; --accent-soft: rgb(107 147 255 / 0.14); }
+[data-accent="silver"] { --accent: #5d6377; --accent-2: #8a90a6; --accent-soft: rgb(93 99 119 / 0.12); }
+[data-theme="dark"][data-accent="silver"] { --accent: #c4c8d6; --accent-2: #9aa0b4; --accent-fg: #0a0a0f; --accent-soft: rgb(196 200 214 / 0.12); }
+[data-accent="emerald"] { --accent: #12a37a; --accent-2: #3d8ef5; --accent-soft: rgb(18 163 122 / 0.12); }
+[data-theme="dark"][data-accent="emerald"] { --accent: #34c99a; --accent-2: #6b93ff; --accent-fg: #062018; --accent-soft: rgb(52 201 154 / 0.14); }
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-soft: var(--bg-soft);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-elevated: var(--elevated);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--fg-muted);
+  --color-subtle: var(--fg-subtle);
+  --color-silver: var(--silver);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Sora Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Code", Consolas, monospace;
+  --shadow-soft: var(--shadow);
+  --shadow-float: var(--shadow-lg);
+  --radius-xl2: 1.25rem;
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01", "ss03";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+}
+::selection { background: var(--accent-soft); }
+
+/* Fluid height that respects mobile browser chrome and the virtual keyboard */
+.h-app { height: 100vh; height: 100dvh; }
+.pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0.75rem); }
+.pt-safe { padding-top: env(safe-area-inset-top); }
+
+/* scrollbars */
+.scroll-thin { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 8px; }
+.scroll-thin::-webkit-scrollbar-track { background: transparent; }
+
+/* focus */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+/* brand gradient text — used sparingly (logo + greeting only) */
+.text-brand {
+  background: linear-gradient(100deg, var(--fg) 0%, var(--fg) 35%, var(--accent) 70%, var(--accent-2) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* ambient glow behind the welcome screen */
+.ambient::before {
+  content: ""; position: absolute; inset: -20% -10% auto -10%; height: 70%; pointer-events: none;
+  background: radial-gradient(60% 60% at 50% 30%, var(--glow), transparent 70%);
+}
+
+/* Markdown prose */
+.prose-velqin { line-height: 1.7; font-size: 0.975rem; color: var(--fg); overflow-wrap: anywhere; }
+.prose-velqin > * + * { margin-top: 0.85em; }
+.prose-velqin h1, .prose-velqin h2, .prose-velqin h3, .prose-velqin h4 { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; margin-top: 1.4em; }
+.prose-velqin h1 { font-size: 1.45rem; } .prose-velqin h2 { font-size: 1.25rem; } .prose-velqin h3 { font-size: 1.08rem; }
+.prose-velqin a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.prose-velqin ul { list-style: disc; padding-left: 1.4em; } .prose-velqin ol { list-style: decimal; padding-left: 1.4em; }
+.prose-velqin li + li { margin-top: 0.3em; } .prose-velqin li > ul, .prose-velqin li > ol { margin-top: 0.3em; }
+.prose-velqin blockquote { border-left: 3px solid var(--line-strong); padding-left: 1em; color: var(--fg-muted); }
+.prose-velqin hr { border-color: var(--line); margin: 1.5em 0; }
+.prose-velqin :not(pre) > code { font-family: var(--font-mono); font-size: 0.86em; background: var(--surface-2); border: 1px solid var(--line); padding: 0.12em 0.38em; border-radius: 6px; }
+.prose-velqin table { width: 100%; border-collapse: collapse; font-size: 0.92em; }
+.prose-velqin .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+.prose-velqin th, .prose-velqin td { padding: 0.55em 0.85em; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.prose-velqin th { font-weight: 600; background: var(--surface-2); }
+.prose-velqin tr:last-child td { border-bottom: 0; }
+.prose-velqin .katex-display { overflow-x: auto; overflow-y: hidden; padding: 0.25em 0; }
+.prose-velqin img { border-radius: 12px; }
+
+/* streaming caret */
+.streaming-md .prose-velqin > :last-child:not(pre):not(ul):not(ol):not(table):not(.table-wrap):not(.code-block)::after, .streaming-md .prose-velqin > :is(ul, ol):last-child > li:last-child::after { content: ""; display: inline-block; width: 0.5em; height: 1em; margin-left: 2px; vertical-align: -0.15em; background: var(--accent); border-radius: 2px; animation: blink 1s steps(2, start) infinite; }
+@keyframes blink { to { visibility: hidden; } }
+
+/* thinking shimmer */
+.shimmer { background: linear-gradient(90deg, var(--fg-subtle) 0%, var(--fg) 50%, var(--fg-subtle) 100%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 2.2s linear infinite; }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
