@@ -1,0 +1,2 @@
+# Optional: VELQIN Voice (local speech-to-text). Downloads the Whisper model on first use.
+faster-whisper==1.2.1

@@ -1,0 +1,15 @@
+from models.entities import (  # noqa: F401
+    AIModelProfile,
+    Attachment,
+    Chat,
+    DocumentChunk,
+    Invite,
+    Job,
+    MediaItem,
+    Memory,
+    Message,
+    Project,
+    Setting,
+    User,
+    UserSession,
+)
