@@ -42,7 +42,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                 host = request.headers.get("host", "")
                 fwd_host = request.headers.get("x-forwarded-host", "") if settings.trust_proxy_headers else ""
                 allowed_dev = settings.is_dev and origin in settings.dev_origins.split(",")
-                if origin_host not in (host, fwd_host) and not allowed_dev:
+                allowed_extra = origin.rstrip("/") in [o.strip().rstrip("/") for o in settings.allowed_origins.split(",") if o.strip()]
+                if origin_host not in (host, fwd_host) and not allowed_dev and not allowed_extra:
                     return JSONResponse({"detail": "Cross-origin request blocked."}, status_code=403)
         return await call_next(request)
 

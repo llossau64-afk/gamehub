@@ -9,10 +9,12 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 sys.path.insert(0, str(ROOT / "tests"))
 
+from fake_comfy import make_app as make_comfy  # noqa: E402
 from fakes import ServerThread, free_port, make_ollama, make_searxng  # noqa: E402
 
 _tmp = tempfile.mkdtemp(prefix="velqin-test-")
-_oport, _sport = free_port(), free_port()
+_oport, _sport, _cport = free_port(), free_port(), free_port()
+COMFY_URL = f"http://127.0.0.1:{_cport}"
 os.environ.update({
     "VELQIN_DATA_DIR": _tmp,
     "VELQIN_ENVIRONMENT": "test",
@@ -25,10 +27,11 @@ os.environ.update({
 
 _ollama = ServerThread(make_ollama(), _oport)
 _searx = ServerThread(make_searxng(), _sport)
-_ollama.start()
-_searx.start()
-_ollama.wait_ready()
-_searx.wait_ready()
+_comfy = ServerThread(make_comfy(), _cport)
+for _s in (_ollama, _searx, _comfy):
+    _s.start()
+for _s in (_ollama, _searx, _comfy):
+    _s.wait_ready()
 
 H = {"X-Velqin-Request": "1"}
 

@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Set to true only when running behind a reverse proxy you control (Caddy, Tailscale Serve).
     trust_proxy_headers: bool = False
     session_days: int = 30
+    # Extra origins allowed for state-changing requests (e.g. https://my-pc.tailnet.ts.net behind a proxy
+    # that rewrites the Host header). Comma separated.
+    allowed_origins: str = ""
 
     # Storage
     data_dir: Path = PROJECT_ROOT / "storage"

@@ -13,6 +13,8 @@ const nextConfig = {
 
 if (isDev) {
   // Development only: proxy /api to the backend so cookies stay same-origin.
+  // Without this, trailingSlash would redirect /api/x → /api/x/ before proxying.
+  nextConfig.skipTrailingSlashRedirect = true;
   nextConfig.rewrites = async () => [{ source: "/api/:path*", destination: `${backend}/api/:path*` }];
 }
 

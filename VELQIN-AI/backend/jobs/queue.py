@@ -194,11 +194,11 @@ class JobQueue:
                 raise RuntimeError(f"No handler for job kind {job.kind}")
             async with gpu.heavy(job.id, job.kind):
                 result = await asyncio.wait_for(handler(ctx), timeout=timeout)
+        except comfyui.JobCancelled:
+            status, error = "cancelled", None
         except asyncio.CancelledError:
-            if self._stopping:
-                status, error = "queued", None  # server shutdown — job is re-queued on next start
-            else:
-                status, error = "cancelled", None
+            # server shutdown — the job goes back to the queue and resumes after the next start
+            status, error = "queued", None
         except asyncio.TimeoutError:
             await comfyui.interrupt()
             status, error = "failed", f"Timed out after {timeout // 60} minutes."

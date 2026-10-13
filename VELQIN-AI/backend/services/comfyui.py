@@ -35,6 +35,10 @@ class ComfyOOM(ComfyError):
     pass
 
 
+class JobCancelled(Exception):
+    """The user (or an admin) cancelled the running generation."""
+
+
 OOM_MARKERS = ("out of memory", "outofmemoryerror", "allocation on device", "cuda error: out of memory")
 
 
@@ -182,7 +186,7 @@ async def run_workflow(
             if should_cancel and should_cancel():
                 await delete_from_queue(prompt_id)
                 await interrupt()
-                raise asyncio.CancelledError()
+                raise JobCancelled()
             try:
                 raw = await asyncio.wait_for(ws.recv(), timeout=2.0)
             except asyncio.TimeoutError:
@@ -224,7 +228,7 @@ async def run_workflow(
                     raise ComfyOOM("The GPU ran out of memory.")
                 raise ComfyError(f"Generation failed in {data.get('node_type', 'a node')}: {data.get('exception_message', 'unknown error')[:400]}")
             elif mtype == "execution_interrupted":
-                raise asyncio.CancelledError()
+                raise JobCancelled()
     finally:
         await ws.close()
 
