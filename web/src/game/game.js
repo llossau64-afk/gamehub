@@ -1288,7 +1288,28 @@ export class Game {
   get coop() { return !!(this.coopKey && this.online?.active); }
   get isHost() { return !this.coop || !!this.online.host; }
 
+  // who the player is talking to right now (null = nobody). While a conversation runs, only
+  // the people in it get subtitles and a voice; everyone else waits their turn.
+  convoNames() {
+    const n = new Set();
+    for (const npc of this.streetNpcs || []) if (npc.busy && npc.shown && !(npc === this.mart?.jess && this.mart?.chase)) n.add(npc.name);
+    if (this.story?.julian?.talking) n.add('Julian Krüger');
+    if (this.supermarket?.busy) n.add('Mr. Kowalski');
+    for (const c of this.customers?.list || []) if (c.state === 'talking') n.add(c.name);
+    if (this.state === 'barber' && this.barber?.c) n.add(this.barber.c.name);
+    if (this.van?.cut) { n.add('Holgs'); n.add('Bonnie'); }
+    if (this.story?.box?.fight) { n.add(this.story.box.fight.O.name); n.add('Dirk Reck'); n.add('Crowd'); }
+    return n.size ? n : null;
+  }
+
+  convoAllows(who) {
+    if (who === 'You') return true;
+    const c = this.convoNames();
+    return !c || c.has(who);
+  }
+
   showLine(who, text, dur, mirrored = false) {
+    if (!this.convoAllows(who)) return;
     // quest dialogue is heard by teammates standing nearby
     if (!mirrored && this.coop && (who === 'You' || this.npcByName.has(who))) {
       const P = this.player.pos;

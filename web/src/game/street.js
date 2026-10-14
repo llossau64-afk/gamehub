@@ -144,7 +144,7 @@ export class Street {
       }
       // people talk to you when you pass them
       w.chatT = (w.chatT ?? rand(0, 3)) - dt;
-      if (g.state === 'play' && w.chatT < 0 && ch.root.position.distanceTo(g.player.pos) < 2.2 && (this.chatCD || 0) <= 0) {
+      if (g.state === 'play' && w.chatT < 0 && ch.root.position.distanceTo(g.player.pos) < 2.2 && (this.chatCD || 0) <= 0 && !g.convoNames()) {
         w.chatT = 999;
         this.chatCD = 7;
         const f = g.save.flags || {};

@@ -83,9 +83,18 @@ export class Customer {
 
   say(text, emotion, hold = 2.5, voice = null) {
     if (emotion) this.ch.setEmotion(emotion, hold + 1);
+    // someone else is in a conversation with you: keep quiet for now
+    if (!this.game.convoAllows(this.name)) return 1;
     const d = this.ch.say(text, voice ? { voice } : {});
     this.game.showLine(this.name, text, d + 1.2);
     return d;
+  }
+
+  // to themselves while waiting: a face and a quiet grumble, no subtitle (you didn't ask)
+  mutter(text, emotion) {
+    if (emotion) this.ch.setEmotion(emotion, 3);
+    if (!this.game.convoAllows(this.name)) return;
+    if (this.ch.root.position.distanceTo(this.game.player.pos) < 6) this.ch.say(text, { voice: { vol: 0.035 } });
   }
 }
 
@@ -170,7 +179,7 @@ export class CustomerManager {
     ch.lookAt(this.game.camera, 1);
     c.state = 'waitingTalk';
     if (c.vip) c.say(c.vip.line, 'proud', 3);
-    else if (!c.tutorial && chance(0.7)) c.say(pick(['Hey. Got time for one?', 'Hi! Can I get a cut?', 'You open?', 'Morning. One haircut, please.']), 'neutral');
+    else if (!c.tutorial && chance(0.7)) c.mutter(pick(['Hey. Got time for one?', 'Hi! Can I get a cut?', 'You open?', 'Morning. One haircut, please.']), 'neutral');
   }
 
   // player talks to a customer standing at the hub
@@ -295,12 +304,13 @@ export class CustomerManager {
       if (['waitingTalk', 'waiting', 'standing', 'seated', 'looking'].includes(c.state) && !c.tutorial && g.state !== 'barber') {
         const rate = c.state === 'seated' ? 0.6 : 1;
         c.patience -= dt * rate;
-        if (c.patience < c.patienceMax * 0.35 && !c.sighed) { c.sighed = true; c.ch.gesture('sigh'); c.ch.setEmotion('annoyed', 2); g.exclaim.show(c.ch, 2.5, 'anger'); if (chance(0.6)) c.say(pick(c.personality.wait), 'annoyed'); }
+        if (c.patience < c.patienceMax * 0.35 && !c.sighed) { c.sighed = true; c.ch.gesture('sigh'); c.ch.setEmotion('annoyed', 2); g.exclaim.show(c.ch, 2.5, 'anger'); if (chance(0.6)) c.mutter(pick(c.personality.wait), 'annoyed'); }
         if (c.patience < c.patienceMax * 0.12 && !c.fuming) { c.fuming = true; c.ch.setEmotion('furious', 3); c.ch.flush('#d8402c', 0.4, 4); g.exclaim.show(c.ch, 2, 'steam'); }
         // thirsty: asks for a drink once (a drink then counts double)
         if (c.talked && !c.drink && !c.askedDrink && g.save.story?.ch >= 2 && c.patience < c.patienceMax * 0.7 && Math.random() < dt * 0.04) {
           c.askedDrink = true; c.wantsDrink = true;
-          c.say(pick(['Got anything to drink? I’m dying here.', 'Any chance of a cold drink?', 'Is there like... water? Anything?', 'I’d kill for a soda right now.']), 'neutral');
+          c.mutter(pick(['Got anything to drink? I’m dying here.', 'Any chance of a cold drink?', 'Is there like... water? Anything?', 'I’d kill for a soda right now.']), 'neutral');
+          g.exclaim.show(c.ch, 2.5, '!');
           g.exclaim.show(c.ch, 2, '?');
         }
         if (c.patience <= 0) this.leaveAngry(c);
@@ -321,7 +331,7 @@ export class CustomerManager {
     c.state = 'leaving';
     this.stopIdle(c);
     if (this.inChair === c) this.inChair = null;
-    c.say(pick(['Forget it.', 'I’m out. Unbelievable.', 'Wow. Okay. Bye.', 'I’ll cut it myself!', 'I’ve grown a whole beard waiting here!']), 'furious', 3);
+    c.mutter(pick(['Forget it.', 'I’m out. Unbelievable.', 'Wow. Okay. Bye.', 'I’ll cut it myself!', 'I’ve grown a whole beard waiting here!']), 'furious');
     c.ch.gesture('rage', { dur: 1.2 });
     this.game.loseCustomer(c);
     if (c.ch.sitW > 0) await c.ch.standUp();

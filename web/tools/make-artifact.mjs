@@ -17,6 +17,6 @@ const title = html.match(/<title>.*?<\/title>/)[0];
 const bootStyle = html.match(/<style>[\s\S]*?<\/style>/)[0];
 const body = html.match(/<body>([\s\S]*?)<\/body>/)[1];
 const embed = `<script>window.__EMBED_ASSETS={${['props', 'characters'].map((k) => `${k}:"${fs.readFileSync(path.join(dist, 'assets', k + '.glb')).toString('base64')}"`).join(',')}};</script>`;
-const page = `${title}\n<style>:root{color-scheme:dark}</style>\n${bootStyle}\n<style>${css}</style>\n${body}\n${embed}\n<script type="module">\n${js}\n</script>\n`;
+const page = `<meta charset="utf-8">\n${title}\n<style>:root{color-scheme:dark}</style>\n${bootStyle}\n<style>${css}</style>\n${body}\n${embed}\n<script type="module">\n${js}\n</script>\n`;
 fs.writeFileSync(path.join(out, 'index.html'), page);
 console.log('artifact/index.html', (page.length / 1024).toFixed(0) + ' KB');

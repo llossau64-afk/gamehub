@@ -75,6 +75,7 @@ export class StreetNPC {
     this.busy = false;
     this.mark = null;
     game.npcByName?.set(name, this.ch);          // online: teammates hear this person's lines
+    (game.streetNpcs ||= []).push(this);
     this.idleT = rand(4, 9);
   }
 
@@ -107,6 +108,8 @@ export class StreetNPC {
   // talk: line with voice, face and subtitle; waits until it's said
   async say(text, emo = null, extra = 0.35) {
     const g = this.game;
+    // not part of the conversation you're in: stay quiet
+    if (!g.convoAllows(this.name)) { if (emo) this.ch.setEmotion(emo, 1.5); return; }
     const d = this.ch.say(text);
     if (emo) this.ch.setEmotion(emo, d + 1);
     g.showLine(this.name, text, d + 0.8);
@@ -115,6 +118,7 @@ export class StreetNPC {
 
   dispose() {
     if (this.game.npcByName?.get(this.name) === this.ch) this.game.npcByName.delete(this.name);
+    if (this.game.streetNpcs) this.game.streetNpcs = this.game.streetNpcs.filter((n) => n !== this);
     this.ch.dispose?.();
     this.marker.parent?.remove(this.marker); this.markerQ.parent?.remove(this.markerQ);
   }
