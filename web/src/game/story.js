@@ -9,6 +9,7 @@ import { OWNER_LOOK } from '../chars/looks.js';
 import { ROOM, SUPER } from '../world/shop.js';
 import { audio } from '../audio/audio.js';
 import { pick, rand, clamp, formatMoney } from '../core/util.js';
+import { SideQuests, SIDE_QUESTS } from './sidequests.js';
 import { DRINKS, makeDrink, drinkSVG, makeFridge, makeBreadBag, makeChefHat, makeBeanie, makeEyeMask, makeMarker } from '../world/storyassets.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -30,12 +31,15 @@ export const QUESTS = {
   thief: { title: 'Stop, Thief!', ch: 3, giver: 'Bruno the baker', reward: { money: 45, xp: 70 },
     steps: ['Talk to Bruno outside the bakery', 'Catch the bread thief', 'Pick up the stolen bread', 'Bring the bread back to Bruno'] },
   drinks: { title: 'Thirsty Customers', ch: 3, giver: 'Fresh Mart', reward: { money: 15, xp: 40 },
-    steps: ['Buy a drink inside Fresh Mart (pay Jess at the till)', 'Give a drink to a waiting customer (F)'] },
+    steps: ['Buy a drink inside Fresh Mart (pay Dennis at the till)', 'Give a drink to a waiting customer (F)'] },
   martJob: { title: 'One Shift at Fresh Mart', ch: 4, giver: 'Mr. Kowalski', reward: { money: 0, xp: 0 },
     steps: ['Talk to Mr. Kowalski across the street', 'Carry 8 boxes into Fresh Mart', 'Collect your “pay”'] },
   deed: { title: 'The Deed', ch: 5, giver: 'Mr. Albrecht', reward: { money: 250, xp: 200 },
     steps: ['Reach shop level 6', 'Get a second barber chair', 'Meet Mr. Albrecht outside'] },
 };
+
+// Elli, Enrico and Jannis (side quests, started by talking to them on the street)
+Object.assign(QUESTS, SIDE_QUESTS);
 
 const DAILY_POOL = [
   { id: 'serve', t: (n) => `Serve ${n} customers`, n: [4, 6], money: 30, xp: 40 },
@@ -144,6 +148,8 @@ export class Story {
     // the cooler outside Fresh Mart: buy drinks here
     // (the drinks are sold inside Fresh Mart now)
     this.fridge = null;
+    this.side = new SideQuests(this);
+    this.side.build();
   }
 
   interactables(I) {
@@ -151,8 +157,9 @@ export class Story {
     const play = () => g.state === 'play' && g.player.control;
     I({ id: 'albrecht', label: () => (play() && this.npcs.albrecht?.shown && this.npcs.albrecht.dist() < 2.6 && !this.npcs.albrecht.busy ? 'Talk to Mr. Albrecht' : null),
       pos: () => this.npcs.albrecht.head(), radius: 3.0, action: () => { this.talkAlbrecht().catch((e) => console.error(e)); return 'albrecht'; } });
-    I({ id: 'baker', label: () => (play() && this.npcs.baker && this.npcs.baker.dist() < 2.6 && !this.npcs.baker.busy ? (this.step('thief') === 3 && this.carrying === 'bread' ? 'Give Bruno his bread' : 'Talk to Bruno') : null),
+    I({ id: 'baker', label: () => (play() && this.npcs.baker && this.npcs.baker.dist() < 2.6 && !this.npcs.baker.busy ? (this.step('thief') === 3 && this.carrying === 'bread' ? 'Give Bruno his bread' : this.side?.bakerLabel() || 'Talk to Bruno') : null),
       pos: () => this.npcs.baker.head(), radius: 3.0, action: () => { this.talkBaker().catch((e) => console.error(e)); return 'baker'; } });
+    this.side.interactables(I);
     I({ id: 'thief', label: () => (play() && this.thief && !this.thief.caught && this.thief.ch.root.position.distanceTo(g.player.pos) < 2.2 ? 'Tackle the thief!' : null),
       pos: () => this.thief.ch.headWorld(V()), radius: 3.2, action: () => { this.tackleThief().catch((e) => console.error(e)); return 'thief'; } });
     I({ id: 'bread', label: () => (play() && this.bag && !this.carrying && this.bag.position.distanceTo(g.player.pos) < 2.0 ? 'Pick up the stolen bread' : null),
@@ -229,6 +236,7 @@ export class Story {
   // ---------------------------------------------------------------- events from the game
   on(type, data = {}) {
     const g = this.game;
+    this.side?.on(type, data);
     if (type === 'cut') {
       const { result, c } = data;
       if (this.step('albrecht') === 1 && result.stars >= 4) this.setStep('albrecht', 2);
@@ -290,7 +298,7 @@ export class Story {
     }
     const d = s.daily;
     const daily = d && g.save.tutorialDone ? d.list.map((j) => ({ t: j.t, p: j.p, n: j.n, done: j.done })) : [];
-    g.ui.questTracker?.({ chapter: g.save.tutorialDone ? `Chapter ${s.ch + 1} · ${CHAPTERS[s.ch]?.title || ''}` : '', quests: rows.slice(0, 2), daily });
+    g.ui.questTracker?.({ chapter: g.save.tutorialDone ? `Chapter ${s.ch + 1} · ${CHAPTERS[s.ch]?.title || ''}` : '', quests: rows.slice(0, 3), daily });
     // markers over the people who want you
     const al = this.npcs.albrecht, br = this.npcs.baker;
     if (al) {
@@ -455,6 +463,7 @@ export class Story {
     br.ch.lookAt(g.camera, 1);
     try {
       const st = this.step('thief');
+      if ((this.side.carrying === 'bouquet' || (st !== 0 && !(st === 3 && this.carrying === 'bread'))) && await this.side.bakerTalk(br)) return;
       if (st === 0) {
         br.ch.setEmotion('furious', 3);
         br.ch.gesture('rage', { dur: 1.2 });
@@ -583,6 +592,7 @@ export class Story {
     if (g.state === 'menu' || g.state === 'intro') return;
     for (const n of Object.values(this.npcs)) n.update(dt);
     this.updateThief(dt);
+    this.side.update(dt);
     this.checkT = (this.checkT || 0) - dt;
     if (this.checkT < 0) {
       this.checkT = 1;
