@@ -185,17 +185,56 @@ export class Shop {
     }
   }
 
+  // a fantasy sky: rich gradient, soft-edged cartoon clouds with a lit side and a lavender
+  // underside, a glowing sun and stars after dusk. The clouds drift; colours follow the clock.
   buildSky() {
-    const g = new THREE.SphereGeometry(60, 24, 12);
+    const g = new THREE.SphereGeometry(60, 32, 16);
     const m = new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, fog: false,
-      uniforms: { top: { value: new THREE.Color('#8fa7b8') }, mid: { value: new THREE.Color('#e9cfa8') }, bot: { value: new THREE.Color('#b9a58c') } },
+      uniforms: {
+        top: { value: new THREE.Color('#5f86d6') }, mid: { value: new THREE.Color('#ffd2b8') }, bot: { value: new THREE.Color('#d9b8a8') },
+        cloudLit: { value: new THREE.Color('#fff8ee') }, cloudDark: { value: new THREE.Color('#a99ac8') },
+        sunDir: { value: new THREE.Vector3(-0.3, 0.45, 0.85).normalize() }, sunCol: { value: new THREE.Color('#fff2c8') },
+        uTime: { value: 0 }, night: { value: 0 },
+      },
       vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: `uniform vec3 top; uniform vec3 mid; uniform vec3 bot; varying vec3 vP;
-        void main(){ float h = normalize(vP).y; vec3 c = h > 0.0 ? mix(mid, top, pow(h, 0.6)) : mix(mid, bot, pow(-h, 0.5));
-        gl_FragColor = vec4(c, 1.0);
-        #include <tonemapping_fragment>
-        #include <colorspace_fragment>
+      fragmentShader: `uniform vec3 top; uniform vec3 mid; uniform vec3 bot; uniform vec3 cloudLit; uniform vec3 cloudDark;
+        uniform vec3 sunDir; uniform vec3 sunCol; uniform float uTime; uniform float night; varying vec3 vP;
+        float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float noise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+          return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y); }
+        float fbm(vec2 p){ float v = 0.0, a = 0.55; for (int k = 0; k < 5; k++) { v += a * noise(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; } return v; }
+        void main(){
+          vec3 d = normalize(vP);
+          float h = d.y;
+          // gradient: deep blue up top, warm peach at the horizon
+          vec3 c = h > 0.0 ? mix(mid, top, pow(clamp(h, 0.0, 1.0), 0.55)) : mix(mid, bot, pow(-h, 0.5));
+          // sun disc and glow
+          float sd = max(dot(d, normalize(sunDir)), 0.0);
+          c += sunCol * (pow(sd, 900.0) * 1.6 + pow(sd, 18.0) * 0.28 + pow(sd, 4.0) * 0.08) * (1.0 - night);
+          // stars at night
+          if (night > 0.01 && h > 0.05) {
+            vec2 sp = d.xz / (h + 0.3) * 160.0;
+            float st = step(0.9965, hash(floor(sp))) * (0.6 + 0.4 * sin(uTime * 3.0 + hash(floor(sp)) * 40.0));
+            c += vec3(st) * night * smoothstep(0.05, 0.3, h);
+          }
+          // clouds: projected on a dome, puffy fbm with crisp-but-soft cartoon edges
+          if (h > 0.0) {
+            vec2 uv = d.xz / (h + 0.22) * 1.25 + vec2(uTime * 0.012, uTime * 0.004);
+            float n = fbm(uv);
+            float cov = smoothstep(0.5, 0.56, n);
+            // light: brighter where the cloud thins toward the sun, lavender underneath
+            float ns = fbm(uv + normalize(sunDir.xz + 1e-4) * 0.06);
+            float lit = clamp(0.55 + (n - ns) * 7.0 + h * 0.6, 0.0, 1.0);
+            vec3 cc = mix(cloudDark, cloudLit, lit);
+            // a bright rim where the edge catches the light
+            cc += cloudLit * smoothstep(0.5, 0.53, n) * (1.0 - smoothstep(0.53, 0.6, n)) * 0.25;
+            float fade = smoothstep(0.0, 0.18, h) * (1.0 - night * 0.65);
+            c = mix(c, cc, cov * fade);
+          }
+          gl_FragColor = vec4(c, 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
         }`,
     });
     this.sky = new THREE.Mesh(g, m);
@@ -1493,6 +1532,7 @@ export class Shop {
 
   update(dt, camera) {
     if (this.fish && this.slots.aquarium?.visible) for (const F of this.fish) { const t = this.time * F.sp + F.ph; F.f.position.set(Math.sin(t) * 0.3, 0.9 + Math.sin(t * 1.7) * 0.12, Math.cos(t * 0.8) * 0.1); F.f.rotation.y = Math.cos(t) > 0 ? 0 : Math.PI; }
+    if (this.sky) this.sky.material.uniforms.uTime.value += dt;
     if (camera) { this.sky?.position.set(camera.position.x, 0, camera.position.z); this.updateSupermarket(dt, [camera.position]); }
     if (this.arcadeScreen && this.slots.arcade.visible) this.arcadeScreen.emissive.setHSL((this.time * 0.07) % 1, 0.7, 0.5);
     this.time += dt;

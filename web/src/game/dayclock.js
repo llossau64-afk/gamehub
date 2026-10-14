@@ -10,13 +10,13 @@ export const OPEN_H = 8, CLOSE_H = 21;
 const SEC_PER_HOUR = 45;
 
 const KEYS = [
-  // hour, sky top, horizon, sun colour, sun intensity, hemi intensity
-  [7, '#9fb4c8', '#f2d3b0', '#ffd3a0', 0.55, 0.42],
-  [10, '#86a9c9', '#eedbbf', '#fff0d8', 0.95, 0.56],
-  [14, '#7ca3c8', '#ecdcc4', '#fff4e2', 1.05, 0.6],
-  [18, '#8a9bb8', '#f0c591', '#ffc27a', 0.8, 0.5],
-  [20, '#5d6489', '#e59a66', '#ff9a5a', 0.45, 0.36],
-  [21.5, '#283456', '#8a5f6a', '#6f7cb0', 0.12, 0.24],
+  // hour, sky top, horizon, sun colour, sun intensity, hemi intensity, cloud lit, cloud shade
+  [7, '#7c95d8', '#ffcfb2', '#ffd3a0', 0.55, 0.42, '#ffe6d2', '#b49ac4'],
+  [10, '#5a86d8', '#ffe0c4', '#fff0d8', 0.95, 0.56, '#fffaf0', '#a7a2d0'],
+  [14, '#4f80d6', '#fde6cf', '#fff4e2', 1.05, 0.6, '#ffffff', '#a3a6d4'],
+  [18, '#6b7fcf', '#ffc49a', '#ffc27a', 0.8, 0.5, '#ffe2c4', '#b08ab8'],
+  [20, '#4a4f9a', '#f59a7a', '#ff9a5a', 0.45, 0.36, '#ffb490', '#7a5a94'],
+  [21.5, '#1c2450', '#7a5a86', '#6f7cb0', 0.12, 0.24, '#8a7cb0', '#3a3466'],
 ];
 const _a = new THREE.Color(), _b = new THREE.Color();
 
@@ -92,6 +92,14 @@ export class DayClock {
       sky.top.value.copy(_a.set(A[1]).lerp(_b.set(B[1]), t));
       sky.mid.value.copy(_a.set(A[2]).lerp(_b.set(B[2]), t));
       sky.bot.value.copy(sky.mid.value).multiplyScalar(0.75);
+      if (sky.cloudLit) {
+        sky.cloudLit.value.copy(_a.set(A[6]).lerp(_b.set(B[6]), t));
+        sky.cloudDark.value.copy(_a.set(A[7]).lerp(_b.set(B[7]), t));
+        sky.night.value = clamp((h - 20.3) / 1.2, 0, 1);
+        const ang = (clamp((h - 6) / 15, 0, 1) - 0.5) * Math.PI * 0.9;
+        sky.sunDir.value.set(Math.sin(ang), Math.max(0.08, Math.cos(ang) * 0.6), 0.8).normalize();
+        sky.sunCol.value.copy(_a.set(A[3]).lerp(_b.set(B[3]), t));
+      }
     }
     if (shop.scene.fog) shop.scene.fog.color.copy(_a.set(A[2]).lerp(_b.set(B[2]), t));
     if (shop.sun) {
