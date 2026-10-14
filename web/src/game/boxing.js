@@ -165,8 +165,8 @@ export class BoxClub {
     ch.noLod = true;
     const oPos = V(R.x + 0.85, 0, rz);
     ch.place(oPos, -Math.PI / 2);
-    ch.hold('L', glove(who === 'dirk' ? '#1c1c1e' : '#2f62c8'), { pos: [0, -0.02, 0.03] });
-    ch.hold('R', glove(who === 'dirk' ? '#1c1c1e' : '#2f62c8'), { pos: [0, -0.02, 0.03] });
+    ch.hold('L', glove(who === 'dirk' ? '#1c1c1e' : '#2f62c8'), { pos: [0, -0.06, 0.02], scale: 1.4 });
+    ch.hold('R', glove(who === 'dirk' ? '#1c1c1e' : '#2f62c8'), { pos: [0, -0.06, 0.02], scale: 1.4 });
     // the referee: Dirk climbs in (unless he's the one fighting)
     const ref = this.dirk;
     if (who !== 'dirk') { ref.ch.place(V(R.x, 0, rz - 1.9), 0); ref.ringY = R.h; }
@@ -180,10 +180,15 @@ export class BoxClub {
     const F = this.fight = { who, O, ch, hp: 100, ohp: O.hp, stam: 100, t: 0, phase: 'intro', ai: { state: 'idle', t: 1.4, side: 1 },
       eye, base: eye.clone(), events: [], look: V(oPos.x, R.h + 1.45, rz), slip: 0, slipT: 0, block: false, cd: 0, jolt: 0, ojolt: 0, combo: 0, hits: 0, oPos, rz };
     const gl = this.gloves = [glove(), glove()];
+    // fingers tucked away inside the gloves
+    const tuck = (bones, k) => { for (const [n, b] of Object.entries(bones)) if (/^(Index|Middle|Ring|Pinky|Thumb)[LR]?1?$|^(Index|Middle|Ring|Pinky|Thumb)[LR]1$/.test(n)) b.scale.setScalar(k); };
+    for (const a of ['L', 'R']) tuck(g.player.arms[a].bones || {}, 0.05);
+    tuck(ch.bones, 0.05);
+    this._tuck = tuck;
     g.player.arms.L.set({ visible: true, pose: 'fist', fingers: V(0, 0.2, -1), palm: V(1, 0, 0), pos: V(-0.16, -0.17, -0.36), speed: 12 });
     g.player.arms.R.set({ visible: true, pose: 'fist', fingers: V(0, 0.2, -1), palm: V(-1, 0, 0), pos: V(0.16, -0.2, -0.34), speed: 12 });
-    g.player.arms.L.hold(gl[0], { pos: [0, -0.01, 0.0], rot: [0, 0, 0], scale: 1 });
-    g.player.arms.R.hold(gl[1], { pos: [0, -0.01, 0.0], rot: [0, 0, 0], scale: 1 });
+    g.player.arms.L.hold(gl[0], { pos: [0, -0.035, 0.0], rot: [0, 0, 0], scale: 1.45 });
+    g.player.arms.R.hold(gl[1], { pos: [0, -0.035, 0.0], rot: [0, 0, 0], scale: 1.45 });
     this.hud(true);
     await g.ui.fade(false, 500);
     audio.bell?.(); setTimeout(() => audio.bell?.(), 350);
@@ -288,7 +293,14 @@ export class BoxClub {
     const ch = F.ch, ai = F.ai, inp = g.input;
     ch.update(dt);
     ch.root.position.y += BOX.ring.h;
-    if (F.koOpp) { F.koT = Math.min(1, F.koT + dt * 1.6); ch.root.rotation.order = 'YXZ'; ch.root.rotation.x = -F.koT * Math.PI / 2 * 0.95; ch.root.position.y = BOX.ring.h + 0.08 * F.koT; }
+    if (F.koOpp) {
+      // timber! falls flat on his back (eased, with a little bounce at the end)
+      F.koT = Math.min(1, F.koT + dt * 1.4);
+      const k = F.koT < 0.85 ? Math.pow(F.koT / 0.85, 2) : 1 - Math.sin((F.koT - 0.85) / 0.15 * Math.PI) * 0.04;
+      ch.root.quaternion.setFromEuler(new THREE.Euler(-k * Math.PI / 2 * 0.96, ch.yaw, 0, 'YXZ'));
+      ch.root.position.y = BOX.ring.h + 0.1 * k;
+      ch.root.updateMatrixWorld(true);
+    }
     // the camera: you, bobbing on your feet, slipping, rocked when hit
     F.t += dt;
     for (let i = F.events.length - 1; i >= 0; i--) { const e = F.events[i]; e.t -= dt; if (e.t <= 0) { F.events.splice(i, 1); try { e.fn(); } catch (err) { console.error(err); } } }
@@ -418,7 +430,7 @@ export class BoxClub {
     const g = this.game, F = this.fight;
     this.hud(false);
     if (F) { F.ch.dispose(); this.fight = null; }
-    for (const a of ['L', 'R']) { g.player.arms[a].drop?.(); g.player.arms[a].set({ visible: false }); }
+    for (const a of ['L', 'R']) { g.player.arms[a].drop?.(); g.player.arms[a].set({ visible: false }); this._tuck?.(g.player.arms[a].bones || {}, 1); }
     this._blockOn = false;
     this.dirk.ringY = 0;
     this.dirk.show(true);
