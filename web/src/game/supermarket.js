@@ -54,11 +54,8 @@ export class Supermarket {
   }
 
   // done = nothing more to offer (story: the job has been done and the register robbed)
-  get done() {
-    const f = this.game.save.flags?.superJob;
-    if (this.game.story?.active('martJob')) return false;
-    return !!f;
-  }
+  // the job is always on offer until you've worked the shift (and robbed the register)
+  get done() { return this.game.save.flags?.superJob === 'robbed'; }
 
   dist() { return this.ch.root.position.distanceTo(this.game.player.pos); }
 
@@ -227,11 +224,6 @@ export class Supermarket {
       await dir.wait(d + extra).catch(() => {});
     };
     try {
-      if (this.done) {
-        ch.setEmotion(g.save.flags.superJob === 'fu' ? 'annoyed' : 'neutral', 2);
-        await say(g.save.flags.superJob === 'fu' ? 'You again. Keep walking, scissor boy.' : 'Changed your mind? No? Didn’t think so.', null);
-        return;
-      }
       const story = g.story;
       if (this.job && this.job.boxes >= 8) { await this.payday(say); return; }
       if (g.save.flags?.superJob === 'robbed') {
@@ -240,13 +232,14 @@ export class Supermarket {
         return;
       }
       ch.gesture('wave');
-      if (story?.active('martJob') && g.save.flags?.superJob) await say('Oh. You again. Look, I’m desperate. Nobody wants this job.', 'disappointed');
+      const prev = g.save.flags?.superJob;
+      if (prev === 'fu') { ch.setEmotion('annoyed', 2); await say('You again. After what you said? ...Fine. I’m desperate. Nobody wants this job.', 'annoyed'); }
+      else if (prev) await say('Oh. You again. Changed your mind? Look, I’m desperate. Nobody wants this job.', 'disappointed');
       else await say('Ah, finally! A young, motivated face!', 'happy');
       ch.gesture('pointAccuse', { target: () => this.home.clone().add(V(0, 1.6, 2)) });
       await say('Fresh Mart is looking for a shelf stacker. Night shifts, weekends, holidays.', 'happy');
       await say('Minimum wage, but you get a free name badge. Whaddaya say?', 'happy', 0.2);
-      const opts = ['Hell no.', 'F*** you.'];
-      if (story?.active('martJob')) opts.push('Aight, bet.');
+      const opts = ['Hell no.', 'F*** you.', 'Aight, bet.'];
       const pickN = await g.ui.choices('Fresh Mart · Job offer', opts);
       g.save.flags ||= {};
       if (pickN === 2) {

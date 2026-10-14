@@ -3,6 +3,7 @@
 // with unpaid stuff and the security gate shrieks.
 import * as THREE from 'three';
 import { MART } from '../world/martinterior.js';
+import { ROOM } from '../world/shop.js';
 import { DRINKS, makeDrink } from '../world/storyassets.js';
 import { StreetNPC } from './story.js';
 import { audio } from '../audio/audio.js';
@@ -10,8 +11,8 @@ import { pick, rand, formatMoney } from '../core/util.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const base = { EyeWhite: '#efe8dc', Pupil: '#0d0b0a', Mouth: '#5a2622', Teeth: '#ece6da', Frame: '#1d1b1a', Sole: '#1e1916', Belt: '#2a1d15', Metal: '#c4c6c6', Button: '#f3efe4', MouthDark: '#2a0d0b', Shirt: '#e9e1cf', Tie: '#7a2a26', Lapel: '#3a332c', TopDark: '#226a38' };
-const JESS = { colors: { ...base, Skin: '#c98f6b', Top: '#2f8a4a', Sleeve: '#2f8a4a', Pants: '#2b2f38', Shoes: '#e8e2d6', Hair: '#2a1a12', Iris: '#4a3a2a', Apron: '#2f8a4a' },
-  accessories: ['tee', 'apron', 'glasses'], scale: 0.95, width: 0.94, hunch: 0.05 };
+const JESS = { colors: { ...base, Skin: '#e0ac86', Top: '#2f8a4a', Sleeve: '#2f8a4a', Pants: '#2b2f38', Shoes: '#1b1b1d', Hair: '#5a3a22', Iris: '#4a6a7a', Apron: '#2f8a4a' },
+  accessories: ['tee', 'apron'], scale: 1.02, width: 1.05, hunch: 0.05 };
 
 export class Mart {
   constructor(game) {
@@ -20,8 +21,8 @@ export class Mart {
     this.inside = false;
     this.busy = false;
     const ck = MART.counter;
-    const n = this.jess = new StreetNPC(game, { name: 'Jess', look: JESS, voice: { pitch: 205, rate: 1.08, wobble: 0.1, vol: 0.1 },
-      hair: { color: '#2a1a12', style: { top: 0.5, front: 0.42, left: 0.48, right: 0.48, back: 0.62, fuzz: 0.04 }, cut: 0.4 } });
+    const n = this.jess = new StreetNPC(game, { name: 'Dennis', look: JESS, voice: { pitch: 128, rate: 1.05, wobble: 0.1, vol: 0.1 },
+      hair: { color: '#5a3a22', style: { top: 0.32, front: 0.3, left: 0.12, right: 0.12, back: 0.14, fuzz: 0.02 }, cut: 0.35 } });
     this.home = V(ck.x + 0.75, 0, (ck.z0 + ck.z1) / 2 - 0.2);
     n.ch.place(this.home, -Math.PI / 2);
     this.idleT = 4;
@@ -53,7 +54,7 @@ export class Mart {
       const d = DRINKS[f.id];
       return `Take a ${d.name} · ${formatMoney(d.price)}${this.basket[f.id] ? ` (${this.basket[f.id]} in basket)` : ''}`;
     }, pos: () => this.nearestFridge().pos, radius: 3, action: () => { this.take(this.nearestFridge().id); return 'martFridge'; } });
-    I({ id: 'jess', label: () => (play() && this.jess.dist() < 2.8 ? (this.count ? `Pay at the till · ${formatMoney(this.total)}` : 'Talk to Jess') : null),
+    I({ id: 'jess', label: () => (play() && this.jess.dist() < 2.8 ? (this.count ? `Pay at the till · ${formatMoney(this.total)}` : 'Talk to Dennis') : null),
       pos: () => this.jess.head(), radius: 3.4, action: () => { this.talk().catch((e) => console.error(e)); return 'jess'; } });
   }
 
@@ -109,7 +110,7 @@ export class Mart {
       j.ch.reach('R', () => V(MART.counter.x + 0.05, 1.0, MART.counter.z0 + 0.45), { speed: 12, hand: 'grip' });
       for (const id of items) {
         audio.tone?.(1840, 0.07, { type: 'square', vol: 0.05 });
-        g.showLine('Jess', `${DRINKS[id].name} · ${formatMoney(DRINKS[id].price)}`, 0.6);
+        g.showLine('Dennis', `${DRINKS[id].name} · ${formatMoney(DRINKS[id].price)}`, 0.6);
         await dir.wait(0.32).catch(() => {});
       }
       j.ch.release('R');
@@ -146,17 +147,103 @@ export class Mart {
     }
   }
 
-  // walking out with unpaid things: the gate goes off, Jess calls you back, it all goes back
+  // walking out with unpaid things: the gate shrieks and Dennis comes after you. He's
+  // faster than you. When he catches you he takes it all back, knocks you down, and the
+  // store charges you $10 for the trouble.
   alarm() {
     const g = this.game, j = this.jess;
-    for (let k = 0; k < 6; k++) setTimeout(() => audio.tone?.(k % 2 ? 960 : 1240, 0.18, { type: 'square', vol: 0.06 }), k * 190);
-    j.ch.setEmotion('surprised', 2.5);
-    g.exclaim.show(j.ch, 1.6, '!');
-    const line = pick(['Hey! You have to pay for those first!', 'Sir! SIR! The basket!', 'Nice try. Basket. Now.']);
-    j.ch.say(line); g.showLine('Jess', line, 2.6);
+    if (this.chase) return;
+    for (let k = 0; k < 8; k++) setTimeout(() => audio.tone?.(k % 2 ? 960 : 1240, 0.18, { type: 'square', vol: 0.07 }), k * 190);
+    j.ch.setEmotion('furious', 6);
+    g.exclaim.show(j.ch, 1.8, 'anger');
+    const line = pick(['HEY! STOP! THIEF!', 'Oh no you don’t! Come back here!', 'You didn’t pay for that! STOP!']);
+    j.ch.say(line); g.showLine('Dennis', line, 2.6);
     g.save.stats.shoplift = (g.save.stats.shoplift || 0) + 1;
+    g.ui.toast('You walked out without paying. RUN!', 'Thief');
+    this.chase = { t: 0, retarget: 0, yell: 3, out: false };
+    j.busy = true;
+    const ck = MART.counter;
+    j.ch.lookAt(null);
+    // out from behind the till, through the doors
+    j.ch.walkTo([V(ck.x + 0.75, 0, MART.z0 + 0.55), V(MART.door, 0, MART.z0 + 0.55), V(MART.door, 0, MART.z0 - 0.9)], 'run')
+      .then(() => { if (this.chase) this.chase.out = true; });
+  }
+
+  updateChase(dt) {
+    const g = this.game, j = this.jess, c = this.chase;
+    c.t += dt;
+    const P = g.player.pos, J = j.ch.root.position;
+    const d = Math.hypot(P.x - J.x, P.z - J.z);
+    if (c.out) {
+      c.retarget -= dt;
+      if (c.retarget <= 0) {
+        c.retarget = 0.25;
+        // the barbershop has walls: go through its door, not through the brick
+        const R = ROOM.z1;
+        let target = P.clone().setY(0);
+        if (P.z < R + 0.2 && J.z > R + 0.4) target = V(1.9, 0, R + 0.7);
+        j.ch.walkTo([target], 'run');
+      }
+      c.yell -= dt;
+      if (c.yell <= 0) { c.yell = 3.2; const l = pick(['GIVE IT BACK!', 'I’m faster than you, buddy!', 'Stop right there!', 'You can run but you can’t hide!', 'That’s store property!']); j.ch.say(l); g.showLine('Dennis', l, 1.8); }
+    }
+    if (d < 1.15 && g.state === 'play' && !g.knockedOut) this.caught().catch((e) => console.error(e));
+  }
+
+  async caught() {
+    const g = this.game, j = this.jess, p = g.player, cam = g.camera;
+    this.chase = null;
+    g.knockedOut = true;
+    p.control = false;
+    j.ch.stop();
+    j.ch.faceTo(p.pos, true);
+    // grab the basket, then a right hook
+    const l1 = pick(['GOTCHA! Give me that!', 'Got you! Hand it over!']);
+    j.ch.say(l1); g.showLine('Dennis', l1, 1.6);
     this.emptyBasket();
-    g.ui.toast('The alarm went off. You put everything back.', 'Fresh Mart');
+    audio.cloth?.(0.8, 0.2);
+    await new Promise((r) => setTimeout(r, 650));
+    j.ch.reach('R', () => cam.position.clone(), { speed: 30, hand: 'fist' });
+    await new Promise((r) => setTimeout(r, 160));
+    audio.slap?.(); audio.thud?.(1);
+    g.ui.flash?.('#ffffff');
+    p.lookOverride = true; p.shake = 1;
+    const start = cam.position.clone(), yaw = p.yaw;
+    const away = V(cam.position.x - j.ch.root.position.x, 0, cam.position.z - j.ch.root.position.z).normalize();
+    const t0 = performance.now();
+    await new Promise((res) => {
+      const tick = () => {
+        const t = Math.min(1, (performance.now() - t0) / 650);
+        const e = 1 - (1 - t) * (1 - t);
+        cam.position.set(start.x + away.x * 0.8 * e, Math.max(0.3, start.y - 1.25 * e), start.z + away.z * 0.8 * e);
+        cam.rotation.set(-0.2 + e * 0.9, yaw + e * 0.6, e * 1.1, 'YXZ');
+        if (t < 1) requestAnimationFrame(tick); else res();
+      };
+      tick();
+    });
+    j.ch.release('R');
+    const l2 = pick(['And THAT’s for running!', 'Stay down. And stay out of my store!', 'Shoplifting at Fresh Mart? Not on my shift!']);
+    j.ch.say(l2); g.showLine('Dennis', l2, 2.4);
+    j.ch.setEmotion('annoyed', 4);
+    await new Promise((r) => setTimeout(r, 1200));
+    await g.ui.fade(true, 500);
+    g.save.money -= 10;
+    g.ui.setMoney(g.save.money);
+    g.save.stats.caughtShoplifting = (g.save.stats.caughtShoplifting || 0) + 1;
+    p.lookOverride = false;
+    p.place({ x: p.pos.x + away.x * 0.6, z: p.pos.z + away.z * 0.6 }, yaw, -0.05);
+    g.persist();
+    g.knockedOut = false;
+    if (g.state === 'play') { p.control = true; g.enterFP(); }
+    await g.ui.fade(false, 600);
+    g.ui.banner('Busted', '−$10', 'Dennis took everything back. Crime doesn’t pay. (Not at Fresh Mart.)', 2200);
+    g.checkAchievements?.();
+    // back to the till
+    const ck = MART.counter;
+    const pts = [];
+    if (j.ch.root.position.z < MART.z0) pts.push(V(MART.door, 0, MART.z0 - 0.9));
+    pts.push(V(MART.door, 0, MART.z0 + 0.55), V(ck.x + 0.75, 0, MART.z0 + 0.55), this.home.clone());
+    j.ch.walkTo(pts, 'walk').then(() => { j.busy = false; j.ch.faceYaw = -Math.PI / 2; });
   }
 
   update(dt) {
@@ -165,15 +252,16 @@ export class Mart {
     const P = g.player.pos;
     const inside = P.x > MART.x0 && P.x < MART.x1 && P.z > MART.z0 + 0.25 && P.z < MART.z1;
     if (this.inside && !inside && this.count && P.z < MART.z0 + 0.25) this.alarm();
+    if (this.chase) this.updateChase(dt);
     if (inside !== this.inside) {
       this.inside = inside;
-      if (inside && !this.greeted) { this.greeted = true; const l = pick(['Welcome to Fresh Mart!', 'Hi! Let me know if you need anything!']); this.jess.ch.say(l); g.showLine('Jess', l, 2); }
+      if (inside && !this.greeted) { this.greeted = true; const l = pick(['Welcome to Fresh Mart!', 'Hi! Let me know if you need anything!']); this.jess.ch.say(l); g.showLine('Dennis', l, 2); }
       if (!inside) this.greeted = false;
       g.ambience?.setOutside?.(inside ? 0.35 : 1);
     }
-    // Jess only needs animating when you're near
-    if (this.jess.dist() < 25) this.jess.update(dt); else this.jess.marker.visible = false;
-    if (!this.busy && inside) {
+    // Dennis only needs animating when you're near (or chasing you)
+    if (this.chase || this.jess.busy || this.jess.dist() < 25) this.jess.update(dt); else this.jess.marker.visible = false;
+    if (!this.busy && !this.chase && !this.jess.busy && inside) {
       this.idleT -= dt;
       if (this.idleT < 0) { this.idleT = rand(5, 10); this.jess.ch.gesture(pick(['lookAround', 'nod', 'checkHair']), { dur: 2.2 }); }
     }

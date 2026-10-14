@@ -646,8 +646,12 @@ export class Shop {
     const S = SUPER, w = S.x1 - S.x0, cx = (S.x0 + S.x1) / 2, h = 7.5;
     const box = (bw, bh, bd, mat, px, py, pz, ry = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), typeof mat === 'string' ? propMaterial(mat) : mat); m.position.set(px, py, pz); m.rotation.y = ry; g.add(m); return m; };
     const wallM = new THREE.MeshStandardMaterial({ color: '#e9e4d8', roughness: 0.8 });
-    const facade = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallM);
-    facade.position.set(cx, h / 2, z); facade.rotation.y = Math.PI; g.add(facade);
+    // the front wall, with an opening behind the sliding doors (you can look and walk in)
+    const dl = S.door - 1.3, dr = S.door + 1.3, dh = 2.9;
+    for (const [a, b, y0, y1] of [[S.x0, dl, 0, h], [dr, S.x1, 0, h], [dl, dr, dh, h]]) {
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(b - a, y1 - y0), wallM);
+      f.position.set((a + b) / 2, (y0 + y1) / 2, z); f.rotation.y = Math.PI; g.add(f);
+    }
     const red = new THREE.MeshStandardMaterial({ color: '#c8302b', roughness: 0.5 });
     box(w + 0.2, 0.9, 0.5, red, cx, 3.6, z - 0.25);                         // red band
     box(w + 0.2, 0.2, 0.6, 'Concrete', cx, h, z - 0.2);
@@ -659,14 +663,17 @@ export class Shop {
     const glassR = new THREE.Mesh(new THREE.PlaneGeometry(gw / 2 - 1.3, 2.9), this.shopWindowMat({ ...sm, noDoor: true }, (gw / 2 - 1.3) / 2.9, 9));
     glassR.position.set(S.x1 - 0.3 - (gw / 2 - 1.3) / 2, 1.55, z - 0.03); glassR.rotation.y = Math.PI; g.add(glassR);
     // sliding doors (they open when someone walks up)
-    const doorGlass = new THREE.MeshStandardMaterial({ color: '#6f8a9a', roughness: 0.08, metalness: 0.4, transparent: true, opacity: 0.55 });
+    const doorGlass = new THREE.MeshStandardMaterial({ color: '#cfe3ec', roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false });
     const frame = propMaterial('MetalDark');
     box(2.8, 0.12, 0.2, frame, S.door, 2.95, z - 0.1);
     this.superDoors = [];
     for (const sx of [-1, 1]) {
       const d = new THREE.Group();
       const pane = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 2.8), doorGlass); pane.rotation.y = Math.PI; d.add(pane);
-      const fr = new THREE.Mesh(new THREE.BoxGeometry(1.28, 2.84, 0.04), frame); fr.scale.set(1, 1, 1); fr.position.z = 0.03;
+      // a slim aluminium frame around the glass (not a solid slab)
+      for (const [bw, bh, bx, by] of [[1.28, 0.06, 0, 1.39], [1.28, 0.1, 0, -1.37], [0.05, 2.84, -0.615, 0], [0.05, 2.84, 0.615, 0], [1.2, 0.04, 0, 0.1]]) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, 0.05), frame); bar.position.set(bx, by, 0.02); d.add(bar);
+      }
       d.position.set(S.door + sx * 0.64, 1.42, z - 0.05);
       g.add(d);
       this.superDoors.push({ obj: d, base: S.door + sx * 0.64, dir: sx, open: 0 });

@@ -24,9 +24,20 @@ export default async ({ step, snap, ev, until, page }) => {
   await ev(() => { window.__pick = 0; window.__game.mart.talk(); });
   for (let i = 0; i < 160; i++) { await step(0.25); await page.waitForTimeout(30); if (i === 14) await snap('scan'); if (await ev(() => !window.__game.mart.busy)) break; }
   console.log('after pay', await ev(() => JSON.stringify({ money: window.__game.save.money, inv: window.__game.story.s.inv, basket: window.__game.mart.basket })));
-  await ev(() => window.__game.mart.take('water'));
+  // steal: walk out with an unpaid can -> Dennis chases, catches, punches, -$10
+  await ev(() => { window.__game.mart.take('water'); window.__game.mart.take('cola'); });
   await ev(() => window.__game.player.place({ x: 2.5, z: 2.84 + 15.0 }, 0, 0)); await step(0.2);
-  await ev(() => window.__game.player.place({ x: 2.5, z: 2.84 + 13.9 }, 0, 0)); await step(0.4);
-  await snap('alarm');
-  console.log('after alarm', await ev(() => JSON.stringify({ basket: window.__game.mart.basket, shoplift: window.__game.save.stats.shoplift })));
+  await ev(() => window.__game.player.place({ x: 2.5, z: 2.84 + 13.6 }, 0, 0)); await step(0.3);
+  console.log('stole', await ev(() => JSON.stringify({ chase: !!window.__game.mart.chase, money: window.__game.save.money })));
+  await ev(() => window.__game.player.place({ x: 0, z: 2.84 + 8 }, 0, 0));
+  for (let i = 0; i < 40; i++) { await step(0.1); if (i === 12) await snap('chase'); }
+  await ev(() => window.__game.player.place({ x: -2, z: 2.84 + 4 }, 0, -0.1));
+  for (let i = 0; i < 60; i++) { await step(0.1); await page.waitForTimeout(25); if (await ev(() => !window.__game.mart.chase)) break; }
+  await page.waitForTimeout(300); await step(0.05); await snap('punch');
+  await page.waitForTimeout(3500); await step(0.5);
+  await snap('busted');
+  console.log('after busted', await ev(() => JSON.stringify({ basket: window.__game.mart.basket, money: window.__game.save.money, caught: window.__game.save.stats.caughtShoplifting, ctrl: window.__game.player.control })));
+  await step(6);
+  console.log('dennis back', await ev(() => JSON.stringify(window.__game.mart.jess.ch.root.position.toArray().map((v) => +v.toFixed(1)))));
+  await shot(2.5, 2.84 + 12.0, Math.PI, 0, 'doors_fixed');
 };
