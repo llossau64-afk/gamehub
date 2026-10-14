@@ -1376,6 +1376,8 @@ export class Game {
     // result screen
     const pay = payment(c.cutId, result, c.personality, { tips: this.fx.tips * (1 + Math.min(3, this.save.stats.streak) * 0.05) * (this.event?.id === 'doubleTips' ? 2 : 1) });
     if (this.event?.id === 'fadeChallenge' && c.cut.fade && result.stars >= 4) { pay.tip += 25; this.ui.toast('Fade Challenge bonus +$25', 'Event'); }
+    // the tutorial customer always pays enough for the first upgrade (the light bulb)
+    if (c.tutorial) pay.pay = Math.max(pay.pay, 22);
     if (c.dyeReq) pay.pay += Math.round(c.dyeReq.bonus * result.dye);
     if (c.tipBonus) pay.tip += c.tipBonus;
     const s = this.save;

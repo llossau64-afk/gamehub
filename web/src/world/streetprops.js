@@ -89,7 +89,7 @@ export function buildStreetProps(shop, g, fz, STREET) {
   }
 
   // street name signs on the corners of the cross streets
-  const names = [['ELM ST', 'MAIN ST'], ['OAK AVE', 'MAIN ST']];
+  const names = [['ELM ST', 'MAIN ST'], ['OAK AVE', 'MAIN ST'], ['PINE ST', 'MAIN ST'], ['ASH ST', 'MAIN ST']];
   STREET.alleys.forEach(([a0, a1], i) => {
     for (const x of [a0 - 0.5, a1 + 0.5]) {
       add(C(0.04, 0.04, 3.2, 8), green, x, 1.6, fz + 2.7);

@@ -17,7 +17,7 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const FZ = ROOM.z1 + 0.24;
 const LANE = FZ + 5.6;        // the near lane (traffic going +x)
 const KERB = FZ + 4.35;       // pulled over at the kerb
-const HIDE_X = -66;
+const HIDE_X = -96;
 const PRICE = 100;
 const PARKED_NEAR = [-8.5, 16, -33, 40];   // parked cars on our side of the street (see shop.js)
 
@@ -105,7 +105,7 @@ export class RideVan {
     this.v = 9;
     this.stopX = null;
     this.drivenBy = false;
-    this.van.position.set(-62, -0.07, LANE);
+    this.van.position.set(-88, -0.07, LANE);
     this.van.visible = true;
     this.holgs.show(true); this.bonnie.show(true);
     this.saidBy = false;
@@ -124,7 +124,7 @@ export class RideVan {
 
   playerOnPavement() {
     const g = this.game, P = g.player.pos;
-    return g.state === 'play' && P.z > FZ + 0.3 && P.z < FZ + 3.0 && Math.abs(P.x) < 40;
+    return g.state === 'play' && P.z > FZ + 0.3 && P.z < FZ + 3.0 && Math.abs(P.x) < 70;
   }
 
   update(dt) {
@@ -184,7 +184,7 @@ export class RideVan {
       if (!g.save.tutorialDone || g.state === 'menu' || g.state === 'intro') return;
       this.nextT -= dt;
       const busy = ['beg', 'toShop', 'talk'].includes(g.story?.julian?.phase) || g.story?.thief || g.mart?.chase;
-      if (this.nextT <= 0 && !busy && !g.street?.cars?.some((c) => c.dir > 0 && c.obj.position.x < -40)) this.start();
+      if (this.nextT <= 0 && !busy && !g.street?.cars?.some((c) => c.dir > 0 && c.obj.position.x < -70)) this.start();
       return;
     }
     const x = van.position.x;
@@ -210,7 +210,7 @@ export class RideVan {
         if (!this.saidBy && Math.abs(P.x - x) < 10 && P.z > FZ - 0.5) { this.saidBy = true; this.bonnie.say(pick(L.driveBy), 'excited'); g.street?.honk?.(van.position); }
       }
       van.position.x += this.v * dt;
-      if (van.position.x > 62) this.hide();
+      if (van.position.x > 88) this.hide();
     } else if (this.phase === 'wait') {
       this.bonnie.ch.lookAt(g.camera, 1);
       this.holgs.ch.lookAt(g.camera, 0.5);
@@ -226,7 +226,7 @@ export class RideVan {
       this.v = damp(this.v, 11, 1.4, dt);
       van.position.z = damp(van.position.z, LANE, 1.5, dt);
       van.position.x += this.v * dt;
-      if (van.position.x > 62) this.hide();
+      if (van.position.x > 88) this.hide();
     }
   }
 
@@ -322,7 +322,7 @@ export class RideVan {
     // outside: the van tears past
     this.camIn = null;
     van.userData.lamp.intensity = 0;
-    for (const c of g.street?.cars || []) if (c.dir > 0) c.obj.position.x = 70;
+    for (const c of g.street?.cars || []) if (c.dir > 0) c.obj.position.x = 95;
     const cx = 8;
     van.position.x = cx - 26;
     van.position.z = LANE;

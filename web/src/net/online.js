@@ -121,7 +121,7 @@ class RemoteBarber {
     this.setNick(str(p.nick, 16) || `Barber ${this.slot + 2}`);
     this.state = ['play', 'barber', 'menu'].includes(p.st) ? p.st : 'menu';
     if (Array.isArray(p.p)) {
-      const x = num(p.p[0], -16, 16), z = num(p.p[1], -3, 18), yaw = num(p.p[2], -20, 20);
+      const x = num(p.p[0], -90, 90), z = num(p.p[1], -5, 18), yaw = num(p.p[2], -20, 20);
       this.target.copy(this.mapPos(x, z));
       this.yaw = yaw;
     }
@@ -512,7 +512,7 @@ export class Online {
     for (const [id, a] of g.netActors) {
       let v = null;
       for (const p of others) { const w = p.presence?.wa; if (w && typeof w === 'object' && Array.isArray(w[id])) { v = w[id]; break; } }
-      if (v && !a.owned()) a.remote([num(v[0], -60, 60), num(v[1], -30, 40), num(v[2], -7, 7), num(v[3], 0, 9), num(v[4] ?? 0, 0, 9)]);
+      if (v && !a.owned()) a.remote([num(v[0], -100, 100), num(v[1], -30, 40), num(v[2], -7, 7), num(v[3], 0, 9), num(v[4] ?? 0, 0, 9)]);
       else if (!v) a.release?.();
     }
   }

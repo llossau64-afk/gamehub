@@ -10,15 +10,19 @@ import { SHOPS, SUPERMARKET, shopWindowTexture, shopSignTexture } from '../rende
 import { Facades } from './facade.js';
 import { buildStreetProps } from './streetprops.js';
 import { buildMartInterior } from './martinterior.js';
+import { buildOuterBlocks } from './outerblocks.js';
 
 // the street runs from STREET.x0 to STREET.x1; side alleys cut into our block
-export const STREET = { x0: -46, x1: 46, alleys: [[-27.5, -21.5], [21.5, 27.5]] };
+// (the outer blocks past the 3rd and 4th cross streets came with the big map update)
+// Willi's little square in the west block (open to the street, with his snack stand)
+export const PLAZA = { x0: -68, x1: -56, z0: -3.1 };
+export const STREET = { x0: -76, x1: 76, alleys: [[-27.5, -21.5], [21.5, 27.5], [-52, -46], [46, 52]] };
 export const SUPER = { x0: -4.5, x1: 9.5, door: 2.5 };
 const R0 = { z1: 2.6 };
 const PARKED = [[-8.5, 4.2, 0, '#8f2f2a'], [10.5, 10.9, Math.PI, '#3b5f7d'], [16, 4.2, 0, '#d8cfb4'], [-33, 4.2, 0, '#2f4a3a'], [31, 10.9, Math.PI, '#c9922e'], [-15, 10.9, Math.PI, '#e8e4dc'], [40, 4.2, 0, '#1c1c1e']];
 const TREES_NEAR = [[-12, 1], [14, 0.9], [-16, 1.1], [-31, 1], [-41, 0.9], [31, 1.05], [42, 0.95]];
-const TREES_FAR = [[-9, 0.9], [-1, 1], [12, 0.95], [18, 1], [-30, 1], [-40, 0.9], [31, 1], [41, 0.95]];
-const LAMPS_EXTRA = [-18, 18, -36, 36];
+const TREES_FAR = [[-9, 0.9], [-1, 1], [12, 0.95], [18, 1], [-30, 1], [-40, 0.9], [31, 1], [41, 0.95], [-58, 1], [-70, 0.95], [58, 1.05], [70, 0.9]];
+const LAMPS_EXTRA = [-18, 18, -36, 36, -56, 56, -72, 72];
 import { Spring, clamp, rand, damp, noise1 } from '../core/util.js';
 import { audio } from '../audio/audio.js';
 import menuPosterUrl from '../assets/menu-poster.jpg?inline';
@@ -346,14 +350,18 @@ export class Shop {
       // the front wall, with the doorway: you can walk out onto the street
       { x0: STREET.alleys[0][1], x1: DOOR.x - DOOR.w / 2 + 0.02, z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
       { x0: DOOR.x + DOOR.w / 2 - 0.02, x1: STREET.alleys[1][0], z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
-      { x0: -199, x1: STREET.alleys[0][0], z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
+      { x0: -199, x1: PLAZA.x0, z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
+      { x0: PLAZA.x1, x1: STREET.alleys[0][0], z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
+      // Willi's square, open to the street
+      { x0: PLAZA.x0 - 0.5, x1: PLAZA.x0, z0: PLAZA.z0, z1: R.z1 + 0.5 }, { x0: PLAZA.x1, x1: PLAZA.x1 + 0.5, z0: PLAZA.z0, z1: R.z1 + 0.5 },
+      { x0: PLAZA.x0, x1: PLAZA.x1, z0: PLAZA.z0 - 0.5, z1: PLAZA.z0 + 0.25 },
       { x0: STREET.alleys[1][1], x1: 199, z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
       // the door itself, while it's shut
       { x0: DOOR.x - DOOR.w / 2, x1: DOOR.x + DOOR.w / 2, z0: R.z1 - 0.12, z1: R.z1 + 0.2, active: () => this.doorSpring.value < 0.55 },
       // the street: pavement, road, the far pavement; the other shops are closed to you
       { x0: -199, x1: STREET.x0, z0: -99, z1: 99 }, { x0: STREET.x1, x1: 199, z0: -99, z1: 99 },
       // the far side is closed, except through Fresh Mart's sliding doors
-      { x0: -99, x1: SUPER.x0, z0: R.z1 + 13.8, z1: 99 }, { x0: SUPER.x1, x1: 99, z0: R.z1 + 13.8, z1: 99 },
+      { x0: -199, x1: SUPER.x0, z0: R.z1 + 13.8, z1: 99 }, { x0: SUPER.x1, x1: 199, z0: R.z1 + 13.8, z1: 99 },
       { x0: SUPER.x0 - 0.1, x1: SUPER.door - 1.25, z0: R.z1 + 13.8, z1: R.z1 + 14.62 },
       { x0: SUPER.door + 1.25, x1: SUPER.x1 + 0.1, z0: R.z1 + 13.8, z1: R.z1 + 14.62 },
     );
@@ -451,12 +459,18 @@ export class Shop {
     const A = STREET.alleys;
     nb(A[0][1], X0 - 12, [150, 128, 104], 61, 7.2, 8);
     nb(X1 + 12, A[1][0], [120, 110, 96], 63, 6.4, 9);
-    nb(STREET.x0 - 2, -38, [110, 100, 92], 65, 8.4, 10);
+    nb(-46, -38, [110, 100, 92], 65, 8.4, 10);
+    // the outer blocks: Ralf's kiosk, Dörk's antiques and a gym out east; Willi's square out west
+    nb(52, 60, [150, 136, 112], 77, 7.0, 12);
+    nb(60, 68, [120, 100, 84], 79, 8.6, 13);
+    nb(68, STREET.x1 + 2, [104, 110, 118], 83, 7.4, 14);
+    nb(STREET.x0 - 2, -68, [134, 116, 98], 85, 7.8, 9);
+    nb(-56, -52, [158, 140, 118], 87, 6.6, 6);
     nb(-38, -33, [160, 140, 110], 67, 6.8, 11);
     nb(-33, A[0][0], [128, 104, 90], 69, 7.6, 7);
     nb(A[1][1], 33, [146, 122, 98], 71, 7.0, 1);
     nb(33, 39, [104, 112, 120], 73, 8.8, 2);
-    nb(39, STREET.x1 + 2, [170, 150, 120], 75, 6.2, 4);
+    nb(39, 46, [170, 150, 120], 75, 6.2, 4);
     for (const [a0, a1] of A) this.buildAlley(g, a0, a1, fz);
     // sidewalk, curb, road
     const sw = texMat(this.tex.sidewalk, { rough: 0.95 });
@@ -469,13 +483,13 @@ export class Shop {
     curb.position.set(0, 0.0, fz + 3.0);
     g.add(curb);
     const rd = texMat(this.tex.asphalt, { rough: 0.95 });
-    this.tex.asphalt.repeat.set(46, 4);
-    const road = plane(140, 9, rd);
+    this.tex.asphalt.repeat.set(56, 4);
+    const road = plane(STREET.x1 - STREET.x0 + 30, 9, rd);
     road.rotation.x = -Math.PI / 2;
     road.position.set(0, -0.07, fz + 7.5);
     g.add(road);
     const lineMat = new THREE.MeshStandardMaterial({ color: '#d8cfb4', roughness: 0.8 });
-    for (let i = -22; i < 22; i++) {
+    for (let i = -27; i < 27; i++) {
       if (STREET.alleys.some(([a, b]) => i * 3 > a - 1 && i * 3 < b + 1)) continue;
       const l = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.12), lineMat);
       l.rotation.x = -Math.PI / 2;
@@ -494,8 +508,9 @@ export class Shop {
       g.add(p);
     };
     // the far side: shops, a cross street opposite each alley, and the supermarket across from us
-    const oppBld = [[STREET.x0 - 2, -36, 8, 12], [-36, -27.5, 7, 13], [-21.5, -13, 8.5, 5], [-13, SUPER.x0, 7, 14],
-      [SUPER.x1, 16, 9, 15], [16, 21.5, 7.5, 7], [27.5, 36, 8, 0], [36, STREET.x1 + 2, 7, 3]];
+    const oppBld = [[-46, -36, 8, 12], [-36, -27.5, 7, 13], [-21.5, -13, 8.5, 5], [-13, SUPER.x0, 7, 14],
+      [SUPER.x1, 16, 9, 15], [16, 21.5, 7.5, 7], [27.5, 36, 8, 0], [36, 46, 7, 3],
+      [STREET.x0 - 2, -64, 8.2, 10], [-64, -52, 7.2, 8], [52, 63, 7.8, 2], [63, STREET.x1 + 2, 8.6, 11]];
     oppBld.forEach(([x0, x1, h, si], i) => {
       opp(x0, x1, [[150, 118, 92], [112, 120, 112], [176, 150, 120], [126, 98, 86]][i % 4], 81 + i * 2, h);
       this.oppShopfront(g, (x0 + x1) / 2, Math.min(x1 - x0 - 1.2, 6), h, fz + 13.95, SHOPS[si % SHOPS.length], i);
@@ -516,6 +531,7 @@ export class Shop {
     }
     this.buildStreetLife(g, fz);
     buildStreetProps(this, g, fz, STREET);
+    buildOuterBlocks(this, g, fz, STREET, PLAZA);
     const swo = plane(STREET.x1 - STREET.x0 + 8, 3.5, sw); swo.rotation.x = -Math.PI / 2; swo.position.set(0, 0, fz + 12.3); g.add(swo);
 
     // street props

@@ -125,8 +125,8 @@ const L = {
 
 // his rounds: shop side west to east, across, back along Fresh Mart, across again
 const ROUTE = [
-  { x: -36, z: NEAR }, { x: -19, z: NEAR }, { x: -19, z: FAR, cross: true }, { x: 6, z: FAR, stop: 'window' }, { x: 34, z: FAR },
-  { x: 34, z: NEAR, cross: true }, { x: 19, z: NEAR, stop: 'bin' }, { x: 6, z: NEAR }, { x: -12, z: NEAR, stop: 'bin' },
+  { x: -62, z: NEAR, stop: 'window' }, { x: -19, z: NEAR }, { x: -19, z: FAR, cross: true }, { x: 6, z: FAR, stop: 'window' }, { x: 60, z: FAR },
+  { x: 60, z: NEAR, cross: true }, { x: 19, z: NEAR, stop: 'bin' }, { x: 6, z: NEAR }, { x: -12, z: NEAR, stop: 'bin' },
 ];
 
 export class Julian {

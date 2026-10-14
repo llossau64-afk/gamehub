@@ -181,7 +181,7 @@ export class UI {
       }
       body.querySelector('.op-c').textContent = L.code;
       body.querySelector('.op-team').textContent = L.team || '';
-      body.querySelector('.op-n').textContent = `${L.players.length} / 3`;
+      body.querySelector('.op-n').textContent = `${L.players.length} / 4`;
       const list = body.querySelector('.op-players');
       list.innerHTML = '';
       for (let i = 0; i < 3; i++) {
@@ -1052,15 +1052,24 @@ export class UI {
   }
 
   // ------------------------------------------------------------------ banners, toasts
-  async banner(k, t, s = '', ms = 2200) {
-    const el = this.bannerEl;
-    el.querySelector('.k').textContent = k;
-    el.querySelector('.t').textContent = t;
-    el.querySelector('.s').textContent = s;
-    el.classList.remove('off');
-    await wait(ms);
-    el.classList.add('off');
-    await wait(600);
+  // big banners take turns (quest complete, level up, day done...) instead of piling up;
+  // if three are already waiting, the newest is dropped
+  banner(k, t, s = '', ms = 2200) {
+    if ((this._bqLen || 0) >= 3) return Promise.resolve();
+    this._bqLen = (this._bqLen || 0) + 1;
+    const run = async () => {
+      const el = this.bannerEl;
+      el.querySelector('.k').textContent = k;
+      el.querySelector('.t').textContent = t;
+      el.querySelector('.s').textContent = s;
+      el.classList.remove('off');
+      await wait(ms);
+      el.classList.add('off');
+      await wait(600);
+      this._bqLen--;
+    };
+    this._bq = (this._bq || Promise.resolve()).then(run, run);
+    return this._bq;
   }
 
   // "GOT KEY!" style moment over the 3D item showcase; null hides it

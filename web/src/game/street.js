@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { Character } from '../chars/character.js';
 import { HairSystem } from '../hair/hair.js';
 import { randomCustomerLook } from '../chars/looks.js';
-import { ROOM, WINDOW } from '../world/shop.js';
+import { ROOM, WINDOW, STREET } from '../world/shop.js';
 import { rand, chance, pick } from '../core/util.js';
 import { audio } from '../audio/audio.js';
 
@@ -49,7 +49,7 @@ export class Street {
     // the near lane is Holgs & Bonnie's while their van is about
     const dir = chance(0.5) && !this.game.van?.active ? 1 : -1;
     const obj = this.makeCar(pick(['#8f2f2a', '#3b5f7d', '#d8cfb4', '#2f4a3a', '#1c1c1e', '#c9922e', '#e8e4dc']));
-    obj.position.set(-dir * 60, -0.07, dir > 0 ? fz + 5.6 : fz + 9.4);
+    obj.position.set(-dir * (STREET.x1 + 14), -0.07, dir > 0 ? fz + 5.6 : fz + 9.4);
     obj.rotation.y = dir > 0 ? 0 : Math.PI;
     this.game.scene.add(obj);
     this.cars.push({ obj, dir, v: rand(8, 11), vmax: rand(8, 11), honked: 0, careful: chance(0.6) });
@@ -83,7 +83,7 @@ export class Street {
         else P.z = o.position.z + Math.sign(dz || 1) * 1.15;
       }
       if (outside && !C.passed && Math.abs(P.x - o.position.x) < 8) { C.passed = true; audio._carPass?.(1); }
-      if (Math.abs(o.position.x) > 62) {
+      if (Math.abs(o.position.x) > STREET.x1 + 16) {
         o.parent?.remove(o);
         o.traverse((m) => { if (m.isMesh) { m.geometry.dispose(); } });
         this.cars.splice(i, 1);
@@ -111,7 +111,7 @@ export class Street {
     if (look.cap) ch.setCap(look.cap);
     const dir = chance(0.5) ? 1 : -1;
     const z = ROOM.z1 + rand(1.0, 2.2);
-    const x0 = -dir * 44, x1 = dir * 44;
+    const x0 = -dir * (STREET.x1 - 2), x1 = dir * (STREET.x1 - 2);
     ch.place(new THREE.Vector3(x0, 0, z), dir > 0 ? Math.PI / 2 : -Math.PI / 2);
     const w = { ch, dir, z, stop: chance(0.35) ? rand(WINDOW.x - 1, WINDOW.x + 1) : null, stopped: false, phone: chance(0.25) };
     ch.walkTo([new THREE.Vector3(x1, 0, z)], chance(0.3) ? 'stroll' : 'walk');
@@ -160,8 +160,8 @@ export class Street {
       const d = ch.root.position.distanceTo(g.camera.position);
       if (d < 22) ch.update(dt); else { ch.updateLocomotion(dt); }
       ch.hair.setLOD(d);
-      if (Math.abs(ch.root.position.x) > 43.5 && !ch.path.length && !w.stopped) { ch.dispose(); this.walkers.splice(i, 1); continue; }
-      if (Math.abs(ch.root.position.x) > 43.5 && !ch.path.length) { ch.dispose(); this.walkers.splice(i, 1); }
+      if (Math.abs(ch.root.position.x) > STREET.x1 - 2.5 && !ch.path.length && !w.stopped) { ch.dispose(); this.walkers.splice(i, 1); continue; }
+      if (Math.abs(ch.root.position.x) > STREET.x1 - 2.5 && !ch.path.length) { ch.dispose(); this.walkers.splice(i, 1); }
     }
   }
 

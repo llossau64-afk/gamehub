@@ -1054,3 +1054,4 @@
 .online-badge, .online-badge { left: auto; right: calc(16px + var(--safe-r)); top: auto; bottom: calc(150px + var(--safe-b, 0px)); padding: 6px 10px; }
 .online-badge .ob-p { font-size: 13px; }
 .now-playing { top: auto; right: auto; left: calc(18px + var(--safe-l)); bottom: calc(18px + var(--safe-b, 0px)); transform: scale(.85); transform-origin: left bottom; }
+.qt-d > .qt-dn { display: block; }

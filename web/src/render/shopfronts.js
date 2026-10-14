@@ -15,6 +15,9 @@ export const SHOPS = [
   { name: 'PHARMACY', sub: 'open 8 – 20', wall: '#e9f0ec', sign: '#2f8a4a', ink: '#ffffff', kind: 'pharmacy' },
   { name: 'LAUNDRETTE', sub: 'wash · dry · fold', wall: '#dfe8f0', sign: '#24447a', ink: '#bfe3ff', kind: 'laundry' },
   { name: 'GOLD & CO', sub: 'jewellers', wall: '#2a2420', sign: '#141210', ink: '#e9c46f', kind: 'jeweller' },
+  { name: 'RALF’S KIOSK', sub: 'papers · snacks · lottery', wall: '#e6d9b8', sign: '#1f5fa8', ink: '#ffe066', kind: 'grocer' },
+  { name: 'DÖRK ANTIQUES', sub: 'old things · older owner', wall: '#b9a27f', sign: '#3a2a1e', ink: '#e9c983', kind: 'books' },
+  { name: 'IRON GYM', sub: 'no pain no gain', wall: '#d9dde2', sign: '#1c1c1e', ink: '#ff6a3a', kind: 'phone' },
 ];
 
 export const SUPERMARKET = { name: 'FRESH MART', sub: 'supermarket · open 7 – 22', wall: '#f3f1ea', sign: '#c8302b', ink: '#ffffff', kind: 'super' };
