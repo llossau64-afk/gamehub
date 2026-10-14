@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
-import { createRenderer, detectQuality } from './render/renderer.js';
+import { createRenderer, detectQuality, QUALITY } from './render/renderer.js';
 import { initMaterials } from './render/materials.js';
 import { registerProps, spawnProp } from './world/props.js';
 import { buildTemplate } from './chars/template.js';
@@ -78,7 +78,20 @@ async function boot() {
     game.update(dt);
     game.render();
     acc += dt; frames++;
-    if (acc > 1) { stats.fps = frames / acc; stats.calls = renderer.info.render.calls; stats.tris = renderer.info.render.triangles; acc = 0; frames = 0; }
+    if (acc > 1) { stats.fps = frames / acc; stats.calls = renderer.info.render.calls; stats.tris = renderer.info.render.triangles; acc = 0; frames = 0; adaptResolution(stats.fps); }
+  }
+  // dynamic resolution: when the frame rate drops, render a little smaller (down to 60%);
+  // when it's been smooth for a while, step back up to the quality setting's resolution
+  const maxPR = Math.min(window.devicePixelRatio || 1, QUALITY[qualityName]?.pixelRatio || 1);
+  const minPR = Math.min(0.6, maxPR);
+  let curPR = maxPR, good = 0;
+  stats.pixelRatio = curPR;
+  function adaptResolution(fps) {
+    if (document.hidden || game.paused || game.state === 'menu') { good = 0; return; }
+    if (fps < 38 && curPR > minPR) { curPR = Math.max(minPR, +(curPR - 0.15).toFixed(2)); good = 0; renderer.setPixelRatio(curPR); }
+    else if (fps > 56 && curPR < maxPR) { if (++good >= 5) { good = 0; curPR = Math.min(maxPR, +(curPR + 0.1).toFixed(2)); renderer.setPixelRatio(curPR); } }
+    else good = 0;
+    stats.pixelRatio = curPR;
   }
   // test harness: ?manual disables the real-time loop; tests call __step()
   if (new URLSearchParams(location.search).has('manual')) {

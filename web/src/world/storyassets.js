@@ -187,7 +187,7 @@ export function makeChefHat() {
     p.position.set(Math.cos(a) * 0.058, 0.115, Math.sin(a) * 0.058); g.add(p);
   }
   const top = new THREE.Mesh(new THREE.SphereGeometry(0.07, 14, 10), white); top.position.y = 0.14; g.add(top);
-  g.position.set(0, 0.105, 0.0);
+  g.position.set(0, 0.15, -0.01);
   g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
   return g;
 }

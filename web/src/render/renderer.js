@@ -24,7 +24,7 @@ export function createRenderer(canvas, qualityName) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.95;
   renderer.shadowMap.enabled = q.shadows;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;   // (PCFSoft is gone in this three.js; it fell back with a warning)
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pixelRatio));
   return renderer;
 }
