@@ -33,7 +33,7 @@ export const QUESTS = {
   drinks: { title: 'Thirsty Customers', ch: 3, giver: 'Fresh Mart', reward: { money: 15, xp: 40 },
     steps: ['Buy a drink inside Fresh Mart (pay Dennis at the till)', 'Give a drink to a waiting customer (F)'] },
   martJob: { title: 'One Shift at Fresh Mart', ch: 4, giver: 'Mr. Kowalski', reward: { money: 0, xp: 0 },
-    steps: ['Talk to Mr. Kowalski across the street', 'Carry 8 boxes into Fresh Mart', 'Collect your “pay”'] },
+    steps: ['Talk to Mr. Kowalski across the street', 'Carry the boxes into Fresh Mart', 'Collect your “pay”'] },
   deed: { title: 'The Deed', ch: 5, giver: 'Mr. Albrecht', reward: { money: 250, xp: 200 },
     steps: ['Reach shop level 6', 'Get a second barber chair', 'Meet Mr. Albrecht outside'] },
 };
@@ -71,6 +71,7 @@ export class StreetNPC {
     this.shown = true;
     this.busy = false;
     this.mark = null;
+    game.npcByName?.set(name, this.ch);          // online: teammates hear this person's lines
     this.idleT = rand(4, 9);
   }
 
@@ -106,10 +107,23 @@ export class StreetNPC {
   }
 
   dispose() {
+    if (this.game.npcByName?.get(this.name) === this.ch) this.game.npcByName.delete(this.name);
     this.ch.dispose?.();
     this.marker.parent?.remove(this.marker); this.markerQ.parent?.remove(this.markerQ);
   }
 }
+
+// online: move a character toward where a teammate's game says it is
+export function followRemote(ch, r) {
+  const p = ch.root.position;
+  const d = Math.hypot(r.x - p.x, r.z - p.z);
+  if (d > 5) { ch.place(new THREE.Vector3(r.x, 0, r.z), r.yaw); ch.stop(); }
+  else if (d > 0.35) { if (!ch.path?.length || ch.gait !== r.gait || Math.hypot(ch.path[ch.path.length - 1].x - r.x, ch.path[ch.path.length - 1].z - r.z) > 0.3) ch.walkTo([new THREE.Vector3(r.x, 0, r.z)], r.gait); }
+  else if (ch.path?.length) ch.stop();
+}
+const GAITS = ['walk', 'speedwalk', 'run', 'stroll'];
+export const gaitIndex = (g) => Math.max(0, GAITS.indexOf(g));
+export const gaitName = (i) => GAITS[i] || 'walk';
 
 const baseColors = { EyeWhite: '#efe8dc', Pupil: '#0d0b0a', Mouth: '#5a2622', Teeth: '#ece6da', Frame: '#1d1b1a', Sole: '#1e1916', Belt: '#2a1d15', Metal: '#c4c6c6', Button: '#f3efe4', MouthDark: '#2a0d0b', Shirt: '#e9e1cf', Tie: '#7a2a26', Lapel: '#3a332c', TopDark: '#2d2a28' };
 const BAKER = { colors: { ...baseColors, Skin: '#e8b996', Top: '#f2eee6', Sleeve: '#f2eee6', Pants: '#3a3f4a', Shoes: '#1b1b1d', Hair: '#3a2a20', Iris: '#5c4632', Apron: '#f7f4ee' },
@@ -150,6 +164,14 @@ export class Story {
     this.fridge = null;
     this.side = new SideQuests(this);
     this.side.build();
+    g.npcByName.set('Mr. Kowalski', g.supermarket.ch);
+    // online: the host's thief is the one everybody chases
+    g.netActors.set('thief', {
+      owned: () => !!this.thief && !this.thief.caught && g.isHost,
+      get: () => { const c = this.thief.ch; return [+c.root.position.x.toFixed(2), +c.root.position.z.toFixed(2), +c.yaw.toFixed(2), gaitIndex(c.gait)]; },
+      remote: (v) => { if (this.thief && !this.thief.caught) this.thief.remote = { x: v[0], z: v[1], yaw: v[2], gait: gaitName(v[3]) }; },
+      release: () => { if (this.thief) this.thief.remote = null; },
+    });
   }
 
   interactables(I) {
@@ -258,7 +280,8 @@ export class Story {
     if (s.daily && s.daily.day === g.save.day) return;
     const pool = [...DAILY_POOL].sort(() => Math.random() - 0.5).slice(0, 3);
     s.daily = { day: g.save.day, bonus: false, list: pool.map((p) => {
-      const n = Math.round(rand(p.n[0], p.n[1]) / (p.id === 'earn' ? 10 : 1)) * (p.id === 'earn' ? 10 : 1);
+      // online the team's daily jobs are twice as big
+      const n = Math.round(rand(p.n[0], p.n[1]) / (p.id === 'earn' ? 10 : 1)) * (p.id === 'earn' ? 10 : 1) * (g.coop ? 2 : 1);
       return { id: p.id, t: p.t(n), n, p: 0, money: p.money, xp: p.xp, done: false };
     }) };
     g.persist();
@@ -293,7 +316,7 @@ export class Story {
     for (const [id, q] of Object.entries(QUESTS)) {
       if (!this.active(id)) continue;
       let t = q.steps[this.step(id)];
-      if (id === 'martJob' && this.step(id) === 1) t += ` (${g.supermarket.job?.boxes || 0}/8)`;
+      if (id === 'martJob' && this.step(id) === 1) t += ` (${g.supermarket.job?.boxes || 0}/${g.supermarket.need})`;
       rows.push({ k: q.title, t });
     }
     const d = s.daily;
@@ -514,6 +537,7 @@ export class Story {
   runThief() {
     const t = this.thief;
     if (!t || t.caught) return;
+    if (!this.game.isHost) return;          // online: the host's thief leads, we follow his position
     const dir = t.ch.root.position.x < 0 ? 1 : -1;
     const near = FZ + rand(1.3, 2.0), far = FZ + rand(11.6, 12.6);
     const pts = dir > 0
@@ -528,6 +552,7 @@ export class Story {
     t.update(dt);
     if (t.caught) return;
     const d = t.dist();
+    if (t.remote && !g.isHost) { followRemote(t.ch, t.remote); return; }
     // far away he dawdles; closer he hurries; right next to you he bursts away, then has to
     // catch his breath (that's your chance)
     t.burst = Math.max(0, (t.burst || 0) - dt);
@@ -539,7 +564,7 @@ export class Story {
     if (t.tauntT < 0 && d < 9) {
       t.tauntT = rand(4, 7);
       const line = pick(['Can’t catch me, scissor boy!', 'Too slow!', 'These baguettes are MINE!', 'Get a real job!', 'Ha! Nice haircut, nerd!']);
-      t.ch.say(line); g.showLine('Thief', line, 2);
+      t.ch.say(line); g.showLine('Thief', line, 2, true);
     }
   }
 
@@ -569,6 +594,16 @@ export class Story {
     const line = pick(['OW! Okay, okay! Take it! I was hungry!', 'Not the face! NOT THE FACE!', 'Alright! I’ll steal from the supermarket instead!']);
     t.ch.say(line); g.showLine('Thief', line, 2.6);
     await g.dir.wait(1.8).catch(() => {});
+    const x = t.ch.root.position.x > 0 ? 52 : -52;
+    t.ch.walkTo([V(x, 0, t.ch.root.position.z)], 'run').then(() => { t.dispose(); if (this.thief === t) this.thief = null; });
+  }
+
+  thiefFlees() {
+    const t = this.thief;
+    t.caught = true;
+    t.remote = null;
+    t.ch.stop();
+    t.ch.setEmotion('horrified', 2);
     const x = t.ch.root.position.x > 0 ? 52 : -52;
     t.ch.walkTo([V(x, 0, t.ch.root.position.z)], 'run').then(() => { t.dispose(); if (this.thief === t) this.thief = null; });
   }
@@ -604,7 +639,13 @@ export class Story {
       else g.netOut.length = 0;
       // the thief is back if you left mid-chase (e.g. after reloading)
       if (this.step('thief') === 1 && !this.thief) this.spawnThief();
-      if ((this.step('thief') === 2 && !this.bag && !this.carrying && !this.thief) || (this.step('thief') === 3 && !this.carrying)) { this.s.q.thief = 1; this.spawnThief(); this.refresh(); }
+      // (offline only: online a teammate may have the bread, so never step back)
+      if (!g.coop && ((this.step('thief') === 2 && !this.bag && !this.carrying && !this.thief) || (this.step('thief') === 3 && !this.carrying))) { this.s.q.thief = 1; this.spawnThief(); this.refresh(); }
+      // a teammate tackled the thief: mine gives up and runs off
+      if (this.thief && !this.thief.caught && this.step('thief') >= 2) this.thiefFlees();
+      // the Fresh Mart shift is a team job: everyone gets the pallet, and it's gone once someone got paid
+      if (g.coop && this.step('martJob') === 1 && !g.supermarket.job) g.supermarket.startJob(true);
+      if (this.done('martJob') && g.supermarket.job) g.supermarket.endJob();
     }
   }
 }

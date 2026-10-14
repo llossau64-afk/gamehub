@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { MART } from '../world/martinterior.js';
 import { ROOM } from '../world/shop.js';
 import { DRINKS, makeDrink } from '../world/storyassets.js';
-import { StreetNPC } from './story.js';
+import { StreetNPC, followRemote, gaitIndex, gaitName } from './story.js';
 import { audio } from '../audio/audio.js';
 import { pick, rand, formatMoney } from '../core/util.js';
 
@@ -33,6 +33,21 @@ export class Mart {
     const handle = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.012, 6, 16, Math.PI), new THREE.MeshStandardMaterial({ color: '#2b2d30', roughness: 0.5 }));
     handle.rotation.y = Math.PI / 2; b.add(handle);
     this.basketItems = new THREE.Group(); this.basketItems.position.y = -0.04; b.add(this.basketItems);
+    // online: whoever is being chased drives Dennis; the rest of the team sees the chase
+    game.netActors.set('dennis', {
+      owned: () => !!this.chase,
+      get: () => { const c = this.jess.ch; return [+c.root.position.x.toFixed(2), +c.root.position.z.toFixed(2), +c.yaw.toFixed(2), gaitIndex(c.gait)]; },
+      remote: (v) => { if (!this.chase) { this.remoteChase = { x: v[0], z: v[1], yaw: v[2], gait: gaitName(v[3]) }; this.jess.busy = true; } },
+      release: () => { if (this.remoteChase) { this.remoteChase = null; this.walkHome(); } },
+    });
+  }
+
+  walkHome() {
+    const j = this.jess, ck = MART.counter;
+    const pts = [];
+    if (j.ch.root.position.z < MART.z0) pts.push(V(MART.door, 0, MART.z0 - 0.9));
+    pts.push(V(MART.door, 0, MART.z0 + 0.55), V(ck.x + 0.75, 0, MART.z0 + 0.55), this.home.clone());
+    j.ch.walkTo(pts, 'walk').then(() => { j.busy = false; j.ch.faceYaw = -Math.PI / 2; });
   }
 
   get count() { return Object.values(this.basket).reduce((a, b) => a + b, 0); }
@@ -239,11 +254,7 @@ export class Mart {
     g.ui.banner('Busted', '−$10', 'Dennis took everything back. Crime doesn’t pay. (Not at Fresh Mart.)', 2200);
     g.checkAchievements?.();
     // back to the till
-    const ck = MART.counter;
-    const pts = [];
-    if (j.ch.root.position.z < MART.z0) pts.push(V(MART.door, 0, MART.z0 - 0.9));
-    pts.push(V(MART.door, 0, MART.z0 + 0.55), V(ck.x + 0.75, 0, MART.z0 + 0.55), this.home.clone());
-    j.ch.walkTo(pts, 'walk').then(() => { j.busy = false; j.ch.faceYaw = -Math.PI / 2; });
+    this.walkHome();
   }
 
   update(dt) {
@@ -253,14 +264,15 @@ export class Mart {
     const inside = P.x > MART.x0 && P.x < MART.x1 && P.z > MART.z0 + 0.25 && P.z < MART.z1;
     if (this.inside && !inside && this.count && P.z < MART.z0 + 0.25) this.alarm();
     if (this.chase) this.updateChase(dt);
+    else if (this.remoteChase) followRemote(this.jess.ch, this.remoteChase);
     if (inside !== this.inside) {
       this.inside = inside;
-      if (inside && !this.greeted) { this.greeted = true; const l = pick(['Welcome to Fresh Mart!', 'Hi! Let me know if you need anything!']); this.jess.ch.say(l); g.showLine('Dennis', l, 2); }
+      if (inside && !this.greeted) { this.greeted = true; const l = pick(['Welcome to Fresh Mart!', 'Hi! Let me know if you need anything!']); this.jess.ch.say(l); g.showLine('Dennis', l, 2, true); }
       if (!inside) this.greeted = false;
       g.ambience?.setOutside?.(inside ? 0.35 : 1);
     }
     // Dennis only needs animating when you're near (or chasing you)
-    if (this.chase || this.jess.busy || this.jess.dist() < 25) this.jess.update(dt); else this.jess.marker.visible = false;
+    if (this.chase || this.remoteChase || this.jess.busy || this.jess.dist() < 25) this.jess.update(dt); else this.jess.marker.visible = false;
     if (!this.busy && !this.chase && !this.jess.busy && inside) {
       this.idleT -= dt;
       if (this.idleT < 0) { this.idleT = rand(5, 10); this.jess.ch.gesture(pick(['lookAround', 'nod', 'checkHair']), { dur: 2.2 }); }

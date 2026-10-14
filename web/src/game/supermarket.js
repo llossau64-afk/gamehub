@@ -55,12 +55,15 @@ export class Supermarket {
 
   // done = nothing more to offer (story: the job has been done and the register robbed)
   // the job is always on offer until you've worked the shift (and robbed the register)
-  get done() { return this.game.save.flags?.superJob === 'robbed'; }
+  get done() { return this.game.save.flags?.superJob === 'robbed' || !!this.game.story?.done('martJob'); }
+
+  // online the shift is twice as long: the whole team carries 16 boxes together
+  get need() { return this.game.coop ? 16 : 8; }
 
   dist() { return this.ch.root.position.distanceTo(this.game.player.pos); }
 
   label() {
-    if (this.busy || this.game.state !== 'play' || this.dist() > 2.6 || this.job?.boxes < 8) return null;
+    if (this.busy || this.game.state !== 'play' || this.dist() > 2.6 || this.job?.boxes < this.need) return null;
     return this.done ? 'Talk to the manager' : 'Talk to the manager (!)';
   }
 
@@ -71,13 +74,13 @@ export class Supermarket {
     const d = this.dist();
     // far away and out of sight: just keep the pose
     if (d < 30) ch.update(dt); else ch.updateLocomotion?.(dt);
-    this.marker.visible = !this.done && !this.busy && !(this.job && this.job.boxes < 8);
+    this.marker.visible = !this.done && !this.busy && !(this.job && this.job.boxes < this.need);
     if (this.marker.visible) {
       const h = ch.headWorld(V(0, 0, 0));
       this.marker.position.set(h.x, h.y + 0.42 + Math.sin(performance.now() / 300) * 0.04, h.z);
     }
     if (this.busy) return;
-    if (this.job && this.job.boxes < 8) {
+    if (this.job && this.job.boxes < this.need) {
       this.job.insultT -= dt;
       ch.lookAt(g.camera, 0.9);
       if (this.job.insultT < 0) { this.job.insultT = rand(7, 11); if (d < 16) this.insult(); }
@@ -92,21 +95,22 @@ export class Supermarket {
         ch.gesture('wave');
         const line = pick(['Hey! You! Yes, you!', 'Looking for a real job?', 'Psst! Great opportunity here!', 'We’re hiring! Come over!']);
         ch.say(line);
-        g.showLine('Mr. Kowalski', line, 2.4);
+        g.showLine('Mr. Kowalski', line, 2.4, true);
       } else if (Math.random() < 0.5) ch.gesture('lookAround', { dur: 2.2 });
     }
   }
 
   // ---------------------------------------------------------------- the shift
-  startJob() {
+  startJob(fromTeam = false) {
     const g = this.game;
+    if (this.job) return;
     const fz = ROOM.z1 + 0.24;
-    g.story?.setStep('martJob', 1);
+    if (!fromTeam) g.story?.setStep('martJob', 1);
     const pal = makePallet();
     pal.position.set(SUPER.x0 + 2.0, 0, fz + 12.1);
     g.scene.add(pal);
     const boxes = [];
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < this.need; i++) {
       const b = makeBox();
       b.position.set(-0.25 + (i % 2) * 0.5, 0.31 + Math.floor(i / 4) * 0.33, -0.2 + (Math.floor(i / 2) % 2) * 0.4);
       b.rotation.y = (Math.random() - 0.5) * 0.2;
@@ -115,12 +119,12 @@ export class Supermarket {
     void boxes;
     this.job = { pal, boxes: 0, carrying: null, insultT: 6 };
     g.shop.colliders.push(this.palCol = { x0: pal.position.x - 0.65, x1: pal.position.x + 0.65, z0: pal.position.z - 0.55, z1: pal.position.z + 0.55, outside: true });
-    g.ui.toast('Carry 8 boxes from the pallet into Fresh Mart', 'Job');
+    g.ui.toast(`Carry ${this.need} boxes from the pallet into Fresh Mart${g.coop ? ' (together with your team)' : ''}`, 'Job');
   }
 
   jobLabel() {
     const j = this.job, g = this.game;
-    if (!j || j.boxes >= 8 || g.state !== 'play' || !g.player.control) return null;
+    if (!j || j.boxes >= this.need || g.state !== 'play' || !g.player.control) return null;
     const P = g.player.pos;
     if (!j.carrying && j.pal.position.distanceTo(P) < 2.0) return 'Pick up a box';
     if (j.carrying && this.doorPos().distanceTo(P) < 2.2) return 'Carry the box inside';
@@ -145,18 +149,46 @@ export class Supermarket {
       R.drop(); R.set({ visible: false }); L.set({ visible: false });
       j.carrying = null;
       j.boxes++;
+      if (g.coop) g.netOut.push({ jb: j.boxes });
       audio.chairThump?.();
       g.story?.refresh();
-      if (j.boxes < 8) this.insult(true);
+      if (j.boxes < this.need) this.insult(true);
       else {
         this.ch.setEmotion('neutral', 2);
         const line = 'Done? Hmph. Come talk to me. Let’s discuss your... “pay”.';
-        this.ch.say(line); g.showLine('Mr. Kowalski', line, 3);
+        this.ch.say(line); g.showLine('Mr. Kowalski', line, 3, true);
         g.story?.setStep('martJob', 2);
         if (this.palCol) { const i = g.shop.colliders.indexOf(this.palCol); if (i >= 0) g.shop.colliders.splice(i, 1); }
         j.pal.parent?.remove(j.pal);
       }
     }
+  }
+
+  // a teammate carried a box: the shared count goes up, a box disappears from my pallet
+  teamBoxes(n) {
+    const g = this.game;
+    if (!this.job) { if (g.story?.step('martJob') === 1) this.startJob(true); else return; }
+    const j = this.job;
+    while (j.boxes < Math.min(n, this.need)) {
+      j.boxes++;
+      const top = j.pal.children.filter((c) => c.isMesh && c.position.y > 0.2).pop();
+      top?.parent?.remove(top);
+    }
+    g.story?.refresh();
+    if (j.boxes >= this.need && j.pal.parent) {
+      if (this.palCol) { const i = g.shop.colliders.indexOf(this.palCol); if (i >= 0) g.shop.colliders.splice(i, 1); }
+      j.pal.parent.remove(j.pal);
+    }
+  }
+
+  // the shift is over for the whole team (someone already robbed the till)
+  endJob() {
+    const g = this.game, j = this.job;
+    if (!j) return;
+    if (j.carrying) { g.player.arms.R.drop(); g.player.arms.R.set({ visible: false }); g.player.arms.L.set({ visible: false }); }
+    if (this.palCol) { const i = g.shop.colliders.indexOf(this.palCol); if (i >= 0) g.shop.colliders.splice(i, 1); }
+    j.pal.parent?.remove(j.pal);
+    this.job = null;
   }
 
   insult(now = false) {
@@ -167,7 +199,7 @@ export class Supermarket {
     const line = pick(lines);
     this.ch.setEmotion('annoyed', 3);
     if (now || Math.random() < 0.5) this.ch.gesture('pointAccuse', { target: () => g.player.pos.clone().setY(1.5) });
-    this.ch.say(line); g.showLine('Mr. Kowalski', line, 2.6);
+    this.ch.say(line); g.showLine('Mr. Kowalski', line, 2.6, true);
   }
 
   // end of the shift: the "pay" is an insult, so the register gets emptied
@@ -225,8 +257,8 @@ export class Supermarket {
     };
     try {
       const story = g.story;
-      if (this.job && this.job.boxes >= 8) { await this.payday(say); return; }
-      if (g.save.flags?.superJob === 'robbed') {
+      if (this.job && this.job.boxes >= this.need) { await this.payday(say); return; }
+      if (g.save.flags?.superJob === 'robbed' || g.story?.done('martJob')) {
         ch.setEmotion('furious', 3); g.exclaim.show(ch, 1.4, 'anger');
         await say(pick(['YOU! Thief! I’ve got my eye on you!', 'Security still has your picture on the wall.', 'Get away from my supermarket, you robber!']), 'furious');
         return;

@@ -67,6 +67,8 @@ export class Game {
     this.street = new Street(this);
     this.supermarket = new Supermarket(this);
     this.netOut = [];
+    this.netActors = new Map();     // quest actors whose position the team shares (thief, Dennis, Jannis)
+    this.npcByName = new Map();     // quest NPCs whose lines are mirrored to the team
     this.story = new Story(this);
     this.story.build();
     this.mart = new Mart(this);
@@ -1276,7 +1278,16 @@ export class Game {
     return d;
   }
 
-  showLine(who, text, dur) {
+  // online: everyone in the team plays the same world
+  get coop() { return !!(this.coopKey && this.online?.active); }
+  get isHost() { return !this.coop || !!this.online.host; }
+
+  showLine(who, text, dur, mirrored = false) {
+    // quest dialogue is heard by teammates standing nearby
+    if (!mirrored && this.coop && (who === 'You' || this.npcByName.has(who))) {
+      const P = this.player.pos;
+      this.netOut.push({ sy: [String(who).slice(0, 24), String(text).slice(0, 200), +P.x.toFixed(1), +P.z.toFixed(1), +dur.toFixed(1)] });
+    }
     this.ui.subtitle(who, text);
     clearTimeout(this._subT);
     this._subT = setTimeout(() => this.ui.subtitle(null), dur * 1000);

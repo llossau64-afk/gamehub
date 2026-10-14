@@ -436,6 +436,17 @@ export class Online {
         if (typeof x.h === 'number' && g.clock?.open) { const h = num(x.h, 8, 22.5); if (h > g.clock.hour + 0.03) g.clock.hour = h; }
         if (Array.isArray(x.q) && typeof x.q[0] === 'string' && QUESTS[x.q[0]]) g.story?.merge(x.q[0], num(x.q[1], 0, 9));
         if (typeof x.ch === 'number' && g.story) { const c = num(x.ch, 0, 5); if (c > g.story.s.ch) g.story.setChapter(c); }
+        // a line of quest dialogue a teammate is hearing: hear it too when you're close by
+        if (Array.isArray(x.sy) && typeof x.sy[0] === 'string' && typeof x.sy[1] === 'string') {
+          const who = str(x.sy[0], 24), text = String(x.sy[1]).replace(/[\u0000-\u001f<>]/g, '').slice(0, 200);
+          const d = Math.hypot(g.player.pos.x - num(x.sy[2], -99, 99), g.player.pos.z - num(x.sy[3], -99, 99));
+          if (d < 16 && g.state !== 'menu') {
+            g.showLine(who === 'You' ? nick : who, text, num(x.sy[4], 0.8, 8, 2.5), true);
+            g.npcByName.get(who)?.say?.(text);
+          }
+        }
+        if (Array.isArray(x.vis) && typeof x.vis[0] === 'string') g.story?.side?.setRemoteVis(str(x.vis[0], 16), !!x.vis[1]);
+        if (typeof x.jb === 'number') g.supermarket?.teamBoxes(num(x.jb, 0, 64));
       }
     }
     if (top > last) { this.seen.set(p.peer, top); g.persist(); this.hostSnapshot(); }
@@ -481,6 +492,7 @@ export class Online {
     });
     if (!this.started) this.lobbyTeam();
     for (const p of others) this.applyEvents(p);
+    this.applyActors(others);
     if (!this.host) {
       const host = others.find((p) => p.presence.host === 1);
       if (host) this.hostSeen = true;
@@ -490,6 +502,17 @@ export class Online {
     }
     this.game.ui.setOnline?.({ code: this.code, players: this.players });
     this.onChange?.();
+  }
+
+  // quest actors driven by a teammate: follow their position; release when nobody drives them
+  applyActors(others) {
+    const g = this.game;
+    for (const [id, a] of g.netActors) {
+      let v = null;
+      for (const p of others) { const w = p.presence?.wa; if (w && typeof w === 'object' && Array.isArray(w[id])) { v = w[id]; break; } }
+      if (v && !a.owned()) a.remote([num(v[0], -60, 60), num(v[1], -30, 40), num(v[2], -7, 7), num(v[3], 0, 9)]);
+      else if (!v) a.release?.();
+    }
   }
 
   // what I tell the others
@@ -525,6 +548,11 @@ export class Online {
       const hr = ['top', 'front', 'left', 'right', 'back'].map((k) => +(r[k]?.mean ?? 0).toFixed(2));
       if (!this.last.hr || hr.some((v, i) => v !== this.last.hr[i])) { patch.hr = hr; this.last.hr = hr; }
     }
+    // shared world: the quest actors this client drives (thief, Dennis, Jannis)
+    const wa = {};
+    for (const [id, a] of g.netActors) { try { if (a.owned()) { const v = a.get(); if (v) wa[id] = v; } } catch (e) { /* */ } }
+    const waS = JSON.stringify(wa);
+    if (waS !== this.last.wa) { patch.wa = Object.keys(wa).length ? wa : null; this.last.wa = waS; }
     if (!Object.keys(patch).length) return;
     if (patch.st) this.last.st = patch.st;
     if (patch.p) this.last.p = pos;

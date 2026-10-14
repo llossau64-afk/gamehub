@@ -4,7 +4,7 @@
 //   jannis   — "Jannis Luftberlong ist weg": Enrico's drummer has vanished. Ask around, find
 //              him hiding in an alley, get him into the chair.
 import * as THREE from 'three';
-import { StreetNPC } from './story.js';
+import { StreetNPC, followRemote, gaitIndex, gaitName } from './story.js';
 import { ROOM, DOOR } from '../world/shop.js';
 import { randomCustomerLook } from '../chars/looks.js';
 import { audio } from '../audio/audio.js';
@@ -104,7 +104,18 @@ export class SideQuests {
     g.scene.add(crate);
     this.strumT = 2;
     this.drumT = 1;
+    this.remoteHidden = {};
+    // online: the host walks Jannis to the shop; everybody sees him go
+    g.netActors.set('jannis', {
+      owned: () => g.isHost && (ja.leaving || ja.walking),
+      get: () => { const c = ja.ch; return [+c.root.position.x.toFixed(2), +c.root.position.z.toFixed(2), +c.yaw.toFixed(2), gaitIndex(c.gait)]; },
+      remote: (v) => { if (!g.isHost) ja.remote = { x: v[0], z: v[1], yaw: v[2], gait: gaitName(v[3]) }; },
+      release: () => { if (ja.remote) { ja.remote = null; if (this.step('jannis') === 2) ja.arrived = true; } },
+    });
   }
+
+  // online: the host has Enrico / Jannis in the shop as customers, so hide them on the street here
+  setRemoteVis(id, visible) { this.remoteHidden[id] = !visible; }
 
   interactables(I) {
     const g = this.game;
@@ -297,6 +308,7 @@ export class SideQuests {
     const c = g.customers.spawn({ name: kind === 'enrico' ? 'Enrico' : 'Jannis', look, cutId, noBeard: kind === 'jannis', noDye: true });
     c.questId = kind;
     this.npcs[kind].show(false);
+    if (g.coop) g.netOut.push({ vis: [kind, 0] });
     if (kind === 'enrico') this.enricoIn = true; else this.jannisIn = true;
     g.ui.toast(kind === 'enrico' ? 'Enrico just walked in for his gig cut' : 'Jannis made it to the shop!', 'Quest');
   }
@@ -304,6 +316,7 @@ export class SideQuests {
   on(type, data) {
     if (type !== 'cut') return;
     const { c, result } = data;
+    if (c.questId && this.game.coop) this.game.netOut.push({ vis: [c.questId, 1] });
     if (c.questId === 'enrico') {
       this.enricoIn = false;
       this.npcs.enrico.show(true);
@@ -324,8 +337,8 @@ export class SideQuests {
     const fl = this.step('flowers'), en = this.step('enrico'), js = this.step('jannis');
     const { elli, enrico, jannis } = this.npcs;
     elli.show(true);
-    enrico.show(!this.enricoIn && this.s.ch >= 1);
-    jannis.show(js >= 1 && js < 3 && !this.jannisIn && !jannis.arrived);
+    enrico.show(!this.enricoIn && !this.remoteHidden.enrico && this.s.ch >= 1);
+    jannis.show(js >= 1 && js < 3 && !this.jannisIn && !this.remoteHidden.jannis && (!jannis.arrived || !!jannis.remote));
     for (const n of [elli, enrico, jannis]) n.update(dt);
     // markers
     elli.mark = fl < 1 ? '!' : (fl === 2 || js === 0) ? '?' : null;
@@ -342,25 +355,26 @@ export class SideQuests {
       if (this.drumT < 0) { this.drumT = rand(0.25, 0.5); audio.noiseBurst?.(0.05, { vol: 0.05, type: 'lowpass', freq: 500 }); }
     }
     // Jannis walks to the shop
-    if (jannis.leaving && !jannis.walking) {
+    if (jannis.leaving && !jannis.walking && g.isHost) {
       jannis.walking = true;
       jannis.ch.walkTo([V(24.6, 0, FZ + 1.4), V(DOOR.x + 1, 0, FZ + 1.4)], 'walk').then(() => { jannis.leaving = false; jannis.walking = false; jannis.arrived = true; });
     }
     // a quest customer who stormed off (or got thrown out) comes back another time
-    if (this.enricoIn && !g.customers.list.some((c) => c.questId === 'enrico')) { this.enricoIn = false; this.spawnT = 40; }
-    if (this.jannisIn && !g.customers.list.some((c) => c.questId === 'jannis')) { this.jannisIn = false; this.spawnT = 40; }
+    if (this.enricoIn && !g.customers.list.some((c) => c.questId === 'enrico')) { this.enricoIn = false; this.spawnT = 40; if (g.coop) g.netOut.push({ vis: ['enrico', 1] }); }
+    if (this.jannisIn && !g.customers.list.some((c) => c.questId === 'jannis')) { this.jannisIn = false; this.spawnT = 40; if (g.coop) g.netOut.push({ vis: ['jannis', 1] }); }
     // after a reload mid-quest: Jannis was already on his way
-    if (js === 2 && !jannis.arrived && !jannis.leaving && !jannis.walking) jannis.leaving = true;
+    if (js === 2 && !jannis.arrived && !jannis.leaving && !jannis.walking && g.isHost) jannis.leaving = true;
+    if (jannis.remote) followRemote(jannis.ch, jannis.remote);
     // quest customers come in while the shop is open
     this.spawnT = (this.spawnT || 0) - dt;
-    if (this.spawnT < 0 && g.clock?.open && !g.clock.closing && g.state === 'play') {
+    if (this.spawnT < 0 && g.clock?.open && !g.clock.closing && g.state === 'play' && g.isHost) {
       this.spawnT = 6;
       const room = g.customers.list.length < 5;
       if (en === 1 && !this.enricoIn && room && Math.random() < 0.5) this.spawnQuestCustomer('enrico');
       else if (js === 2 && jannis.arrived && !this.jannisIn && room) this.spawnQuestCustomer('jannis');
     }
     // Jannis arrives even when the shop is closed: he waits by the door
-    if (js === 2 && !this.jannisIn && jannis.arrived) jannis.show(true);
+    if (js === 2 && !this.jannisIn && !this.remoteHidden.jannis && jannis.arrived) jannis.show(true);
     // quests open up with the story
     if (fl < 0 && this.s.ch >= 1) this.story.setStep('flowers', 0, { silent: false });
     if (en < 0 && this.s.ch >= 2) this.story.setStep('enrico', 0);
