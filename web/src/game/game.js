@@ -33,6 +33,7 @@ import { Mart } from './mart.js';
 import { Employee } from './employee.js';
 import { availableHaircuts } from '../hair/styles.js';
 import { audio } from '../audio/audio.js';
+import { RideVan } from './van.js';
 import { store, defaultSave } from '../core/save.js';
 import { platform } from '../platform/platform.js';
 import { Spring, clamp, damp, rand, pick, chance, formatMoney, lerp, easeInOut } from '../core/util.js';
@@ -72,6 +73,8 @@ export class Game {
     this.story = new Story(this);
     this.story.build();
     this.mart = new Mart(this);
+    this.van = new RideVan(this);
+    this.van.build();
     // stay signed in on this device: resume the account in the background
     window.__account = account;
     account.resume().then((ok) => { if (ok) { this.adoptAccountSave(true); if (this.state === 'menu') this.showMainMenu(); } }).catch(() => {});
@@ -262,6 +265,7 @@ export class Game {
     const I = (def) => this.shop.addInteractable(def);
     this.story.interactables(I);
     this.mart.interactables(I);
+    this.van.interactables(I);
     I({
       id: 'martjob', label: () => this.supermarket.jobLabel(),
       pos: () => (this.supermarket.job.carrying ? this.supermarket.doorPos().add(V(0, 1.2, 0)) : this.supermarket.job.pal.position.clone().add(V(0, 0.8, 0))), radius: 3.2,
@@ -1594,6 +1598,7 @@ export class Game {
     this.supermarket.update(dt);
     this.story.update(dt);
     this.mart.update(dt);
+    this.van.update(dt);
     for (const e of this.staff) e.update(dt);
     this.updateItems(dt);
     this.clippings.update(dt);

@@ -93,7 +93,7 @@ export class StreetNPC {
     if (!this.busy) this.ch.lookAt(d < 6 ? this.game.camera : null, 0.8);
     const h = d < 40 ? this.head() : null;
     for (const [m, k] of [[this.marker, '!'], [this.markerQ, '?']]) {
-      m.visible = !!h && this.mark === k && !this.busy;
+      m.visible = !!h && this.mark === k && !this.busy && !this.game.van?.cut;
       if (m.visible) m.position.set(h.x, h.y + 0.42 + Math.sin(performance.now() / 300) * 0.04, h.z);
     }
   }

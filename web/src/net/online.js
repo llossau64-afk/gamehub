@@ -446,6 +446,7 @@ export class Online {
           }
         }
         if (Array.isArray(x.vis) && typeof x.vis[0] === 'string') g.story?.side?.setRemoteVis(str(x.vis[0], 16), !!x.vis[1]);
+        if (x.bus === 1) g.van?.remoteTaken();
         if (typeof x.ju === 'string') g.story?.julian?.remoteOutcome(str(x.ju, 12));
         if (typeof x.jb === 'number') g.supermarket?.teamBoxes(num(x.jb, 0, 64));
       }

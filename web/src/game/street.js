@@ -46,7 +46,8 @@ export class Street {
 
   spawnCar() {
     const fz = ROOM.z1 + 0.24;
-    const dir = chance(0.5) ? 1 : -1;
+    // the near lane is Holgs & Bonnie's while their van is about
+    const dir = chance(0.5) && !this.game.van?.active ? 1 : -1;
     const obj = this.makeCar(pick(['#8f2f2a', '#3b5f7d', '#d8cfb4', '#2f4a3a', '#1c1c1e', '#c9922e', '#e8e4dc']));
     obj.position.set(-dir * 60, -0.07, dir > 0 ? fz + 5.6 : fz + 9.4);
     obj.rotation.y = dir > 0 ? 0 : Math.PI;
