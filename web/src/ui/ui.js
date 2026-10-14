@@ -694,6 +694,7 @@ export class UI {
   questTracker(d) {
     const el = this.qtrackEl;
     if (!el) return;
+    this._qtLast = d;
     const key = JSON.stringify(d);
     if (key === this._qtKey) return;
     const changed = this._qtKey !== undefined;
@@ -701,13 +702,29 @@ export class UI {
     if (!d.chapter && !d.quests.length) { el.classList.add('hidden'); return; }
     el.classList.remove('hidden');
     // compact: one quest to follow, a count of the rest, and only the next daily job
+    let collapsed = false;
+    try { collapsed = localStorage.getItem('qtCollapsed') === '1'; } catch (e) { /* private mode */ }
+    el.classList.toggle('collapsed', collapsed);
     const q = d.quests[0], more = d.quests.length - 1;
     const open = d.daily.filter((j) => !j.done), dn = d.daily.length - open.length, j = open[0];
-    el.innerHTML = `${d.chapter ? `<div class="qt-ch">${d.chapter}</div>` : ''}
+    const n = d.quests.length;
+    el.innerHTML = `<div class="qt-head"><span class="qt-ch">${d.chapter || 'Quests'}</span><b class="qt-tg">${collapsed ? `▸ ${n} quest${n === 1 ? '' : 's'}` : '▾'}</b></div>
+      <div class="qt-body">
       ${q ? `<div class="qt-q"><div class="qt-k">${q.k}</div><div class="qt-t">${q.t}</div></div>` : ''}
       ${more > 0 ? `<div class="qt-more">+${more} more quest${more > 1 ? 's' : ''} · J</div>` : ''}
-      ${d.daily.length ? `<div class="qt-d">${j ? `<div><i></i><span>${j.t}</span><b>${j.p}/${j.n}</b></div>` : ''}<div class="qt-dn">Daily jobs ${dn}/${d.daily.length}</div></div>` : ''}`;
+      ${d.daily.length ? `<div class="qt-d">${j ? `<div><i></i><span>${j.t}</span><b>${j.p}/${j.n}</b></div>` : ''}<div class="qt-dn">Daily jobs ${dn}/${d.daily.length}</div></div>` : ''}
+      <div class="qt-hint">T · hide</div></div>`;
+    el.querySelector('.qt-head').onclick = () => this.toggleTracker();
     if (changed) { el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
+  }
+
+  // fold the quest tracker down to one line (T, or tap its header); remembered on this device
+  toggleTracker() {
+    let c = false;
+    try { c = localStorage.getItem('qtCollapsed') === '1'; localStorage.setItem('qtCollapsed', c ? '0' : '1'); } catch (e) { /* ignore */ }
+    this._qtKey = undefined;
+    if (this._qtLast) this.questTracker(this._qtLast);
+    audio.click?.();
   }
 
   setGoal(text) {
@@ -1093,8 +1110,9 @@ export class UI {
   }
 
   // camera flash (selfies)
-  flash() {
+  flash(color) {
     const el = h('<div class="cam-flash"></div>');
+    if (color && color.startsWith('rgba')) el.style.background = color;
     this.root.append(el);
     setTimeout(() => el.remove(), 500);
   }

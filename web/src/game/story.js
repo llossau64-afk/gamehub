@@ -12,6 +12,7 @@ import { pick, rand, clamp, formatMoney } from '../core/util.js';
 import { SideQuests, SIDE_QUESTS } from './sidequests.js';
 import { Julian } from './julian.js';
 import { OuterQuests, OUTER_QUESTS } from './outerquests.js';
+import { BoxClub, BOX_QUESTS } from './boxing.js';
 import { DRINKS, makeDrink, drinkSVG, makeFridge, makeBreadBag, makeChefHat, makeBeanie, makeEyeMask, makeMarker } from '../world/storyassets.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -41,7 +42,7 @@ export const QUESTS = {
 };
 
 // Elli, Enrico and Jannis (side quests, started by talking to them on the street)
-Object.assign(QUESTS, SIDE_QUESTS, OUTER_QUESTS);
+Object.assign(QUESTS, SIDE_QUESTS, OUTER_QUESTS, BOX_QUESTS);
 
 const DAILY_POOL = [
   { id: 'serve', t: (n) => `Serve ${n} customers`, n: [4, 6], money: 30, xp: 40 },
@@ -172,6 +173,8 @@ export class Story {
     this.side.build();
     this.outer = new OuterQuests(this);
     this.outer.build();
+    this.box = new BoxClub(this);
+    this.box.build();
     this.julian = new Julian(this.game);
     this.julian.build();
     g.npcByName.set('Mr. Kowalski', g.supermarket.ch);
@@ -194,6 +197,7 @@ export class Story {
     this.side.interactables(I);
     this.julian.interactables(I);
     this.outer.interactables(I);
+    this.box.interactables(I);
     I({ id: 'thief', label: () => (play() && this.thief && !this.thief.caught && this.thief.ch.root.position.distanceTo(g.player.pos) < 2.2 ? 'Tackle the thief!' : null),
       pos: () => this.thief.ch.headWorld(V()), radius: 3.2, action: () => { this.tackleThief().catch((e) => console.error(e)); return 'thief'; } });
     I({ id: 'bread', label: () => (play() && this.bag && !this.carrying && this.bag.position.distanceTo(g.player.pos) < 2.0 ? 'Pick up the stolen bread' : null),
@@ -643,6 +647,7 @@ export class Story {
     this.side.update(dt);
     this.julian.update(dt);
     this.outer.update(dt);
+    this.box.update(dt);
     this.checkT = (this.checkT || 0) - dt;
     if (this.checkT < 0) {
       this.checkT = 1;

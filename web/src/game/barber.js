@@ -109,6 +109,7 @@ export class BarberMode {
 
   enter(customer, opts = {}) {
     this.c = customer;
+    this.fun = null; this.zonesOk = null; this.cutAmount = 0; this.sneezeJolt = 0; this.giggle = 0;
     this.active = true;
     this.time = 0;
     this.leaving = false;
@@ -539,10 +540,14 @@ export class BarberMode {
       const pop = 1 - this.swapT / 0.35;
       toolObj.scale.setScalar(0.6 + 0.4 * Math.min(1, pop * 1.2));
       if (this.power) {
-        // a fine motor hum, not a shake
+        // a fine motor hum; under load (biting into hair) it chatters and rocks a little
         const tt = performance.now() * 0.001;
-        toolObj.position.addScaledVector(n, Math.sin(tt * 190) * 0.00025);
+        const ld = this.load || 0;
+        toolObj.position.addScaledVector(n, Math.sin(tt * 190) * (0.00025 + ld * 0.0011));
+        if (ld > 0.05) toolObj.rotateZ(Math.sin(tt * 61) * 0.035 * ld);
       }
+      // the scissors snap shut with a little flick of the wrist
+      if (this.tool === 'scissors' && this.snipAnim > 0) toolObj.rotateX(Math.sin((this.snipAnim / 0.12) * Math.PI) * 0.12);
       if (this.tool === 'clipper') this.guardObj.visible = this.guard >= 2;
       // the barber's hand follows the tool
       const grip = toolObj.localToWorld(new THREE.Vector3(0, 0, this.tool === 'scissors' ? 0.07 : 0.06));
@@ -629,6 +634,7 @@ export class BarberMode {
           audio.error();
         }
         if (removed > 0) {
+          this.funCut(removed, hit, beard);
           const amt = removed * (this.tool === 'scissors' ? 260 : 900);
           g.clippings.spawn(hit.point, hit.normal, amt, c.look.hairColor, clamp(hit.sys.lengthAt(hit.phi, hit.theta) + removed * 3, 0.05, 0.6));
           this.load = Math.min(1, this.load + removed * 30);
@@ -661,7 +667,7 @@ export class BarberMode {
     this.statsT -= dt;
     if (this.statsT <= 0) {
       this.statsT = 0.12;
-      if (this.cutDirty) { this.stats = cutStats(c); this.cutDirty = false; this.checkTooShort(); this.onEvent?.('stats', this.stats); }
+      if (this.cutDirty) { this.stats = cutStats(c); this.cutDirty = false; this.checkTooShort(); this.checkZones(); this.onEvent?.('stats', this.stats); }
       this.refreshUI();
     }
   }
@@ -683,9 +689,73 @@ export class BarberMode {
     const b = smooth(this.bow);
     // a slap snaps the head round, then it wobbles back
     const j = this.slapJolt * Math.cos((1 - this.slapJolt) * 9);
-    ch.extra.Neck = [0.34 * b, -0.35 * j, 0.1 * j];
-    ch.extra.Head = [0.3 * b, -0.45 * j, 0.25 * j];
+    // a sneeze throws the head forward, a giggle shakes it
+    this.sneezeJolt = Math.max(0, (this.sneezeJolt || 0) - dt * 2.2);
+    this.giggle = Math.max(0, (this.giggle || 0) - dt);
+    const sz = this.sneezeJolt > 0 ? Math.sin(Math.min(1, (1 - this.sneezeJolt) * 3) * Math.PI) * this.sneezeJolt : 0;
+    const gg = this.giggle > 0 ? Math.sin(performance.now() / 45) * 0.04 * Math.min(1, this.giggle) : 0;
+    ch.extra.Neck = [0.34 * b + sz * 0.35, -0.35 * j, 0.1 * j + gg];
+    ch.extra.Head = [0.3 * b + sz * 0.45, -0.45 * j + gg, 0.25 * j];
     ch.extra.Chest = [0.08 * b, 0, 0];
+  }
+
+  // ---------------------------------------------------------------- fun while cutting
+  // hair dust makes some people sneeze, a buzzing trimmer near the ear makes others giggle,
+  // and big chunks coming off get a little reaction
+  funCut(removed, hit, beard) {
+    const c = this.c, g = this.game, ch = c.ch;
+    if (c.tutorial) return;
+    this.cutAmount = (this.cutAmount || 0) + removed;
+    const fun = this.fun ||= { sneezed: false, giggled: false, chunk: 0, said: 0 };
+    // sneeze: once per cut, after enough hair has flown around
+    if (!fun.sneezed && this.cutAmount > 0.35 && Math.random() < 0.004) {
+      fun.sneezed = true;
+      c.say('Ah... aah...', 'nervous', 0.6);
+      setTimeout(() => {
+        if (this.c !== c) return;
+        c.say(pick(['ACHOO!', 'AAH-CHOO!', 'HATSCHI!']), 'surprised', 1.2, { pitch: ch.voice.pitch * 1.25, rate: 1.4, vol: 0.14 });
+        this.sneezeJolt = 1;
+        audio.noiseBurst?.(0.35, { vol: 0.18, freq: 1800, q: 0.6, attack: 0.01 });
+        const head = ch.headWorld(new THREE.Vector3());
+        const fwd = new THREE.Vector3(Math.sin(ch.yaw), 0, Math.cos(ch.yaw));
+        g.clippings.spawn(head.clone().addScaledVector(fwd, 0.12), fwd, 260, c.look.hairColor, 0.12);
+        setTimeout(() => { if (this.c === c) c.say(pick(['Sorry! The hair...', 'Bless me. Keep going.', 'That’s your fault, you know.']), 'awkward', 1.4); }, 1300);
+      }, 900);
+    }
+    // giggle: the clipper or trimmer around the ears
+    const r = hit.region;
+    if (!fun.giggled && !beard && (r === REGION_ID.left || r === REGION_ID.right) && ['clipper', 'trimmer'].includes(this.tool) && Math.random() < 0.006) {
+      fun.giggled = true;
+      this.giggle = 1.4;
+      ch.setEmotion('happy', 1.6);
+      c.say(pick(['Hehe — that tickles!', 'Hihi, careful, my ear!', 'Ha! Stop, stop, that buzzes!']), 'happy', 1.2, { pitch: ch.voice.pitch * 1.2, rate: 1.3 });
+    }
+    // a big chunk comes off: a little comment now and then
+    fun.chunk += removed;
+    if (fun.chunk > 0.22 && Math.random() < 0.02) {
+      fun.chunk = 0;
+      if (Math.random() < 0.5) c.say(pick(['Whoa, that’s a lot of hair.', 'Feels lighter already!', 'Is that all mine?', 'Don’t stop now, you’re on fire.', 'My head is cold. In a good way.']), null, 1.4);
+    }
+  }
+
+  // a zone reaches its target length: tell the player (once per zone per cut)
+  checkZones() {
+    const c = this.c, g = this.game, st = this.stats;
+    if (!c || !st || c.tutorial) return;
+    this.zonesOk ||= new Set();
+    const NAMES = { top: 'Top', front: 'Fringe', left: 'Left side', right: 'Right side', back: 'Back', chin: 'Chin', cheeks: 'Cheeks', moustache: 'Moustache' };
+    const regions = Object.entries(c.cut.target).filter(([r]) => NAMES[r]);
+    for (const [r, tgt] of regions) {
+      const s = st[r];
+      if (!s || this.zonesOk.has(r)) continue;
+      if (Math.abs(s.mean - tgt) <= c.cut.tol * 0.4 && s.std < 0.08) {
+        this.zonesOk.add(r);
+        audio.star?.(this.zonesOk.size);
+        g.ui.floatText(innerWidth * (0.42 + Math.random() * 0.16), innerHeight * 0.3, `${NAMES[r]} ✓ ${pick(['Clean!', 'Smooth!', 'Spot on!', 'Crisp!', 'Perfect!'])}`, '#f2cf7c');
+        g.burstSparkles?.(this.toolPos.clone());
+        if (this.zonesOk.size === regions.length) setTimeout(() => { if (this.c === c) { g.ui.floatText(innerWidth / 2, innerHeight * 0.24, 'ALL ZONES ✓', '#9fd08a'); audio.levelUp?.(); c.ch.setEmotion('happy', 2); } }, 500);
+      }
+    }
   }
 
   // sample points over the tool's bounds; returns the world offset that gets them all outside

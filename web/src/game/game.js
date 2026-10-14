@@ -1573,6 +1573,7 @@ export class Game {
     if (this.paused) { input.endFrame(); return; }
     if (input.pressed('upgrades') && this.state === 'play' && !this.ui.openPanel) this.openUpgrades();
     if (input.pressed('journal') && this.state === 'play' && !this.ui.openPanel) this.story.openLog();
+    if (input.pressed('tracker') && ['play', 'barber'].includes(this.state) && !this.ui.openPanel) this.ui.toggleTracker();
     if (input.pressed('drink') && this.state === 'play' && !this.ui.openPanel && this.player.control && this.story.hasDrinks()) {
       const f = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
       let best = null, bs = 0.8;

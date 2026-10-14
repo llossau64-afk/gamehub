@@ -11,6 +11,7 @@ import { Facades } from './facade.js';
 import { buildStreetProps } from './streetprops.js';
 import { buildMartInterior } from './martinterior.js';
 import { buildOuterBlocks } from './outerblocks.js';
+import { buildBoxClub, BOX } from './boxclub.js';
 
 // the street runs from STREET.x0 to STREET.x1; side alleys cut into our block
 // (the outer blocks past the 3rd and 4th cross streets came with the big map update)
@@ -355,7 +356,8 @@ export class Shop {
       // Willi's square, open to the street
       { x0: PLAZA.x0 - 0.5, x1: PLAZA.x0, z0: PLAZA.z0, z1: R.z1 + 0.5 }, { x0: PLAZA.x1, x1: PLAZA.x1 + 0.5, z0: PLAZA.z0, z1: R.z1 + 0.5 },
       { x0: PLAZA.x0, x1: PLAZA.x1, z0: PLAZA.z0 - 0.5, z1: PLAZA.z0 + 0.25 },
-      { x0: STREET.alleys[1][1], x1: 199, z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
+      { x0: STREET.alleys[1][1], x1: BOX.door.x0, z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
+      { x0: BOX.door.x1, x1: 199, z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
       // the door itself, while it's shut
       { x0: DOOR.x - DOOR.w / 2, x1: DOOR.x + DOOR.w / 2, z0: R.z1 - 0.12, z1: R.z1 + 0.2, active: () => this.doorSpring.value < 0.55 },
       // the street: pavement, road, the far pavement; the other shops are closed to you
@@ -463,7 +465,6 @@ export class Shop {
     // the outer blocks: Ralf's kiosk, Dörk's antiques and a gym out east; Willi's square out west
     nb(52, 60, [150, 136, 112], 77, 7.0, 12);
     nb(60, 68, [120, 100, 84], 79, 8.6, 13);
-    nb(68, STREET.x1 + 2, [104, 110, 118], 83, 7.4, 14);
     nb(STREET.x0 - 2, -68, [134, 116, 98], 85, 7.8, 9);
     nb(-56, -52, [158, 140, 118], 87, 6.6, 6);
     nb(-38, -33, [160, 140, 110], 67, 6.8, 11);
@@ -532,6 +533,7 @@ export class Shop {
     this.buildStreetLife(g, fz);
     buildStreetProps(this, g, fz, STREET);
     buildOuterBlocks(this, g, fz, STREET, PLAZA);
+    this.boxClub = buildBoxClub(this, g, fz);
     const swo = plane(STREET.x1 - STREET.x0 + 8, 3.5, sw); swo.rotation.x = -Math.PI / 2; swo.position.set(0, 0, fz + 12.3); g.add(swo);
 
     // street props
