@@ -370,7 +370,10 @@ export function fadeScore(hair, f) {
 export function payment(cutId, result, personality, mult = {}) {
   const cut = HAIRCUTS[cutId];
   const p = personality;
-  const pay = Math.round(cut.price * (0.45 + 0.55 * result.overall) * (p.payMult || 1) * (mult.price || 1));
+  // a bad cut costs you: 1 star = the customer wants compensation, 2 stars = barely pays
+  const starMult = [0, -0.5, 0.35, 0.7, 0.95, 1.05][result.stars] ?? 1;
+  const base = cut.price * (0.4 + 0.6 * result.overall) * (p.payMult || 1) * (mult.price || 1);
+  const pay = Math.round(result.stars <= 1 ? cut.price * starMult : base * starMult);
   const tipPct = [0, 0, 0.02, 0.1, 0.18, 0.28][result.stars] * (p.tipMult || 1) * (mult.tips || 1);
   const tip = Math.round(cut.price * tipPct + (result.stars === 5 ? rand(1, 4) : 0));
   const xp = Math.round(18 + 34 * result.overall + (result.stars === 5 ? 12 : 0) + (cut.level - 1) * 3);

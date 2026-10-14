@@ -134,7 +134,7 @@ export class Julian {
     this.game = game;
     this.phase = 'patrol';
     this.leg = 0;
-    this.visitT = rand(35, 55);
+    this.visitT = rand(90, 140);
     this.callT = 6;
     this.mutterT = 3;
     this.slaps = 0;
@@ -409,7 +409,7 @@ export class Julian {
     const g = this.game, n = this.npc;
     this.phase = gait === 'run' ? 'flee' : 'leave';
     this.token++;
-    this.visitT = rand(70, 120);
+    this.visitT = rand(160, 260);
     const t = this.token;
     const inside = this.inShop();
     (async () => {
@@ -440,7 +440,8 @@ export class Julian {
     if (this.phase === 'patrol') {
       if (!this.walking) this.patrolStep().catch(() => { this.walking = false; });
       // he only comes in during opening hours... or whenever he feels like it
-      if (this.visitT <= 0 && g.state !== 'reaction') { this.walking = false; this.visit().catch(() => {}); }
+      // one thing at a time: not while the van is about or the shop is packed
+      if (this.visitT <= 0 && g.state !== 'reaction' && !g.van?.active && g.customers.list.length < 3) { this.walking = false; this.visit().catch(() => {}); }
       this.mutter(dt);
     } else if (this.phase === 'beg') {
       n.ch.lookAt(g.camera, 0.6);

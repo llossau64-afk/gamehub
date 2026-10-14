@@ -277,14 +277,15 @@ export class CustomerManager {
     // spawning
     if (this.enabled) {
       this.spawnT -= dt;
-      const cap = g.shop.waitSeats().length + 2;
+      // a calmer shop: at most a few people at once (the free chairs, plus one standing)
+      const cap = Math.min(4, g.shop.waitSeats().length + 1);
       if (this.spawnT <= 0) {
         if (this.list.length < cap) {
           const vipChance = g.level >= 3 ? (g.event?.id === 'vipDay' ? 0.35 : 0.1) : 0;
           if (chance(vipChance) && !this.list.some((x) => x.vip)) this.spawnVIP();
           else this.spawn();
         }
-        const base = this.list.length === 0 ? 9 : 26;
+        const base = this.list.length === 0 ? 14 : 42;
         this.spawnT = base / g.fx.arrival * (g.event?.id === 'rush' ? 0.55 : 1) * rand(0.75, 1.25);
       }
     }

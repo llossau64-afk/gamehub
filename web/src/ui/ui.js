@@ -103,7 +103,7 @@ export class UI {
     };
     if (opts.hasSave) add('Story Mode', opts.onContinue, 'primary', opts.saveInfo || 'continue');
     add(opts.hasSave ? 'New Story' : 'Story Mode', opts.onNew, opts.hasSave ? '' : 'primary', opts.hasSave ? '' : 'start a new story');
-    if (opts.onOnline) add(opts.online ? `Online · ${opts.online}` : 'Play Online', opts.onOnline, opts.online ? 'online on' : 'online', opts.online ? 'lobby' : 'co-op · 3 barbers');
+    if (opts.onOnline) add(opts.online ? `Online · ${opts.online}` : 'Play Online', opts.onOnline, opts.online ? 'online on' : 'online', opts.online ? 'lobby' : 'co-op · 4 barbers');
     if (opts.onAccount) add(opts.account ? `@${opts.account}` : 'Account', opts.onAccount, 'account', opts.account ? (opts.friendsOnline ? `${opts.friendsOnline} friend${opts.friendsOnline > 1 ? 's' : ''} online` : 'friends & saves') : 'sign in · friends');
     add('Upgrades', opts.onUpgrades);
     add('Achievements', opts.onAchievements);
@@ -124,7 +124,7 @@ export class UI {
 
     const choose = (err = '') => {
       body.innerHTML = `
-        <p class="op-lead">Cut hair together with up to <b>2 colleagues</b>. One of you creates a lobby and gets a one-time code; the others join with it. Online you share one shop: one cash register, every upgrade counts for everyone, and the team’s progress is saved for the next time you play together.</p>
+        <p class="op-lead">Cut hair together with up to <b>3 colleagues</b>. One of you creates a lobby and gets a one-time code; the others join with it. Online you share one shop: one cash register, every upgrade counts for everyone, and the team’s progress is saved for the next time you play together.</p>
         <label class="op-f"><span>Your name</span><input class="op-nick" maxlength="16" placeholder="Barber"></label>
         <div class="op-choice">
           <div class="op-box">
@@ -700,9 +700,13 @@ export class UI {
     this._qtKey = key;
     if (!d.chapter && !d.quests.length) { el.classList.add('hidden'); return; }
     el.classList.remove('hidden');
+    // compact: one quest to follow, a count of the rest, and only the next daily job
+    const q = d.quests[0], more = d.quests.length - 1;
+    const open = d.daily.filter((j) => !j.done), dn = d.daily.length - open.length, j = open[0];
     el.innerHTML = `${d.chapter ? `<div class="qt-ch">${d.chapter}</div>` : ''}
-      ${d.quests.map((q) => `<div class="qt-q"><div class="qt-k">${q.k}</div><div class="qt-t">${q.t}</div></div>`).join('')}
-      ${d.daily.length ? `<div class="qt-d">${d.daily.map((j) => `<div class="${j.done ? 'done' : ''}"><i></i><span>${j.t}</span><b>${j.done ? '✓' : `${j.p}/${j.n}`}</b></div>`).join('')}</div>` : ''}`;
+      ${q ? `<div class="qt-q"><div class="qt-k">${q.k}</div><div class="qt-t">${q.t}</div></div>` : ''}
+      ${more > 0 ? `<div class="qt-more">+${more} more quest${more > 1 ? 's' : ''} · J</div>` : ''}
+      ${d.daily.length ? `<div class="qt-d">${j ? `<div><i></i><span>${j.t}</span><b>${j.p}/${j.n}</b></div>` : ''}<div class="qt-dn">Daily jobs ${dn}/${d.daily.length}</div></div>` : ''}`;
     if (changed) { el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
   }
 
@@ -1014,11 +1018,13 @@ export class UI {
         const f = () => {
           const k = clamp((performance.now() - t0) / dur, 0, 1);
           const v = Math.round(to * (1 - Math.pow(1 - k, 3)));
-          el.textContent = prefix + v;
+          el.textContent = (v < 0 ? '−' : '') + prefix + Math.abs(v);
+          if (to < 0) el.style.color = '#e0675a';
           if (k < 1) { if (Math.random() < 0.4) audio.tick(k * 10); requestAnimationFrame(f); }
         };
         f();
       };
+      if (r.pay < 0) wrap.querySelector('.pay').nextElementSibling.textContent = 'Compensation';
       setTimeout(() => count(wrap.querySelector('.pay'), r.pay, '$', 700), t);
       t += 650;
       setTimeout(() => { count(wrap.querySelector('.tipn'), r.tip, '$', 500); if (r.tip > 0) audio.coin(); }, t);
@@ -1089,15 +1095,18 @@ export class UI {
     const el = h(`<div class="now-playing"><div class="np-disc"></div><div><div class="np-k">Now playing</div><b>${T.title}</b><span>${T.artist}</span></div></div>`);
     this.root.append(el);
     this.npEl = el;
-    setTimeout(() => el.classList.add('out'), 4200);
-    setTimeout(() => el.remove(), 4800);
+    setTimeout(() => el.classList.add('out'), 3000);
+    setTimeout(() => el.remove(), 3600);
   }
 
   toast(text, badge = '') {
     // never stack more than three
+    // never more than two at once; the same text twice in a row is dropped
     const live = [...this.toastsEl.children].filter((e) => !e.classList.contains('out'));
-    if (live.length >= 3) { live[0].classList.add('out'); setTimeout(() => live[0].remove(), 400); }
+    if (live.some((e) => e.dataset.t === text)) return;
+    if (live.length >= 2) { live[0].classList.add('out'); setTimeout(() => live[0].remove(), 400); }
     const el = h(`<div class="toast">${badge ? `<span class="b">${badge}</span>` : ''}<span>${text}</span></div>`);
+    el.dataset.t = text;
     this.toastsEl.append(el);
     setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 450); }, 2600);
   }

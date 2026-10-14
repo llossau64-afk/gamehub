@@ -1,4 +1,4 @@
-// Online co-op: up to three barbers in one shop. Everyone serves their own customers at
+// Online co-op: up to four barbers in one shop. Everyone serves their own customers at
 // their own chair; the others appear as barbers walking around your shop and working at the
 // extra chairs. The team shares one wallet, every upgrade, the day and the clock (one of you
 // flips the sign and the shop opens for all), and the story quests.
@@ -10,7 +10,7 @@
 import * as THREE from 'three';
 import { Character } from '../chars/character.js';
 import { HairSystem } from '../hair/hair.js';
-import { SPOTS, STATION2, STATION3 } from '../world/shop.js';
+import { SPOTS, STATION2, STATION3, STATION4 } from '../world/shop.js';
 import { spawnProp } from '../world/props.js';
 import { clamp } from '../core/util.js';
 import { joinRelay } from './relay.js';
@@ -23,10 +23,10 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 function totalXp(s) { let t = s.xp; for (let l = 1; l < s.level; l++) t += xpFor(l); return t; }
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
-const SLOT_COLS = ['#d1a956', '#4aa3df', '#e0455a'];
-const SLOTS = [STATION2, STATION3];
+const SLOT_COLS = ['#d1a956', '#4aa3df', '#e0455a', '#5fbf6a'];
+const SLOTS = [STATION2, STATION3, STATION4];
 const HEX = /^#[0-9a-fA-F]{6}$/;
-const MAX_PLAYERS = 3;
+const MAX_PLAYERS = 4;
 
 const BARBER = {
   colors: {
@@ -270,7 +270,7 @@ export class Online {
       host = this.othersIn(room).find((p) => p.presence.host === 1);
     }
     if (!host) { await room.leave().catch(() => {}); throw new Error('No lobby with this code. It may have been closed — ask your colleague for a new code.'); }
-    if (this.othersIn(room).length >= MAX_PLAYERS) { await room.leave().catch(() => {}); throw new Error('This lobby is full (3 barbers).'); }
+    if (this.othersIn(room).length >= MAX_PLAYERS) { await room.leave().catch(() => {}); throw new Error('This lobby is full (4 barbers).'); }
     this.host = false;
     this.started = false;
     await this.enter(room, code, nick, {});

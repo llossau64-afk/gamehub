@@ -89,7 +89,11 @@ export class StreetNPC {
   update(dt) {
     if (!this.shown) { this.marker.visible = this.markerQ.visible = false; return; }
     const d = this.dist();
-    this.ch.update(dt);
+    // far away people animate at a lower rate (the street is long and full of them)
+    this._acc = (this._acc || 0) + dt;
+    this._n = (this._n || 0) + 1;
+    const every = this.noLod || this.busy || this.remote ? 1 : d > 45 ? 6 : d > 22 ? 3 : 1;
+    if (this._n % every === 0) { this.ch.update(this._acc); this._acc = 0; }
     if (!this.busy) this.ch.lookAt(d < 6 ? this.game.camera : null, 0.8);
     const h = d < 40 ? this.head() : null;
     for (const [m, k] of [[this.marker, '!'], [this.markerQ, '?']]) {

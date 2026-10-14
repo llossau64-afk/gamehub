@@ -14,7 +14,7 @@ export const LINES = {
   1: {
     mirror: ['WHAT DID YOU DO?!', 'My head looks like a lawn mower accident!', 'I look like a boiled egg with opinions!', 'Is this... a cry for help?', 'My dog has better hair. My DOG.'],
     exit: ['I’m NEVER coming back!', 'I’m telling EVERYONE about this place!', 'You owe me a hat! A big one!', 'I’m calling my mom. And a lawyer. In that order!', 'One star! ONE! And that’s generous!'],
-    coins: ['Here. Keep the change. Pick it up yourself!', 'There’s your money. Off the floor!', 'You want paying? FETCH!'],
+    coins: ['I want my money back. AND compensation!', 'You owe ME now. Hand it over!', 'Pay me for this disaster. Now!'],
   },
   2: {
     mirror: ['Oh no. Oh no no no.', 'I’m wearing a hat for a month.', 'My girlfriend is going to laugh at me.', 'It’s... symmetrical. Ish. No. It isn’t.', 'Why is one side... bigger?'],
@@ -184,19 +184,23 @@ export class Reactions {
     g.player.shake = 0.35;
     await dir.wait(d + 0.3);
     // pays the bare minimum, thrown on the floor
-    const money = Math.max(1, Math.round(pay.pay * 0.4));
+    // a one-star cut: he doesn't pay, he takes compensation out of your till
+    const money = Math.max(1, Math.abs(Math.min(0, pay.pay)) || 5);
     const l2 = pick(LINES[1].coins);
     d = c.say(l2, null, 0, { pitch: ch.voice.pitch * 1.2, rate: 1.2, vol: 0.12 });
     ch.reach('R', ch.root.localToWorld(V(-0.15, 1.1, 0.35)), { speed: 6, hand: 'fist' });
     await dir.wait(0.5);
     ch.reach('R', ch.root.localToWorld(V(-0.1, 0.8, 0.45)), { speed: 18, hand: 'open', fingers: V(0, -1, 0.4), palm: V(0, -1, 0) });
     await dir.wait(0.12);
-    this.scatterCoins(ch.handWorld('R', V(0, 0, 0)), money, V(Math.sin(ch.yaw), 0, Math.cos(ch.yaw)));
-    audio.whoosh(0.5);
+    audio.register?.();
+    audio.paperFlick?.();
+    g.addMoney(-money);
+    g.ui.floatText(innerWidth / 2, innerHeight * 0.55, `−$${money}`, '#e0675a');
     ch.release('R');
     await dir.wait(Math.max(0.6, d - 0.4));
     g.enterFP();
-    g.ui.toast(`${c.name} threw ${'$' + money} on the floor`, 'Rage');
+    g.ui.toast(`${c.name} took $${money} compensation`, 'Refund');
+    g.persist();
     // now he stomps slowly towards the door, muttering. This is your moment.
     this.startEject(c);
   }

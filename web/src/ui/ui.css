@@ -1046,3 +1046,11 @@
 .acc-team > div { flex: 1; } .acc-team b { font-size: 15px; } .acc-team small { display: block; font-size: 12px; color: var(--ink-2); }
 .acc-empty { font-size: 13px; color: var(--ink-2); margin: 4px 0; }
 .mbtn.account small { color: #7fd38f; }
+
+/* ---- calmer HUD: everything has its own corner */
+.qtrack { width: 240px; padding: 9px 12px 9px; }
+.qt-more { font-size: 11px; letter-spacing: .08em; color: rgba(239,228,207,.6); margin: -4px 0 4px 16px; }
+.qt-dn { font-family: var(--cond); font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: rgba(239,228,207,.55); }
+.online-badge, .online-badge { left: auto; right: calc(16px + var(--safe-r)); top: auto; bottom: calc(150px + var(--safe-b, 0px)); padding: 6px 10px; }
+.online-badge .ob-p { font-size: 13px; }
+.now-playing { top: auto; right: auto; left: calc(18px + var(--safe-l)); bottom: calc(18px + var(--safe-b, 0px)); transform: scale(.85); transform-origin: left bottom; }

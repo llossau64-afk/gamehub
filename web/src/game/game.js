@@ -575,7 +575,7 @@ export class Game {
   saveSettings() { store.saveSettings(); }
 
   setOnlineShop(on) {
-    this.shop.forced = on ? ['station2', 'extension'] : [];
+    this.shop.forced = on ? ['station2', 'extension', 'studio'] : [];
     this.shop.applyState(new Set(this.save.owned));
     this.syncEmployee();
   }
@@ -1498,7 +1498,8 @@ export class Game {
     audio.register();
     this.addMoney(pay.pay + pay.tip);
     this.save.stats.tips += pay.tip;
-    this.ui.floatText(innerWidth / 2, innerHeight * 0.55, `+${formatMoney(pay.pay + pay.tip)}`);
+    const earned = pay.pay + pay.tip;
+    this.ui.floatText(innerWidth / 2, innerHeight * 0.55, `${earned < 0 ? '−' : '+'}${formatMoney(Math.abs(earned))}`, earned < 0 ? '#e0675a' : undefined);
     this.persist();
     this.updateGoal();
     await dir.wait(0.5);
@@ -1526,13 +1527,16 @@ export class Game {
     this.persist();
     this.checkAchievements();
     this.rollEvent();
+    // the bills: rent and utilities grow with the shop (online the host pays for the team)
+    const rent = Math.round(15 + s.level * 6 + s.owned.length * 2);
+    if (!this.coop || this.isHost) { this.addMoney(-rent); s.stats.rentPaid = (s.stats.rentPaid || 0) + rent; this.persist(); }
     audio.duckMusic?.(0.2);
     await this.ui.fade(true, 700);
     this.clock.morning();
     this.shop.setOpenSign(false);
     this.clippings.sweep();
     this.ui.fade(false, 900);
-    await this.ui.banner(`Day ${s.day - 1} done · ${served} served`, `Day ${s.day}`, this.event ? `Today: ${this.event.name}` : 'Flip the sign when you are ready', 2400);
+    await this.ui.banner(`Day ${s.day - 1} done · ${served} served · rent −$${rent}`, `Day ${s.day}`, this.event ? `Today: ${this.event.name}` : 'Flip the sign when you are ready', 2600);
     audio.duckMusic?.(0.55);
     this.ui.objective('Morning', 'Flip the door sign to OPEN');
     if (this.state === 'play') {
@@ -1617,6 +1621,7 @@ export class Game {
       if (this.state === 'play' && Math.abs(P.x - DOOR.x) < 0.75 && Math.abs(dz) < 0.9) this.shop.doorCloseTimer = Math.max(this.shop.doorCloseTimer || 0, 0.6);
       const out = dz > 0.35;
       if (out !== this.playerOutside) { this.playerOutside = out; this.ambience?.setOutside(out ? 1 : 0.25); }
+      this.shop.skipMirrors = out && this.state !== 'barber';
     }
     if (!this.dir.cam.active && this.state !== 'barber') this.player.update(dt, input);
     else { this.player.arms.R.update(dt, new THREE.Vector3()); this.player.arms.L.update(dt, new THREE.Vector3()); }

@@ -53,6 +53,14 @@ export const STATION3 = {
   stand: new THREE.Vector3(5.45, 0, 1.35),
   cart: new THREE.Vector3(5.8, 0, 0.8),
 };
+// the studio behind the extension (online it's always there: the fourth player's chair)
+export const STUDIO = { x0: 6.2, x1: 9.6, z0: -1.6, z1: 2.6, open0: 0.35, open1: 1.35 };
+export const STATION4 = {
+  chair: new THREE.Vector3(7.7, 0, -0.9),
+  chairFront: new THREE.Vector3(7.7, 0, -0.07),
+  stand: new THREE.Vector3(8.25, 0, -0.5),
+  cart: new THREE.Vector3(8.6, 0, -1.1),
+};
 export const STATION2 = {
   chair: new THREE.Vector3(1.2, 0, -1.45),
   chairFront: new THREE.Vector3(1.2, 0, -0.62),
@@ -295,7 +303,12 @@ export class Shop {
     };
     this.root.add(rail(W, new THREE.Vector3(0, 0, R.z0 + 0.015), 0));
     this.root.add(rail(D, new THREE.Vector3(R.x0 + 0.015, 0, 0), Math.PI / 2));
-    this.root.add(rail(D, new THREE.Vector3(R.x1 - 0.015, 0, 0), Math.PI / 2));
+    // the right wall's rail stops at the archway (the piece across it goes with the plug)
+    this.root.add(rail(ANNEX.arch0 - R.z0, new THREE.Vector3(R.x1 - 0.015, 0, (R.z0 + ANNEX.arch0) / 2), Math.PI / 2));
+    this.root.add(rail(R.z1 - ANNEX.arch1, new THREE.Vector3(R.x1 - 0.015, 0, (ANNEX.arch1 + R.z1) / 2), Math.PI / 2));
+    this.archRail = rail(ANNEX.arch1 - ANNEX.arch0, new THREE.Vector3(R.x1 - 0.015, 0, (ANNEX.arch0 + ANNEX.arch1) / 2), Math.PI / 2);
+    this.archRail.userData.dynamic = true;
+    this.root.add(this.archRail);
     // crown moulding
     const crownMat = propMaterial('PaintedWood');
     for (const [len, pos, ry] of [[W, [0, R.h - 0.04, R.z0 + 0.03], 0], [W, [0, R.h - 0.04, R.z1 - 0.03], 0],
@@ -327,8 +340,8 @@ export class Shop {
       { x0: R.x1 - 0.25, x1: 99, z0: -99, z1: ANNEX.arch0 + 0.2 }, { x0: R.x1 - 0.25, x1: 99, z0: ANNEX.arch1 - 0.2, z1: R.z1 },
       { x0: R.x1 - 0.25, x1: 99, z0: ANNEX.arch0, z1: ANNEX.arch1, active: () => !annexOwned() },
       // extension room bounds
-      { x0: ANNEX.x1 - 0.25, x1: 99, z0: -99, z1: R.z1, active: annexOwned },
-      { x0: R.x1, x1: 99, z0: -99, z1: ANNEX.z0 + 0.25, active: annexOwned },
+      { x0: ANNEX.x1 - 0.25, x1: 99, z0: -99, z1: R.z1, active: () => annexOwned() && !this.has('studio') },
+      { x0: R.x1, x1: ANNEX.x1 + 0.25, z0: -99, z1: ANNEX.z0 + 0.25, active: annexOwned },
       { x0: -99, x1: 99, z0: -99, z1: R.z0 + 0.25 },
       // the front wall, with the doorway: you can walk out onto the street
       { x0: STREET.alleys[0][1], x1: DOOR.x - DOOR.w / 2 + 0.02, z0: R.z1 - 0.25, z1: R.z1 + 0.5 },
@@ -391,14 +404,22 @@ export class Shop {
     const wr = T.rng(5);
     for (let i = 0; i < 3; i++) fac.window(FF, -2.2 + i * 2.2, 5.0, 0.95, 1.3, fac.frame[1], fac.stone[0], wr, i === 1);
     // neighbours
-    const nb = (x0, x1, tint, seed, h, shopIdx) => {
+    const nb = (x0, x1, tint, seed, h, shopIdx, hollow = false) => {
       const t = T.facadeTexture(seed, tint, true);
       t.repeat.set((x1 - x0) / 6, h / 6);
       const m = new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 });
       // a single material (multi-material boxes vanish in the static batching)
-      const box = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, h, 6), m);
-      box.position.set((x0 + x1) / 2, h / 2, fz - 3 + 0.02);
-      g.add(box);
+      // the two houses our extension and studio are built into are only a front: a solid box
+      // would show its side wall (a grey slab) through the doorways
+      if (hollow) {
+        const front = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, h), m);
+        front.position.set((x0 + x1) / 2, h / 2, fz + 0.02);
+        g.add(front);
+      } else {
+        const box = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, h, 6), m);
+        box.position.set((x0 + x1) / 2, h / 2, fz - 3 + 0.02);
+        g.add(box);
+      }
       // shopfront at street level: framed window with a warm glow, a sign and an awning
       const w = x1 - x0, cx = (x0 + x1) / 2;
       const shop = SHOPS[shopIdx ?? ((seed >> 2) % SHOPS.length)];
@@ -423,8 +444,8 @@ export class Shop {
       fac.building({ x0, x1, h, z: fz + 0.02, dir: 1, seed, groundTop: 3.3 });
     };
     nb(X0 - 6, X0, [140, 132, 116], 21, 7.5, 5);
-    nb(X1, X1 + 5.5, [96, 104, 98], 33, 5.8, 0);
-    nb(X1 + 5.5, X1 + 12, [168, 136, 104], 45, 8.2, 3);
+    nb(X1, X1 + 5.5, [96, 104, 98], 33, 5.8, 0, true);
+    nb(X1 + 5.5, X1 + 12, [168, 136, 104], 45, 8.2, 3, true);
     nb(X0 - 12, X0 - 6, [118, 92, 78], 57, 6.6, 6);
     // the rest of our block, up to the alleys, and the next blocks beyond them
     const A = STREET.alleys;
@@ -1007,11 +1028,15 @@ export class Shop {
     const wallMat = new THREE.MeshStandardMaterial({ color: '#2f4a3a', roughness: 0.6 });
     const wain = new THREE.MeshStandardMaterial({ color: '#3a2a1e', roughness: 0.5 });
     const wall = (w, x, z, ry) => {
-      const up = plane(w, ROOM.h - 1.05, wallMat); up.position.set(x, 1.05 + (ROOM.h - 1.05) / 2, z); up.rotation.y = ry; g.add(up);
-      const lo = plane(w, 1.05, wain); lo.position.set(x, 0.525, z); lo.rotation.y = ry; g.add(lo);
+      // same warm wallpaper and panelling as the main room, so the doorway never reads as a grey slab
+      const up = plane(w, ROOM.h - 1.05, this.wallMat || wallMat, [w / 4, (ROOM.h - 1.05) / 2.9, 0, 1.05 / 2.9]); up.position.set(x, 1.05 + (ROOM.h - 1.05) / 2, z); up.rotation.y = ry; g.add(up);
+      const lo = plane(w, 1.05, this.wainMat || wain, [w / 4, 1.05 / 2.9, 0, 0]); lo.position.set(x, 0.525, z); lo.rotation.y = ry; g.add(lo);
     };
     wall(W, cx, A.z0, 0);                 // back (mirror wall)
-    wall(D, A.x1, cz, -Math.PI / 2);      // far wall
+    const farStart = g.children.length;
+    wall(D, A.x1, cz, -Math.PI / 2);      // far wall (knocked through once the studio is open)
+    const far = new THREE.Group(); for (const o of g.children.slice(farStart)) far.add(o); g.add(far);
+    S.annexFar = far;
     wall(W, cx, A.z1, Math.PI);           // front
     // archway trim
     const trim = propMaterial('WoodDark');
@@ -1026,14 +1051,103 @@ export class Shop {
     this.addProp('Cart', P.cart, -0.3, g);
     // lounge: couch, plant, neon
     this.addProp('Couch', new THREE.Vector3(A.x1 - 0.42, 0, 2.0), -Math.PI / 2, g);
-    this.addProp('PlantSnake', new THREE.Vector3(A.x1 - 0.3, 0, 0.45), 0.4, g);
+    S.annexPlant = this.addProp('PlantSnake', new THREE.Vector3(A.x1 - 0.3, 0, 0.45), 0.4, g);
     this.addProp('LampPendant', new THREE.Vector3(cx, ROOM.h, 1.2), 0, g);
-    const L = new THREE.PointLight('#ffd7a0', 2.4, 6, 2); L.position.set(cx, 2.3, 1.2); g.add(L);
+    const L = new THREE.PointLight('#ffd7a0', 3.4, 7, 1.6); L.position.set(cx, 2.3, 1.2); g.add(L);
     this.annexLight = L;
     const own = () => this.has('extension');
     this.colliders.push({ x0: P.chair.x - 0.38, x1: P.chair.x + 0.38, z0: P.chair.z - 0.4, z1: P.chair.z + 0.45, active: own });
     this.colliders.push({ x0: P.chair.x - 0.62, x1: P.chair.x + 0.62, z0: A.z0, z1: A.z0 + 0.5, active: own });
     this.colliders.push({ x0: A.x1 - 0.85, x1: A.x1, z0: 1.4, z1: 2.6, active: own, seat: true });
+    this.buildStudio();
+  }
+
+  // the studio: a fourth station, a pool table and a jukebox, through a doorway in the
+  // extension's far wall
+  buildStudio() {
+    const T = STUDIO, S = this.slots, A = ANNEX;
+    const g = new THREE.Group();
+    g.userData.dynamic = true;
+    this.root.add(g);
+    S.studio = g;
+    const W = T.x1 - T.x0, D = T.z1 - T.z0, cx = (T.x0 + T.x1) / 2, cz = (T.z0 + T.z1) / 2;
+    const floorMat = texMat(this.tex.floorWood, { rough: 0.5 });
+    const f = plane(W, D, floorMat); f.rotation.x = -Math.PI / 2; f.position.set(cx, 0.001, cz); f.receiveShadow = true; g.add(f);
+    const c = plane(W, D, this.ceilMat); c.rotation.x = Math.PI / 2; c.position.set(cx, ROOM.h, cz); g.add(c);
+    const wallD = this.wallMat.clone(); wallD.side = THREE.DoubleSide;
+    const wainD = this.wainMat.clone(); wainD.side = THREE.DoubleSide;
+    const wall = (w, x, z, ry, y0 = 0, y1 = ROOM.h) => {
+      const a = Math.max(y0, 1.05), b = Math.min(y1, 1.05);
+      if (y1 > a) { const up = plane(w, y1 - a, wallD, [w / 4, (y1 - a) / 2.9, 0, a / 2.9]); up.position.set(x, (a + y1) / 2, z); up.rotation.y = ry; g.add(up); }
+      if (b > y0) { const lo = plane(w, b - y0, wainD, [w / 4, (b - y0) / 2.9, 0, 0]); lo.position.set(x, (y0 + b) / 2, z); lo.rotation.y = ry; g.add(lo); }
+    };
+    wall(W, cx, T.z0, 0);                                   // back (mirror wall)
+    wall(D, T.x1, cz, -Math.PI / 2);                        // far wall
+    wall(W, cx, T.z1, Math.PI);                             // front
+    wall(A.z0 - T.z0, T.x0, (T.z0 + A.z0) / 2, Math.PI / 2); // behind the extension's mirror wall
+    // the wall to the extension, with a doorway
+    wall(T.open0 - A.z0, T.x0, (A.z0 + T.open0) / 2, Math.PI / 2);
+    wall(A.z1 - T.open1, T.x0, (T.open1 + A.z1) / 2, Math.PI / 2);
+    wall(T.open1 - T.open0, T.x0, (T.open0 + T.open1) / 2, Math.PI / 2, 2.3, ROOM.h);
+    const trim = propMaterial('WoodDark');
+    for (const z of [T.open0, T.open1]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.3, 0.08), trim); p.position.set(T.x0, 1.15, z); g.add(p); }
+    const lint = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.1, T.open1 - T.open0 + 0.08), trim); lint.position.set(T.x0, 2.35, (T.open0 + T.open1) / 2); g.add(lint);
+    // station 4
+    const P = STATION4;
+    this.addProp('StationClassic', new THREE.Vector3(P.chair.x, 0, T.z0 + 0.23), 0, g);
+    const mir = this.addProp('MirrorLarge', new THREE.Vector3(P.chair.x, 1.66, T.z0 + 0.03), 0, g);
+    this.setupMirror(mir, 0.86, 1.12, false, true);
+    S.st4Chair = this.addProp('ChairClassic', P.chair, Math.PI, g);
+    this.addProp('Cart', P.cart, -0.3, g);
+    // pool table
+    const M = (col, o = {}) => new THREE.MeshStandardMaterial({ color: col, roughness: 0.6, ...o });
+    const box = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; b.receiveShadow = true; g.add(b); return b; };
+    const px = 8.0, pz = 1.7;
+    box(1.7, 0.08, 0.95, M('#1f6b3a', { roughness: 0.95 }), px, 0.8, pz);
+    const rail = M('#5a3420', { roughness: 0.4 });
+    box(1.86, 0.12, 0.09, rail, px, 0.84, pz - 0.52); box(1.86, 0.12, 0.09, rail, px, 0.84, pz + 0.52);
+    box(0.09, 0.12, 1.04, rail, px - 0.93, 0.84, pz); box(0.09, 0.12, 1.04, rail, px + 0.93, 0.84, pz);
+    box(1.6, 0.42, 0.8, rail, px, 0.55, pz);
+    for (const [dx, dz] of [[-0.75, -0.38], [0.75, -0.38], [-0.75, 0.38], [0.75, 0.38]]) box(0.14, 0.38, 0.14, rail, px + dx, 0.19, pz + dz);
+    const ballCols = ['#f4f1e6', '#e0b02c', '#2a5fb8', '#c0261e', '#5a2a8a', '#e06a1e', '#1f7a3a', '#7a1e1e', '#111111'];
+    ballCols.forEach((col, i) => {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.028, 12, 8), M(col, { roughness: 0.2 }));
+      const k = i === 0 ? [-0.45, 0] : [0.25 + Math.floor((i - 1) / 3) * 0.05, ((i - 1) % 3 - 1) * 0.058];
+      b.position.set(px + k[0], 0.868, pz + k[1]); g.add(b);
+    });
+    const cue = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.014, 1.4, 8), M('#c9a36a', { roughness: 0.4 }));
+    cue.position.set(px - 0.1, 0.9, pz - 0.3); cue.rotation.z = Math.PI / 2 - 0.05; cue.rotation.y = 0.2; g.add(cue);
+    // pool lamp
+    const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.42, 0.18, 18, 1, true), M('#1f6b3a', { side: THREE.DoubleSide, roughness: 0.4 }));
+    shade.position.set(px, 2.2, pz); g.add(shade);
+    const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.6, 6), M('#111')); cord.position.set(px, 2.6, pz); g.add(cord);
+    // jukebox with a glowing arch
+    const jb = new THREE.Group(); g.add(jb);
+    const jbody = new THREE.Mesh(new THREE.BoxGeometry(0.75, 1.25, 0.5), M('#7a2a1e', { roughness: 0.3 })); jbody.position.y = 0.62; jb.add(jbody);
+    const arch = new THREE.Mesh(new THREE.CylinderGeometry(0.375, 0.375, 0.52, 20, 1, false, 0, Math.PI), M('#f2c76a', { emissive: new THREE.Color('#f2a33a'), emissiveIntensity: 0.9, roughness: 0.3 }));
+    arch.rotation.z = Math.PI / 2; arch.rotation.y = Math.PI / 2; arch.position.y = 1.25; jb.add(arch);
+    const grill = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.45), M('#2a1a12', { emissive: new THREE.Color('#e05a8a'), emissiveIntensity: 0.35 })); grill.position.set(0, 0.55, 0.252); jb.add(grill);
+    jb.position.set(T.x1 - 0.3, 0, 0.3); jb.rotation.y = -Math.PI / 2;
+    S.jukebox = jb;
+    // couch and a framed photo of the street
+    this.addProp('Couch', new THREE.Vector3(T.x1 - 0.42, 0, 1.75), -Math.PI / 2, g);
+    this.addProp('PlantSnake', new THREE.Vector3(T.x0 + 0.35, 0, -1.25), 0.2, g);
+    this.addProp('LampPendant', new THREE.Vector3(cx, ROOM.h, -0.6), 0, g);
+    const L = new THREE.PointLight('#ffd7a0', 3.2, 7, 1.6); L.position.set(cx, 2.3, 0.4); g.add(L);
+    const L2 = new THREE.PointLight('#fff1c8', 1.6, 3.5, 2); L2.position.set(px, 1.9, pz); g.add(L2);
+    this.studioLights = [L, L2];
+    const own = () => this.has('studio');
+    this.colliders.push({ x0: P.chair.x - 0.38, x1: P.chair.x + 0.38, z0: P.chair.z - 0.4, z1: P.chair.z + 0.45, active: own });
+    this.colliders.push({ x0: P.chair.x - 0.62, x1: P.chair.x + 0.62, z0: T.z0, z1: T.z0 + 0.5, active: own });
+    this.colliders.push({ x0: px - 0.95, x1: px + 0.95, z0: pz - 0.55, z1: pz + 0.55, active: own });
+    this.colliders.push({ x0: T.x1 - 0.85, x1: T.x1, z0: 1.15, z1: 2.35, active: own, seat: true });
+    this.colliders.push({ x0: T.x1 - 0.6, x1: T.x1, z0: -0.1, z1: 0.7, active: own });
+    // walls: to the extension (with the doorway), and the room's own bounds
+    this.colliders.push({ x0: A.x1 - 0.25, x1: A.x1 + 0.25, z0: A.z0, z1: T.open0, active: own });
+    this.colliders.push({ x0: A.x1 - 0.25, x1: A.x1 + 0.25, z0: T.open1, z1: A.z1, active: own });
+    this.colliders.push({ x0: T.x1 - 0.25, x1: 99, z0: -99, z1: 99, active: own });
+    this.colliders.push({ x0: T.x0, x1: 99, z0: -99, z1: T.z0 + 0.25, active: own });
+    this.colliders.push({ x0: A.x0, x1: T.x0 + 0.25, z0: -99, z1: A.z0 + 0.25, active: own });
   }
 
   // small extras: arcade cabinet, wall speakers, colour bar shelf
@@ -1179,10 +1293,12 @@ export class Shop {
         color: old ? 0x9a9688 : 0xb8b6ae, clipBias: 0.003,
       });
       surface.userData.reflector = true;
-      // the reflection refreshes at half rate: nobody notices, the GPU does
+      // the reflection refreshes at a third of the frame rate: nobody notices, the GPU does
       const orig = surface.onBeforeRender;
       let frame = 0;
-      surface.onBeforeRender = function (r, sc, cam) { if ((frame++ & 1) === 1) return; orig.call(this, r, sc, cam); };
+      // and not at all while you're out on the street
+      const shop = this;
+      surface.onBeforeRender = function (r, sc, cam) { if (shop.skipMirrors || (frame++ % 3) !== 0) return; orig.call(this, r, sc, cam); };
     } else {
       surface = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ color: '#4c5456', metalness: 0.9, roughness: 0.18, envMapIntensity: 0.5 }));
     }
@@ -1251,11 +1367,15 @@ export class Shop {
     S.waitChairs.visible = !h('couch'); S.couch.visible = h('couch');
     S.station2.visible = h('station2');
     S.annex.visible = h('extension');
+    S.studio.visible = h('studio') && h('extension');
+    S.annexFar.visible = !S.studio.visible;
+    S.annexPlant.visible = !S.studio.visible;
     S.arcade.visible = h('arcade');
     for (const id of ['coffee', 'washBasin', 'neonWall', 'aquarium', 'vending', 'chandelier']) if (S[id]) S[id].visible = h(id);
     S.speakers.visible = h('sound');
     S.colourBar.visible = h('dyeStation');
     this.archPlug.visible = !h('extension');
+    this.archRail.visible = !h('extension');
     S.st2ChairOld.visible = !h('chairClassic'); S.st2ChairClassic.visible = h('chairClassic');
     S.st2MirrorOld.visible = !h('mirrorLarge'); S.st2MirrorLarge.visible = h('mirrorLarge');
     S.st2StationOld.visible = !h('mirrorLarge'); S.st2StationClassic.visible = h('mirrorLarge');

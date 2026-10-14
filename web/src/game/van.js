@@ -46,7 +46,7 @@ export class RideVan {
   constructor(game) {
     this.game = game;
     this.phase = 'idle';
-    this.nextT = rand(70, 110);
+    this.nextT = rand(150, 220);
     this.v = 0;
     this.doorK = 0; this.doorTarget = 0;
     this.remote = null;
@@ -70,6 +70,7 @@ export class RideVan {
     for (const [n, k] of [[this.holgs, 'driver'], [this.bonnie, 'passenger']]) {
       const [x, z] = VAN.seats[k];
       n.seatL = V(x, 0, z);
+      n.noLod = true;
       n.ch.sitOn({ pos: this.toWorld(n.seatL), rot: Math.PI / 2, height: 0.45 }, true);
       n.show(false);
     }
@@ -117,7 +118,7 @@ export class RideVan {
     this.van.position.x = HIDE_X;
     this.doorK = this.doorTarget = 0;
     this.holgs.show(false); this.bonnie.show(false);
-    this.nextT = rand(110, 180);
+    this.nextT = rand(220, 340);
     this.motor?.stop?.(); this.motor = null;
   }
 
@@ -182,7 +183,8 @@ export class RideVan {
     if (this.phase === 'idle') {
       if (!g.save.tutorialDone || g.state === 'menu' || g.state === 'intro') return;
       this.nextT -= dt;
-      if (this.nextT <= 0 && !g.street?.cars?.some((c) => c.dir > 0 && c.obj.position.x < -40)) this.start();
+      const busy = ['beg', 'toShop', 'talk'].includes(g.story?.julian?.phase) || g.story?.thief || g.mart?.chase;
+      if (this.nextT <= 0 && !busy && !g.street?.cars?.some((c) => c.dir > 0 && c.obj.position.x < -40)) this.start();
       return;
     }
     const x = van.position.x;

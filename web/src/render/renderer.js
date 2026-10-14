@@ -4,7 +4,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 export const QUALITY = {
   low:    { pixelRatio: 0.85, shadows: false, shadowSize: 512, mirror: false, hairLayers: 10, antialias: false },
   medium: { pixelRatio: 1.25, shadows: true, shadowSize: 1024, mirror: true, hairLayers: 16, antialias: true },
-  high:   { pixelRatio: 2.0, shadows: true, shadowSize: 2048, mirror: true, hairLayers: 22, antialias: true },
+  high:   { pixelRatio: 1.5, shadows: true, shadowSize: 2048, mirror: true, hairLayers: 22, antialias: true },
 };
 
 export function detectQuality() {
