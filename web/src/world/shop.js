@@ -1314,7 +1314,15 @@ export class Shop {
       let frame = 0;
       // and not at all while you're out on the street
       const shop = this;
-      surface.onBeforeRender = function (r, sc, cam) { if (shop.skipMirrors || (frame++ % 3) !== 0) return; orig.call(this, r, sc, cam); };
+      // the street and everyone out on it stay out of the reflection: a mirror is small, the
+      // street is huge, and rendering it again per mirror was the single biggest cost indoors
+      surface.onBeforeRender = function (r, sc, cam) {
+        if (shop.skipMirrors || (frame++ % 3) !== 0) return;
+        const hidden = [];
+        if (shop.exterior?.visible) { shop.exterior.visible = false; hidden.push(shop.exterior); }
+        for (const c of globalThis.__characters || []) if (c.mesh.visible && c.root.position.z > ROOM.z1 + 0.4) { c.mesh.visible = false; hidden.push(c.mesh); }
+        try { orig.call(this, r, sc, cam); } finally { for (const o of hidden) o.visible = true; }
+      };
     } else {
       surface = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ color: '#4c5456', metalness: 0.9, roughness: 0.18, envMapIntensity: 0.5 }));
     }

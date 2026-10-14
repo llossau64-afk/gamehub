@@ -34,7 +34,9 @@ export function buildTemplate(gltfScene) {
     while (p && !p.name.startsWith('J_')) p = p.parent;
     const jname = p ? p.name.slice(2) : 'Hips';
     // gltfpack nests meshes (auto-named mesh_N) under the named node
-    const name = o.name && !/^mesh_\d+$/.test(o.name) ? o.name : (o.parent ? o.parent.name : '');
+    // (meshes shared by two nodes come out as mesh_N_instance_K: those take the node's name
+    // too — otherwise head shapes hd0/hd1/hd6/hd7 were drawn on every character at once)
+    const name = o.name && !/^mesh_\d+(_instance_\d+)?$/.test(o.name) ? o.name : (o.parent ? o.parent.name : '');
     const acc = (name.match(/__acc_(\w+?)(?:_\d+)?$/) || name.match(/__acc_(\w+)/) || [])[1] || null;
     const g = toFloat(o.geometry.clone());
     const m = new THREE.Matrix4().multiplyMatrices(rootInv, o.matrixWorld);
@@ -62,16 +64,33 @@ export function buildTemplate(gltfScene) {
 
 export function getTemplate() { return TEMPLATE; }
 
+// merged bodies, shared by everyone with the same accessories. Counted, so the one-off combos
+// of passing customers are freed when they leave (they used to pile up forever)
 const geoCache = new Map();
+const geoRefs = new Map();
+export function retainGeometry(g) { geoRefs.set(g, (geoRefs.get(g) || 0) + 1); return g; }
+export function releaseGeometry(g) {
+  if (!g) return;
+  const n = (geoRefs.get(g) || 1) - 1;
+  if (n > 0) { geoRefs.set(g, n); return; }
+  geoRefs.delete(g);
+  for (const [k, v] of geoCache) if (v === g) geoCache.delete(k);
+  g.dispose();
+}
 
-function buildGeometry(accs, jointFilter) {
-  const key = [...accs].sort().join(',') + '|' + (jointFilter ? jointFilter.key : '');
+// lod: the far version leaves out the 2nd and 3rd finger segments (a third of the body's
+// triangles, invisible past a few metres anyway)
+const FINGER_TIPS = /^(Index|Middle|Ring|Pinky|Thumb)[LR][23]$/;
+
+function buildGeometry(accs, jointFilter, lod = false) {
+  const key = [...accs].sort().join(',') + '|' + (jointFilter ? jointFilter.key : '') + (lod ? '|lod' : '');
   if (geoCache.has(key)) return geoCache.get(key);
   const T = TEMPLATE;
   const parts = [];
   for (const pc of T.pieces) {
     if (pc.acc && !accs.has(pc.acc)) continue;
     if (jointFilter && !jointFilter.set.has(pc.joint)) continue;
+    if (lod && FINGER_TIPS.test(pc.joint)) continue;
     const g = pc.geometry.clone();
     const n = g.attributes.position.count;
     const ji = jointFilter ? jointFilter.remap.get(pc.joint) : T.jointIndex.get(pc.joint);
@@ -131,7 +150,7 @@ export function createBody(colors, accessories = [], opts = {}) {
     T.joints.filter((j) => set.has(j.name)).forEach((j, i) => remap.set(j.name, i));
     filter = { set, remap, key: opts.joints.join(',') };
   }
-  const geom = buildGeometry(accs, filter);
+  const geom = retainGeometry(buildGeometry(accs, filter));
   const palette = makePalette(colors);
   const material = characterMaterial(palette);
   const { bones, byName } = buildBones(filter);
@@ -155,7 +174,7 @@ export function createBody(colors, accessories = [], opts = {}) {
     mouth.name = 'Mouth';
     byName[T.mouth.joint].add(mouth);
   }
-  return { mesh, bones: byName, palette, material, mouth };
+  return { mesh, bones: byName, palette, material, mouth, geom, lodGeom: () => retainGeometry(buildGeometry(accs, filter, true)) };
 }
 
 // ---------------------------------------------------------------- mouth

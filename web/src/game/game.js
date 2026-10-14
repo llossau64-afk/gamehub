@@ -1246,6 +1246,8 @@ export class Game {
     const cape = c.cape;
     c.cape = null;
     cape.parent?.remove(cape);
+    // capes are built per haircut: free their geometry (materials are shared)
+    cape.traverse((o) => { if (o.isMesh && o.geometry.type !== 'BufferGeometry') o.geometry.dispose(); });   // the cloth itself is shared
     this.shop.slots.capeHook.visible = true;
     audio.capeSnap();
   }
@@ -1551,6 +1553,8 @@ export class Game {
   // ------------------------------------------------------------------ frame
   update(dt) {
     this.time += dt;
+    Character.viewer = this.camera.position;
+    Character.tick();
     hairLight.time.value = this.time;
     const input = this.input;
     input.update();

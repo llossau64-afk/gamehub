@@ -1,7 +1,7 @@
 // Procedurally animated character: locomotion, sitting, look-at, emotions, lip-sync,
 // two-bone arm IK and finger poses. No baked clips: everything blends continuously.
 import * as THREE from 'three';
-import { createBody, getTemplate } from './template.js';
+import { createBody, getTemplate, releaseGeometry } from './template.js';
 import { clamp, lerp, damp, dampAngle, noise1, rand, pick, smooth, easeInOut, wrapAngle } from '../core/util.js';
 import { audio } from '../audio/audio.js';
 import { blobShadowTexture } from '../render/textures.js';
@@ -58,6 +58,12 @@ const _m = new THREE.Matrix4();
 const UP = new THREE.Vector3(0, 1, 0);
 
 let blobTex = null;
+// every live character (the shop mirrors leave the ones out on the street out of the reflection)
+const ALL = new Set();
+const LODQ = [];
+// geometry and materials made just for one object (caps, props built per person)
+function freeMeshes(o) { o.traverse((m) => { if (m.isMesh) { m.geometry.dispose(); (Array.isArray(m.material) ? m.material : [m.material]).forEach((x) => x.dispose()); } }); }
+globalThis.__characters = ALL;
 
 export class Character {
   constructor(scene, look) {
@@ -85,6 +91,7 @@ export class Character {
     this.applyFace(look.face);
     this.applyBuild(look.build);
     scene.add(this.root);
+    ALL.add(this);
     for (const b of Object.values(this.bones)) b.rotation.order = 'YXZ';
     // rig measurements
     const T = getTemplate();
@@ -144,13 +151,47 @@ export class Character {
 
   get position() { return this.root.position; }
 
+  // once a frame: build one waiting far-detail mesh
+  static tick() {
+    const c = LODQ.shift();
+    if (c && ALL.has(c)) c._lodGeo = c.body.lodGeom();
+  }
+
   setVisible(v) { this.visible = v; this.root.visible = v; this.shadow.visible = v; }
 
+  // level of detail by distance to the camera (Character.viewer is set by the game each
+  // frame): fewer finger triangles past ~9 m, no shadow casting outdoors, not drawn at all
+  // past ~55 m (still animated and walking, just invisible)
+  setDetail(d) {
+    const far = d > (this._far ? 5.5 : 6.5);
+    // the far geometry is built in the background (one per frame, see Character.tick) so a
+    // crowd walking away never builds a dozen meshes in the same frame
+    if (far && !this._lodGeo) { if (!this._lodQ) { this._lodQ = true; LODQ.push(this); } }
+    else if (far !== this._far) {
+      this._far = far;
+      this.mesh.geometry = far ? this._lodGeo : this.body.geom;
+      this.mesh.castShadow = !far;
+    }
+    const cull = d > (this._cull ? 52 : 56);
+    if (cull !== this._cull) { this._cull = cull; this.mesh.visible = !cull; }
+    if (this.shadow) this.shadow.visible = this.visible && !cull && d < 30;
+    if (this.hair?.setLOD && Math.abs((this._hairD ?? -9) - d) > 0.5) { this._hairD = d; this.hair.setLOD(d); }
+  }
+
   dispose() {
+    if (this._disposed) return;
+    this._disposed = true;
+    ALL.delete(this);
     this.scene.remove(this.root);
     this.scene.remove(this.shadow);
     this.body.material.dispose();
     this.body.palette.dispose();
+    releaseGeometry(this.body.geom);
+    releaseGeometry(this._lodGeo);
+    this.shadow.geometry.dispose();
+    this.shadow.material.dispose();
+    this.mouth?.material?.dispose();
+    if (this.cap) freeMeshes(this.cap);
     if (this.hair) this.hair.dispose();
     if (this.beard) this.beard.dispose();
   }
@@ -186,7 +227,7 @@ export class Character {
 
   // a cap worn on the way in; taken off for the haircut
   setCap(color) {
-    if (this.cap) { this.cap.parent?.remove(this.cap); this.cap = null; }
+    if (this.cap) { this.cap.parent?.remove(this.cap); freeMeshes(this.cap); this.cap = null; }
     if (!color) return;
     const g = new THREE.Group();
     const m = new THREE.MeshStandardMaterial({ color, roughness: 0.75 });
@@ -354,6 +395,7 @@ export class Character {
   // ------------------------------------------------------------------ update
   update(dt, camera) {
     if (!this.visible) return;
+    if (Character.viewer && !this.noLod) this.setDetail(this.root.position.distanceTo(Character.viewer));
     this.t += dt;
     const P = this._pose = {};
     const add = (n, x = 0, y = 0, z = 0) => { const p = P[n] || (P[n] = [0, 0, 0]); p[0] += x; p[1] += y; p[2] += z; };

@@ -342,6 +342,8 @@ export class HairSystem {
     this.mesh.material.dispose();
     this.texture.dispose();
     this.styleTexture?.dispose();
+    this.guideTexture?.dispose();
+    this.dyeTexture?.dispose();
   }
 
   setColor(c) { this.color = c; this.mesh.material.uniforms.uColor.value.set(c); this.mesh.material.uniforms.uTip.value.set(c).offsetHSL(0, -0.05, 0.08); }

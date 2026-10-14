@@ -85,7 +85,7 @@ export class Street {
       if (outside && !C.passed && Math.abs(P.x - o.position.x) < 8) { C.passed = true; audio._carPass?.(1); }
       if (Math.abs(o.position.x) > STREET.x1 + 16) {
         o.parent?.remove(o);
-        o.traverse((m) => { if (m.isMesh) { m.geometry.dispose(); } });
+        o.traverse((m) => { if (m.isMesh) { m.geometry.dispose(); m.material.dispose(); } });
         this.cars.splice(i, 1);
       }
     }

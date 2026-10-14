@@ -181,7 +181,7 @@ export class BeardSystem {
   }
 
   attach(headBone) { headBone.add(this.mesh); headBone.add(this.pickMesh); this.head = headBone; }
-  dispose() { this.mesh.parent?.remove(this.mesh); this.pickMesh.parent?.remove(this.pickMesh); this.mesh.material.dispose(); this.texture.dispose(); }
+  dispose() { this.mesh.parent?.remove(this.mesh); this.pickMesh.parent?.remove(this.pickMesh); this.mesh.material.dispose(); this.pickMesh.material.dispose(); this.texture.dispose(); this.dyeTexture?.dispose?.(); }
 
   // spec: { chin, cheeks, moustache, neck, noise }
   setStyle(spec, seed = Math.random()) {
