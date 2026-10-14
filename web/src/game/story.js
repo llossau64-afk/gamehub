@@ -10,6 +10,7 @@ import { ROOM, SUPER } from '../world/shop.js';
 import { audio } from '../audio/audio.js';
 import { pick, rand, clamp, formatMoney } from '../core/util.js';
 import { SideQuests, SIDE_QUESTS } from './sidequests.js';
+import { Julian } from './julian.js';
 import { DRINKS, makeDrink, drinkSVG, makeFridge, makeBreadBag, makeChefHat, makeBeanie, makeEyeMask, makeMarker } from '../world/storyassets.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -164,6 +165,8 @@ export class Story {
     this.fridge = null;
     this.side = new SideQuests(this);
     this.side.build();
+    this.julian = new Julian(this.game);
+    this.julian.build();
     g.npcByName.set('Mr. Kowalski', g.supermarket.ch);
     // online: the host's thief is the one everybody chases
     g.netActors.set('thief', {
@@ -182,6 +185,7 @@ export class Story {
     I({ id: 'baker', label: () => (play() && this.npcs.baker && this.npcs.baker.dist() < 2.6 && !this.npcs.baker.busy ? (this.step('thief') === 3 && this.carrying === 'bread' ? 'Give Bruno his bread' : this.side?.bakerLabel() || 'Talk to Bruno') : null),
       pos: () => this.npcs.baker.head(), radius: 3.0, action: () => { this.talkBaker().catch((e) => console.error(e)); return 'baker'; } });
     this.side.interactables(I);
+    this.julian.interactables(I);
     I({ id: 'thief', label: () => (play() && this.thief && !this.thief.caught && this.thief.ch.root.position.distanceTo(g.player.pos) < 2.2 ? 'Tackle the thief!' : null),
       pos: () => this.thief.ch.headWorld(V()), radius: 3.2, action: () => { this.tackleThief().catch((e) => console.error(e)); return 'thief'; } });
     I({ id: 'bread', label: () => (play() && this.bag && !this.carrying && this.bag.position.distanceTo(g.player.pos) < 2.0 ? 'Pick up the stolen bread' : null),
@@ -628,6 +632,7 @@ export class Story {
     for (const n of Object.values(this.npcs)) n.update(dt);
     this.updateThief(dt);
     this.side.update(dt);
+    this.julian.update(dt);
     this.checkT = (this.checkT || 0) - dt;
     if (this.checkT < 0) {
       this.checkT = 1;

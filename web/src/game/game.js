@@ -1603,7 +1603,8 @@ export class Game {
     // ---- player
     if (this.state === 'barber') this.barber.update(dt);
     this.player.obstacles = this.customers.list.filter((c) => c.ch.sitW < 0.5 && !(c.state === 'ejecting' && this.reactions.eject?.phase !== 'walk')).map((c) => c.ch.root.position)
-      .concat(this.street?.walkers?.map((w) => w.ch.root.position) || []);
+      .concat(this.street?.walkers?.map((w) => w.ch.root.position) || [])
+      .concat(this.story?.julian?.npc?.shown && !this.story.julian.talking ? [this.story.julian.npc.ch.root.position] : []);
     // the front door opens for you when you walk up to it, from either side
     {
       const P = this.player.pos, dz = P.z - ROOM.z1;

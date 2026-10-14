@@ -446,6 +446,7 @@ export class Online {
           }
         }
         if (Array.isArray(x.vis) && typeof x.vis[0] === 'string') g.story?.side?.setRemoteVis(str(x.vis[0], 16), !!x.vis[1]);
+        if (typeof x.ju === 'string') g.story?.julian?.remoteOutcome(str(x.ju, 12));
         if (typeof x.jb === 'number') g.supermarket?.teamBoxes(num(x.jb, 0, 64));
       }
     }
@@ -510,7 +511,7 @@ export class Online {
     for (const [id, a] of g.netActors) {
       let v = null;
       for (const p of others) { const w = p.presence?.wa; if (w && typeof w === 'object' && Array.isArray(w[id])) { v = w[id]; break; } }
-      if (v && !a.owned()) a.remote([num(v[0], -60, 60), num(v[1], -30, 40), num(v[2], -7, 7), num(v[3], 0, 9)]);
+      if (v && !a.owned()) a.remote([num(v[0], -60, 60), num(v[1], -30, 40), num(v[2], -7, 7), num(v[3], 0, 9), num(v[4] ?? 0, 0, 9)]);
       else if (!v) a.release?.();
     }
   }
