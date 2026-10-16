@@ -37,22 +37,23 @@ export function initMaterials() {
   M.orange = new THREE.MeshStandardMaterial({ color: 0xd2621e, roughness: 0.55 });
   M.rubber = new THREE.MeshStandardMaterial({ color: 0x1a1a1b, roughness: 0.92 });
   M.plastic = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.75 });
-  M.chrome = new THREE.MeshStandardMaterial({ color: 0xdfe2e5, roughness: 0.12, metalness: 1 });
-  M.glass = new THREE.MeshPhysicalMaterial({ color: 0x101820, roughness: 0.04, metalness: 0.1, transparent: true, opacity: 0.72, envMapIntensity: 1.6, clearcoat: 1 });
+  M.chrome = new THREE.MeshStandardMaterial({ color: 0xe4e7ea, roughness: 0.06, metalness: 1 });
+  M.glass = glassMaterial();
   M.crack = new THREE.MeshBasicMaterial({ map: TX.crackTexture(), transparent: true, opacity: 0, depthWrite: false });
   // lamp units: smoked housing, chrome reflector bowls, projector lenses and LED strips;
   // the emissive map lights only the lenses and LEDs
   const lamp = lampTextures();
-  M.headlight = new THREE.MeshStandardMaterial({ color: 0xffffff, map: lamp.head, emissive: 0xfff1d6, emissiveMap: lamp.headGlow, emissiveIntensity: 0.12, roughness: 0.12, metalness: 0.55 });
+  // the clear coat stands in for the polycarbonate lens over the chrome bowls
+  M.headlight = new THREE.MeshPhysicalMaterial({ color: 0xffffff, map: lamp.head, emissive: 0xfff1d6, emissiveMap: lamp.headGlow, emissiveIntensity: 0.12, roughness: 0.1, metalness: 0.7, clearcoat: 1, clearcoatRoughness: 0.02 });
   M.headlightBroken = new THREE.MeshStandardMaterial({ color: 0x2d2c2a, roughness: 0.6 });
-  M.taillight = new THREE.MeshStandardMaterial({ color: 0xffffff, map: lamp.tail, emissive: 0xff1d10, emissiveMap: lamp.tailGlow, emissiveIntensity: 0.25, roughness: 0.2, metalness: 0.2 });
+  M.taillight = new THREE.MeshPhysicalMaterial({ color: 0xffffff, map: lamp.tail, emissive: 0xff1d10, emissiveMap: lamp.tailGlow, emissiveIntensity: 0.25, roughness: 0.2, metalness: 0.2, clearcoat: 1, clearcoatRoughness: 0.03 });
   M.grille = new THREE.MeshStandardMaterial({ map: TX.grilleTexture(), roughness: 0.7, metalness: 0.3 });
-  M.carbon = new THREE.MeshPhysicalMaterial({ map: TX.carbonTexture(), roughness: 0.3, metalness: 0.2, clearcoat: 1 });
+  M.carbon = new THREE.MeshPhysicalMaterial({ map: TX.carbonTexture(), roughness: 0.42, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.04 });
   M.engine = new THREE.MeshStandardMaterial({ color: 0x5b5d60, roughness: 0.55, metalness: 0.7 });
   M.engineDark = new THREE.MeshStandardMaterial({ color: 0x232426, roughness: 0.65, metalness: 0.5 });
   M.interior = new THREE.MeshStandardMaterial({ color: 0x252322, roughness: 0.9 });
   M.seat = new THREE.MeshStandardMaterial({ color: 0x3a3028, roughness: 0.95 });
-  M.brakeDisc = new THREE.MeshStandardMaterial({ color: 0x8a8a88, roughness: 0.4, metalness: 0.9 });
+  M.brakeDisc = new THREE.MeshStandardMaterial({ color: 0x8a8a88, roughness: 0.32, metalness: 1 });
   M.mud = new THREE.MeshStandardMaterial({ map: TX.mudTexture(), transparent: true, roughness: 0.7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
   M.puddle = new THREE.MeshStandardMaterial({ color: 0x5f6b72, alphaMap: TX.puddleTexture(), transparent: true, roughness: 0.02, metalness: 0.9, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, envMapIntensity: 1.4 });
   M.ice = new THREE.MeshStandardMaterial({ map: TX.iceTexture(), transparent: true, roughness: 0.05, metalness: 0.3, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
@@ -78,13 +79,26 @@ export function signMaterial(type, text) {
 }
 
 // ---------------------------------------------------------------- car paint
+// Automotive paint = base coat + clear coat. Every finish except matte gets a full, very
+// smooth clear coat (the sharp reflection of the surroundings); the base layer's own
+// roughness / metalness give the colour depth. Metallic finishes sparkle with flakes
+// (a hashed normal jitter on the base layer only, faded out once a flake is smaller
+// than a pixel so it never shimmers). Flakes are a uniform: every paint shares one shader.
+const PAINT = {
+  solid: { rough: 0.34, metal: 0.0, cc: 0.04, flake: 0 },
+  metallic: { rough: 0.3, metal: 0.62, cc: 0.035, flake: 0.55 },
+  matte: { rough: 0.72, metal: 0.15, cc: 0.3, flake: 0 },
+  pearl: { rough: 0.26, metal: 0.4, cc: 0.03, flake: 0.35 },
+  chrome: { rough: 0.05, metal: 1.0, cc: 0.02, flake: 0 },
+  candy: { rough: 0.18, metal: 0.75, cc: 0.025, flake: 0.7 },
+};
 export function makePaint(color, finish = 'solid', wear = {}) {
-  const f = FINISHES[finish] || FINISHES.solid;
+  const f = FINISHES[finish] || FINISHES.solid, p = PAINT[finish] || PAINT.solid;
   const m = new THREE.MeshPhysicalMaterial({
-    color, roughness: f.rough, metalness: f.metal, clearcoat: f.clear, clearcoatRoughness: 0.08,
-    sheen: f.sheen ? 0.6 : 0, sheenColor: new THREE.Color(0x8fa0ff), envMapIntensity: 1.1,
+    color, roughness: p.rough, metalness: p.metal, clearcoat: f.clear > 0 ? 1 : 0.15, clearcoatRoughness: p.cc,
+    sheen: f.sheen ? 0.6 : 0, sheenColor: new THREE.Color(0x8fa0ff), sheenRoughness: 0.35,
   });
-  patchWear(m, wear);
+  patchWear(m, { ...wear, flake: p.flake });
   return m;
 }
 
@@ -95,17 +109,19 @@ export function patchWear(m, wear = {}) {
     uRust: { value: wear.rust || 0 },
     uScratch: { value: wear.scratch || 0 },
     uDirtColor: { value: new THREE.Color(wear.dirtColor || 0x6a5a44) },
+    uFlake: { value: wear.flake || 0 },
   };
   m.defines = { ...(m.defines || {}), USE_UV: '' };
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, m.userData.wear);
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying float vObjY;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvObjY = position.y;');
+      .replace('#include <common>', '#include <common>\nvarying float vObjY; varying vec3 vObjP;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvObjY = position.y; vObjP = position;');
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-uniform sampler2D uMask; uniform float uDirt; uniform float uRust; uniform float uScratch; uniform vec3 uDirtColor;
-varying float vObjY;`)
+uniform sampler2D uMask; uniform float uDirt; uniform float uRust; uniform float uScratch; uniform vec3 uDirtColor; uniform float uFlake;
+varying float vObjY; varying vec3 vObjP;
+vec3 flakeHash(vec3 p) { p = fract(p * vec3(0.1031, 0.1030, 0.0973)); p += dot(p, p.yxz + 33.33); return fract((p.xxy + p.yxx) * p.zyx); }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
   vec4 mk = texture2D(uMask, vUv * 1.7);
   float lowness = smoothstep(0.35, -0.55, vObjY);
@@ -120,15 +136,40 @@ varying float vObjY;`)
   roughnessFactor = mix(roughnessFactor, 0.95, wearF);
   roughnessFactor = mix(roughnessFactor, 0.5, scrA);`)
       .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
-  metalnessFactor = mix(metalnessFactor, 0.0, wearF);`);
+  metalnessFactor = mix(metalnessFactor, 0.0, wearF);`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+  if (uFlake > 0.0) {
+    vec3 fp = vObjP * 260.0;
+    float fw = length(fwidth(fp));
+    float fk = uFlake * (1.0 - smoothstep(0.35, 1.1, fw)) * (1.0 - wearF);
+    if (fk > 0.0) normal = normalize(normal + (flakeHash(floor(fp)) - 0.5) * 0.55 * fk);
+  }`);
     if (sh.fragmentShader.includes('#include <lights_physical_fragment>')) {
       sh.fragmentShader = sh.fragmentShader.replace('#include <lights_physical_fragment>', `#include <lights_physical_fragment>
   #ifdef USE_CLEARCOAT
   material.clearcoat *= (1.0 - wearF);
+  material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.35, scrA);
   #endif`);
     }
   };
   m.customProgramCacheKey = () => 'wear' + m.type;
+  return m;
+}
+
+// Car glass: reflections stay at full strength while the pane itself is see-through
+// face-on and turns mirror-like at grazing angles (Fresnel). Premultiplied blending:
+// out = specular + tint*opacity + behind*(1 - alpha).
+function glassMaterial() {
+  const m = new THREE.MeshPhysicalMaterial({ color: 0x1a2630, roughness: 0.02, metalness: 0, ior: 1.52, specularIntensity: 1, transparent: true, opacity: 0.38, premultipliedAlpha: true, depthWrite: false });
+  m.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <opaque_fragment>', `
+  float gNV = saturate(dot(normal, normalize(vViewPosition) * -1.0));
+  float gF = 0.04 + 0.96 * pow(1.0 - gNV, 5.0);
+  gl_FragColor = vec4(totalSpecular + totalDiffuse * opacity + totalEmissiveRadiance, mix(opacity, 1.0, gF));`)
+      .replace('#include <premultiplied_alpha_fragment>', '');
+  };
+  m.customProgramCacheKey = () => 'carglass';
   return m;
 }
 

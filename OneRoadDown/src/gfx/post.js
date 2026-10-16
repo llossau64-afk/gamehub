@@ -4,6 +4,7 @@
 // Quality 'low' skips all of it and renders straight to the screen.
 import * as THREE from 'three';
 
+const L_SHARP = { medium: 0.22, high: 0.3 };
 const VERT = `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
 const BRIGHT = `uniform sampler2D tSrc; uniform float uThr; varying vec2 vUv;
@@ -25,7 +26,7 @@ void main() {
 }`;
 
 const COMP = `uniform sampler2D tScene; uniform sampler2D tB1; uniform sampler2D tB2;
-uniform float uExposure, uBloom, uWarm, uContrast, uSat, uVig;
+uniform float uExposure, uBloom, uWarm, uContrast, uSat, uVig, uSharp; uniform vec2 uTexel;
 varying vec2 vUv;
 vec3 RRTAndODTFit(vec3 v) { vec3 a = v * (v + 0.0245786) - 0.000090537; vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081; return a / b; }
 vec3 aces(vec3 color) {
@@ -37,6 +38,12 @@ vec3 aces(vec3 color) {
 vec3 srgb(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
 void main() {
   vec3 c = texture2D(tScene, vUv).rgb;
+  // light luma sharpen (cross of 4 neighbours, clamped so HDR edges don't ring)
+  const vec3 LW = vec3(0.2126, 0.7152, 0.0722);
+  float la = 0.25 * (dot(texture2D(tScene, vUv + vec2(uTexel.x, 0.0)).rgb, LW) + dot(texture2D(tScene, vUv - vec2(uTexel.x, 0.0)).rgb, LW)
+    + dot(texture2D(tScene, vUv + vec2(0.0, uTexel.y)).rgb, LW) + dot(texture2D(tScene, vUv - vec2(0.0, uTexel.y)).rgb, LW));
+  float lc = dot(c, LW);
+  c *= clamp(1.0 + uSharp * (lc - la) / (la + 0.03), 0.8, 1.25);
   vec3 b = texture2D(tB1, vUv).rgb * 0.6 + texture2D(tB2, vUv).rgb * 0.55;
   c += b * uBloom;
   c = aces(c);
@@ -69,6 +76,7 @@ export class Post {
     this.mComp = mk(COMP, {
       tScene: { value: null }, tB1: { value: null }, tB2: { value: null },
       uExposure: { value: 1.0 }, uBloom: { value: 0.55 }, uWarm: { value: 1.0 }, uContrast: { value: 1.06 }, uSat: { value: 1.08 }, uVig: { value: 0.32 },
+      uSharp: { value: 0.0 }, uTexel: { value: new THREE.Vector2() },
     });
     this.w = 0; this.h = 0;
   }
@@ -118,6 +126,7 @@ export class Post {
     const u = this.mComp.uniforms;
     u.tScene.value = this.rtScene.texture; u.tB1.value = this.rtA.texture; u.tB2.value = this.rtC.texture;
     u.uExposure.value = r.toneMappingExposure;
+    u.uTexel.value.set(1 / this.w, 1 / this.h); u.uSharp.value = L_SHARP[this.quality] ?? 0.2;
     const L = look || {};
     u.uBloom.value = L.bloom ?? 0.55; u.uWarm.value = L.warm ?? 1; u.uContrast.value = L.contrast ?? 1.06; u.uSat.value = L.sat ?? 1.08; u.uVig.value = L.vig ?? 0.32;
     this.pass(this.mComp, null);

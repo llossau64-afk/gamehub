@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { lerp, clamp, smoothstep, rng } from '../core/util.js';
 import { softSprite } from '../gfx/textures.js';
+import { mats } from '../gfx/materials.js';
 
 const COLOR_KEYS = ['skyTop', 'skyHorizon', 'fog', 'sun', 'hemiSky', 'hemiGround', 'grass', 'dirt', 'rock'];
 const NUM_KEYS = ['fogDensity', 'sunIntensity', 'sunElev', 'sunAzim', 'hemiIntensity', 'snow', 'clouds', 'cloudDark', 'wind', 'birds', 'warmth'];
@@ -171,6 +172,57 @@ export class Environment {
     this.lastEnvKey = '';
     this.look = null;
     this.tunnel = 0;
+    // reflection probe (medium/high): the real surroundings instead of a sky gradient
+    this.probe = quality === 'low' ? null : this.makeProbe(quality === 'high' ? 256 : 128);
+    this.probeHide = []; // set by the game: player car, particles…
+    this.probeStats = null;
+  }
+
+  // ------------------------------------------------------------ reflection probe
+  // A cube camera follows the focus (the player car) and renders the actual world
+  // (terrain, road, trees, buildings, other cars, sky) one face per frame; every 7th
+  // frame the cube is prefiltered (PMREM) into scene.environment. The CubeUV target is
+  // allocated once and reused, so its size (and every shader's envMap defines) never
+  // changes mid-race. Faces are rendered linear HDR without tone mapping (render
+  // target), like post.js's scene pass, so no double tone mapping and no new programs.
+  makeProbe(size) {
+    const r = this.renderer;
+    const rt = new THREE.WebGLCubeRenderTarget(size, { type: THREE.HalfFloatType, generateMipmaps: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+    const cam = new THREE.CubeCamera(0.5, 5000, rt);
+    cam.coordinateSystem = r.coordinateSystem; cam.updateCoordinateSystem();
+    const prev = r.getRenderTarget();
+    for (let i = 0; i < 6; i++) { r.setRenderTarget(rt, i); r.clear(); }
+    r.setRenderTarget(prev);
+    const pm = new THREE.PMREMGenerator(r);
+    const out = pm.fromCubemap(rt.texture);
+    this.scene.environment = out.texture;
+    this.scene.environmentIntensity = 1.0;
+    return { rt, cam, pm, out, step: 0, ready: false, pos: new THREE.Vector3(), msAcc: 0, nAcc: 0 };
+  }
+
+  updateProbe(focus) {
+    const P = this.probe, r = this.renderer;
+    const t0 = performance.now();
+    const far = !P.ready || P.pos.distanceToSquared(focus) > 60 * 60;
+    // the cube is captured from one point per cycle so its faces line up
+    if (P.step === 0 || far) { P.pos.copy(focus); P.cam.position.set(focus.x, focus.y + 0.9, focus.z); P.cam.updateMatrixWorld(true); }
+    const hidden = [];
+    const hide = (o) => { if (o && o.visible) { o.visible = false; hidden.push(o); } };
+    for (const o of this.probeHide) hide(o);
+    hide(this.weather.snow); hide(this.weather.rain); hide(this.weather.dust); hide(this.birds.mesh);
+    const prevRT = r.getRenderTarget(), prevFace = r.getActiveCubeFace(), prevMip = r.getActiveMipmapLevel();
+    const sAuto = r.shadowMap.autoUpdate, sNeed = r.shadowMap.needsUpdate;
+    r.shadowMap.autoUpdate = false; r.shadowMap.needsUpdate = false; // reuse this frame's shadow map
+    const face = (i) => { r.setRenderTarget(P.rt, i); r.render(this.scene, P.cam.children[i]); };
+    if (far) { for (let i = 0; i < 6; i++) face(i); P.step = 6; }
+    else if (P.step < 6) face(P.step);
+    if (P.step === 6) { P.pm.fromCubemap(P.rt.texture, P.out); P.ready = true; }
+    P.step = (P.step + 1) % 7;
+    r.shadowMap.autoUpdate = sAuto; r.shadowMap.needsUpdate = sNeed;
+    r.setRenderTarget(prevRT, prevFace, prevMip);
+    for (const o of hidden) o.visible = true;
+    P.msAcc += performance.now() - t0; P.nAcc++;
+    if (P.nAcc >= 70) { this.probeStats = { cpuMs: +(P.msAcc / P.nAcc).toFixed(3), size: P.rt.width }; P.msAcc = 0; P.nAcc = 0; }
   }
 
   makeWeather(quality) {
@@ -234,9 +286,7 @@ export class Environment {
     this.sun.intensity = L.sunIntensity * (1 - tun * 0.92) * (1 - L.clouds * 0.25);
     this.hemi.color.copy(L.hemiSky); this.hemi.groundColor.copy(L.hemiGround);
     this.hemi.intensity = L.hemiIntensity * 1.7 * (1 - tun * 0.75) + fl * 1.5;
-    this.sun.position.copy(focus).addScaledVector(dir, 120);
-    this.sun.target.position.copy(focus);
-    // snap shadow camera to texels to avoid shimmering
+    this.fitShadow(dir, focus, camera);
     // ridges + floor follow the camera
     this.ridges.position.set(camera.position.x, camera.position.y - 380, camera.position.z);
     for (const m of this.ridgeMats) {
@@ -246,10 +296,13 @@ export class Environment {
     }
     this.floor.position.set(camera.position.x, track.roadY(s) - 240, camera.position.z);
     this.floor.material.color.copy(L.grass).multiplyScalar(0.55).lerp(L.fog, 0.3);
+    // wet roads in the rain: darker and glossier (uniforms only, no shader change)
+    this.wetRoads(clamp(Math.max(L.rain || 0, L.storm || 0) * 1.2, 0, 1) * (1 - tun));
     // weather
     this.updateWeather(dt, camera, L, tun);
     this.updateBirds(dt, camera, L, focus);
-    // environment reflections, refreshed when the look changes enough
+    // environment reflections: live probe, or (low) the sky, refreshed when the look changes
+    if (this.probe) { if (dt > 0 || !this.probe.ready) this.updateProbe(focus); return; }
     const key = [L.skyTop.getHexString(), L.skyHorizon.getHexString(), Math.round(L.sunElev / 5)].join();
     if (key !== this.lastEnvKey && (this.time - (this.envTime || -99) > 2 || !this.envTarget)) {
       this.lastEnvKey = key; this.envTime = this.time;
@@ -271,6 +324,34 @@ export class Environment {
     this.scene.environmentIntensity = 0.9;
     if (old) old.dispose();
     sky.geometry.dispose(); ground.geometry.dispose(); ground.material.dispose();
+  }
+
+  // Sun shadow box: pushed ahead along the view so less of it is wasted behind the
+  // camera, and snapped to whole shadow texels so edges don't crawl while driving.
+  fitShadow(dir, focus, camera) {
+    const S = this.sun.shadow, c = S.camera;
+    const ext = c.right, texel = (ext * 2) / S.mapSize.x;
+    const v = this._sv || (this._sv = { f: new THREE.Vector3(), x: new THREE.Vector3(), y: new THREE.Vector3(), c: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0) });
+    camera.getWorldDirection(v.f); v.f.y = 0;
+    if (v.f.lengthSq() > 1e-4) v.f.normalize();
+    v.c.copy(focus).addScaledVector(v.f, ext * 0.38);
+    v.x.crossVectors(v.up, dir).normalize(); v.y.crossVectors(dir, v.x);
+    const px = v.c.dot(v.x), py = v.c.dot(v.y);
+    v.c.addScaledVector(v.x, Math.round(px / texel) * texel - px).addScaledVector(v.y, Math.round(py / texel) * texel - py);
+    this.sun.position.copy(v.c).addScaledVector(dir, 120);
+    this.sun.target.position.copy(v.c);
+  }
+
+  wetRoads(wet) {
+    if (!mats.road || Math.abs(wet - (this.wet ?? -1)) < 0.01) return;
+    this.wet = wet;
+    for (const m of [...new Set(mats.road)]) {
+      const u = m.userData;
+      if (u.dryRough === undefined) u.dryRough = m.roughness;
+      m.roughness = lerp(u.dryRough, Math.min(u.dryRough, 0.32), wet);
+      m.color.setScalar(1 - wet * 0.3);
+      m.bumpScale = 0.6 * (1 - wet * 0.5);
+    }
   }
 
   updateWeather(dt, camera, L, tun) {

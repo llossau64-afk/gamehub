@@ -186,7 +186,7 @@ export function buildWheel(r, width, rimStyle, tireKind, sport) {
     wheelCache.set(key, parts);
   }
   const tireMat = new THREE.MeshStandardMaterial({ map: TX.tireTexture(tireKind), roughness: 0.9, bumpMap: TX.tireTexture(tireKind), bumpScale: 2 });
-  const rimMat = new THREE.MeshStandardMaterial({ map: TX.rimTexture(rimStyle), alphaTest: 0.4, roughness: rimStyle === 'hubcap' || rimStyle === 'dish' ? 0.18 : 0.35, metalness: 0.85, side: THREE.DoubleSide });
+  const rimMat = new THREE.MeshStandardMaterial({ map: TX.rimTexture(rimStyle), alphaTest: 0.4, roughness: rimStyle === 'hubcap' || rimStyle === 'dish' ? 0.12 : 0.24, metalness: 1, side: THREE.DoubleSide });
   const g = new THREE.Group();
   const spin = new THREE.Group();
   const tire = new THREE.Mesh(parts.tire, tireMat); tire.castShadow = true;
@@ -259,6 +259,7 @@ export class CarModel {
     this.ph = st.phys;
     this.topKmh = st.top;
     this.build();
+    this.addContactShadow();
     this.setUpgrades(this.levels, this.tireId);
     this.resetDamage();
   }
@@ -622,7 +623,7 @@ export class CarModel {
 
   // Twin stripes / livery bands lifted off the hood, roof and trunk surfaces.
   buildAssetStripes(md) {
-    const mat = new THREE.MeshPhysicalMaterial({ color: md.livery || md.stripes, roughness: 0.35, clearcoat: 1, polygonOffset: true, polygonOffsetFactor: -2 });
+    const mat = new THREE.MeshPhysicalMaterial({ color: md.livery || md.stripes, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.04, polygonOffset: true, polygonOffsetFactor: -2 });
     this.liveryMat = mat;
     const sw = md.livery ? 0.24 : 0.13, gap = 0.06;
     for (const name of ['hood', 'roof', 'trunk']) {
@@ -976,7 +977,7 @@ export class CarModel {
     this.baked = true;
     this.group.updateMatrixWorld(true);
     const lights = [this.parts.lightL, this.parts.lightR].filter(Boolean);
-    const stops = new Set([...this.wheels.map((w) => w.pivot), ...lights]);
+    const stops = new Set([...this.wheels.map((w) => w.pivot), ...lights, this.contact].filter(Boolean));
     bakeInto(this.group, stops);
     for (const l of lights) if (l.parent !== this.group) this.group.attach(l);
     for (const w of this.wheels) {
@@ -1090,6 +1091,26 @@ export class CarModel {
     this.tailMat.emissiveIntensity = lerp(this.tailMat.emissiveIntensity, braking ? 2.2 : 0.35, 1 - Math.exp(-dt * 20));
     const lightsOn = this.lightsOn ? 2.5 : 0.18;
     this.lightMatL.emissiveIntensity = lightsOn; this.lightMatR.emissiveIntensity = lightsOn;
+    // contact shadow sits on the ground under the wheels, gone once all four are airborne
+    if (this.contact) {
+      let y = 0, n = 0;
+      for (let i = 0; i < 4; i++) if (v.wheels[i].contact) { y += this.wheels[i].pivot.position.y; n++; }
+      this.contact.visible = n > 0;
+      if (n) this.contact.position.y = y / n - this.dims.r + 0.025;
+    }
+  }
+
+  // gfx: soft dark footprint under the car (cheap stand-in for ambient occlusion)
+  addContactShadow() {
+    const d = this.dims;
+    const m = new THREE.Mesh(contactGeo(), contactMat());
+    m.scale.set(d.W * 1.22, 1, d.L * 1.08);
+    m.position.set(0, d.wcY - d.r + 0.025, (d.zF + d.zR) / 2);
+    m.name = 'contactShadow'; m.renderOrder = 1;
+    // callers flip castShadow on every mesh of the car; this decal must never cast
+    Object.defineProperty(m, 'castShadow', { get: () => false, set: () => {} });
+    this.group.add(m);
+    this.contact = m;
   }
 
   setStaticWheels(steer = 0) {
@@ -1110,6 +1131,24 @@ export class CarModel {
     });
     this.paintMat.dispose();
   }
+}
+
+let CS = null;
+function contactGeo() { return new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2); }
+function contactMat() {
+  if (CS) return CS;
+  // superellipse footprint, darkest under the body, fading out past the wheels
+  const N = 64, data = new Uint8Array(N * N * 4);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const x = Math.abs((i + 0.5) / N * 2 - 1), y = Math.abs((j + 0.5) / N * 2 - 1);
+    const r = Math.pow(Math.pow(x, 3.2) + Math.pow(y, 3.2), 1 / 3.2);
+    const a = Math.pow(Math.max(0, 1 - r), 1.6) * 1.25;
+    const v = Math.min(255, a * 255);
+    data.set([v, v, v, 255], (j * N + i) * 4);
+  }
+  const t = new THREE.DataTexture(data, N, N); t.magFilter = t.minFilter = THREE.LinearFilter; t.needsUpdate = true;
+  CS = new THREE.MeshBasicMaterial({ color: 0x000000, alphaMap: t, transparent: true, opacity: 0.62, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6, fog: true });
+  return CS;
 }
 
 let AM = null;

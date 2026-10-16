@@ -89,7 +89,7 @@ class Game {
     this.sound.setVolumes({ master: sv.settings.master, music: sv.settings.music, sfx: sv.settings.sfx });
     // renderer
     this.quality = this.pickQuality();
-    const renderer = (this.renderer = new THREE.WebGLRenderer({ antialias: this.quality !== 'low', powerPreference: 'high-performance', stencil: false }));
+    const renderer = (this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', stencil: false }));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
@@ -179,6 +179,7 @@ class Game {
       this.worldScene = new THREE.Scene();
       this.env = new Environment(this.renderer, this.worldScene, this.quality);
       this.particles = new Particles(this.worldScene, this.quality);
+      this.env.probeHide = [null, this.particles.soft.points, this.particles.glow.points]; // gfx: [0] = player car, set per frame
       this.skids = new SkidMarks(this.worldScene);
     }
     this.track = new Track(m);
@@ -972,6 +973,7 @@ class Game {
       const s = this.run.maxS;
       const q = v.lastQuery;
       const inTunnel = this.track.tunnel[q.idx] && Math.abs(q.d) < q.halfW + 2 ? 1 : 0;
+      this.env.probeHide[0] = this.run.model ? this.run.model.group : null;
       this.env.update(this.paused ? 0 : dt, this.track, Math.max(s, q.s), this.camera, this.run.model ? this.run.model.group.position : this.camera.position, inTunnel);
       this.world.update2(dt, this.camera.position, this.env.look);
       this.autoQuality(dt);
@@ -990,6 +992,7 @@ class Game {
       if (this.camera.position.y < th + 0.8) this.camera.position.y = th + 0.8;
       this.camera.lookAt(c.x - 1.5 * Math.cos(a), c.y + 0.6, c.z + 1.5 * Math.sin(a));
       this.camera.fov = 46; this.camera.updateProjectionMatrix();
+      this.env.probeHide[0] = this.menuCar.group;
       this.env.update(dt, this.track, 40, this.camera, c, 0);
       if (audio()?.ambience) audio().ambience.update(dt, { wind: 0.45, birds: 0.8, trees: 0.7 });
       audio()?.setReverb(0);

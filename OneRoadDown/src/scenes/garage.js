@@ -38,20 +38,46 @@ export class Garage {
     this.makeEnv();
   }
 
+  // Studio reflections: long HDR softboxes on the ceiling and bright horizontal strips on
+  // the walls at door height, so highlights run the length of the bodywork the way they
+  // do in a photo studio. Two variants (dark workshop, bright showroom) of the same size,
+  // so switching them never recompiles a shader.
   makeEnv() {
     const pm = new THREE.PMREMGenerator(this.renderer);
-    const sc = new THREE.Scene();
-    const box = new THREE.Mesh(new THREE.BoxGeometry(20, 8, 20), new THREE.MeshBasicMaterial({ color: 0x2a2a2a, side: THREE.BackSide }));
-    sc.add(box);
-    for (const [x, z] of [[-4, 0], [4, 0], [0, -6], [0, 6]]) {
-      const p = new THREE.Mesh(new THREE.PlaneGeometry(6, 1.2), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-      p.rotation.x = Math.PI / 2; p.position.set(x, 3.9, z); sc.add(p);
-    }
-    const door = new THREE.Mesh(new THREE.PlaneGeometry(8, 4), new THREE.MeshBasicMaterial({ color: 0x8ea2b4 }));
-    door.position.set(0, 1, 9.9); door.rotation.y = Math.PI; sc.add(door);
-    this.envTex = pm.fromScene(sc, 0.04).texture;
+    const build = (bright) => {
+      const sc = new THREE.Scene();
+      const basic = (hex, k = 1) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.DoubleSide });
+      const box = new THREE.Mesh(new THREE.BoxGeometry(22, 9, 22), basic(bright ? 0x9a9894 : 0x232324, 1));
+      box.material.side = THREE.BackSide; sc.add(box);
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(22, 22), basic(bright ? 0x4a4c50 : 0x121214));
+      floor.rotation.x = -Math.PI / 2; floor.position.y = -1.0; sc.add(floor);
+      const panel = (w, h, k, x, y, z, rx, ry, hex = 0xffffff) => {
+        const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), basic(hex, k));
+        p.position.set(x, y, z); p.rotation.set(rx, ry, 0); sc.add(p);
+      };
+      // ceiling: a big key softbox over the car, two long strips either side (along z and x)
+      panel(5, 3, bright ? 5 : 4, 0, 4.4, 0, Math.PI / 2, 0);
+      for (const x of [-3.2, 3.2]) panel(0.5, 14, bright ? 7 : 6, x, 4.4, 0, Math.PI / 2, 0);
+      for (const z of [-4.5, 4.5]) panel(12, 0.4, bright ? 5 : 4, 0, 4.4, z, Math.PI / 2, 0);
+      // walls: long horizontal strips at belt-line height + a taller fill card each side
+      for (const s of [-1, 1]) {
+        panel(16, 0.35, bright ? 6 : 5, s * 10.9, 1.4, 0, 0, -s * Math.PI / 2);
+        panel(16, 0.25, bright ? 4 : 3, s * 10.9, 2.6, 0, 0, -s * Math.PI / 2);
+        panel(4, 3.5, bright ? 1.6 : 0.9, s * 10.9, 1.5, s * 4, 0, -s * Math.PI / 2, 0xfff1e0);
+        panel(16, 0.35, bright ? 6 : 4, 0, 1.4, s * 10.9, 0, s > 0 ? Math.PI : 0);
+      }
+      // the door / glass front: cool daylight
+      panel(10, 4, bright ? 2.5 : 1.6, 0, 1.2, 10.85, 0, Math.PI, 0x9fb4c6);
+      const t = pm.fromScene(sc, 0.02).texture;
+      sc.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+      return t;
+    };
+    this.envWorkshop = build(false);
+    this.envShowroom = build(true);
+    this.envTex = this.envWorkshop;
     this.scene.environment = this.envTex;
-    this.scene.environmentIntensity = 0.55;
+    this.scene.environmentIntensity = 0.7;
+    pm.dispose();
   }
 
   // ------------------------------------------------------------- room
@@ -306,6 +332,8 @@ export class Garage {
     if (this.showroom) this.showroom.visible = mode === 'dealer';
     this.scene.fog.near = mode === 'dealer' ? 30 : 18; this.scene.fog.far = mode === 'dealer' ? 70 : 40;
     this.scene.background.setHex(mode === 'dealer' ? 0xd7dde2 : 0x0b0b0c);
+    this.scene.environment = mode === 'dealer' ? this.envShowroom : this.envWorkshop;
+    this.scene.environmentIntensity = mode === 'dealer' ? 0.8 : 0.7;
     this.orbit.r = mode === 'dealer' ? 7.4 : 6.6;
     if (mode !== 'dealer') this.setSideCars([]);
   }
