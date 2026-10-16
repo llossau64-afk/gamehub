@@ -934,7 +934,10 @@ export class CarModel {
     const md = this.car.model;
     const c = color ?? md.paint;
     const fresh = makePaint(c, finish || (md.sport ? 'metallic' : 'solid'), {});
-    fresh.userData.wear = this.paintMat.userData.wear;
+    // carry the wear over, keep the new finish's flake / reflection settings
+    const ow = this.paintMat.userData.wear, nw = fresh.userData.wear;
+    for (const k of ['uDirt', 'uRust', 'uScratch']) nw[k].value = ow[k].value;
+    nw.uDirtColor.value.copy(ow.uDirtColor.value);
     const old = this.paintMat;
     this.group.traverse((o) => { if (o.isMesh && o.material === old) o.material = fresh; });
     if (this.oddMat === old) this.oddMat = fresh;

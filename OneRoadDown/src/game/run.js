@@ -19,6 +19,7 @@ const FLAME_GEO = new THREE.ConeGeometry(0.095, 0.62, 12, 1, true).translate(0, 
 const FLAME_CORE = new THREE.ConeGeometry(0.05, 0.26, 10, 1, true).translate(0, -0.13, 0).rotateX(Math.PI);
 const FLAME_OUT = new THREE.MeshBasicMaterial({ color: 0xff7a24, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
 const FLAME_IN = new THREE.MeshBasicMaterial({ color: 0x8fc4ff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+const DIRT = new THREE.Color(0x8a7a60);
 const PICK_COLORS = { cash: 0x9fd07a, fuel: 0xe05a3a, repair: 0x5aa0e0, repairL: 0x5aa0e0, rare: 0xe2b04a, crate: 0xe2b04a };
 
 export class Run {
@@ -30,6 +31,7 @@ export class Run {
     this.shake = 0;
     this.pickMeshes = new Map();
     this.tmp = { f: V(), u: V(), r: V(), p: V(), q: new THREE.Quaternion() };
+    game.ui.on('mapMode', () => this.cycleMap());
   }
 
   get track() { return this.g.track; }
@@ -112,6 +114,7 @@ export class Run {
     this.placeIntroCamera();
     g.ui.hudInit(this.best, sv.cash);
     g.ui.only('hud', 'touch');
+    if (!this.cfg) this.initMap();
     if (this.engine) { this.engine.setRunning(false); }
     audio()?.music?.setMode('drive');
     audio()?.setReverb(0);
@@ -169,6 +172,7 @@ export class Run {
       else { v.input.throttle = 0; v.input.brake = 0; v.input.steer = 0; v.input.handbrake = 1; v.input.boost = 0; v.gear = 1; }
     }
     if (g.input.wasPressed('KeyC')) this.cycleCamera();
+    if (g.input.wasPressed('KeyM')) this.cycleMap();
     // physics
     if (!this.countdown || this.go) v.update(dt);
     else { v.update(dt * 0.5); v.vel.x = 0; v.vel.z = 0; v.angVel.y = 0; }
@@ -219,6 +223,42 @@ export class Run {
     v.input.throttle = v.speed < vt ? 1 : 0;
     v.input.brake = v.speed > vt + 2 ? 1 : 0;
     v.input.handbrake = 0; v.input.boost = 0;
+  }
+
+  // ------------------------------------------------------------------ minimap
+  initMap() {
+    const t = this.track, race = !!this.cfg;
+    const span = Math.max(1, t.length - this.startS);
+    const regions = race ? [] : t.m.biomes.slice(1).map((b) => b.start).filter((s) => s > this.startS && s < t.length);
+    this.mapTicks = race ? (t.loop && this.laps > 1 ? Array.from({ length: this.laps - 1 }, (_, i) => (i + 1) / this.laps) : []) : regions.map((s) => (s - this.startS) / span);
+    this.g.ui.mapMode(this.g.save.data.settings.minimap || 'heading');
+    this.g.ui.mapInit(t, { race, loop: t.loop, startS: race ? (t.loop ? 0 : this.startS) : this.startS, endS: t.length, marks: race ? (t.loop ? [t.length / 3, t.length * 2 / 3] : []) : regions });
+  }
+
+  cycleMap() {
+    const sv = this.g.save.data, modes = ['heading', 'north', 'full', 'off'];
+    const cur = sv.settings.minimap || 'heading';
+    sv.settings.minimap = modes[(modes.indexOf(cur) + 1) % modes.length];
+    this.g.save.save();
+    this.g.ui.mapMode(sv.settings.minimap);
+    this.g.ui.notice({ heading: 'HEADING UP', north: 'NORTH UP', full: 'WHOLE TRACK', off: 'MAP OFF' }[sv.settings.minimap], 'MINIMAP · M', false, 900);
+  }
+
+  // what the minimap shows this frame (one reused object, no garbage)
+  mapState() {
+    const v = this.vehicle, t = this.track, st = this._mm || (this._mm = { dots: [], dotN: 0, ticks: null });
+    // the view heading: where the camera looks (chase, hood, cockpit alike)
+    const e = this.g.camera.matrixWorld.elements;
+    st.fx = -e[8]; st.fz = -e[10];
+    if (st.fx * st.fx + st.fz * st.fz < 1e-6) { const f = v.getForward(this.tmp.f); st.fx = f.x; st.fz = f.z; }
+    st.x = v.pos.x; st.z = v.pos.z; st.speed = v.speed; st.s = this.maxS;
+    st.picks = t.pickups; st.collected = this.collected;
+    const span = Math.max(1, t.length - this.startS);
+    st.progress = clamp((this.maxS - this.startS) / span, 0, 1);
+    st.best = this.best > 0 ? this.best / span : 0;
+    st.ticks = this.mapTicks;
+    st.dotN = 0;
+    return st;
   }
 
   cycleCamera() {
@@ -435,7 +475,7 @@ export class Run {
       const mark = si.group === 0 ? clamp(w.slip * 1.2, 0, 1) : si.group > 0 ? clamp(0.18 + speed / 60 + w.slip * 0.5, 0, 0.7) * (speed > 1 ? 1 : 0) : 0;
       g.skids.add(w.i, w.gx, cy, w.gz, right.x, right.z, this.model.wheelWidth * 0.8, mark * (si.group === 3 ? 0.6 : 1));
       if (si.dust && speed > 4) {
-        const col = si.snow ? null : g.env.look ? g.env.look.dirt : new THREE.Color(0x8a7a60);
+        const col = si.snow ? null : g.env.look ? g.env.look.dirt : DIRT;
         if (si.snow) { if (Math.random() < si.dust * dt * 30) P.snowSpray(w.gx, cy, w.gz, v.vel.x, v.vel.z); }
         else P.dust(w.gx, cy, w.gz, v.vel.x, v.vel.z, si.dust * dt * clamp(speed / 6, 0, 3) * 3, col);
         dirty += si.dust;
@@ -490,11 +530,13 @@ export class Run {
     const f = v.getForward(this.tmp.f), up = v.getUp(this.tmp.u);
     const speed = v.speed;
     const p = v.pos;
-    const flatF = new THREE.Vector3(f.x, 0, f.z).normalize();
+    // camera scratch vectors (no per-frame garbage)
+    const C = this.camTmp || (this.camTmp = { flatF: V(), velDir: V(), want: V(), look: V(), side: V(), a: V(), b: V() });
+    const flatF = C.flatF.set(f.x, 0, f.z).normalize();
     // heading the camera follows: blend between car nose and travel direction
-    const velDir = new THREE.Vector3(v.vel.x, 0, v.vel.z);
+    const velDir = C.velDir.set(v.vel.x, 0, v.vel.z);
     if (speed > 6 && v.fwdSpeed > 0) { velDir.normalize(); flatF.lerp(velDir, 0.35).normalize(); }
-    if (v.gear === -1 && v.fwdSpeed < -2 && !this.countdown) flatF.negate().lerp(new THREE.Vector3(f.x, 0, f.z).normalize(), 0.0);
+    if (v.gear === -1 && v.fwdSpeed < -2 && !this.countdown) flatF.negate();
     const len = m.dims.L;
     const air = v.wheelsOnGround === 0 ? 1 : 0;
     this.airCam = damp(this.airCam || 0, air, 2, dt);
@@ -510,8 +552,8 @@ export class Run {
       const far = this.camMode === 'far';
       const back = (far ? 8.8 : 4.4 + len * 0.36) + this.airCam * 1.6 + clamp(speed / 40, 0, 1) * 0.8;
       const height = (far ? 3.3 : 1.55 + m.dims.H * 0.32) + this.airCam * 0.8;
-      let want = new THREE.Vector3(p.x - flatF.x * back, p.y + height, p.z - flatF.z * back);
-      let look = new THREE.Vector3(p.x + flatF.x * 3.5, p.y + 0.75 + m.dims.H * 0.15, p.z + flatF.z * 3.5);
+      let want = C.want.set(p.x - flatF.x * back, p.y + height, p.z - flatF.z * back);
+      const look = C.look.set(p.x + flatF.x * 3.5, p.y + 0.75 + m.dims.H * 0.15, p.z + flatF.z * 3.5);
       // look a little where the car is going (into the corner), not only where it points
       if (speed > 3 && !this.countdown) {
         const la = Math.min(6, speed * 0.12) / Math.max(speed, 1e-3);
@@ -521,9 +563,9 @@ export class Run {
         // intro: start beside the car, swing in behind
         this.camIntro = Math.min(1, this.camIntro + dt * (this.go ? 1.2 : 0.22));
         const k = smoothstep(0, 1, this.camIntro);
-        const side = new THREE.Vector3(p.x + flatF.x * 6 + flatF.z * 4.5, p.y + 1.3, p.z + flatF.z * 6 - flatF.x * 4.5);
+        const side = C.side.set(p.x + flatF.x * 6 + flatF.z * 4.5, p.y + 1.3, p.z + flatF.z * 6 - flatF.x * 4.5);
         want = side.lerp(want, k);
-        look.lerp(new THREE.Vector3(p.x, p.y + 0.5, p.z), 1 - k);
+        look.lerp(C.a.set(p.x, p.y + 0.5, p.z), 1 - k);
       }
       const lam = this.countdown ? 3 : 7;
       this.camPos.x = damp(this.camPos.x, want.x, lam, dt);
@@ -567,16 +609,16 @@ export class Run {
       pv.set(v.vel.x, v.vel.y, v.vel.z);
       const rgt = this.tmp.r || (this.tmp.r = new THREE.Vector3());
       rgt.crossVectors(up, f).normalize();
-      const acc = dt > 0 ? { x: ax * rgt.x + ay * rgt.y + az * rgt.z, y: ax * up.x + ay * up.y + az * up.z, z: ax * f.x + ay * f.y + az * f.z } : { x: 0, y: 0, z: 0 };
-      hb.x = damp(hb.x, clamp(-(acc.x || 0) * 0.006, -0.06, 0.06), 6, dt);
-      hb.z = damp(hb.z, clamp(-(acc.z || 0) * 0.004, -0.05, 0.05), 6, dt);
-      hb.y = damp(hb.y, clamp(-(acc.y || 0) * 0.002, -0.03, 0.03), 9, dt);
+      const accX = dt > 0 ? ax * rgt.x + ay * rgt.y + az * rgt.z : 0, accY = dt > 0 ? ax * up.x + ay * up.y + az * up.z : 0, accZ = dt > 0 ? ax * f.x + ay * f.y + az * f.z : 0;
+      hb.x = damp(hb.x, clamp(-(accX || 0) * 0.006, -0.06, 0.06), 6, dt);
+      hb.z = damp(hb.z, clamp(-(accZ || 0) * 0.004, -0.05, 0.05), 6, dt);
+      hb.y = damp(hb.y, clamp(-(accY || 0) * 0.002, -0.03, 0.03), 9, dt);
       hb.yaw = damp(hb.yaw, (v.wheels[0].steer + v.wheels[1].steer) * 0.5 * 0.9, 4, dt);
       const ex = eye[0] + (fp ? hb.x : 0), ey = eye[1] + (fp ? hb.y : 0), ez = eye[2] + (fp ? hb.z : 0);
-      const wp = m.group.localToWorld(new THREE.Vector3(ex, ey, ez));
+      const wp = m.group.localToWorld(C.a.set(ex, ey, ez));
       cam.position.copy(wp);
       const ya = fp ? hb.yaw : 0;
-      const ahead = m.group.localToWorld(new THREE.Vector3(ex - (fp ? 0.05 : eye[0] * 0.4) + Math.sin(ya) * 20, ey - (fp ? 1.1 : 0.15), ez + Math.cos(ya) * 20));
+      const ahead = m.group.localToWorld(C.b.set(ex - (fp ? 0.05 : eye[0] * 0.4) + Math.sin(ya) * 20, ey - (fp ? 1.1 : 0.15), ez + Math.cos(ya) * 20));
       cam.up.set(up.x * 0.25, 1, up.z * 0.25).normalize();
       cam.lookAt(ahead);
       cam.up.set(0, 1, 0);
@@ -806,6 +848,7 @@ export class Run {
       boost: v.boost, overboost: v.overboost,
       lowFuel: v.fuel / v.p.fuel < 0.15, engineWarn: v.dmg.engine < 0.4, brakeWarn: v.dmg.brakes < 0.4 || v.brakeTemp / v.p.brakeFade > 0.8, hot: v.heat > 0.95,
     });
+    g.ui.mapUpdate(dt, this.mapState());
     this.hudT = (this.hudT || 0) + dt;
     if (this.hudT < 0.08) return;
     this.hudT = 0;

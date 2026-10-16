@@ -98,7 +98,7 @@ export function makePaint(color, finish = 'solid', wear = {}) {
     color, roughness: p.rough, metalness: p.metal, clearcoat: f.clear > 0 ? 1 : 0.15, clearcoatRoughness: p.cc,
     sheen: f.sheen ? 0.6 : 0, sheenColor: new THREE.Color(0x8fa0ff), sheenRoughness: 0.35,
   });
-  patchWear(m, { ...wear, flake: p.flake });
+  patchWear(m, { ...wear, flake: p.flake, envBoost: 1.35 });
   return m;
 }
 
@@ -110,6 +110,7 @@ export function patchWear(m, wear = {}) {
     uScratch: { value: wear.scratch || 0 },
     uDirtColor: { value: new THREE.Color(wear.dirtColor || 0x6a5a44) },
     uFlake: { value: wear.flake || 0 },
+    uEnvBoost: { value: wear.envBoost ?? 1 },
   };
   m.defines = { ...(m.defines || {}), USE_UV: '' };
   m.onBeforeCompile = (sh) => {
@@ -119,7 +120,7 @@ export function patchWear(m, wear = {}) {
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvObjY = position.y; vObjP = position;');
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-uniform sampler2D uMask; uniform float uDirt; uniform float uRust; uniform float uScratch; uniform vec3 uDirtColor; uniform float uFlake;
+uniform sampler2D uMask; uniform float uDirt; uniform float uRust; uniform float uScratch; uniform vec3 uDirtColor; uniform float uFlake; uniform float uEnvBoost;
 varying float vObjY; varying vec3 vObjP;
 vec3 flakeHash(vec3 p) { p = fract(p * vec3(0.1031, 0.1030, 0.0973)); p += dot(p, p.yxz + 33.33); return fract((p.xxy + p.yxx) * p.zyx); }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
@@ -144,6 +145,14 @@ vec3 flakeHash(vec3 p) { p = fract(p * vec3(0.1031, 0.1030, 0.0973)); p += dot(p
     float fk = uFlake * (1.0 - smoothstep(0.35, 1.1, fw)) * (1.0 - wearF);
     if (fk > 0.0) normal = normalize(normal + (flakeHash(floor(fp)) - 0.5) * 0.55 * fk);
   }`);
+    // reflections a touch hotter than physical on paint so the surroundings read on it
+    sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_maps>', `#include <lights_fragment_maps>
+  #if defined( RE_IndirectSpecular )
+  radiance *= uEnvBoost;
+  #ifdef USE_CLEARCOAT
+  clearcoatRadiance *= uEnvBoost;
+  #endif
+  #endif`);
     if (sh.fragmentShader.includes('#include <lights_physical_fragment>')) {
       sh.fragmentShader = sh.fragmentShader.replace('#include <lights_physical_fragment>', `#include <lights_physical_fragment>
   #ifdef USE_CLEARCOAT

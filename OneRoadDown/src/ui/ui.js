@@ -3,6 +3,7 @@
 
 import { fmtMoney, fmtKm, clamp, rng } from '../core/util.js';
 import { Speedo } from './speedo.js';
+import { Minimap, MAP_MODES } from './minimap.js';
 import { audio } from '../audio/audio.js';
 
 const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
@@ -193,13 +194,15 @@ export class UI {
       <div class="fps"></div>
       <div class="rh"><div class="rpos"><b>1</b><small>/8</small></div><div class="rinfo"><div class="rlap">LAP <b>1/3</b></div><div class="rtime">0:00.000</div><div class="rbest">BEST <b>—</b></div></div></div>
       <div class="rboard"></div>
-      <canvas class="rmap" width="200" height="200"></canvas>
+      <canvas class="mmap live" title="MAP · M"></canvas>
       <div class="rnitro"><i></i><span>TURBO <kbd>SHIFT</kbd></span></div>
     </div>`);
     $(hud, '.pausebtn').addEventListener('click', () => this.emit('pause'));
     r.appendChild(hud);
     this.screens.hud = hud;
     this.speedo = new Speedo($(hud, 'canvas.speedo'));
+    this.minimap = new Minimap($(hud, 'canvas.mmap'));
+    $(hud, 'canvas.mmap').addEventListener('pointerdown', (e) => { e.stopPropagation(); this.emit('mapMode'); });
     // touch controls
     const touch = h(`<div id="touch" class="screen">
       <div class="tbtn l" data-touch="left"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
@@ -458,29 +461,9 @@ export class UI {
   // ------------------------------------------------------------- race HUD
   raceHudInit(n, laps, track) {
     const H2 = this.screens.hud;
-    this._r = { pos: $(H2, '.rpos b'), n: $(H2, '.rpos small'), lap: $(H2, '.rlap'), time: $(H2, '.rtime'), best: $(H2, '.rbest b'), board: $(H2, '.rboard'), map: $(H2, '.rmap'), nitro: $(H2, '.rnitro'), nitroI: $(H2, '.rnitro i'), key: '' };
+    this._r = { pos: $(H2, '.rpos b'), n: $(H2, '.rpos small'), lap: $(H2, '.rlap'), time: $(H2, '.rtime'), best: $(H2, '.rbest b'), board: $(H2, '.rboard'), nitro: $(H2, '.rnitro'), nitroI: $(H2, '.rnitro i'), key: '' };
     this._r.n.textContent = '/' + n;
     $(H2, '.feed').innerHTML = '';
-    // minimap: the track outline, drawn once
-    const c = this._r.map, g = c.getContext('2d');
-    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
-    for (let j = 0; j < track.N; j += 4) { x0 = Math.min(x0, track.px[j]); x1 = Math.max(x1, track.px[j]); z0 = Math.min(z0, track.pz[j]); z1 = Math.max(z1, track.pz[j]); }
-    const sc = 168 / Math.max(x1 - x0, z1 - z0, 1);
-    const ox = 100 - (x0 + x1) / 2 * sc, oz = 100 + (z0 + z1) / 2 * sc;
-    this._r.tf = (x, z) => [ox + x * sc, oz - z * sc];
-    const bg = document.createElement('canvas'); bg.width = bg.height = 200;
-    const b2 = bg.getContext('2d');
-    b2.lineJoin = 'round'; b2.lineCap = 'round';
-    for (const [w, col] of [[9, 'rgba(0,0,0,.55)'], [4.5, 'rgba(235,230,218,.85)']]) {
-      b2.strokeStyle = col; b2.lineWidth = w; b2.beginPath();
-      for (let j = 0; j < track.N; j += 3) { const [x, y] = this._r.tf(track.px[j], track.pz[j]); j ? b2.lineTo(x, y) : b2.moveTo(x, y); }
-      if (track.loop) b2.closePath();
-      b2.stroke();
-    }
-    const [sx, sy] = this._r.tf(track.px[0], track.pz[0]);
-    b2.fillStyle = '#e2a33b'; b2.fillRect(sx - 4, sy - 4, 8, 8);
-    this._r.bg = bg;
-    g.clearRect(0, 0, 200, 200); g.drawImage(bg, 0, 0);
   }
   raceHud(d) {
     const E = this._r;
@@ -497,14 +480,13 @@ export class UI {
     E.nitroI.style.width = (d.nitroOn ? 100 : d.nitro * 100).toFixed(0) + '%';
     E.nitro.classList.toggle('ready', d.nitro >= 1 && !d.nitroOn);
     E.nitro.classList.toggle('on', d.nitroOn);
-    const g = E.map.getContext('2d');
-    g.clearRect(0, 0, 200, 200); g.drawImage(E.bg, 0, 0);
-    for (const p of [...d.dots].sort((a, b) => a.me - b.me)) {
-      const [x, y] = E.tf(p.x, p.z);
-      g.fillStyle = p.me ? '#ffffff' : p.color; g.strokeStyle = '#000'; g.lineWidth = 2;
-      g.beginPath(); g.arc(x, y, p.me ? 6 : 4.5, 0, 6.283); g.fill(); g.stroke();
-    }
   }
+
+  // ------------------------------------------------------------- minimap
+  mapInit(track, o) { this.minimap.init(track, o); }
+  mapUpdate(dt, st) { this.minimap.update(dt, st); }
+  mapMode(m) { this.minimap.setMode(m); }
+  mapResize() { this.minimap.resize(); }
 
   // ------------------------------------------------------------- track select
   raceSelect(d) {
@@ -553,12 +535,12 @@ export class UI {
     g.lineJoin = g.lineCap = 'round';
     for (const [w, col] of [[big ? 7 : 5, 'rgba(0,0,0,.5)'], [big ? 3 : 2.2, 'rgba(235,230,218,.9)']]) {
       g.strokeStyle = col; g.lineWidth = w; g.beginPath();
-      pts.forEach(([x, z], i) => { const px = W / 2 + (x - (x0 + x1) / 2) * sc, py = H / 2 - (z - (z0 + z1) / 2) * sc; i ? g.lineTo(px, py) : g.moveTo(px, py); });
+      pts.forEach(([x, z], i) => { const px = W / 2 + (x - (x0 + x1) / 2) * sc, py = H / 2 + (z - (z0 + z1) / 2) * sc; i ? g.lineTo(px, py) : g.moveTo(px, py); });
       if (loop) g.closePath();
       g.stroke();
     }
     const [x, z] = pts[0];
-    g.fillStyle = '#e2a33b'; g.fillRect(W / 2 + (x - (x0 + x1) / 2) * sc - 3, H / 2 - (z - (z0 + z1) / 2) * sc - 3, 6, 6);
+    g.fillStyle = '#e2a33b'; g.fillRect(W / 2 + (x - (x0 + x1) / 2) * sc - 3, H / 2 + (z - (z0 + z1) / 2) * sc - 3, 6, 6);
   }
 
   // ------------------------------------------------------------- car carousel (vehicles / dealer)
@@ -768,7 +750,9 @@ export class UI {
   closeModal() { this.screens.modal.classList.remove('show'); this.emit('modalClosed'); }
   get modalOpen() { return this.screens.modal.classList.contains('show'); }
 
-  settings(set, onChange) {
+  settings(set0, onChange0) {
+    const set = { minimap: 'heading', ...set0 };
+    const onChange = (k, v) => { if (k === 'minimap') this.mapMode(v); onChange0(k, v); };
     const seg = (key, opts) => `<div class="seg" data-k="${key}">${opts.map(([v, l]) => `<button data-v="${v}" class="${String(set[key]) === String(v) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
     const rng2 = (key) => `<input type="range" min="0" max="1" step="0.05" value="${set[key]}" data-k="${key}">`;
     this.openModal('SETTINGS', `
@@ -777,6 +761,7 @@ export class UI {
       <div class="srow"><label>SOUND EFFECTS</label>${rng2('sfx')}</div>
       <div class="srow"><label>GRAPHICS</label>${seg('quality', [['auto', 'AUTO'], ['low', 'LOW'], ['medium', 'MEDIUM'], ['high', 'HIGH']])}</div>
       <div class="srow"><label>CAMERA</label>${seg('camera', [['chase', 'CHASE'], ['far', 'FAR'], ['hood', 'HOOD'], ['cockpit', 'FIRST PERSON']])}</div>
+      <div class="srow"><label>MINIMAP <small style="opacity:.6">[M]</small></label>${seg('minimap', [['heading', 'HEADING UP'], ['north', 'NORTH UP'], ['full', 'WHOLE TRACK'], ['off', 'OFF']])}</div>
       <div class="srow"><label>SPEED UNITS</label>${seg('units', [['kmh', 'KM/H'], ['mph', 'MPH']])}</div>
       <div class="srow"><label>DRIVING ASSIST</label>${seg('assist', [['true', 'ON'], ['false', 'OFF']])}</div>
       <div class="srow"><label>CAMERA SHAKE</label>${seg('shake', [['1', 'ON'], ['0.4', 'LOW'], ['0', 'OFF']])}</div>

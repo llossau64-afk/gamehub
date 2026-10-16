@@ -1059,11 +1059,16 @@ def build_interior(pr, cid, surf):
 def main():
     reset_scene()
     init_mats()
+    import car_hifi
+    import hifi_designs
     all_objs = []
     for cid, c in CARS.items():
         if ONLY and cid not in ONLY:
             continue
-        objs = build_car(c)
+        if cid in hifi_designs.DESIGNS and not os.environ.get('OLD'):
+            objs = car_hifi.build_hifi(c, sys.modules[__name__], hifi_designs.DESIGNS[cid])
+        else:
+            objs = build_car(c)
         root = bpy.data.objects.new(cid, None)
         bpy.context.scene.collection.objects.link(root)
         tris = 0
@@ -1074,15 +1079,16 @@ def main():
                 tris += len(o.data.loop_triangles)
         print(f'  {cid:12s} {len(objs):3d} parts {tris:6d} tris')
         all_objs += objs + [root]
-    path = os.path.join(OUT, 'cars.glb')
+    path = os.path.join(OUT, os.environ.get('GLB', 'cars.glb'))
     bpy.ops.object.select_all(action='DESELECT')
     for o in all_objs:
         o.select_set(True)
     bpy.context.view_layer.objects.active = all_objs[0]
     bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True, export_apply=True,
-                              export_normals=False, export_lights=False, export_yup=True, export_texcoords=True,
+                              export_normals=True, export_lights=False, export_yup=True, export_texcoords=True,
                               export_materials='EXPORT')
     print('wrote', path, os.path.getsize(path) // 1024, 'KB')
 
 
-main()
+if __name__ == '__main__':
+    main()

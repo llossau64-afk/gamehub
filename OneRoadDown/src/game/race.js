@@ -132,6 +132,7 @@ export class Race extends Run {
     this.finishOrder = [];
     this.resultShown = false;
     g.ui.raceHudInit(this.field.length, this.laps, this.track);
+    this.initMap();
     this.syncBots(0);
     this.syncModel(0.016);
     this.placeIntroCamera();
@@ -162,13 +163,14 @@ export class Race extends Run {
     // on the grid: held on the handbrake (a held foot brake at standstill engages reverse)
     else { v.input.throttle = 0; v.input.brake = 0; v.input.steer = 0; v.input.handbrake = 1; v.input.boost = 0; v.gear = 1; }
     if (g.input.wasPressed('KeyC')) this.cycleCamera();
+    if (g.input.wasPressed('KeyM')) this.cycleMap();
     if (g.input.wasPressed('KeyR') && this.active && !this.me.finished) this.resetCar(this.me, true);
     // bots decide
     for (const e of this.field) if (e.isBot) { if (this.go) this.aiDrive(e, dt); else this.holdOnGrid(e); }
     // physics for everyone
     for (const e of this.field) {
       const b = e.box, ve = e.vehicle;
-      b.vx = ve.vel.x; b.vy = ve.vel.y; b.vz = ve.vel.z; b.v0 = [b.vx, b.vy, b.vz];
+      b.vx = ve.vel.x; b.vy = ve.vel.y; b.vz = ve.vel.z; const v0 = b.v0 || (b.v0 = [0, 0, 0]); v0[0] = b.vx; v0[1] = b.vy; v0[2] = b.vz;
     }
     for (const e of this.field) {
       if (e.remote) continue;
@@ -278,13 +280,14 @@ export class Race extends Run {
         if (e.isPlayer) this.finish('FINISH', 'RACE COMPLETE', true);
       }
     }
-    const order = [...this.field].sort((a, b) => {
+    const order = this.order && this.order.length === this.field.length ? this.order : (this.order = [...this.field]);
+    for (let i = 0; i < this.field.length; i++) order[i] = this.field[i];
+    order.sort((a, b) => {
       if (a.finished && b.finished) return a.finishTime - b.finishTime;
       if (a.finished) return -1; if (b.finished) return 1;
       return b.progress - a.progress;
     });
-    order.forEach((e, i) => { e.pos = i + 1; });
-    this.order = order;
+    for (let i = 0; i < order.length; i++) order[i].pos = i + 1;
   }
 
   // ------------------------------------------------------------------ AI
@@ -358,7 +361,17 @@ export class Race extends Run {
   botAudio(dt) {
     const a = audio();
     if (!a || !a.ctx) return;
-    const near = this.field.filter((e) => !e.isPlayer).map((e) => ({ e, d: Math.hypot(e.vehicle.pos.x - this.vehicle.pos.x, e.vehicle.pos.z - this.vehicle.pos.z) })).sort((x, y) => x.d - y.d);
+    // reused list, no per-frame objects
+    const near = this.nearBuf || (this.nearBuf = []);
+    let n = 0;
+    for (const e of this.field) {
+      if (e.isPlayer) continue;
+      const it = near[n] || (near[n] = { e: null, d: 0 });
+      it.e = e; it.d = Math.hypot(e.vehicle.pos.x - this.vehicle.pos.x, e.vehicle.pos.z - this.vehicle.pos.z);
+      n++;
+    }
+    near.length = n;
+    near.sort((x, y) => x.d - y.d);
     near.forEach(({ e, d }, i) => {
       const want = i < 2 && d < 120;
       if (want && !e.voice) { e.voice = new EngineVoice(a, e.car); e.voice.setRunning(true); }
@@ -386,9 +399,24 @@ export class Race extends Run {
       pos: me.pos, n: this.field.length, lap: Math.min(this.laps, Math.max(1, me.lap + 1)), laps: this.laps, sprint: !this.track.loop,
       time: fmtTime(this.raceTime), best: fmtTime(me.bestLap), board,
       nitro: this.vehicle.nitro, nitroOn: this.vehicle.nitroT > 0,
-      dots: this.field.map((e) => ({ x: e.vehicle.pos.x, z: e.vehicle.pos.z, me: e.isPlayer, color: e.color })),
       progress: this.track.loop ? null : clamp(me.progress / (this.track.length - this.startS), 0, 1),
     });
+  }
+
+  // minimap: the field as coloured dots, race progress on the rim
+  mapState() {
+    const st = super.mapState(), t = this.track, me = this.me;
+    st.picks = null; st.best = 0;
+    st.progress = t.loop ? clamp(me.progress / (this.laps * t.length), 0, 1) : clamp(me.progress / Math.max(1, t.length - this.startS), 0, 1);
+    let n = 0;
+    for (const e of this.field) {
+      if (e.isPlayer || e.gone || e.left) continue;
+      const d = st.dots[n] || (st.dots[n] = { x: 0, z: 0, color: '' });
+      d.x = e.vehicle.pos.x; d.z = e.vehicle.pos.z; d.color = e.color;
+      n++;
+    }
+    st.dotN = n;
+    return st;
   }
 
   // ------------------------------------------------------------------ ending

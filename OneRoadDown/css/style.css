@@ -390,9 +390,8 @@ body.cockpit #hud canvas.speedo { opacity: 0; }
 .panel { border-radius: 3px; }
 
 /* ---- race HUD: compact, at the edges ------------------------------------------------ */
-#hud .rh, #hud .rboard, #hud .rmap, #hud .rnitro { display: none; }
-body.race-mode #hud .rh, body.race-mode #hud .rboard, body.race-mode #hud .rmap, body.race-mode #hud .rnitro { display: flex; }
-body.race-mode #hud .rmap { display: block; }
+#hud .rh, #hud .rboard, #hud .rnitro { display: none; }
+body.race-mode #hud .rh, body.race-mode #hud .rboard, body.race-mode #hud .rnitro { display: flex; }
 body.race-mode #hud .tl, body.race-mode #hud .tr, body.race-mode #hud .g-fuel, body.race-mode #hud .g-hp { visibility: hidden; }
 #hud .rh { position: absolute; left: var(--pad); top: calc(var(--pad) + env(safe-area-inset-top)); align-items: stretch; gap: 12px; }
 #hud .rpos { font: 700 54px/1 'Cond', sans-serif; color: #fff; text-shadow: 0 2px 14px rgba(0,0,0,.6); display: flex; align-items: baseline; }
@@ -407,7 +406,10 @@ body.race-mode #hud .tl, body.race-mode #hud .tr, body.race-mode #hud .g-fuel, b
 #hud .rboard s { width: 4px; height: 12px; border-radius: 1px; }
 #hud .rboard span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #hud .rboard em { font-style: normal; font-variant-numeric: tabular-nums; opacity: .8; }
-#hud .rmap { position: absolute; left: var(--pad); bottom: calc(var(--pad) + env(safe-area-inset-bottom)); width: 150px; height: 150px; opacity: .92; }
+/* minimap: round, bottom left, both races and mountain runs (tap / M cycles the mode) */
+#hud .mmap { position: absolute; left: var(--pad); bottom: calc(var(--pad) + env(safe-area-inset-bottom)); width: clamp(104px, min(15vw, 26vh), 176px); height: auto; aspect-ratio: 1; border-radius: 50%; box-shadow: 0 2px 16px rgba(0,0,0,.45), 0 0 0 1px rgba(235,230,218,.10); cursor: pointer; touch-action: none; }
+/* touch: above the steering buttons */
+body.touch #hud .mmap { bottom: calc(124px + env(safe-area-inset-bottom)); left: 18px; width: clamp(92px, min(13vw, 24vh), 140px); }
 #hud .rnitro { position: absolute; right: var(--pad); bottom: calc(var(--pad) + 30px + env(safe-area-inset-bottom)); width: 210px; height: 16px; align-items: center; justify-content: center; background: rgba(10,11,12,.6); border-radius: 2px; overflow: hidden; font: 600 11px 'Cond', sans-serif; color: var(--ink2); }
 #hud .rnitro i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #2a6ad0, #6ab8ff); width: 0; }
 #hud .rnitro.ready i { background: linear-gradient(90deg, #2a8ad0, #8fe0ff); }
@@ -416,7 +418,7 @@ body.race-mode #hud .tl, body.race-mode #hud .tr, body.race-mode #hud .g-fuel, b
 #hud .rnitro span { position: relative; z-index: 1; }
 #hud .rnitro kbd { font: inherit; opacity: .7; margin-left: 4px; }
 body.touch #hud .rnitro kbd { display: none; }
-@media (max-width: 760px) { #hud .rboard { width: 150px; } #hud .rboard div { font-size: 11px; } #hud .rmap { width: 110px; height: 110px; } #hud .rpos { font-size: 40px; } }
+@media (max-width: 760px) { #hud .rboard { width: 150px; } #hud .rboard div { font-size: 11px; } #hud .rpos { font-size: 40px; } }
 
 /* ---- track select ------------------------------------------------------------------ */
 #racesel { background: linear-gradient(180deg, rgba(10,11,12,.55), rgba(10,11,12,.8)); }

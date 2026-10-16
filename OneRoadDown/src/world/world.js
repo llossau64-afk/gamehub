@@ -57,6 +57,12 @@ export class World {
   // Load / unload around progress s; build at most `budget` chunks per call.
   update(s, budget = 1) {
     const t = this.track;
+    // nothing to load, unload or build since the wanted window last changed: skip
+    // (this runs every frame; the full pass allocates arrays and walks every chunk)
+    const back0 = t.loop ? Math.min(this.behind + 100, t.length / 2) : this.behind;
+    const fwd0 = t.loop ? Math.min(this.ahead, t.length - back0) : this.ahead;
+    const wkey = Math.floor((s - back0) / CHUNK) * 100003 + Math.floor((s + fwd0) / CHUNK);
+    if (budget <= 1 && !this.job && this.idleKey === wkey && this.idleN === this.chunks.size) return 0;
     let order = [];
     if (t.loop) {
       // circuits: chunks wrap around the start / finish line
@@ -101,6 +107,7 @@ export class World {
       }
       if (this.job.it.next().done) this.job = null;
     }
+    if (!this.job && !order.some((c) => !this.chunks.has(c))) { this.idleKey = wkey; this.idleN = this.chunks.size; } else this.idleKey = null;
     return order.length;
   }
 
