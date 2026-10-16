@@ -118,6 +118,7 @@ class Game {
     this.garage.bindPointer(renderer.domElement);
     ui.setLoad(0.9, 'STARTING ENGINE…');
     this.setupMenuScene();
+    this.env.probeHide[0] = this.menuCar.group;
     this.env.update(0.016, this.track, 30, this.camera, this.menuCar.group.position, 0);
     // lights that come and go during play exist from the start: adding a light later
     // changes every shader's light count and recompiles them all mid-race (a freeze)

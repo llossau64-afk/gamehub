@@ -483,10 +483,26 @@ def knife(bm, poly, fr, filt=None, sel=None):
     Returns the set of faces inside the outline."""
     n = len(poly)
     O, e1, e2, dv = fr
+    P2 = np.array(poly, float)
+    glo, ghi = P2.min(0) - 0.08, P2.max(0) + 0.08
+
+    def box(f):
+        uv = [to2d(fr, ug(v.co)) for v in f.verts]
+        us = [q[0] for q in uv]; vs = [q[1] for q in uv]
+        return min(us), max(us), min(vs), max(vs)
+
+    cand = {}
+    for f in bm.faces:
+        if not face_ok(f, fr, filt):
+            continue
+        b = box(f)
+        if b[1] < glo[0] or b[0] > ghi[0] or b[3] < glo[1] or b[2] > ghi[1]:
+            continue
+        cand[f] = b
     for k in range(n):
-        a = np.array(poly[k]); b = np.array(poly[(k + 1) % n])
-        lo = np.minimum(a, b) - 0.06
-        hi = np.maximum(a, b) + 0.06
+        a = P2[k]; b = P2[(k + 1) % n]
+        lo = np.minimum(a, b) - 0.03
+        hi = np.maximum(a, b) + 0.03
         pa = O + e1 * a[0] + e2 * a[1]
         pb = O + e1 * b[0] + e2 * b[1]
         no = np.cross(pb - pa, dv)
@@ -494,27 +510,22 @@ def knife(bm, poly, fr, filt=None, sel=None):
         if ln < 1e-9:
             continue
         no /= ln
-        faces = []
-        for f in bm.faces:
-            if sel is not None and f not in sel and False:
-                continue
-            if not face_ok(f, fr, filt):
-                continue
-            uv = [to2d(fr, ug(v.co)) for v in f.verts]
-            us = [q[0] for q in uv]; vs = [q[1] for q in uv]
-            if max(us) < lo[0] or min(us) > hi[0] or max(vs) < lo[1] or min(vs) > hi[1]:
-                continue
-            faces.append(f)
+        faces = [f for f, bb in cand.items() if f.is_valid and not (bb[1] < lo[0] or bb[0] > hi[0] or bb[3] < lo[1] or bb[2] > hi[1])]
         if not faces:
             continue
-        edges = list({e for f in faces for e in f.edges})
         verts = list({v for f in faces for v in f.verts})
+        edges = list({e for f in faces for e in f.edges})
         bmesh.ops.bisect_plane(bm, geom=faces + edges + verts, dist=1e-5, plane_co=G(pa), plane_no=G(no), clear_inner=False, clear_outer=False)
+        for f in {f for v in verts if v.is_valid for f in v.link_faces}:
+            if f not in cand or not f.is_valid:
+                if face_ok(f, fr, filt):
+                    cand[f] = box(f)
+            else:
+                cand[f] = box(f)
+        cand = {f: bb for f, bb in cand.items() if f.is_valid}
     res = set()
-    for f in bm.faces:
-        if not face_ok(f, fr, filt):
-            continue
-        if inside(poly, to2d(fr, ug(f.calc_center_median()))):
+    for f in cand:
+        if f.is_valid and inside(poly, to2d(fr, ug(f.calc_center_median()))):
             res.add(f)
     return res
 

@@ -23,6 +23,16 @@ const DIRT = new THREE.Color(0x8a7a60);
 const GEARS = ['0', '1', '2', '3', '4', '5', '6', '7', '8'];
 const PICK_COLORS = { cash: 0x9fd07a, fuel: 0xe05a3a, repair: 0x5aa0e0, repairL: 0x5aa0e0, rare: 0xe2b04a, crate: 0xe2b04a };
 
+const PICK_PROTO = new Map();
+function pickupProto(type) {
+  let p = PICK_PROTO.get(type);
+  if (!p) PICK_PROTO.set(type, (p = { item: buildPickup(type), beacon: pickupBeacon(PICK_COLORS[type]) }));
+  return p;
+}
+
+const rockGeo = (g) => g.rockGeo || (g.rockGeo = new THREE.DodecahedronGeometry(1, 1));
+const rockMat = (g) => g.rockMat || (g.rockMat = new THREE.MeshStandardMaterial({ color: 0x77736c, roughness: 0.95, flatShading: true }));
+
 export class Run {
   constructor(game) {
     this.g = game;
@@ -116,6 +126,7 @@ export class Run {
     g.ui.hudInit(this.best, sv.cash);
     g.ui.only('hud', 'touch');
     if (!this.cfg) this.initMap();
+    this.prewarm();
     if (this.engine) { this.engine.setRunning(false); }
     audio()?.music?.setMode('drive');
     audio()?.setReverb(0);
@@ -224,6 +235,19 @@ export class Run {
     v.input.throttle = v.speed < vt ? 1 : 0;
     v.input.brake = v.speed > vt + 2 ? 1 : 0;
     v.input.handbrake = 0; v.input.boost = 0;
+  }
+
+  // Compile the shaders of things that only show up mid-run (nitro flames, pickups,
+  // boulders, new world chunks) up front, instead of on their first frame (a hitch).
+  prewarm() {
+    const g = this.g;
+    g.world.compileHook = (grp) => { try { g.renderer.compile(grp, g.camera, g.worldScene); } catch (e) { /* ignore */ } };
+    if (this.warmed === g.world) return;
+    this.warmed = g.world;
+    const grp = new THREE.Group();
+    grp.add(new THREE.Mesh(FLAME_GEO, FLAME_OUT), new THREE.Mesh(FLAME_GEO, FLAME_IN), new THREE.Mesh(rockGeo(g), rockMat(g)));
+    if (!this.cfg) for (const k of Object.keys(PICK_COLORS)) { const pr = pickupProto(k); grp.add(pr.item.clone(), pr.beacon.clone()); }
+    g.world.compileHook(grp);
   }
 
   // ------------------------------------------------------------------ minimap
@@ -653,9 +677,12 @@ export class Run {
       const mesh = this.pickMeshes.get(key);
       if (inRange && !mesh) {
         const grp = new THREE.Group();
-        const item = buildPickup(pk.type);
+        // clones of one prototype per type: shared geometry and materials, so spawning
+        // pickups along a long run neither leaks GPU buffers nor builds new meshes
+        const pr = pickupProto(pk.type);
+        const item = pr.item.clone();
         grp.add(item);
-        grp.add(pickupBeacon(PICK_COLORS[pk.type]));
+        grp.add(pr.beacon.clone());
         grp.position.set(pk.x, pk.y + 0.05, pk.z);
         grp.userData = { item, pk, key, phase: Math.random() * 6 };
         g.worldScene.add(grp);
@@ -735,7 +762,7 @@ export class Run {
         const d = rf.side * (t.width[j] / 2 + 6 + Math.random() * 4);
         const p = t.posAt(s, d);
         const r = 0.5 + Math.random() * 0.6;
-        const mesh = new THREE.Mesh(g.rockGeo || (g.rockGeo = new THREE.DodecahedronGeometry(1, 1)), g.rockMat || (g.rockMat = new THREE.MeshStandardMaterial({ color: 0x77736c, roughness: 0.95, flatShading: true })));
+        const mesh = new THREE.Mesh(rockGeo(g), rockMat(g));
         mesh.scale.setScalar(r); mesh.castShadow = true;
         g.worldScene.add(mesh);
         const inward = -rf.side;

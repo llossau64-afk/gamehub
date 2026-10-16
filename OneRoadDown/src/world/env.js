@@ -213,11 +213,16 @@ export class Environment {
     const prevRT = r.getRenderTarget(), prevFace = r.getActiveCubeFace(), prevMip = r.getActiveMipmapLevel();
     const sAuto = r.shadowMap.autoUpdate, sNeed = r.shadowMap.needsUpdate;
     r.shadowMap.autoUpdate = false; r.shadowMap.needsUpdate = false; // reuse this frame's shadow map
+    // last frame's world matrices are good enough for a reflection: skip the scene-wide
+    // matrix update a render() would do (the main render does it right after)
+    const mAuto = this.scene.matrixWorldAutoUpdate;
+    this.scene.matrixWorldAutoUpdate = far && mAuto;
     const face = (i) => { r.setRenderTarget(P.rt, i); r.render(this.scene, P.cam.children[i]); };
     if (far) { for (let i = 0; i < 6; i++) face(i); P.step = 6; }
     else if (P.step < 6) face(P.step);
     if (P.step === 6) { P.pm.fromCubemap(P.rt.texture, P.out); P.ready = true; }
     P.step = (P.step + 1) % 7;
+    this.scene.matrixWorldAutoUpdate = mAuto;
     r.shadowMap.autoUpdate = sAuto; r.shadowMap.needsUpdate = sNeed;
     r.setRenderTarget(prevRT, prevFace, prevMip);
     for (const o of hidden) o.visible = true;
@@ -348,8 +353,8 @@ export class Environment {
     for (const m of [...new Set(mats.road)]) {
       const u = m.userData;
       if (u.dryRough === undefined) u.dryRough = m.roughness;
-      m.roughness = lerp(u.dryRough, Math.min(u.dryRough, 0.32), wet);
-      m.color.setScalar(1 - wet * 0.3);
+      m.roughness = lerp(u.dryRough, Math.min(u.dryRough, 0.26), wet);
+      m.color.setScalar(1 - wet * 0.42);
       m.bumpScale = 0.6 * (1 - wet * 0.5);
     }
   }

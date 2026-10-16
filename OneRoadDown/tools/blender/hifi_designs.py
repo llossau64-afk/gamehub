@@ -24,6 +24,7 @@ class Design:
     tail_f = (0.3, 0.55, 0.75, 0.9, 1.0)
     pillar_kind = 'paint'
     roof_kind = 'paint'
+    arch_clear = 0.045
 
     def __init__(self, c, K):
         self.c, self.K = c, K
@@ -40,7 +41,7 @@ class Design:
         pass
 
     def arch_xin(self):
-        return self.ph['track'] / 2 - self.d['r'] * 0.66 / 2 - 0.09
+        return self.ph['track'] / 2 - self.d['r'] * 0.66 / 2 - 0.03
 
     def arch(self, ax):
         return self.d['archR'], ax, self.d['wcY']
@@ -48,16 +49,154 @@ class Design:
     def prisms(self):
         return []
 
+    def S(self, tag):
+        return self.cage.S(tag)
+
+    # ---- data-driven cuts / details ---------------------------------------------------
+    LAMPS, INTAKES, TAILS, GROOVES, VENTS, EXHAUSTS, FINS, MIRROR, WING = (), (), (), (), (), (), None, None, None
+
+    def specs(self):
+        pass
+
     def kind(self, p):
         from car_hifi import KIND
+        if p == 'headlamps':
+            return 'chrome'
         if p == 'pillars':
             return self.pillar_kind
         if p == 'roof':
             return self.roof_kind
         return KIND.get(p, 'paint')
 
-    def S(self, tag):
-        return self.cage.S(tag)
+    def cuts(self, B):
+        self.specs()
+        bvh = bvh_of(B)
+        self.lamp_frames = []
+        for L in self.LAMPS:
+            self.lamp_frames.append(self.lamp_cut(B, bvh, L['target'], L['dv'], L['poly'], L.get('depth', 0.03), L.get('ref', (1.0, 0, 0)), L.get('part', 'headlamps')))
+        for I in self.INTAKES:
+            self.intake_cut(B, I['poly'], I['axis'], I['depth'], I['filt'], I.get('part', 'intakes'), I.get('wall', 'blackout'), I.get('mirror', True))
+        self.tail_frames = []
+        for T in self.TAILS:
+            if 'target' in T:
+                fr = local_frame(bvh, np.array(T['target'], float) - np.array(T['dv'], float) * 2.0, T['dv'], T.get('ref', (1.0, 0, 0)))
+                frs = [(fr, T['poly']), (mirror_frame(fr), mirror_poly(T['poly']))]
+            else:
+                fr = frame(T.get('axis', 'B'))
+                frs = [(fr, T['poly'])] + ([(fr, mirror_poly(T['poly']))] if T.get('mirror', True) else [])
+            self.tail_frames.append(frs)
+            for (f_, poly) in frs:
+                fl_ = T['filt'] if f_[0][0] >= 0 or 'target' not in T else (lambda q, _f=T['filt']: _f(q * np.array([-1.0, 1, 1])))
+                if 'target' in T:
+                    fl_ = near(f_[0], max(math.hypot(u, v) for u, v in poly) + 0.08)
+                f1 = knife(B.bm, poly, f_, fl_)
+                fl, wl = recess(B.bm, f1, T.get('depth', 0.012), f_[3])
+                B.set(fl, 'lamps', 0); B.set(wl, 'lamps', 0)
+        for V in self.VENTS:
+            fr = frame(V.get('axis', 'T'))
+            f1 = knife(B.bm, V['poly'], fr, V['filt'])
+            fl, wl = recess(B.bm, f1, V.get('depth', 0.02), fr[3])
+            B.set(fl, V.get('part', 'intakes'), 0); B.set(wl, 'blackout', 0)
+            if V.get('mirror'):
+                fr2 = frame({'L': 'R'}.get(V.get('axis', 'T'), 'T'))
+                f1 = knife(B.bm, V['poly'], fr2, lambda q, _f=V['filt']: _f(q * np.array([-1.0, 1, 1])))
+                fl, wl = recess(B.bm, f1, V.get('depth', 0.02), fr2[3])
+                B.set(fl, V.get('part', 'intakes'), 0); B.set(wl, 'blackout', 0)
+        for Gr in self.GROOVES:
+            self.groove(B, Gr['path'], Gr['axis'], Gr['filt'], Gr.get('width', 0.006), Gr.get('depth', 0.004), Gr.get('mirror', True))
+        self.extra_cuts(B)
+
+    def extra_cuts(self, B):
+        pass
+
+    def details(self, surf):
+        objs = []
+        LL, LR = Acc(), Acc()
+        for L, (fl, fr_) in zip(self.LAMPS, self.lamp_frames):
+            for fr, acc, sgn in ((fl, LL, 1), (fr_, LR, -1)):
+                m = (lambda path: path) if sgn > 0 else (lambda path: [(-u, v) for u, v in path])
+                for path, w in L.get('drl', ()):
+                    strip(acc, surf, m(path), fr, w, 0.004)
+                for (u, v, rx, ry) in L.get('lens', ()):
+                    pts = [(u * sgn + math.cos(a) * rx, v + math.sin(a) * ry) for a in np.linspace(0, 2 * math.pi, 16, endpoint=False)]
+                    proj_patch(acc, surf, pts, fr, 0.006, fill=False)
+        if not LL.empty():
+            objs.append(self.emissive('lightL', LL, 'headlight', (0.5, 0.09)))
+            objs.append(self.emissive('lightR', LR, 'headlight', (0.5, 0.09)))
+        T = Acc()
+        for spec, frs in zip(self.TAILS, self.tail_frames):
+            for k, (fr, poly) in enumerate(frs):
+                sgn = 1 if k == 0 else -1
+                m = (lambda path: path) if sgn > 0 else (lambda path: [(-u, v) for u, v in path])
+                for path, w in spec.get('strips', ()):
+                    strip(T, surf, m(path), fr, w, 0.004)
+                if spec.get('fill'):
+                    proj_patch(T, surf, offset_poly(poly, -0.006), fr, 0.003)
+        if not T.empty():
+            objs.append(self.emissive('tail', T, 'taillight', (0.5, 0.19)))
+        Vt = Acc()
+        for V in self.VENTS:
+            fr = frame(V.get('axis', 'T'))
+            for path, w in V.get('slats', ()):
+                strip(Vt, surf, path, fr, w, 0.012)
+                if V.get('mirror'):
+                    strip(Vt, surf, path, frame({'L': 'R'}.get(V.get('axis', 'T'), 'T')), w, 0.012)
+        if not Vt.empty():
+            objs.append(self.obj('vents', Vt, V.get('slat_kind', 'trim') if self.VENTS else 'trim', 50))
+        if self.EXHAUSTS:
+            objs += self.exhausts(surf)
+        if self.FINS:
+            objs.append(self.fins())
+        if self.WING:
+            objs += self.wing(surf)
+        if self.MIRROR:
+            M = self.MIRROR
+            objs += self.mirrors(surf, M['z'], M['y'], M['out'], M.get('kind', 'paint'))
+        objs += self.extra_details(surf)
+        return objs
+
+    def extra_details(self, surf):
+        return []
+
+    def exhausts(self, surf):
+        E, Ei = Acc(), Acc()
+        for X in self.EXHAUSTS:
+            for sgn in ((1, -1) if X['x'] > 0.01 else (1,)):
+                c = np.array([sgn * X['x'], X['y'], self.zR])
+                p, n = surf.hit(c + np.array([0, 0, -1.0]), (0, 0, 1))
+                zz = (p[2] if p is not None else self.zR + 0.05)
+                nseg = {'round': 20, 'hex': 6, 'oval': 20, 'trap': 4}[X.get('shape', 'round')]
+                rot = math.pi / 6 if nseg == 6 else (math.pi / 4 if nseg == 4 else 0)
+                prof = []
+                for a in np.linspace(0, 2 * math.pi, nseg, endpoint=False):
+                    q = (math.cos(a + rot) * X['rx'], math.sin(a + rot) * X['ry'])
+                    prof.append(q)
+                if nseg == 4:
+                    prof = [(X['rx'], X['ry']), (-X['rx'], X['ry']), (-X['rx'] * 0.9, -X['ry']), (X['rx'] * 0.9, -X['ry'])]
+                out = X.get('out', 0.012)
+                ring_ob = [(c[0] + x, c[1] + y, zz + 0.08) for x, y in prof]
+                ring_o = [(c[0] + x, c[1] + y, zz - out) for x, y in prof]
+                ring_i = [(c[0] + x * 0.82, c[1] + y * 0.82, zz - out) for x, y in prof]
+                ring_b = [(c[0] + x * 0.82, c[1] + y * 0.82, zz + 0.15) for x, y in prof]
+                loft_acc(E, [ring_ob, ring_o, ring_i, ring_b], True)
+                o = len(Ei.v)
+                Ei.v += ring_b
+                Ei.f.append(tuple(o + k for k in range(len(ring_b))))
+        return [self.obj('exhaust', E, 'chrome', 50), self.obj('exhaustIn', Ei, 'under', 60)]
+
+    def fins(self):
+        F = self.FINS
+        A = Acc()
+        zR = self.zR
+        y0 = self.d['bottom'] + 0.01
+        for x in F['xs']:
+            pts = [(x - 0.004, y0, F['z1']), (x - 0.004, F['y_top'], zR + F.get('z0', 0.06)), (x - 0.004, y0, zR + F.get('z0', 0.06))]
+            pts2 = [(p[0] + 0.008, p[1], p[2]) for p in pts]
+            A.add(pts + pts2, [(0, 1, 2), (3, 5, 4), (0, 3, 4, 1), (1, 4, 5, 2), (2, 5, 3, 0)])
+        return self.obj('diffuser', A, 'trim', 30)
+
+    def wing(self, surf):
+        return []
 
     # ---- shared detail helpers -------------------------------------------------------
     def obj(self, name, acc, kind, angle=40, uv=False, flat=False):
@@ -70,7 +209,7 @@ class Design:
             uvl.data[li].uv = uv
         return ob
 
-    def mirrors(self, surf, z, y, out=0.13, kind='paint', stalk=0.025, size=(0.2, 0.1, 0.075)):
+    def mirrors(self, surf, z, y, out=0.11, kind='paint', stalk=0.018, size=(0.17, 0.085, 0.07)):
         """Door mirrors on a stalk: housing (paint/trim), glass, stalk."""
         housing, glass, st = Acc(), Acc(), Acc()
         sx, sy, sz = size
@@ -79,7 +218,7 @@ class Design:
             if p is None:
                 continue
             base = p - n * 0.01
-            c = np.array([sgn * (abs(p[0]) + out), y + 0.06, z - 0.05])
+            c = np.array([sgn * (abs(p[0]) + out), y + 0.045, z - 0.08])
             # teardrop housing: lofted rings, pointed forward
             rings = []
             for k, (t, sc) in enumerate(((0.0, 0.25), (0.25, 0.85), (0.55, 1.0), (0.8, 0.93), (1.0, 0.8))):
@@ -127,6 +266,82 @@ class Design:
         return objs
 
 
+    # ---- detail helpers shared by the mid-engined cars
+    def lamp_cut(self, B, bvh, target, dv, poly, depth=0.025, ref=(1.0, 0, 0), part='headlamps'):
+        dv = np.array(dv, float) / np.linalg.norm(dv)
+        fr = local_frame(bvh, np.array(target, float) - dv * 2.0, dv, ref)
+        frm = mirror_frame(fr)
+        cut_recess(B, poly, fr, depth, part, 'lamps', along=True)
+        cut_recess(B, mirror_poly(poly), frm, depth, part, 'lamps', along=True)
+        return fr, frm
+
+    def groove(self, B, path, axis, filt, width=0.006, depth=0.004, mirror=True, closed=False):
+        """Panel shut line: a narrow dark groove along a 2D path (frame coords)."""
+        skip = ('glass', 'intakes', 'blackout', 'lamps', 'headlamps', 'wells', 'under')
+        for ax in ((axis, {'L': 'R', 'R': 'L'}.get(axis, axis)) if mirror else (axis,)):
+            fr = frame(ax)
+            pts = [np.array(p, float) for p in (path + [path[0]] if closed else path)]
+            if ax != axis and ax in ('F', 'B', 'T'):
+                pts = [np.array((-p[0], p[1])) for p in pts]
+            fl = filt if ax == axis else (lambda q, _f=filt: _f(q * np.array([-1.0, 1, 1])))
+            pts = resample(pts, 0.025)
+            left, right = [], []
+            for k, p in enumerate(pts):
+                t = pts[min(k + 1, len(pts) - 1)] - pts[max(k - 1, 0)]
+                t /= (np.linalg.norm(t) + 1e-9)
+                nn = np.array([-t[1], t[0]]) * width / 2
+                left.append(tuple(p + nn)); right.append(tuple(p - nn))
+            band = [f for f in knife(B.bm, left + list(reversed(right)), fr, fl) if B.part(f) not in skip]
+            flr, wl = recess(B.bm, band, depth, None)
+            B.set(flr, 'seals', 0); B.set(wl, 'seals', 0)
+
+    def intake_cut(self, B, poly, axis, depth, filt, part='intakes', wall='blackout', mirror=True):
+        fr = frame(axis)
+        f1 = knife(B.bm, poly, fr, filt)
+        fl, wl = recess(B.bm, f1, depth, fr[3])
+        B.set(fl, part, 0); B.set(wl, wall, 0)
+        if mirror:
+            ax2 = {'L': 'R', 'R': 'L'}.get(axis, axis)
+            fr2 = frame(ax2)
+            poly2 = poly if ax2 != axis else mirror_poly(poly)
+            filt2 = (lambda q, _f=filt: _f(q * np.array([-1.0, 1, 1])))
+            f2 = knife(B.bm, poly2, fr2, filt2)
+            fl, wl = recess(B.bm, f2, depth, fr2[3])
+            B.set(fl, part, 0); B.set(wl, wall, 0)
+
+    def emissive(self, name, acc, kind, uv):
+        ob = self.obj(name, acc, kind, 60)
+        return self.uv_const(ob, uv)
+
+
+class ArchGuard:
+    """Keeps a track above the wheel-arch cut wherever it lies over the tyre (no holes)."""
+
+    def __init__(self, tr, D):
+        self.tr, self.D = tr, D
+        self.z0, self.z1 = tr.z0, tr.z1
+
+    def at(self, z):
+        x, y, z = self.tr.at(z)
+        D = self.D
+        xin = D.arch_xin() - 0.04
+        if x < xin:
+            return (x, y, z)
+        top = -9.0
+        for ax in (D.fa, D.ra):
+            R, cz, cy = D.arch(ax)
+            dz = abs(z - cz)
+            if dz < R + 0.02:
+                top = max(top, cy + math.sqrt(max(0.0, (R + 0.02) ** 2 - dz * dz)) + D.arch_clear)
+        if top > y - 0.04:
+            k = 0.03
+            hgt = 0.5 + 0.5 * (top - y) / k if k else 1
+            hgt = min(1.0, max(0.0, hgt))
+            y = (1 - hgt) * y + hgt * top + k * hgt * (1 - hgt) * 0.5 if top > y - k else y
+            y = max(y, top)
+        return (x, y, z)
+
+
 class Tabled(Design):
     """Tracks from a key table: ZK = z keys; X[name] = x fractions of half width, Y[name] = y;
     NOSE / TAIL[name] = (dz from the end, y_tip, roundness)."""
@@ -141,7 +356,8 @@ class Tabled(Design):
             fx = P([(z, x * h) for z, x in zip(self.ZK, xs)])
             fy = P(list(zip(self.ZK, ys)))
             nf, nr = self.NOSE[n], self.TAIL[n]
-            out[n] = FTrack(fx, fy, (self.zF - nf[0],) + tuple(nf[1:]), (self.zR + nr[0],) + tuple(nr[1:]), self.zf0, self.zr0)
+            out[n] = ArchGuard(FTrack(fx, fy, (self.zF - nf[0],) + tuple(nf[1:]), (self.zR + nr[0],) + tuple(nr[1:]), self.zf0, self.zr0), self) \
+                if n in ('H', 'D', 'B', 'P1', 'P2', 'Q') else FTrack(fx, fy, (self.zF - nf[0],) + tuple(nf[1:]), (self.zR + nr[0],) + tuple(nr[1:]), self.zf0, self.zr0)
         return out
 
 
@@ -151,6 +367,8 @@ class MidEngine(Tabled):
     sill_black = True
     front_bumper_y = 0.10
     rear_bumper_y = 0.25
+    splitter_y = -0.25
+    diffuser_y = -0.16
 
     def mid(self):
         return self.MID
@@ -175,9 +393,13 @@ class MidEngine(Tabled):
         side = 'L' if p[0] > 0 else 'R'
         ns = len(self.cage.st)
         if s > ns - 1:   # nose cap
-            return 'under' if t < 1 else ('bumperF' if p[1] < self.front_bumper_y else 'fascia')
+            if t < 1 or p[1] < self.splitter_y:
+                return 'under'
+            return 'bumperF' if p[1] < self.front_bumper_y else 'fascia'
         if s < 0:
-            return 'under' if t < 1 else ('bumperR' if p[1] < self.rear_bumper_y else 'rearPanel')
+            if t < 1 or p[1] < self.diffuser_y:
+                return 'under'
+            return 'bumperR' if p[1] < self.rear_bumper_y else 'rearPanel'
         nose0 = S('nose0') + 1
         tail0 = len(self.tail_f)
         if t < 2:
@@ -204,34 +426,6 @@ class MidEngine(Tabled):
             return 'pillars'
         return 'glass' if s >= S('winR') else 'pillars'
 
-    # ---- detail helpers shared by the mid-engined cars
-    def lamp_cut(self, B, bvh, target, dv, poly, depth=0.025, ref=(1.0, 0, 0)):
-        dv = np.array(dv, float) / np.linalg.norm(dv)
-        fr = local_frame(bvh, np.array(target, float) - dv * 2.0, dv, ref)
-        frm = mirror_frame(fr)
-        cut_recess(B, poly, fr, depth, 'lamps', 'lamps', along=True)
-        cut_recess(B, mirror_poly(poly), frm, depth, 'lamps', 'lamps', along=True)
-        return fr, frm
-
-    def intake_cut(self, B, poly, axis, depth, filt, part='intakes', wall='blackout', mirror=True):
-        fr = frame(axis)
-        f1 = knife(B.bm, poly, fr, filt)
-        fl, wl = recess(B.bm, f1, depth, fr[3])
-        B.set(fl, part, 0); B.set(wl, wall, 0)
-        if mirror:
-            ax2 = {'L': 'R', 'R': 'L'}.get(axis, axis)
-            fr2 = frame(ax2)
-            poly2 = poly if ax2 != axis else mirror_poly(poly)
-            filt2 = (lambda q, _f=filt: _f(q * np.array([-1.0, 1, 1])))
-            f2 = knife(B.bm, poly2, fr2, filt2)
-            fl, wl = recess(B.bm, f2, depth, fr2[3])
-            B.set(fl, part, 0); B.set(wl, wall, 0)
-
-    def emissive(self, name, acc, kind, uv):
-        ob = self.obj(name, acc, kind, 60)
-        return self.uv_const(ob, uv)
-
-
 class Toro(MidEngine):
     """V10 supercar (Huracan-like): one arc from nose to tail, slim angular lamps with a
     Y running light, a big triangular side intake, black tail with slim Y lamps."""
@@ -247,41 +441,41 @@ class Toro(MidEngine):
         self.z_bulk = -0.55
         self.ZK = [self.zr0, ra, -0.75, -0.45, -0.05, self.z_header, 0.65, self.z_cowl, fa, self.zf0]
         self.X = {
-            'F': [.74, .74, .74, .74, .74, .74, .74, .74, .72, .70],
-            'R': [.93, .94, .92, .91, .91, .91, .91, .91, .93, .92],
-            'S': [.97, .98, .93, .915, .915, .915, .915, .93, .97, .96],
-            'M': [1.0, 1.0, .93, .905, .905, .905, .905, .93, .985, .97],
-            'X': [1.0, 1.0, .975, .94, .94, .94, .94, .95, .995, .98],
-            'H': [1.0, 1.0, .985, .955, .95, .95, .95, .96, .99, .975],
-            'D': [.93, .95, .93, .90, .885, .885, .89, .91, .94, .93],
-            'B': [.76, .78, .79, .80, .80, .80, .80, .80, .81, .80],
-            'P1': [.66, .66, .67, .70, .70, .68, .72, .76, .74, .73],
-            'P2': [.60, .60, .61, .64, .64, .61, .66, .71, .68, .67],
-            'Q': [.32, .32, .33, .34, .34, .34, .36, .38, .37, .37],
+            'F': [.74, .74, .72, .72, .72, .72, .72, .72, .72, .70],
+            'R': [.93, .94, .90, .89, .89, .89, .89, .89, .93, .92],
+            'S': [.97, .98, .90, .885, .885, .885, .885, .90, .97, .96],
+            'M': [1.0, 1.0, .89, .87, .87, .87, .87, .89, .99, .97],
+            'X': [1.0, 1.0, .95, .915, .91, .91, .91, .93, 1.0, .98],
+            'H': [.985, .995, .98, .955, .95, .95, .95, .96, .98, .965],
+            'D': [.87, .89, .88, .86, .855, .855, .86, .87, .865, .86],
+            'B': [.64, .66, .70, .76, .76, .76, .76, .74, .72, .72],
+            'P1': [.55, .56, .58, .60, .60, .58, .64, .70, .66, .66],
+            'P2': [.48, .49, .53, .55, .55, .53, .59, .66, .60, .60],
+            'Q': [.26, .26, .28, .29, .29, .29, .32, .36, .33, .33],
         }
         self.Y = {
             'K': [-.27, -.31, -.31, -.31, -.31, -.31, -.31, -.31, -.31, -.31],
             'F': [-.26, -.31, -.31, -.31, -.31, -.31, -.31, -.31, -.31, -.30],
             'R': [-.22, -.29, -.29, -.29, -.29, -.29, -.29, -.29, -.29, -.28],
             'S': [-.10, -.12, -.20, -.21, -.21, -.21, -.21, -.20, -.16, -.17],
-            'M': [.05, .04, -.05, -.08, -.08, -.08, -.08, -.06, -.02, -.04],
-            'X': [.22, .22, .14, .07, .06, .06, .06, .07, .12, .10],
-            'H': [.37, .37, .31, .245, .225, .215, .21, .21, .25, .21],
-            'D': [.52, .53, .48, .43, .42, .42, .41, .38, .37, .31],
-            'B': [.565, .58, .565, .50, .47, .465, .46, .375, .31, .25],
-            'P1': [.575, .60, .615, .66, .70, .70, .57, .385, .30, .245],
-            'P2': [.58, .615, .64, .70, .725, .72, .58, .385, .30, .24],
-            'Q': [.585, .625, .675, .735, .745, .73, .59, .38, .30, .235],
-            'C': [.59, .63, .69, .745, .75, .735, .595, .38, .30, .235],
+            'M': [.05, .04, -.04, -.07, -.07, -.07, -.07, -.05, -.02, -.05],
+            'X': [.20, .20, .15, .10, .09, .085, .08, .09, .10, .05],
+            'H': [.33, .34, .31, .255, .235, .22, .215, .215, .23, .15],
+            'D': [.45, .47, .46, .43, .42, .42, .415, .40, .395, .25],
+            'B': [.50, .55, .58, .52, .48, .465, .46, .385, .35, .225],
+            'P1': [.52, .575, .62, .675, .705, .70, .57, .39, .34, .205],
+            'P2': [.53, .59, .645, .71, .728, .72, .58, .385, .32, .19],
+            'Q': [.545, .605, .67, .737, .747, .73, .59, .375, .29, .175],
+            'C': [.55, .61, .68, .743, .75, .735, .595, .37, .275, .17],
         }
         self.NOSE = {'K': (.30, -.30, 2.5, .6), 'F': (.19, -.295, 2.5, .6), 'R': (.10, -.285, 2.5, .62), 'S': (.08, -.22, 2.5, .62),
-                     'M': (.085, -.06, 2.5, .6), 'X': (.11, .07, 2.5, .58), 'H': (.15, .15, 2.5, .55), 'D': (.18, .205, 2.5, .55),
-                     'B': (.20, .225, 2.5, .55), 'P1': (.205, .23, 2.5, .55), 'P2': (.21, .232, 2.5, .55), 'Q': (.215, .234, 2.5, .55),
-                     'C': (.22, .235, 2.5, 0)}
+                     'M': (.085, -.08, 2.5, .6), 'X': (.10, .0, 2.5, .58), 'H': (.14, .06, 2.5, .55), 'D': (.17, .095, 2.5, .55),
+                     'B': (.185, .105, 2.5, .55), 'P1': (.19, .107, 2.5, .55), 'P2': (.195, .109, 2.5, .55), 'Q': (.20, .11, 2.5, .55),
+                     'C': (.205, .112, 2.5, 0)}
         self.TAIL = {'K': (.35, -.22, 3, .7), 'F': (.22, -.20, 3, .7), 'R': (.10, -.15, 3, .72), 'S': (.05, -.06, 3, .78),
-                     'M': (.035, .06, 3, .8), 'X': (.03, .20, 3, .8), 'H': (.03, .33, 3, .8), 'D': (.035, .45, 3, .78),
-                     'B': (.04, .53, 3, .74), 'P1': (.042, .54, 3, .7), 'P2': (.044, .545, 3, .7), 'Q': (.046, .55, 3, .7),
-                     'C': (.048, .55, 3, 0)}
+                     'M': (.035, .06, 3, .8), 'X': (.03, .20, 3, .8), 'H': (.03, .32, 3, .8), 'D': (.035, .40, 3, .78),
+                     'B': (.04, .46, 3, .72), 'P1': (.042, .47, 3, .7), 'P2': (.044, .475, 3, .7), 'Q': (.046, .48, 3, .7),
+                     'C': (.048, .48, 3, 0)}
         self.MID = [(self.zr0, None), (-1.45, None), (-1.3, None), (ra, 'ra'), (-0.95, None), (-0.75, None), (-0.6, None),
                     (-0.45, 'winR'), (-0.30, 'doorR'), (-0.05, None), (self.z_header, 'header'), (0.42, None), (0.65, None),
                     (0.88, None), (self.z_cowl, 'cowl'), (self.z_cowl + 0.07, 'doorF'), (1.3, None), (fa, 'fa'), (1.65, None),
@@ -293,97 +487,164 @@ class Toro(MidEngine):
         self.cab_half = lambda z: fB(z) - 0.06
         self.deck_y = P(list(zip(self.ZK, self.Y['C'])))
 
-    def cuts(self, B):
+    def specs(self):
+        zF, zR = self.zF, self.zR
+        self.LAMPS = [dict(target=(0.60, 0.15, zF - 0.25), dv=(-0.15, -1, -0.6), depth=0.035,
+                           poly=rounded([(-0.22, -0.045), (0.10, -0.03), (0.235, 0.035), (0.22, 0.075), (0.12, 0.04), (-0.18, 0.0)], 0.01),
+                           drl=[([(-0.18, -0.02), (0.10, -0.002), (0.21, 0.055)], 0.01), ([(0.0, -0.01), (0.11, 0.035), (0.19, 0.068)], 0.009)],
+                           lens=[(-0.11, -0.03, 0.02, 0.017), (-0.03, -0.022, 0.02, 0.017)])]
+        fil = lambda q: q[2] > zF - 0.4 and q[1] < 0.12
+        self.INTAKES = [dict(poly=rounded([(0.30, -0.24), (0.86, -0.26), (0.88, -0.02), (0.74, 0.06), (0.42, 0.04), (0.26, -0.12)], 0.02), axis='F', depth=0.09, filt=fil),
+                        dict(poly=rounded([(-0.2, -0.22), (0.2, -0.22), (0.17, -0.1), (-0.17, -0.1)], 0.015), axis='F', depth=0.07, filt=fil, mirror=False),
+                        dict(poly=rounded([(-0.31, 0.20), (-0.68, 0.30), (-0.71, -0.08), (-0.56, -0.13)], 0.02), axis='L', depth=0.13,
+                             filt=lambda q: q[0] > 0.5 and -0.85 < q[2] < -0.2),
+                        dict(poly=rounded([(-0.86, -0.12), (0.86, -0.12), (0.88, 0.34), (-0.88, 0.34)], 0.03), axis='B', depth=0.05,
+                             filt=lambda q: q[2] < zR + 0.3 and -0.2 < q[1] < 0.4, mirror=False)]
+        self.TAILS = [dict(poly=rounded([(0.36, 0.415), (0.86, 0.43), (0.88, 0.48), (0.42, 0.47)], 0.01), depth=0.012,
+                           filt=lambda q: q[2] < zR + 0.3 and q[1] > 0.36,
+                           strips=[([(0.40, 0.452), (0.85, 0.462)], 0.012), ([(0.52, 0.452), (0.62, 0.427), (0.84, 0.437)], 0.008)])]
+        self.GROOVES = [dict(path=[(self.z_cowl + 0.0, 0.40), (self.z_cowl + 0.06, 0.1), (self.z_cowl + 0.05, -0.17), (-0.22, -0.17), (-0.28, 0.19), (-0.42, 0.47)],
+                             axis='L', filt=lambda q: q[0] > 0.5 and q[1] < 0.49),
+                        dict(path=[(-0.52, self.z_cowl + 0.03), (-0.60, 1.75), (-0.42, zF - 0.2), (0.0, zF - 0.13), (0.42, zF - 0.2), (0.60, 1.75), (0.52, self.z_cowl + 0.03)],
+                             axis='T', filt=lambda q: q[1] > 0.05 and q[2] > self.z_cowl - 0.05, mirror=False)]
+        self.VENTS = [dict(poly=rounded([(-0.42, -1.65), (0.42, -1.65), (0.40, -0.72), (-0.40, -0.72)], 0.03), depth=0.02,
+                           filt=lambda q: q[1] > 0.5 and -1.8 < q[2] < -0.6, slats=[([(-0.38, z), (0.38, z)], 0.035) for z in np.linspace(-1.58, -0.8, 7)])]
+        self.EXHAUSTS = [dict(x=0.5, y=-0.05, rx=0.055, ry=0.05, shape='round')]
+        self.FINS = dict(xs=(-0.36, -0.12, 0.12, 0.36), z1=zR + 0.55, y_top=-0.17)
+        self.MIRROR = dict(z=self.z_cowl - 0.12, y=0.47, out=0.12, kind='paint')
+
+
+class Furia(MidEngine):
+    """V12 wedge (Aventador-like): one straight line from the nose over the windscreen,
+    faceted flanks, Y lamps, hexagon intakes and exhaust, scissor-door shut lines."""
+    crease_H, crease_D, crease_nose, crease_tail = 1.0, 0.9, 0.95, 1.0
+    cap_front, cap_rear = 0.13, 0.03
+    front_bumper_y = 0.02
+
+    def __init__(self, c, K):
+        super().__init__(c, K)
+        zF, zR, fa, ra = self.zF, self.zR, self.fa, self.ra
+        self.zf0, self.zr0 = zF - 0.6, zR + 0.62
+        self.z_cowl, self.z_header, self.z_roofR = 1.12, 0.22, -0.42
+        self.z_ws = self.z_cowl - 0.12
+        self.z_bulk = -0.5
+        W = lambda z: 0.70 - 0.285 * (z - 0.22)     # the wedge line
+        self.ZK = [self.zr0, ra, -0.75, -0.42, -0.02, self.z_header, 0.65, self.z_cowl, fa, self.zf0]
+        self.X = {
+            'F': [.74, .74, .72, .72, .72, .72, .72, .72, .72, .70],
+            'R': [.95, .95, .90, .89, .89, .89, .89, .90, .93, .92],
+            'S': [.985, .99, .90, .88, .88, .88, .88, .90, .97, .95],
+            'M': [1.0, 1.0, .88, .86, .865, .865, .87, .90, .99, .96],
+            'X': [1.0, 1.0, .93, .905, .905, .905, .91, .93, 1.0, .975],
+            'H': [.99, 1.0, .985, .96, .955, .955, .955, .965, .985, .96],
+            'D': [.90, .92, .92, .86, .845, .845, .85, .87, .87, .86],
+            'B': [.64, .66, .70, .74, .74, .74, .74, .73, .72, .72],
+            'P1': [.55, .56, .58, .58, .58, .56, .62, .69, .65, .65],
+            'P2': [.49, .50, .53, .53, .53, .51, .57, .65, .60, .60],
+            'Q': [.26, .26, .27, .27, .27, .27, .30, .35, .33, .33],
+        }
+        cy = [.52, .555, .63, .705, .72, W(self.z_header), W(0.65), W(self.z_cowl) - 0.005, W(fa) - 0.03, W(self.zf0) - 0.03]
+        self.Y = {
+            'K': [-.26, -.30, -.30, -.30, -.30, -.30, -.30, -.30, -.30, -.30],
+            'F': [-.25, -.30, -.30, -.30, -.30, -.30, -.30, -.30, -.30, -.29],
+            'R': [-.21, -.28, -.28, -.28, -.28, -.28, -.28, -.28, -.28, -.27],
+            'S': [-.10, -.12, -.20, -.20, -.20, -.20, -.20, -.19, -.16, -.17],
+            'M': [.05, .04, -.05, -.07, -.07, -.07, -.07, -.05, -.03, -.06],
+            'X': [.22, .22, .12, .08, .07, .065, .06, .07, .10, .03],
+            'H': [.34, .35, .31, .24, .22, .21, .205, .21, .22, .12],
+            'D': [.46, .48, .47, .44, .43, .43, .43, .42, .41, .22],
+            'B': [.505, .53, .56, .505, .47, .46, .455, .43, .40, .22],
+            'P1': [.515, .545, .59, .64, .685, .675, W(0.65) - 0.035, W(self.z_cowl) - 0.01, .385, .21],
+            'P2': [.52, .55, .605, .675, .705, .69, W(0.65) - 0.02, W(self.z_cowl) - 0.008, .37, .205],
+            'Q': [.52, .553, .625, .70, .718, W(self.z_header) - 0.003, W(0.65) - 0.004, W(self.z_cowl) - 0.006, cy[8], cy[9]],
+            'C': cy,
+        }
+        self.NOSE = {'K': (.36, -.29, 2.5, .5), 'F': (.22, -.29, 2.5, .5), 'R': (.12, -.28, 2.5, .52), 'S': (.12, -.24, 2.5, .52),
+                     'M': (.13, -.12, 2.5, .5), 'X': (.15, -.04, 2.5, .48), 'H': (.18, .02, 2.5, .46), 'D': (.21, .06, 2.5, .46),
+                     'B': (.225, .07, 2.5, .46), 'P1': (.23, .072, 2.5, .46), 'P2': (.235, .074, 2.5, .46), 'Q': (.24, .076, 2.5, .46),
+                     'C': (.245, .078, 2.5, 0)}
+        self.TAIL = {'K': (.40, -.20, 3, .7), 'F': (.25, -.18, 3, .7), 'R': (.12, -.13, 3, .74), 'S': (.06, -.04, 3, .8),
+                     'M': (.04, .08, 3, .82), 'X': (.03, .22, 3, .82), 'H': (.03, .33, 3, .82), 'D': (.035, .42, 3, .8),
+                     'B': (.04, .47, 3, .74), 'P1': (.042, .48, 3, .72), 'P2': (.044, .485, 3, .72), 'Q': (.046, .49, 3, .72),
+                     'C': (.048, .49, 3, 0)}
+        self.MID = [(self.zr0, None), (-1.5, None), (-1.32, None), (ra, 'ra'), (-0.95, None), (-0.75, None), (-0.58, None),
+                    (-0.42, 'winR'), (-0.30, 'doorR'), (-0.02, None), (self.z_header, 'header'), (0.44, None), (0.65, None),
+                    (0.88, None), (self.z_cowl, 'cowl'), (self.z_cowl + 0.06, 'doorF'), (1.38, None), (fa, 'fa'), (1.78, None),
+                    (self.zf0, 'nose0')]
+        self.y_dash = 0.33
+        self.y_roof_in = self.d['roof'] - 0.06
+        self.tum_in = 0.72
+        fB = P([(z, x * self.h) for z, x in zip(self.ZK, self.X['B'])])
+        self.cab_half = lambda z: fB(z) - 0.06
+        self.deck_y = P(list(zip(self.ZK, self.Y['C'])))
+
+    def extra_creases(self, cage):
+        ns = len(cage.st)
+        t = TI
+        # faceted: every flank line sharp
+        return [('t', t['X'], 0, ns - 1, 0.7), ('t', t['S'], 0, ns - 1, 0.8), ('t', t['P1'], 0, ns - 1, 0.6)]
+
+    def specs(self):
         zF, zR, h = self.zF, self.zR, self.h
-        bvh = bvh_of(B)
-        # slim angular headlamps on the nose corners
-        lamp = rounded([(-0.20, 0.012), (-0.16, 0.05), (0.13, 0.03), (0.215, -0.012), (0.20, -0.05), (-0.09, -0.028)], 0.012)
-        self.head_fr = self.lamp_cut(B, bvh, (0.60, 0.25, zF - 0.28), (0, -1, -0.4), lamp, 0.03)
-        # front intakes: big corner ducts and a centre duct
-        corner = rounded([(0.30, -0.24), (0.86, -0.26), (0.88, -0.02), (0.74, 0.06), (0.42, 0.04), (0.26, -0.12)], 0.02)
-        self.intake_cut(B, corner, 'F', 0.09, lambda q: q[2] > zF - 0.4 and q[1] < 0.12)
-        centre = rounded([(-0.2, -0.22), (0.2, -0.22), (0.17, -0.1), (-0.17, -0.1)], 0.015)
-        self.intake_cut(B, centre, 'F', 0.07, lambda q: q[2] > zF - 0.4 and q[1] < 0.12, mirror=False)
-        # side intake ahead of the rear wheel, under the shoulder crease
-        side = rounded([(-0.31, 0.20), (-0.68, 0.30), (-0.71, -0.08), (-0.56, -0.13)], 0.02)
-        self.intake_cut(B, side, 'L', 0.13, lambda q: q[0] > 0.5 and -0.85 < q[2] < -0.2)
-        # rear: black grille band and tail lamps
-        grille = rounded([(-0.86, -0.12), (0.86, -0.12), (0.88, 0.34), (-0.88, 0.34)], 0.03)
-        self.intake_cut(B, grille, 'B', 0.05, lambda q: q[2] < zR + 0.3 and -0.2 < q[1] < 0.4, mirror=False)
-        tl = rounded([(0.36, 0.415), (0.86, 0.43), (0.88, 0.48), (0.42, 0.47)], 0.01)
-        fr = frame('B')
-        self.tail_fr = fr
-        for poly in (tl, mirror_poly(tl)):
-            f1 = knife(B.bm, poly, fr, lambda q: q[2] < zR + 0.3 and q[1] > 0.36)
-            fl, wl = recess(B.bm, f1, 0.012, fr[3])
-            B.set(fl, 'lamps', 0); B.set(wl, 'lamps', 0)
-        # engine cover vent panel
-        vent = rounded([(-0.42, -1.65), (0.42, -1.65), (0.40, -0.72), (-0.40, -0.72)], 0.03)
-        self.vent_poly = vent
-        f1 = knife(B.bm, vent, frame('T'), lambda q: q[1] > 0.5 and -1.8 < q[2] < -0.6)
-        fl, wl = recess(B.bm, f1, 0.02, frame('T')[3])
-        B.set(fl, 'intakes', 0); B.set(wl, 'blackout', 0)
+        # angular lamps on the nose corners with a Y running light
+        self.LAMPS = [dict(target=(0.66, 0.1, zF - 0.33), dv=(-0.25, -1, -0.45), depth=0.035,
+                           poly=[(-0.21, -0.04), (0.17, -0.03), (0.26, 0.03), (0.23, 0.07), (-0.05, 0.035), (-0.19, 0.0)],
+                           drl=[([(-0.17, -0.012), (0.0, -0.005)], 0.008), ([(0.0, -0.005), (0.12, 0.035), (0.2, 0.055)], 0.008),
+                                ([(0.0, -0.005), (0.16, -0.012), (0.22, 0.02)], 0.008)],
+                           lens=[(0.06, 0.012, 0.022, 0.018), (0.12, 0.014, 0.018, 0.015)])]
+        fil = lambda q: q[2] > zF - 0.45 and q[1] < 0.06
+        self.INTAKES = [
+            # hexagon-cut corner intakes and a wide centre duct
+            dict(poly=[(0.34, -0.25), (0.84, -0.25), (0.92, -0.12), (0.86, 0.0), (0.62, 0.01), (0.40, -0.09)], axis='F', depth=0.1, filt=fil),
+            dict(poly=[(-0.27, -0.235), (0.27, -0.235), (0.22, -0.13), (-0.22, -0.13)], axis='F', depth=0.08, filt=fil, mirror=False),
+            # big flank intake behind the door (hexagonal)
+            dict(poly=[(-0.32, 0.2), (-0.50, 0.33), (-0.74, 0.33), (-0.76, -0.04), (-0.62, -0.14), (-0.46, -0.06)], axis='L', depth=0.14,
+                 filt=lambda q: q[0] > 0.5 and -0.9 < q[2] < -0.2),
+            # rear: full-width black mesh
+            dict(poly=[(0.30, -0.08), (0.90, -0.08), (0.93, 0.30), (0.62, 0.33), (0.34, 0.26)], axis='B', depth=0.06,
+                 filt=lambda q: q[2] < zR + 0.3 and -0.2 < q[1] < 0.4),
+            dict(poly=[(-0.24, -0.13), (0.24, -0.13), (0.20, 0.07), (-0.20, 0.07)], axis='B', depth=0.08,
+                 filt=lambda q: q[2] < zR + 0.3 and -0.2 < q[1] < 0.4, mirror=False)]
+        self.TAILS = [dict(poly=[(0.40, 0.38), (0.62, 0.395), (0.92, 0.36), (0.96, 0.42), (0.68, 0.46), (0.42, 0.43)], depth=0.012,
+                           filt=lambda q: q[2] < zR + 0.3 and q[1] > 0.33,
+                           strips=[([(0.44, 0.415), (0.66, 0.43)], 0.012), ([(0.66, 0.43), (0.92, 0.44)], 0.012),
+                                   ([(0.66, 0.43), (0.9, 0.385)], 0.012)])]
+        # scissor-door shut line: front edge rises steeply, rear edge runs into the intake
+        self.GROOVES = [dict(path=[(self.z_cowl - 0.02, 0.43), (self.z_cowl + 0.04, 0.12), (self.z_cowl + 0.02, -0.16), (-0.25, -0.16), (-0.31, 0.19), (-0.40, 0.45)],
+                             axis='L', filt=lambda q: q[0] > 0.5 and q[1] < 0.47),
+                        dict(path=[(-0.50, self.z_cowl + 0.02), (-0.62, 1.75), (-0.46, zF - 0.26), (0.0, zF - 0.16), (0.46, zF - 0.26), (0.62, 1.75), (0.50, self.z_cowl + 0.02)],
+                             axis='T', filt=lambda q: q[1] > 0.0 and q[2] > self.z_cowl - 0.05, mirror=False)]
+        # engine cover: hexagon-framed louvre panel + shoulder intakes on the rear fenders
+        self.VENTS = [dict(poly=[(-0.40, -1.72), (0.40, -1.72), (0.46, -1.2), (0.36, -0.62), (-0.36, -0.62), (-0.46, -1.2)], depth=0.025,
+                           filt=lambda q: q[1] > 0.45 and -1.85 < q[2] < -0.5,
+                           slats=[([(-0.42, z), (0.42, z)], 0.03) for z in np.linspace(-1.64, -0.72, 9)] + [([(0.0, -1.7), (0.0, -0.64)], 0.03)])]
+        self.EXHAUSTS = [dict(x=0.0, y=-0.04, rx=0.13, ry=0.075, shape='hex', out=0.02)]
+        self.FINS = dict(xs=(-0.5, -0.3, -0.1, 0.1, 0.3, 0.5), z1=zR + 0.6, y_top=-0.15)
+        self.MIRROR = dict(z=self.z_cowl - 0.14, y=0.44, out=0.10, kind='paint')
 
-    def details(self, surf):
-        zF, zR, h = self.zF, self.zR, self.h
-        objs = []
-        # headlamp internals: Y running light + twin projector lenses
-        LL, LR = Acc(), Acc()
-        lens = {'lightL': Acc(), 'lightR': Acc()}
-        for fr, acc, sgn in ((self.head_fr[0], LL, 1), (self.head_fr[1], LR, -1)):
-            m = (lambda path: path) if sgn > 0 else (lambda path: [(-u, v) for u, v in path])
-            strip(acc, surf, m([(-0.17, 0.035), (0.13, 0.017)]), fr, 0.009, 0.004)
-            strip(acc, surf, m([(-0.04, 0.026), (0.06, -0.01), (0.19, -0.03)]), fr, 0.009, 0.004)
-            for (u, v) in ((-0.07, -0.004), (0.02, -0.012)):
-                pts = [(u * sgn + math.cos(a) * 0.02, v + math.sin(a) * 0.017) for a in np.linspace(0, 2 * math.pi, 14, endpoint=False)]
-                proj_patch(acc, surf, pts, fr, 0.006, fill=False)
-        objs.append(self.emissive('lightL', LL, 'headlight', (0.5, 0.09)))
-        objs.append(self.emissive('lightR', LR, 'headlight', (0.5, 0.09)))
-        # tail lamps: Y shaped light bars
-        T = Acc()
-        fr = self.tail_fr
-        for sgn in (1, -1):
-            m = (lambda path: path) if sgn > 0 else (lambda path: [(-u, v) for u, v in path])
-            strip(T, surf, m([(0.40, 0.452), (0.85, 0.462)]), fr, 0.012, 0.004)
-            strip(T, surf, m([(0.52, 0.452), (0.62, 0.427), (0.84, 0.437)]), fr, 0.008, 0.004)
-        objs.append(self.emissive('tail', T, 'taillight', (0.5, 0.19)))
-        # engine cover slats
-        V = Acc()
-        frT = frame('T')
-        for k in range(7):
-            z = lerp(-1.58, -0.8, k / 6)
-            strip(V, surf, [(-0.38, z), (0.38, z)], frT, 0.035, 0.012)
-        objs.append(self.obj('vents', V, 'trim', 50))
-        # exhausts: twin round pipes low in the grille
-        E, Ei = Acc(), Acc()
-        for sgn in (1, -1):
-            c = np.array([sgn * 0.5, -0.05, zR + 0.06])
-            p, n = surf.hit(c + np.array([0, 0, -1.0]), (0, 0, 1))
-            zz = (p[2] if p is not None else zR + 0.05)
-            prof = [(math.cos(a) * 0.055, math.sin(a) * 0.05) for a in np.linspace(0, 2 * math.pi, 18, endpoint=False)]
-            ring_o = [(c[0] + x, c[1] + y, zz - 0.012) for x, y in prof]
-            ring_i = [(c[0] + x * 0.8, c[1] + y * 0.8, zz - 0.012) for x, y in prof]
-            ring_b = [(c[0] + x * 0.8, c[1] + y * 0.8, zz + 0.15) for x, y in prof]
-            ring_ob = [(c[0] + x, c[1] + y, zz + 0.06) for x, y in prof]
-            loft_acc(E, [ring_ob, ring_o, ring_i, ring_b], True)
-            o = len(Ei.v)
-            Ei.v += ring_b
-            Ei.f.append(tuple(o + k for k in range(len(ring_b))))
-        objs.append(self.obj('exhaust', E, 'chrome', 60))
-        objs.append(self.obj('exhaustIn', Ei, 'under', 60))
-        # diffuser fins
-        F = Acc()
-        for x in (-0.36, -0.12, 0.12, 0.36):
-            pts = [(x - 0.004, -0.30, zR + 0.55), (x - 0.004, -0.17, zR + 0.06), (x - 0.004, -0.30, zR + 0.06)]
-            pts2 = [(p[0] + 0.008, p[1], p[2]) for p in pts]
-            F.add(pts + pts2, [(0, 1, 2), (3, 5, 4), (0, 3, 4, 1), (1, 4, 5, 2), (2, 5, 3, 0)])
-        objs.append(self.obj('diffuser', F, 'trim', 30))
-        objs += self.mirrors(surf, self.z_cowl - 0.12, 0.47, 0.12, 'paint')
-        return objs
+    def extra_cuts(self, B):
+        # shoulder intakes on top of the rear haunches
+        fr = frame('T')
+        poly = [(0.66, -0.40), (0.86, -0.46), (0.88, -0.78), (0.70, -0.74)]
+        for pp, fl in ((poly, lambda q: q[0] > 0.5 and q[1] > 0.35), (mirror_poly(poly), lambda q: q[0] < -0.5 and q[1] > 0.35)):
+            f1 = knife(B.bm, pp, fr, fl)
+            flo, wl = recess(B.bm, f1, 0.08, fr[3])
+            B.set(flo, 'intakes', 0); B.set(wl, 'blackout', 0)
+
+    def wing(self, surf):
+        # fixed flap spoiler on the tail lip
+        A = Acc()
+        zR = self.zR
+        p, n = surf.top(0.0, zR + 0.12)
+        y = (p[1] if p is not None else 0.5) + 0.03
+        w = self.h * 0.82
+        prof = [(0.0, 0.0), (0.16, 0.012), (0.18, 0.03), (0.0, 0.016)]
+        rings = [[(x, y + py, zR + 0.06 + pz) for (pz, py) in prof] for x in np.linspace(-w, w, 9)]
+        loft_acc(A, rings, True, True, True)
+        return [self.obj('wing', A, 'trim', 40)]
 
 
-
-DESIGNS = {'toro': Toro}
+DESIGNS = {'toro': Toro, 'furia': Furia}
 
 
 # ---------------------------------------------------------------------------------- cut helpers

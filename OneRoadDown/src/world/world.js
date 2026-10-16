@@ -157,6 +157,9 @@ export class World {
     for (const _ of this.buildVegetation(ch, R)) { mark('veg'); yield; t0 = performance.now(); }
     mark('veg'); yield; t0 = performance.now();
     this.buildSigns(ch); this.buildProps(ch, R); this.buildObstacles(ch, R); mark('props');
+    // compile any new shader programs one frame before the chunk becomes visible
+    // (the driver links them in the background meanwhile; no hitch on first draw)
+    if (this.compileHook) { yield; t0 = performance.now(); this.compileHook(group); mark('compile'); yield; }
     this.building = null;
     this.root.add(group);
     this.chunks.set(k, ch);
