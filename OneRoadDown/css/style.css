@@ -418,6 +418,8 @@ body.touch #hud .mmap { bottom: calc(124px + env(safe-area-inset-bottom)); left:
 #hud .rnitro span { position: relative; z-index: 1; }
 #hud .rnitro kbd { font: inherit; opacity: .7; margin-left: 4px; }
 body.touch #hud .rnitro kbd { display: none; }
+/* touch: the turbo bar sat under the GAS button; centre it above the dial */
+body.touch #hud .rnitro { right: auto; left: 50%; transform: translateX(-50%); bottom: calc(150px + env(safe-area-inset-bottom)); width: 180px; }
 @media (max-width: 760px) { #hud .rboard { width: 150px; } #hud .rboard div { font-size: 11px; } #hud .rpos { font-size: 40px; } }
 
 /* ---- track select ------------------------------------------------------------------ */

@@ -8,6 +8,7 @@ import { audio } from '../audio/audio.js';
 
 const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
 const $ = (root, sel) => root.querySelector(sel);
+const escH = (x) => String(x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export const PUBLIC_URL = 'https://llossau64-afk.github.io/gamehub/OneRoadDown/';
 export const TIPS = [
@@ -463,19 +464,33 @@ export class UI {
     const H2 = this.screens.hud;
     this._r = { pos: $(H2, '.rpos b'), n: $(H2, '.rpos small'), lap: $(H2, '.rlap'), time: $(H2, '.rtime'), best: $(H2, '.rbest b'), board: $(H2, '.rboard'), nitro: $(H2, '.rnitro'), nitroI: $(H2, '.rnitro i'), key: '' };
     this._r.n.textContent = '/' + n;
+    this._r.board.innerHTML = '';
     $(H2, '.feed').innerHTML = '';
   }
   raceHud(d) {
     const E = this._r;
     if (!E) return;
     E.pos.textContent = d.pos;
-    E.lap.innerHTML = d.sprint ? `SPRINT <b>${Math.round((d.progress || 0) * 100)}%</b>` : `LAP <b>${d.lap}/${d.laps}</b>`;
+    const lap = d.sprint ? `SPRINT <b>${Math.round((d.progress || 0) * 100)}%</b>` : `LAP <b>${d.lap}/${d.laps}</b>`;
+    if (lap !== E.lapS) { E.lapS = lap; E.lap.innerHTML = lap; }
     E.time.textContent = d.time;
     E.best.textContent = d.sprint ? '—' : d.best;
-    const key = d.board.map((b) => b.name + b.gap).join('|');
-    if (key !== E.key) {
-      E.key = key;
-      E.board.innerHTML = d.board.map((b) => `<div class="${b.me ? 'me' : ''}"><i>${b.pos}</i><s style="background:${b.color}"></s><span>${b.name}</span><em>${b.gap}</em></div>`).join('');
+    // leaderboard rows are kept and only their text changes (no innerHTML rebuild at 10 Hz;
+    // names can come from other players, so they are set as text)
+    const rows = E.rows || (E.rows = []);
+    while (rows.length < d.board.length) {
+      const el = h('<div><i></i><s></s><span></span><em></em></div>');
+      E.board.appendChild(el);
+      rows.push({ el, i: el.children[0], s: el.children[1], n: el.children[2], g: el.children[3], k: '' });
+    }
+    while (rows.length > d.board.length) rows.pop().el.remove();
+    for (let k = 0; k < d.board.length; k++) {
+      const b = d.board[k], r = rows[k];
+      const key = b.pos + b.name + b.gap + b.color + (b.me ? 1 : 0);
+      if (key === r.k) continue;
+      r.k = key;
+      r.el.className = b.me ? 'me' : '';
+      r.i.textContent = b.pos; r.s.style.background = b.color; r.n.textContent = b.name; r.g.textContent = b.gap;
     }
     E.nitroI.style.width = (d.nitroOn ? 100 : d.nitro * 100).toFixed(0) + '%';
     E.nitro.classList.toggle('ready', d.nitro >= 1 && !d.nitroOn);
@@ -660,7 +675,7 @@ export class UI {
   // ------------------------------------------------------------- race result
   raceResults(d) {
     const s = this.screens.raceres, p = $(s, '.panel');
-    const rows = d.rows.map((r) => `<div class="rrow ${r.me ? 'me' : ''}"><i>${r.pos}</i><s style="background:${r.color}"></s><span>${r.name}<small>${r.car}</small></span><b>${r.time}</b></div>`).join('');
+    const rows = d.rows.map((r) => `<div class="rrow ${r.me ? 'me' : ''}"><i>${r.pos}</i><s style="background:${r.color}"></s><span>${escH(r.name)}<small>${escH(r.car)}</small></span><b>${r.time}</b></div>`).join('');
     const lines = d.lines.map((l) => `<div class="line show"><span>${l[0]}</span><b>${l[1]}</b></div>`).join('');
     p.innerHTML = `<div class="why">${d.map.name} · ${d.map.country}</div><h2>${d.title}</h2>
       <div class="rtable">${rows}</div>

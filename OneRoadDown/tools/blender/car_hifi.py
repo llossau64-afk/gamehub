@@ -533,6 +533,7 @@ def recess(bm, faces, depth, dirv=None):
     bm.verts.index_update()
     old_idx = {v: v.index for f in faces for v in f.verts}
     ret = bmesh.ops.extrude_face_region(bm, geom=faces, use_keep_orig=False)
+    bmesh.ops.delete(bm, geom=faces, context='FACES')
     nv = [g for g in ret['geom'] if isinstance(g, bmesh.types.BMVert)]
     mv = set(nv)
     dv = G(dirv).normalized() if dirv is not None else None

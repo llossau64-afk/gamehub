@@ -15,26 +15,27 @@ export class Speedo {
     this.c.width = this.w * dpr; this.c.height = this.h * dpr;
     this.g.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
-  draw(d) {
-    const g = this.g, w = this.w, h = this.h;
-    g.clearRect(0, 0, w, h);
-    const cx = w / 2, cy = h * 0.8, R = Math.min(w * 0.44, h * 0.72);
-    const a0 = Math.PI * 0.92, a1 = Math.PI * 2.08;
-    this.rpmD += (d.rpm - this.rpmD) * 0.35;
-    const frac = Math.min(1.08, this.rpmD / d.redline);
-    // backing arc
+  // dial face (backing arc, ticks, numbers, redline): static per car and size, cached
+  face(redline, cx, cy, R, a0, a1) {
+    const key = redline + '|' + this.c.width + '|' + this.w;
+    if (this.faceKey === key) return this.faceC;
+    this.faceKey = key;
+    const c = this.faceC || (this.faceC = document.createElement('canvas'));
+    c.width = this.c.width; c.height = this.c.height;
+    const g = c.getContext('2d'), dpr = this.c.width / this.w;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const w = this.w;
     g.lineCap = 'butt';
     g.lineWidth = 7;
     g.strokeStyle = 'rgba(0,0,0,0.45)';
     g.beginPath(); g.arc(cx, cy, R, a0, a1); g.stroke();
-    // ticks
-    const maxK = Math.ceil(d.redline / 1000);
+    const maxK = Math.ceil(redline / 1000);
     for (let i = 0; i <= maxK * 2; i++) {
       const f = (i * 500) / (maxK * 1000);
       const a = a0 + (a1 - a0) * f;
       const big = i % 2 === 0;
       const r0 = R - (big ? 13 : 8), r1 = R - 4;
-      g.strokeStyle = i * 500 >= d.redline * 0.92 ? 'rgba(207,74,50,0.9)' : 'rgba(235,230,218,0.55)';
+      g.strokeStyle = i * 500 >= redline * 0.92 ? 'rgba(207,74,50,0.9)' : 'rgba(235,230,218,0.55)';
       g.lineWidth = big ? 2 : 1;
       g.beginPath(); g.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); g.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); g.stroke();
       if (big && w > 160) {
@@ -43,9 +44,20 @@ export class Speedo {
         g.fillText(String(i / 2), cx + Math.cos(a) * (R - 22), cy + Math.sin(a) * (R - 22));
       }
     }
-    const redA = a0 + (a1 - a0) * Math.min(1, (d.redline * 0.92) / (maxK * 1000));
+    const redA = a0 + (a1 - a0) * Math.min(1, (redline * 0.92) / (maxK * 1000));
     g.lineWidth = 3; g.strokeStyle = 'rgba(207,74,50,0.85)';
     g.beginPath(); g.arc(cx, cy, R + 4, redA, a1); g.stroke();
+    return c;
+  }
+  draw(d) {
+    const g = this.g, w = this.w, h = this.h;
+    g.clearRect(0, 0, w, h);
+    const cx = w / 2, cy = h * 0.8, R = Math.min(w * 0.44, h * 0.72);
+    const a0 = Math.PI * 0.92, a1 = Math.PI * 2.08;
+    this.rpmD += (d.rpm - this.rpmD) * 0.55;
+    const frac = Math.min(1.08, this.rpmD / d.redline);
+    const maxK = Math.ceil(d.redline / 1000);
+    g.drawImage(this.face(d.redline, cx, cy, R, a0, a1), 0, 0, w, h);
     // rpm fill
     const fa = a0 + (a1 - a0) * Math.min(1, (this.rpmD) / (maxK * 1000));
     g.lineWidth = 7;

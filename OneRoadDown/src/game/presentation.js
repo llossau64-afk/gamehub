@@ -151,7 +151,7 @@ export class Presentation {
   }
 
   dispose() {
-    if (this.podium) { this.r.g.worldScene.remove(this.podium); this.podium.traverse((o) => { if (o.isMesh) o.geometry.dispose(); }); this.podium = null; }
+    if (this.podium) { this.r.g.worldScene.remove(this.podium); const ms = new Set(); this.podium.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); ms.add(o.material); } }); ms.forEach((m) => m.dispose()); this.podium = null; }
     if (this.mode === 'intro') this.r.g.ui.raceIntroHide();
     if (this.mode === 'podium') this.r.g.ui.podiumHide();
     this.mode = null;

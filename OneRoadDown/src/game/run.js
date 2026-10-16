@@ -20,6 +20,7 @@ const FLAME_CORE = new THREE.ConeGeometry(0.05, 0.26, 10, 1, true).translate(0, 
 const FLAME_OUT = new THREE.MeshBasicMaterial({ color: 0xff7a24, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
 const FLAME_IN = new THREE.MeshBasicMaterial({ color: 0x8fc4ff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
 const DIRT = new THREE.Color(0x8a7a60);
+const GEARS = ['0', '1', '2', '3', '4', '5', '6', '7', '8'];
 const PICK_COLORS = { cash: 0x9fd07a, fuel: 0xe05a3a, repair: 0x5aa0e0, repairL: 0x5aa0e0, rare: 0xe2b04a, crate: 0xe2b04a };
 
 export class Run {
@@ -842,12 +843,17 @@ export class Run {
     if (this.fpsAcc > 0.5) { this.fps = Math.round(this.fpsN / this.fpsAcc); this.fpsAcc = 0; this.fpsN = 0; }
     const mph = sv.settings.units === 'mph';
     const sp = Math.abs(v.fwdSpeed) * 3.6 * (mph ? 0.621 : 1);
-    g.ui.hudSpeedo({
-      speed: sp, units: mph ? 'MPH' : 'KM/H', rpm: v.rpm, redline: v.p.engine.redline,
-      gear: v.shiftT > 0 ? '–' : v.gear === -1 ? 'R' : String(v.gear), boostCap: v.p.boostCap, boostTank: v.p.boostCap ? v.boostTank / v.p.boostCap : 0,
-      boost: v.boost, overboost: v.overboost,
-      lowFuel: v.fuel / v.p.fuel < 0.15, engineWarn: v.dmg.engine < 0.4, brakeWarn: v.dmg.brakes < 0.4 || v.brakeTemp / v.p.brakeFade > 0.8, hot: v.heat > 0.95,
-    });
+    // the dial redraws at ~30 Hz from one reused object (canvas text is not free)
+    this.spT = (this.spT || 0) + dt;
+    if (this.spT >= 1 / 31) {
+      this.spT = 0;
+      const d = this._sp || (this._sp = {});
+      d.speed = sp; d.units = mph ? 'MPH' : 'KM/H'; d.rpm = v.rpm; d.redline = v.p.engine.redline;
+      d.gear = v.shiftT > 0 ? '–' : v.gear === -1 ? 'R' : GEARS[v.gear] || String(v.gear); d.boostCap = v.p.boostCap; d.boostTank = v.p.boostCap ? v.boostTank / v.p.boostCap : 0;
+      d.boost = v.boost; d.overboost = v.overboost;
+      d.lowFuel = v.fuel / v.p.fuel < 0.15; d.engineWarn = v.dmg.engine < 0.4; d.brakeWarn = v.dmg.brakes < 0.4 || v.brakeTemp / v.p.brakeFade > 0.8; d.hot = v.heat > 0.95;
+      g.ui.hudSpeedo(d);
+    }
     g.ui.mapUpdate(dt, this.mapState());
     this.hudT = (this.hudT || 0) + dt;
     if (this.hudT < 0.08) return;

@@ -207,7 +207,7 @@ export class Minimap {
     if (this.rot === null || !Number.isFinite(this.rot)) this.rot = want;
     let d = want - this.rot; d -= Math.round(d / TAU) * TAU;
     this.rot += d * Math.min(1, dt * 8);
-    const zr = o.race ? 170 + Math.min(1, st.speed / 50) * 130 : 150 + Math.min(1, st.speed / 45) * 110;
+    const zr = o.race ? 190 + Math.min(1, st.speed / 50) * 140 : 160 + Math.min(1, st.speed / 45) * 120;
     this.zoom = this.zoom ? this.zoom + (zr - this.zoom) * Math.min(1, dt * 2) : zr;
     let toScreen;
     if (full) {
@@ -298,11 +298,12 @@ export class Minimap {
     if (st.best > 0 && st.best < 1) tick(st.best, COL.best, 7);
     if (this.mode === 'heading') {
       // north (screen up in north-up mode) marker riding the rim
-      const an = this.rot - Math.PI / 2, rr = R - 9 * u;
+      const nu = Math.max(u, 1.15 * (this.dpr || 1)), an = this.rot - Math.PI / 2, rr = R - 9 * nu;
       const nx = R + Math.cos(an) * rr, ny = R + Math.sin(an) * rr;
-      g.fillStyle = 'rgba(10,11,12,0.8)'; g.beginPath(); g.arc(nx, ny, 5.5 * u, 0, TAU); g.fill();
-      g.fillStyle = COL.amber; g.font = `700 ${Math.round(8 * u)}px Cond, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText('N', nx, ny + 0.5 * u);
+      g.fillStyle = 'rgba(10,11,12,0.85)'; g.strokeStyle = 'rgba(226,163,59,0.7)'; g.lineWidth = 1.2 * nu;
+      g.beginPath(); g.arc(nx, ny, 6.5 * nu, 0, TAU); g.fill(); g.stroke();
+      g.fillStyle = COL.amber; g.font = `700 ${Math.round(9.5 * nu)}px Cond, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('N', nx, ny + 0.5 * nu);
     }
   }
 }

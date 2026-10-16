@@ -205,8 +205,9 @@ class MidEngine(Tabled):
         return 'glass' if s >= S('winR') else 'pillars'
 
     # ---- detail helpers shared by the mid-engined cars
-    def lamp_cut(self, B, bvh, o, dv, poly, depth=0.025, ref=(1.0, 0, 0)):
-        fr = local_frame(bvh, o, dv, ref)
+    def lamp_cut(self, B, bvh, target, dv, poly, depth=0.025, ref=(1.0, 0, 0)):
+        dv = np.array(dv, float) / np.linalg.norm(dv)
+        fr = local_frame(bvh, np.array(target, float) - dv * 2.0, dv, ref)
         frm = mirror_frame(fr)
         cut_recess(B, poly, fr, depth, 'lamps', 'lamps', along=True)
         cut_recess(B, mirror_poly(poly), frm, depth, 'lamps', 'lamps', along=True)
@@ -297,7 +298,7 @@ class Toro(MidEngine):
         bvh = bvh_of(B)
         # slim angular headlamps on the nose corners
         lamp = rounded([(-0.20, 0.012), (-0.16, 0.05), (0.13, 0.03), (0.215, -0.012), (0.20, -0.05), (-0.09, -0.028)], 0.012)
-        self.head_fr = self.lamp_cut(B, bvh, (0.60, 2.0, zF - 0.30), (0, -1, 0.35), lamp, 0.03)
+        self.head_fr = self.lamp_cut(B, bvh, (0.60, 0.25, zF - 0.28), (0, -1, -0.4), lamp, 0.03)
         # front intakes: big corner ducts and a centre duct
         corner = rounded([(0.30, -0.24), (0.86, -0.26), (0.88, -0.02), (0.74, 0.06), (0.42, 0.04), (0.26, -0.12)], 0.02)
         self.intake_cut(B, corner, 'F', 0.09, lambda q: q[2] > zF - 0.4 and q[1] < 0.12)
@@ -467,15 +468,44 @@ def rounded(poly, r=0.01, n=3):
     return out
 
 
-def strip(acc_fn, surf, path2d, fr, width, off, seg=None):
-    """Thin band along a 2D polyline (frame coords), projected onto the body."""
-    pts = [np.array(p, float) for p in path2d]
-    left, right = [], []
+def resample(path, step=0.015):
+    pts = [np.array(p, float) for p in path]
+    out = [pts[0]]
+    for a, b in zip(pts[:-1], pts[1:]):
+        n = max(1, int(math.ceil(np.linalg.norm(b - a) / step)))
+        for k in range(1, n + 1):
+            out.append(a + (b - a) * k / n)
+    return out
+
+
+def strip(acc, surf, path2d, fr, width, off, w1=None, prof=None):
+    """Band along a 2D polyline (frame coords) projected onto the body, lifted `off`.
+    prof: optional cross profile [(across -1..1, height)] for raised slats."""
+    O, e1, e2, dv = fr
+    pts = resample(path2d)
+    prof = prof or [(-1, 0.0), (1, 0.0)]
+    rings = []
     for k, p in enumerate(pts):
         t = pts[min(k + 1, len(pts) - 1)] - pts[max(k - 1, 0)]
         t /= (np.linalg.norm(t) + 1e-9)
         nrm = np.array([-t[1], t[0]])
-        left.append(tuple(p + nrm * width / 2))
-        right.append(tuple(p - nrm * width / 2))
-    poly = left + list(reversed(right))
-    return proj_patch(acc_fn, surf, poly, fr, off, n=width * 0.9, fill=False)
+        w = lerp(width, w1 if w1 is not None else width, k / max(1, len(pts) - 1))
+        ring = []
+        for (a, hgt) in prof:
+            q = p + nrm * a * w / 2
+            o = O + e1 * q[0] + e2 * q[1] - dv * 4.0
+            h, nn = surf.hit(o, dv, 9.0)
+            if h is None:
+                return False
+            ring.append(h + nn * (off + hgt))
+        rings.append(ring)
+    o0 = len(acc.v)
+    loft_acc(acc, rings, closed=False)
+    # orient towards the viewer
+    f = acc.f[o0 and -1]
+    a, b, c = (np.array(acc.v[i]) for i in acc.f[-1][:3])
+    if np.cross(b - a, c - a) @ (-dv) < 0:
+        n_new = (len(rings) - 1) * (len(prof) - 1)
+        for k in range(len(acc.f) - n_new, len(acc.f)):
+            acc.f[k] = tuple(reversed(acc.f[k]))
+    return True
