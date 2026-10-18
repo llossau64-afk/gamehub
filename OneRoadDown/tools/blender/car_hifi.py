@@ -915,3 +915,84 @@ def build_hifi(c, K, Dcls):
     objs += D.interior(surf)
     bpy.data.objects.remove(surf_ob, do_unlink=True)
     return objs
+
+
+# ------------------------------------------------------------------ glb merge
+def _read_glb(path):
+    import json, struct
+    data = open(path, 'rb').read()
+    magic, ver, length = struct.unpack_from('<III', data, 0)
+    off = 12
+    js, binc = None, b''
+    while off < length:
+        clen, ctype = struct.unpack_from('<II', data, off)
+        chunk = data[off + 8: off + 8 + clen]
+        if ctype == 0x4E4F534A:
+            js = json.loads(chunk.decode('utf8'))
+        elif ctype == 0x004E4942:
+            binc = chunk
+        off += 8 + clen
+    return js, binc
+
+
+def merge_glb(a, b, out):
+    """Merge two GLBs (one scene each) into one: B's nodes/meshes/materials are appended."""
+    import json, struct
+    A, ba = _read_glb(a)
+    B, bb = _read_glb(b)
+    pad = (-len(ba)) % 4
+    ba = ba + b'\0' * pad
+    base = len(ba)
+    n = {k: len(A.get(k, [])) for k in ('bufferViews', 'accessors', 'meshes', 'materials', 'nodes', 'textures', 'images', 'samplers')}
+    for bv in B.get('bufferViews', []):
+        bv['buffer'] = 0
+        bv['byteOffset'] = bv.get('byteOffset', 0) + base
+    for ac in B.get('accessors', []):
+        if 'bufferView' in ac:
+            ac['bufferView'] += n['bufferViews']
+    for me in B.get('meshes', []):
+        for pr in me['primitives']:
+            pr['attributes'] = {k: v + n['accessors'] for k, v in pr['attributes'].items()}
+            if 'indices' in pr:
+                pr['indices'] += n['accessors']
+            if 'material' in pr:
+                pr['material'] += n['materials']
+    for mt in B.get('materials', []):
+        def fix(o):
+            if isinstance(o, dict):
+                for k, v in o.items():
+                    if k == 'index' and isinstance(v, int):
+                        o[k] = v + n['textures']
+                    else:
+                        fix(v)
+            elif isinstance(o, list):
+                for v in o:
+                    fix(v)
+        fix(mt)
+    for tx in B.get('textures', []):
+        if 'source' in tx:
+            tx['source'] += n['images']
+        if 'sampler' in tx:
+            tx['sampler'] += n['samplers']
+    for im in B.get('images', []):
+        if 'bufferView' in im:
+            im['bufferView'] += n['bufferViews']
+    for nd in B.get('nodes', []):
+        if 'mesh' in nd:
+            nd['mesh'] += n['meshes']
+        if 'children' in nd:
+            nd['children'] = [c + n['nodes'] for c in nd['children']]
+    for k in ('bufferViews', 'accessors', 'meshes', 'materials', 'nodes', 'textures', 'images', 'samplers'):
+        if B.get(k):
+            A.setdefault(k, []).extend(B[k])
+    A['scenes'][A.get('scene', 0)]['nodes'] += [i + n['nodes'] for i in B['scenes'][B.get('scene', 0)]['nodes']]
+    binc = ba + bb
+    binc += b'\0' * ((-len(binc)) % 4)
+    A['buffers'] = [{'byteLength': len(binc)}]
+    js = json.dumps(A, separators=(',', ':')).encode('utf8')
+    js += b' ' * ((-len(js)) % 4)
+    total = 12 + 8 + len(js) + 8 + len(binc)
+    with open(out, 'wb') as f:
+        f.write(struct.pack('<III', 0x46546C67, 2, total))
+        f.write(struct.pack('<II', len(js), 0x4E4F534A)); f.write(js)
+        f.write(struct.pack('<II', len(binc), 0x004E4942)); f.write(binc)

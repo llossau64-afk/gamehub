@@ -7,6 +7,9 @@ import { rng, Noise, clamp, lerp, smoothstep } from '../core/util.js';
 import { BLEND } from '../data/mountains.js';
 
 export const STEP = 2;
+// a query result with every field present from the start (one stable object shape,
+// double fields: writing results never re-boxes numbers or changes the hidden class)
+export const newQuery = () => ({ h: 0.5, s: 0.5, d: 0.5, idx: 0, surf: 0, halfW: 0.5, dist: 0.5, hLeg: 0.5 });
 export const SHOULDER = 1.0;
 
 export const SURF = {
@@ -971,19 +974,21 @@ export class Track {
 
   // true when nothing of the road is within r of (x, z)
   blockFree(x, z, r) {
-    const q = this.query(x, z, this._bf || (this._bf = {}));
+    const q = this.query(x, z, this._bf || (this._bf = newQuery()));
     return Math.abs(q.d) > q.halfW + r + 1.5;
   }
 
   // ------------------------------------------------------------------ queries
-  posAt(s, d = 0) {
+  posAt(s, d = 0, out = null) {
     if (this.loop) s = this.wrapS(s);
     const f = clamp(s / STEP, 0, this.N - 1.001);
     const a = Math.floor(f), t = f - a;
     const x = lerp(this.px[a], this.px[a + 1], t), z = lerp(this.pz[a], this.pz[a + 1], t);
     const rx = lerp(this.rx[a], this.rx[a + 1], t), rz = lerp(this.rz[a], this.rz[a + 1], t);
     const wx = x + rx * d, wz = z + rz * d;
-    return { x: wx, z: wz, y: this.height(wx, wz), ry: lerp(this.py[a], this.py[a + 1], t), hd: lerp(this.hd[a], this.hd[a + 1], t) };
+    const o = out || {};
+    o.x = wx; o.z = wz; o.y = this.height(wx, wz); o.ry = lerp(this.py[a], this.py[a + 1], t); o.hd = lerp(this.hd[a], this.hd[a + 1], t);
+    return o;
   }
   roadY(s) {
     if (this.loop) s = this.wrapS(s);
@@ -996,7 +1001,7 @@ export class Track {
 
   // Core terrain query. Blends the profiles of every road "leg" within reach so
   // switchbacks share smooth terrain between them.
-  query(x, z, out = this._out || (this._out = {}), wantSurf = false) {
+  query(x, z, out = this._out || (this._out = newQuery()), wantSurf = false) {
     const cx = Math.floor(x / CELL), cz = Math.floor(z / CELL);
     const legI = this._legI || (this._legI = new Int32Array(6));
     const legD = this._legD || (this._legD = new Float64Array(6));
@@ -1035,16 +1040,17 @@ export class Track {
       }
       // project onto the adjacent segment
       let f = bi;
-      const tryseg = (a) => {
-        if (a < 0 || a >= this.N - 1) return;
+      // project onto the two segments around the hit (inline: this runs thousands of
+      // times per frame, a closure here was per-call garbage)
+      for (let a = bi - 1; a <= bi; a++) {
+        if (a < 0 || a >= this.N - 1) continue;
         const ax = this.px[a], az = this.pz[a];
         const sx = this.px[a + 1] - ax, sz = this.pz[a + 1] - az;
         const t = clamp(((x - ax) * sx + (z - az) * sz) / (sx * sx + sz * sz), 0, 1);
         const qx = ax + sx * t - x, qz = az + sz * t - z;
         const d2 = qx * qx + qz * qz;
         if (d2 <= bd + 1e-9) { bd = d2; f = a + t; }
-      };
-      tryseg(bi - 1); tryseg(bi);
+      }
       const a = Math.min(this.N - 2, Math.floor(f)), t = f - a;
       const rx = lerp(this.rx[a], this.rx[a + 1], t), rz = lerp(this.rz[a], this.rz[a + 1], t);
       const cxp = lerp(this.px[a], this.px[a + 1], t), czp = lerp(this.pz[a], this.pz[a + 1], t);

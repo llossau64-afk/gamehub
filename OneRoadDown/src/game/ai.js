@@ -4,7 +4,7 @@
 import { STEP } from '../world/track.js';
 import { clamp, damp } from '../core/util.js';
 
-const TMP = {}, TMP2 = {};
+const TMP = {}, TMP2 = {}, TGT = {};
 
 export function aiDrive(e, field, t, dt, o = {}) {
   const cruise = o.cruise ?? 1;
@@ -31,7 +31,7 @@ export function aiDrive(e, field, t, dt, o = {}) {
     e.lane = damp(e.lane, want, 1.2, dt);
     // steering: pure pursuit on the lane line
     const look = 7 + spd * 0.5;
-    const tgt = t.posAt(s + look, e.lane);
+    const tgt = t.posAt(s + look, e.lane, TGT);
     const fw = v.getForward(TMP);
     let ang = Math.atan2(tgt.x - v.pos.x, tgt.z - v.pos.z) - Math.atan2(fw.x, fw.z);
     while (ang > Math.PI) ang -= Math.PI * 2; while (ang < -Math.PI) ang += Math.PI * 2;

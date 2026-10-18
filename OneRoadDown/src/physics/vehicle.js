@@ -5,7 +5,7 @@
 
 import { clamp, lerp, smoothstep } from '../core/util.js';
 import { engineTorque, boostTarget, G } from '../game/stats.js';
-import { SURF, SURF_INFO, STEP } from '../world/track.js';
+import { SURF, SURF_INFO, STEP, newQuery } from '../world/track.js';
 
 const DT = 1 / 120;
 export const NITRO_TIME = 4, NITRO_RECHARGE = 20;
@@ -31,6 +31,7 @@ function qinvrot(q, x, y, z, o) {
   return qrot(c, x, y, z, o);
 }
 const T1 = v3(), T2 = v3(), T3 = v3(), T4 = v3(), T5 = v3(), T6 = v3();
+const ACC = { Fx: 0.5, Fy: 0.5, Fz: 0.5, Tx: 0.5, Ty: 0.5, Tz: 0.5 }; // double fields from the start
 
 const ZONES = ['front', 'rear', 'left', 'right', 'roof'];
 
@@ -46,7 +47,7 @@ export class Vehicle {
     this.dynamic = [];
     this.acc = 0;
     this.assist = 1;
-    this.q0 = {}; this.q1 = {}; this.q2 = {};
+    this.q0 = newQuery(); this.q1 = newQuery(); this.q2 = newQuery();
   }
 
   setStats(stats) {
@@ -124,7 +125,7 @@ export class Vehicle {
     this.dmg = { engine: 1, susp: 1, brakes: 1, glass: 0, lightL: 1, lightR: 1, bumperF: 1, bumperR: 1 };
     for (const z of ZONES) this.dmg[z] = 1;
     this.air = 0; this.airTime = 0; this.landCool = 0; this.drift = 0; this.groundY = pos.y;
-    this.lastQuery = { idx: Math.round(s / STEP), s, d: 0 };
+    this.lastQuery = Object.assign(newQuery(), { idx: Math.round(s / STEP), s, d: 0 });
     this.speed = 0; this.fwdSpeed = 0;
     this.wheelsOnGround = 4;
     this.limiter = 0;
@@ -150,12 +151,14 @@ export class Vehicle {
   step(dt) {
     const p = this.p, t = this.track, m = this.m, q = this.q;
     const inp = this.input;
-    let Fx = 0, Fy = -m * G, Fz = 0;
-    let Tx = 0, Ty = 0, Tz = 0;
+    // force / torque sums live on a reused object: a closure capturing mutable locals
+    // boxed every += into a fresh heap number (megabytes of garbage per second)
+    const A = ACC, pos0 = this.pos;
+    A.Fx = 0; A.Fy = -m * G; A.Fz = 0; A.Tx = 0; A.Ty = 0; A.Tz = 0;
     const addF = (fx, fy, fz, px, py, pz) => {
-      Fx += fx; Fy += fy; Fz += fz;
-      const rx = px - this.pos.x, ry = py - this.pos.y, rz = pz - this.pos.z;
-      Tx += ry * fz - rz * fy; Ty += rz * fx - rx * fz; Tz += rx * fy - ry * fx;
+      A.Fx += fx; A.Fy += fy; A.Fz += fz;
+      const rx = px - pos0.x, ry = py - pos0.y, rz = pz - pos0.z;
+      A.Tx += ry * fz - rz * fy; A.Ty += rz * fx - rx * fz; A.Tz += rx * fy - ry * fx;
     };
     const U = qrot(q, 0, 1, 0, T1);
     const ux = U.x, uy = U.y, uz = U.z;
@@ -430,7 +433,7 @@ export class Vehicle {
 
     // ---------------------------------------------------------- aero
     const drag = 0.5 * RHO * p.cda * speed;
-    Fx -= drag * vx; Fy -= drag * vy; Fz -= drag * vz;
+    A.Fx -= drag * vx; A.Fy -= drag * vy; A.Fz -= drag * vz;
     if (this.nitroT > 0 && onGround >= 2 && inp.brake < 0.1) {
       // thrust along the body: cancels drag and adds ~10 % of top speed per second,
       // fading out at 1.4x top speed
@@ -439,11 +442,11 @@ export class Vehicle {
       const fade = 1 - smoothstep(1.36, 1.46, speed / vt);
       const ramp = Math.min(1, (NITRO_TIME - this.nitroT) * 4);
       const F = (drag * speed * 1.12 + m * vt * 0.16) * fade * ramp;
-      Fx += fw.x * F; Fy += fw.y * F; Fz += fw.z * F;
+      A.Fx += fw.x * F; A.Fy += fw.y * F; A.Fz += fw.z * F;
     }
     if (p.downforce) {
       const df = p.downforce * 0.5 * RHO * 1.2 * speed * speed;
-      Fx -= ux * df; Fy -= uy * df; Fz -= uz * df;
+      A.Fx -= ux * df; A.Fy -= uy * df; A.Fz -= uz * df;
     }
 
     // ---------------------------------------------------------- stability assist + air control
@@ -457,21 +460,21 @@ export class Vehicle {
       if (k > 0) {
         const ty = -excess * this.I.y * k * 2.2;
         const W = qrot(q, 0, ty, 0, T6);
-        Tx += W.x; Ty += W.y; Tz += W.z;
+        A.Tx += W.x; A.Ty += W.y; A.Tz += W.z;
       }
     }
     if (onGround >= 2) {
       // chassis roll damping: keeps the car from snapping over on kerbs and embankments
       const k = 3.2 * p.stability;
       const W = qrot(q, 0, 0, -avB.z * this.I.z * k, T6);
-      Tx += W.x; Ty += W.y; Tz += W.z;
+      A.Tx += W.x; A.Ty += W.y; A.Tz += W.z;
     }
     if (onGround === 0) {
       this.air += dt;
       // a little air control: steer yaws, throttle/brake pitch
       const tb = { x: (inp.throttle - inp.brake) * -0.35 * this.I.x - avB.x * this.I.x * 0.6, y: inp.steer * 0.35 * this.I.y, z: -avB.z * this.I.z * 0.5 };
       const W = qrot(q, tb.x, tb.y, tb.z, T6);
-      Tx += W.x; Ty += W.y; Tz += W.z;
+      A.Tx += W.x; A.Ty += W.y; A.Tz += W.z;
     } else {
       if (this.air > 0.45) this.events.push({ type: 'land', air: this.air });
       this.airTime = this.air;
@@ -479,8 +482,8 @@ export class Vehicle {
     }
 
     // ---------------------------------------------------------- integrate velocities
-    this.vel.x += (Fx / m) * dt; this.vel.y += (Fy / m) * dt; this.vel.z += (Fz / m) * dt;
-    const tb = qinvrot(q, Tx, Ty, Tz, T5);
+    this.vel.x += (A.Fx / m) * dt; this.vel.y += (A.Fy / m) * dt; this.vel.z += (A.Fz / m) * dt;
+    const tb = qinvrot(q, A.Tx, A.Ty, A.Tz, T5);
     const dw = { x: (tb.x / this.I.x) * dt, y: (tb.y / this.I.y) * dt, z: (tb.z / this.I.z) * dt };
     const dW = qrot(q, dw.x, dw.y, dw.z, T6);
     this.angVel.x += dW.x; this.angVel.y += dW.y; this.angVel.z += dW.z;

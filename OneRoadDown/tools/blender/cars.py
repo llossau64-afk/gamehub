@@ -1059,6 +1059,7 @@ def build_interior(pr, cid, surf):
 def main():
     reset_scene()
     init_mats()
+    global car_hifi, hifi_designs
     import car_hifi
     import hifi_designs
     all_objs = []
@@ -1080,13 +1081,35 @@ def main():
         print(f'  {cid:12s} {len(objs):3d} parts {tris:6d} tris')
         all_objs += objs + [root]
     path = os.path.join(OUT, os.environ.get('GLB', 'cars.glb'))
-    bpy.ops.object.select_all(action='DESELECT')
+    # remodelled (hi-fi) cars ship their custom split normals; the older bodies are exported
+    # without normals (the game smooths them) to keep the file small.  Two exports, one merge.
+    hifi_ids = set(hifi_designs.DESIGNS) if not os.environ.get('OLD') else set()
+    groups = {True: [], False: []}
     for o in all_objs:
-        o.select_set(True)
-    bpy.context.view_layer.objects.active = all_objs[0]
-    bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True, export_apply=True,
-                              export_normals=True, export_lights=False, export_yup=True, export_texcoords=True,
-                              export_materials='EXPORT')
+        r = o
+        while r.parent:
+            r = r.parent
+        groups[r.name in hifi_ids].append(o)
+    tmp = []
+    for hf, objs in groups.items():
+        if not objs:
+            continue
+        bpy.ops.object.select_all(action='DESELECT')
+        for o in objs:
+            o.select_set(True)
+        bpy.context.view_layer.objects.active = objs[0]
+        p = path + ('.hifi.glb' if hf else '.old.glb')
+        bpy.ops.export_scene.gltf(filepath=p, export_format='GLB', use_selection=True, export_apply=True,
+                                  export_normals=hf, export_lights=False, export_yup=True, export_texcoords=True,
+                                  export_materials='EXPORT')
+        tmp.append(p)
+    if len(tmp) == 2:
+        car_hifi.merge_glb(tmp[0], tmp[1], path)
+    else:
+        os.replace(tmp[0], path)
+    for p in tmp:
+        if os.path.exists(p):
+            os.remove(p)
     print('wrote', path, os.path.getsize(path) // 1024, 'KB')
 
 

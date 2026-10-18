@@ -8,7 +8,7 @@ import { buildPickup, pickupBeacon } from '../models/props.js';
 import { computeStats } from './stats.js';
 import { carById } from '../data/cars.js';
 import { CATEGORIES, garageEarnMult, repairBonus } from '../data/upgrades.js';
-import { SURF, SURF_INFO, STEP } from '../world/track.js';
+import { SURF, SURF_INFO, STEP, newQuery } from '../world/track.js';
 import { Animals } from '../world/animals.js';
 import { EngineVoice, RoadVoice, audio } from '../audio/audio.js';
 import { carState } from '../core/save.js';
@@ -224,8 +224,8 @@ export class Run {
     const v = this.vehicle, t = this.track, s = v.lastQuery.s;
     let lane = 1.4;
     for (const o of t.obstacles) if (o.s > s && o.s < s + 60 && Math.abs(o.d - lane) < 3.2) { const span = (o.len || o.r * 2) + 1.6; lane = o.d > 0 ? o.d - span : o.d + span; }
-    const tgt = t.posAt(s + 8 + v.speed * 0.6, lane);
-    const f = v.getForward({});
+    const tgt = t.posAt(s + 8 + v.speed * 0.6, lane, this.tmp.bot || (this.tmp.bot = {}));
+    const f = v.getForward(this.tmp.f);
     let a = Math.atan2(tgt.x - v.pos.x, tgt.z - v.pos.z) - Math.atan2(f.x, f.z);
     while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI;
     let kmax = 0;
@@ -614,7 +614,7 @@ export class Run {
           }
         }
       }
-      const cq = this.track.query(this.camPos.x, this.camPos.z, this.camQ || (this.camQ = {}));
+      const cq = this.track.query(this.camPos.x, this.camPos.z, this.camQ || (this.camQ = newQuery()));
       if (this.track.tunnel[cq.idx] && Math.abs(cq.d) < cq.halfW + 1.5) this.camPos.y = Math.min(this.camPos.y, this.track.roadY(cq.s) + 4.2);
       // keep the camera at a sensible distance after crashes / flips
       const dx = this.camPos.x - p.x, dz = this.camPos.z - p.z, dd = Math.hypot(dx, dz);

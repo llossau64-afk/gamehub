@@ -570,6 +570,7 @@ export class CarModel {
         case 'headlight': return part === 'lightR' ? this.lightMatR : this.lightMatL;
         case 'taillight': return this.tailMat;
         case 'amber': return M.amber;
+        case 'reverse': return this.reverseMat || (this.reverseMat = M.reverse.clone());
         case 'grille': return M.grille;
         case 'plate': return plateMat;
         case 'under': case 'wells': return M.under;
@@ -1092,6 +1093,7 @@ export class CarModel {
     // brake & reverse lights
     const braking = v.input.brake > 0.1 && v.gear !== -1;
     this.tailMat.emissiveIntensity = lerp(this.tailMat.emissiveIntensity, braking ? 2.2 : 0.35, 1 - Math.exp(-dt * 20));
+    if (this.reverseMat) this.reverseMat.emissiveIntensity = v.gear === -1 ? 1.6 : 0.04;
     const lightsOn = this.lightsOn ? 2.5 : 0.18;
     this.lightMatL.emissiveIntensity = lightsOn; this.lightMatR.emissiveIntensity = lightsOn;
     // contact shadow sits on the ground under the wheels, gone once all four are airborne
@@ -1161,6 +1163,8 @@ function assetMats() {
   AM = {
     trim: new THREE.MeshStandardMaterial({ color: 0x141415, roughness: 0.6, metalness: 0.1 }),
     amber: new THREE.MeshStandardMaterial({ color: 0xc8720e, emissive: 0x7a3a00, emissiveIntensity: 0.3, roughness: 0.2 }),
+    // reversing lamp lens (hi-fi bodies): lit while in reverse gear
+    reverse: new THREE.MeshStandardMaterial({ color: 0xd8dade, emissive: 0xffffff, emissiveIntensity: 0.04, roughness: 0.15, metalness: 0.2 }),
     grille: mats.grille.clone(),
     under: new THREE.MeshStandardMaterial({ color: 0x0b0b0b, roughness: 1, side: ds }),
     // a little emissive stands in for the light bouncing around the cabin

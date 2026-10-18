@@ -18,6 +18,8 @@ const NS = CHUNK / STEP;
 const OFFS = [0, 0.6, 1.6, 3, 5, 8, 12, 17, 24, 33, 45, 60, 80, 105, 140];
 
 const tmpC = new THREE.Color(), tmpC2 = new THREE.Color();
+const WRECK_POOL = () => CARS.filter((c) => ['rusty', 'brick', 'dusty', 'diplomat', 'sparrow', 'nomad'].includes(c.id));
+let wrecksWarm = false;
 
 export class World {
   constructor(scene, track, quality = 'medium') {
@@ -38,6 +40,12 @@ export class World {
     this.railMeshes = new Map();
     this.splat = AS.ready ? makeTerrainMaterial(quality) : null;
     this.camPos = new THREE.Vector3();
+    // abandoned cars are built mid-run; the first model of a kind generates its canvas
+    // textures (a GPU read-back: seconds-long freeze seen on 'nomad'). Do that while loading.
+    if (!wrecksWarm && track.obstacles && track.obstacles.some((o) => o.type === 'car')) {
+      wrecksWarm = true;
+      for (const c of WRECK_POOL()) { try { new CarModel(c, { paint: 0x6a5a48 }).dispose(); } catch (e) { /* ignore */ } }
+    }
   }
 
   setQuality(q) {
@@ -1127,7 +1135,7 @@ export class World {
         m.castShadow = true;
         ch.group.add(m);
       } else if (o.type === 'car') {
-        const pool = CARS.filter((c) => ['rusty', 'brick', 'dusty', 'diplomat', 'sparrow', 'nomad'].includes(c.id));
+        const pool = WRECK_POOL();
         const c = pool[Math.floor(o.s) % pool.length];
         const colors = [0x6a5a48, 0x4a5a52, 0x7a3a2a, 0x8a8478, 0x3a4250];
         const cm = new CarModel(c, { paint: colors[Math.floor(o.s * 7) % colors.length] });

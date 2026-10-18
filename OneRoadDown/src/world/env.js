@@ -173,7 +173,8 @@ export class Environment {
     this.look = null;
     this.tunnel = 0;
     // reflection probe (medium/high): the real surroundings instead of a sky gradient
-    this.probe = quality === 'low' ? null : this.makeProbe(quality === 'high' ? 256 : 128);
+    // medium: 128 px, 300 m, one step every 2nd frame (full refresh ≈ 4×/s); high: 256 px, 600 m, every frame
+    this.probe = quality === 'low' ? null : quality === 'high' ? this.makeProbe(256, 600, 1) : this.makeProbe(128, 300, 2);
     this.probeHide = []; // set by the game: player car, particles…
     this.probeStats = null;
   }
@@ -185,10 +186,10 @@ export class Environment {
   // allocated once and reused, so its size (and every shader's envMap defines) never
   // changes mid-race. Faces are rendered linear HDR without tone mapping (render
   // target), like post.js's scene pass, so no double tone mapping and no new programs.
-  makeProbe(size) {
+  makeProbe(size, far, every) {
     const r = this.renderer;
     const rt = new THREE.WebGLCubeRenderTarget(size, { type: THREE.HalfFloatType, generateMipmaps: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
-    const cam = new THREE.CubeCamera(0.5, 5000, rt);
+    const cam = new THREE.CubeCamera(0.5, far, rt); // sky / ridges ignore the far plane
     cam.coordinateSystem = r.coordinateSystem; cam.updateCoordinateSystem();
     const prev = r.getRenderTarget();
     for (let i = 0; i < 6; i++) { r.setRenderTarget(rt, i); r.clear(); }
@@ -197,13 +198,14 @@ export class Environment {
     const out = pm.fromCubemap(rt.texture);
     this.scene.environment = out.texture;
     this.scene.environmentIntensity = 1.0;
-    return { rt, cam, pm, out, step: 0, ready: false, pos: new THREE.Vector3(), msAcc: 0, nAcc: 0 };
+    return { rt, cam, pm, out, every, tick: 0, step: 0, ready: false, pos: new THREE.Vector3(), msAcc: 0, nAcc: 0 };
   }
 
   updateProbe(focus) {
     const P = this.probe, r = this.renderer;
     const t0 = performance.now();
     const far = !P.ready || P.pos.distanceToSquared(focus) > 60 * 60;
+    if (!far && ++P.tick % P.every) return;
     // the cube is captured from one point per cycle so its faces line up
     if (P.step === 0 || far) { P.pos.copy(focus); P.cam.position.set(focus.x, focus.y + 0.9, focus.z); P.cam.updateMatrixWorld(true); }
     const hidden = [];

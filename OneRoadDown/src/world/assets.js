@@ -47,7 +47,7 @@ function registerCars(scene) {
         if (!meshes.length) { A.nodes[part] = new THREE.Vector3().setFromMatrixPosition(local); continue; }
         const m = meshes[0];
         const g = m.geometry;
-        if (part === 'steering') {
+        if (part === 'steering' || part === 'steeringWheel') {
           // keep the hub transform: the wheel turns about its local z axis
           g.computeVertexNormals();
           A.steering = { geometry: g, matrix: local.clone(), material: m.material.name };
