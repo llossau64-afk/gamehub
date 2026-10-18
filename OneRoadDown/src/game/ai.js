@@ -55,6 +55,9 @@ export function aiDrive(e, field, t, dt, o = {}) {
     v.input.throttle = spd < vt * 0.98 ? 1 : spd < vt ? 0.4 : 0;
     v.input.brake = spd > vt * 1.03 ? clamp((spd - vt) / 5, 0.25, 1) : 0;
     v.input.handbrake = 0;
+    // sliding: the wheel is at full lock against a yaw that keeps growing -> lift, or the car
+    // just spins off at full throttle (bots used to leave the road this way on straights)
+    if (Math.abs(ang) * 2.4 > 1.3 && spd > 12) v.input.throttle = Math.min(v.input.throttle, 0.2);
     // nitro on a long straight
     // (only when the straight lasts the whole burn plus the braking for the next corner)
     let straight = v.input.brake === 0;

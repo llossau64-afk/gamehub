@@ -923,6 +923,8 @@ def build_hifi(c, K, Dcls):
     objs += D.interior(surf)
     bpy.data.objects.remove(surf_ob, do_unlink=True)
     D.lod_roots = D.make_lods(objs) if hasattr(D, 'make_lods') else []
+    if D.lod_roots:
+        K.LOD_ROOTS[cid] = D.lod_roots
     return objs
 
 

@@ -582,6 +582,7 @@ export class CarModel {
         default: return this.paintMat;
       }
     };
+    this.assetNodes = A.nodes;
     const hinge = A.nodes.hoodHinge || new THREE.Vector3(0, this.dims.yBelt, 0);
     const hoodPivot = new THREE.Group();
     hoodPivot.position.copy(hinge);
@@ -753,7 +754,7 @@ export class CarModel {
       sp.rotation.y = Math.PI / 2; sp.position.set(0, d.bottom + d.H * 0.45, d.zR - 0.12);
       ex.add(sp);
     }
-    if (md.wing) {
+    if (md.wing && !(this.fromAsset && this.parts.wing)) {  // hi-fi bodies with a modelled 'wing' part
       const big = md.wing === 2;
       const wg = [];
       const zt = d.zR + (big ? 0.25 : 0.12), yt = (this.T.back > 0.05 ? d.yTail : d.roof - 0.05) + (big ? 0.32 : 0.06);
@@ -858,12 +859,18 @@ export class CarModel {
     while (this.exhaustGroup.children.length) this.exhaustGroup.remove(this.exhaustGroup.children[0]);
     const exR = 0.03 + Math.min(0.03, eng * 0.002) + (md.sport ? 0.012 : 0);
     const tips = eng >= 10 || md.sport || md.type === 'muscle' ? [-1, 1] : [-1];
+    // hi-fi bodies model their own tailpipes and mark them with 'exhaust*' anchors
+    const exN = this.assetNodes ? Object.keys(this.assetNodes).filter((k) => k.startsWith('exhaust')).map((k) => this.assetNodes[k]) : [];
+    if (exN.length) {
+      this.exhaustTips = exN.map((p) => new THREE.Vector3(p.x, p.y, p.z - 0.04));
+      tips.length = 0;
+    }
     for (const sgn of tips) {
       const t = new THREE.Mesh(new THREE.CylinderGeometry(exR, exR * 0.9, 0.28, 12, 1, true), eng >= 4 || md.sport ? mats.chrome : mats.rusty);
       t.rotation.x = Math.PI / 2; t.position.set(sgn * d.half * 0.55, d.bottom + 0.08, d.zR - 0.04);
       this.exhaustGroup.add(t);
     }
-    this.exhaustTips = tips.map((sgn) => new THREE.Vector3(sgn * d.half * 0.55, d.bottom + 0.08, d.zR - 0.18));
+    if (!exN.length) this.exhaustTips = tips.map((sgn) => new THREE.Vector3(sgn * d.half * 0.55, d.bottom + 0.08, d.zR - 0.18));
     // hood scoop / vents (on the hood pivot)
     if (this.hoodExtras) this.hoodPivot.remove(this.hoodExtras);
     this.hoodExtras = new THREE.Group();

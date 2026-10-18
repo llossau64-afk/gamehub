@@ -32,6 +32,7 @@ import { AudioSys, audio } from './audio/audio.js';
 import { UI } from './ui/ui.js';
 import { clamp, damp, fmtMoney, fmtKm, lerp } from './core/util.js';
 import { loadAssets } from './world/assets.js';
+import { StoryMode } from './game/story.js'; // story
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -56,6 +57,7 @@ class Game {
     if (this.input.isTouch) document.body.classList.add('touch');
     this.input.bindTouch(this.ui.screens.touch);
     this.wireUI();
+    this.story = new StoryMode(this); // story
     // keyboard control of every menu (the run itself reads keys through Input)
     window.addEventListener('keydown', (e) => {
       if (!this.navActive()) return;
@@ -945,6 +947,7 @@ class Game {
   }
 
   update(dt) {
+    if (this.story && this.story.update(dt)) return; // story: the story screen / cutscenes draw their own frame
     const inp = this.input;
     if (inp.wasPressed('Escape')) {
       if (this.ui.modalOpen) this.ui.closeModal();
