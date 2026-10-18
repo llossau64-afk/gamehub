@@ -51,6 +51,7 @@ def smooth(e0, e1, x):
 
 # ------------------------------------------------------------------ materials
 MATS = {}
+LOD_ROOTS = {}   # id -> [(root name, [objects])], filled by the hi-fi builder
 
 
 def mat(name, color, rough=0.5, metal=0.0, alpha=1.0, emit=None):
@@ -1066,8 +1067,10 @@ def main():
     for cid, c in CARS.items():
         if ONLY and cid not in ONLY:
             continue
+        lods = []
         if cid in hifi_designs.DESIGNS and not os.environ.get('OLD'):
             objs = car_hifi.build_hifi(c, sys.modules[__name__], hifi_designs.DESIGNS[cid])
+            lods = LOD_ROOTS.pop(cid, [])
         else:
             objs = build_car(c)
         root = bpy.data.objects.new(cid, None)
@@ -1080,6 +1083,17 @@ def main():
                 tris += len(o.data.loop_triangles)
         print(f'  {cid:12s} {len(objs):3d} parts {tris:6d} tris')
         all_objs += objs + [root]
+        # level-of-detail copies: sibling roots '<id>_lod1', '<id>_lod2' with '<id>_lodN__<part>' children
+        for lname, lobjs in lods:
+            lr = bpy.data.objects.new(lname, None)
+            bpy.context.scene.collection.objects.link(lr)
+            lt = 0
+            for o in lobjs:
+                o.parent = lr
+                o.data.calc_loop_triangles()
+                lt += len(o.data.loop_triangles)
+            print(f'  {lname:12s} {len(lobjs):3d} parts {lt:6d} tris')
+            all_objs += lobjs + [lr]
     path = os.path.join(OUT, os.environ.get('GLB', 'cars.glb'))
     # remodelled (hi-fi) cars ship their custom split normals; the older bodies are exported
     # without normals (the game smooths them) to keep the file small.  Two exports, one merge.
@@ -1089,7 +1103,7 @@ def main():
         r = o
         while r.parent:
             r = r.parent
-        groups[r.name in hifi_ids].append(o)
+        groups[r.name.split('_lod')[0] in hifi_ids].append(o)
     tmp = []
     for hf, objs in groups.items():
         if not objs:

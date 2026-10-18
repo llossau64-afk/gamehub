@@ -674,6 +674,13 @@ class Surf:
         return self.hit((x, y, sgn * 5.0), (0, 0, -sgn))
 
 
+class BvhSurf(Surf):
+    """Surf over a ready BVH (e.g. the skin before any cuts: lamp covers sit flush on it)."""
+
+    def __init__(self, bvh):
+        self.bvh = bvh
+
+
 def proj_patch(acc, surf, poly, fr, off, n=None, fill=True):
     """Fill a 2D outline (frame coords) with a triangulated patch projected onto the body,
     lifted `off` along the surface normal."""
@@ -888,6 +895,7 @@ def build_hifi(c, K, Dcls):
         p = ug(f.calc_center_median())
         B.set([f], D.classify(s, t, p, ug(f.normal)))
     B.bm.normal_update()
+    D.pre_surf = BvhSurf(BVHTree.FromBMesh(B.bm))
     D.cuts(B)
     B.bm.normal_update()
     me = B.finish(cid + '_final')
@@ -914,6 +922,7 @@ def build_hifi(c, K, Dcls):
     objs += D.details(surf)
     objs += D.interior(surf)
     bpy.data.objects.remove(surf_ob, do_unlink=True)
+    D.lod_roots = D.make_lods(objs) if hasattr(D, 'make_lods') else []
     return objs
 
 
