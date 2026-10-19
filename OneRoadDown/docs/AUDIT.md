@@ -73,3 +73,15 @@ Stand: Oktober 2026. Branch `claude/blissful-euler-u3ydyp`. Jeder Zwischenstand 
 | 7 | Multiplayer-Verbesserungen | geplant |
 | 8 | UI, Audio, VFX | teilweise (Minimap in Arbeit) |
 | 9 | Optimierung und Bugfixing | laufend |
+
+## Open World (Ergänzung)
+Die Welt-Engine erzeugt heute je Map einen Straßenkorridor: Spline-Strecke, Gelände, Bebauung, gestreamt in 100-m-Chunks. Ein Open World im Stil von Forza Horizon braucht ein **Straßennetz** statt einer einzelnen Strecke. Der Ausbau läuft deshalb schrittweise, ohne die 20 Maps zu ersetzen:
+
+1. **Free Drive** auf jeder Map: frei fahren ohne Rennen, mit Minimap und Fotomodus. Ohne Umbau möglich, als Erstes.
+2. **Hub-Welt** (Festival-Gelände):
+   - Ein neues, größeres Gelände mit Kreuzungen.
+   - Der Generator lernt mehrere verbundene Splines und Kreuzungsflächen.
+   - Von dort startet man Rennen, Story-Events und Online-Lobbys per Event-Marker.
+3. **Verbindungsstraßen** zwischen Regionen (Japan, Deutschland, Frankreich …), gestreamt wie heute. Die 20 Maps bleiben als Event-Strecken erhalten.
+
+Schritt 2 und 3 sind große Umbauten des Strecken-Generators. Sie starten erst, wenn Meilenstein 1 (Auto, Garage, Grafik, Performance) stabil getestet ist.
