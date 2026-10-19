@@ -94,8 +94,8 @@ export class StoryUI {
     this.cine.classList.toggle('on', !!on);
     this.cine.classList.remove('reveal');
     document.body.classList.toggle('story-cine', !!on);
+    this.say(null); this.titleCard(null);
     if (on) setTimeout(() => { const b = $(this.cine, '.sc-skip'); if (!document.body.classList.contains('touch')) b.focus({ preventScroll: true }); }, 60);
-    else { this.say(null); this.titleCard(null); }
   }
   say(line, people) {
     const el = $(this.cine, '.sc-sub');
