@@ -198,7 +198,18 @@ export class Environment {
     const out = pm.fromCubemap(rt.texture);
     this.scene.environment = out.texture;
     this.scene.environmentIntensity = 1.0;
-    return { rt, cam, pm, out, every, tick: 0, step: 0, ready: false, pos: new THREE.Vector3(), msAcc: 0, nAcc: 0 };
+    return { rt, cam, pm, out, clutter: [], every, tick: 0, step: 0, ready: false, pos: new THREE.Vector3(), msAcc: 0, nAcc: 0 };
+  }
+
+  collectProbeClutter() {
+    const L = (this.probe.clutter = []);
+    this.scene.traverseVisible((o) => {
+      if (!o.isMesh || o === this.sky) return;
+      const g = o.geometry;
+      if (!g.boundingSphere) g.computeBoundingSphere();
+      const sc = o.scale, r = g.boundingSphere.radius * Math.max(sc.x, sc.y, sc.z);
+      if (r < 1.3) L.push(o);
+    });
   }
 
   updateProbe(focus) {
@@ -208,9 +219,13 @@ export class Environment {
     if (!far && ++P.tick % P.every) return;
     // the cube is captured from one point per cycle so its faces line up
     if (P.step === 0 || far) { P.pos.copy(focus); P.cam.position.set(focus.x, focus.y + 0.9, focus.z); P.cam.updateMatrixWorld(true); }
+    // small clutter (ground cover, animals, posts, wheels…) is invisible at 128 px but
+    // was ~75% of the probe's draw calls: list it once per cycle, hide it per face
+    if (P.step === 0 || far) this.collectProbeClutter();
     const hidden = [];
     const hide = (o) => { if (o && o.visible) { o.visible = false; hidden.push(o); } };
     for (const o of this.probeHide) hide(o);
+    for (const o of P.clutter) hide(o);
     hide(this.weather.snow); hide(this.weather.rain); hide(this.weather.dust); hide(this.birds.mesh);
     const prevRT = r.getRenderTarget(), prevFace = r.getActiveCubeFace(), prevMip = r.getActiveMipmapLevel();
     const sAuto = r.shadowMap.autoUpdate, sNeed = r.shadowMap.needsUpdate;

@@ -392,7 +392,9 @@ body.cockpit #hud canvas.speedo { opacity: 0; }
 /* ---- race HUD: compact, at the edges ------------------------------------------------ */
 #hud .rh, #hud .rboard, #hud .rnitro { display: none; }
 body.race-mode #hud .rh, body.race-mode #hud .rboard, body.race-mode #hud .rnitro { display: flex; }
-body.race-mode #hud .tl, body.race-mode #hud .tr, body.race-mode #hud .g-fuel, body.race-mode #hud .g-hp { visibility: hidden; }
+body.race-mode #hud .tl, body.race-mode #hud .tr { visibility: hidden; }
+/* races: the fuel / condition gauges take no room, so the dial cannot crowd the map or turbo bar */
+body.race-mode #hud .g-fuel, body.race-mode #hud .g-hp { display: none; }
 #hud .rh { position: absolute; left: var(--pad); top: calc(var(--pad) + env(safe-area-inset-top)); align-items: stretch; gap: 12px; }
 #hud .rpos { font: 700 54px/1 'Cond', sans-serif; color: #fff; text-shadow: 0 2px 14px rgba(0,0,0,.6); display: flex; align-items: baseline; }
 #hud .rpos small { font-size: 22px; color: var(--ink2); margin-left: 2px; }
