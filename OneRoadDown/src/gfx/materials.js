@@ -169,7 +169,7 @@ vec3 flakeHash(vec3 p) { p = fract(p * vec3(0.1031, 0.1030, 0.0973)); p += dot(p
 // face-on and turns mirror-like at grazing angles (Fresnel). Premultiplied blending:
 // out = specular + tint*opacity + behind*(1 - alpha).
 function glassMaterial() {
-  const m = new THREE.MeshPhysicalMaterial({ color: 0x1a2630, roughness: 0.02, metalness: 0, ior: 1.52, specularIntensity: 1, transparent: true, opacity: 0.38, premultipliedAlpha: true, depthWrite: false });
+  const m = new THREE.MeshPhysicalMaterial({ color: 0x1a2630, roughness: 0.02, metalness: 0, ior: 1.52, specularIntensity: 1, transparent: true, opacity: 0.3, premultipliedAlpha: true, depthWrite: false });
   m.onBeforeCompile = (sh) => {
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <opaque_fragment>', `

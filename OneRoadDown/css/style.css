@@ -611,3 +611,11 @@ body.cine-on #touch { display: none; }
 .ol-invite { display: flex; gap: 6px; }
 .ol-invite .ol-link { flex: 1; min-width: 0; background: rgba(0,0,0,.35); border: 1px solid var(--line); color: #fff; font: 500 12px 'Body', sans-serif; padding: 8px 10px; border-radius: 2px; }
 .ol-invite .btn { padding: 8px 14px; font-size: 13px; }
+
+/* touch: keep the HUD clear of the on-screen buttons (phones in landscape) */
+body.touch #hud .gauge { width: 90px; }
+body.touch #hud canvas.speedo { width: 200px; height: 140px; }
+@media (max-height: 560px) {
+  body.touch #hud .rboard { top: calc(var(--pad) + 52px + env(safe-area-inset-top)); width: 150px; }
+  body.touch #hud .rboard div { font-size: 10.5px; padding: 0 6px; }
+}
