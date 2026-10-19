@@ -20,7 +20,7 @@ import { loadPeople, Person, peopleReady } from './people.js';
 import { buildScene, garageStage } from './storyScenes.js';
 import { StoryUI } from '../ui/story.js';
 import { CHAPTERS, ALL_EVENTS, eventById, chapterById, PEOPLE, SCENES, CLASSES, classOf, classIndex, levelOf } from '../data/story.js';
-import { carById } from '../data/cars.js';
+import { CARS, carById } from '../data/cars.js';
 import { mapById, COUNTRY_CODES } from '../data/maps.js';
 import { computeStats, maxStats, defaultLevels } from './stats.js';
 import { carState } from '../core/save.js';
@@ -82,7 +82,17 @@ export class StoryMode {
       const out = pick.call(this, n);
       const ctx = S.ctxFor(this);
       const rv = ctx && ctx.event && ctx.event.rivals;
-      if (rv) rv.forEach((r, i) => { if (i < out.length) { const car = carById(r.car); out[i] = { car, levels: S.rivalLevels(car, this.stats.top, r.edge || 0) }; } });
+      if (!ctx || !ctx.event) return out;
+      // the rest of the field stays inside the event's car class
+      const cap = classIndex(ctx.event.chapter.cls), me = this.stats.top;
+      const pool = CARS.filter((c) => !c.exotic && classIndex(classOf(c).id) <= cap)
+        .map((c) => ({ c, d: Math.abs(computeStats(c, {}, 'street').top - me) })).sort((a, b) => a.d - b.d).slice(0, 5);
+      for (let i = 0; i < out.length; i++) {
+        if (classIndex(classOf(out[i].car).id) <= cap || !pool.length) continue;
+        const car = pool[Math.floor(Math.random() * pool.length)].c;
+        out[i] = { car, levels: S.rivalLevels(car, me, Math.random() * 0.1) };
+      }
+      if (rv) rv.forEach((r, i) => { if (i < out.length) { const car = carById(r.car); out[i] = { car, levels: S.rivalLevels(car, me, r.edge || 0) }; } });
       return out;
     };
     const intro = Presentation.prototype.startIntro;
@@ -602,7 +612,8 @@ export class StoryMode {
     this.save();
     this.ui.tutorial(null); this.ui.tutorialEsc(0); this.tutShown = false;
     this.tut = null;
-    this.flow(async () => {
+    // not through flow(): skipping must work even while another story step is settling
+    (async () => {
       await this.g.ui.fade(true);
       if (this.g.paused) { this.g.paused = false; this.g.ui.show('pause', false); this.g.sound.ctx && this.g.sound.ctx.resume(); }
       this.g.stopRun();
@@ -610,7 +621,7 @@ export class StoryMode {
       this.showScreen();
       this.g.ui.toast(completed ? 'TUTORIAL COMPLETE · <b>CHAPTER 1</b> IS OPEN' : 'TUTORIAL SKIPPED · REPLAY IT ANY TIME FROM THE STORY SCREEN', 3800);
       this.g.ui.fade(false);
-    }).finally(() => { this.tutEnding = false; });
+    })().catch((e) => console.error('[story] tutorial end', e)).finally(() => { this.tutEnding = false; });
   }
 
   // ------------------------------------------------------------------ per frame

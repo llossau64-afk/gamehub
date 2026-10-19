@@ -227,7 +227,7 @@ export const SCENE_BUILDERS = {
     const marart = () => (mara ? rightOf(mara) : V(0.9, 0, -0.4));
     const cu = (dist, side, up = -0.03) => () => head().addScaledVector(marafwd(), dist).addScaledVector(marart(), side).add(V(0, up, 0));
     const cuT = () => head().add(V(0, -0.06, 0)).addScaledVector(marart(), 0.08);
-    let d = cutDialogue(later, 'g2', 'point');
+    let d = cutDialogue(later, 'g2', 'talk');
     cs.shot(later, d, { set: 'garage', ease: 'inOut', from: { pos: cu(1.75, 0.5), target: cuT, fov: 34 }, to: { pos: cu(1.45, 0.38), target: cuT, fov: 32 } });
     // orbit the old car while she talks about it
     const t3 = later + d;
@@ -235,11 +235,11 @@ export const SCENE_BUILDERS = {
     cs.shot(t3, d + 0.4, { set: 'garage', ease: 'inOut', from: { pos: V(), target: carC, fov: 40 }, to: { pos: V(), target: carC, fov: 38 }, orbit: { center: carC, r: 5.0, a0: 1.9, a1: 3.4, h0: 1.5, h1: 1.1 } });
     cs.sound(t3 + 0.6, 'ratchet', 4);
     const t4 = t3 + d + 0.4;
-    d = cutDialogue(t4, 'g4', 'talk');
+    d = cutDialogue(t4, 'g4', 'point');
     // two-shot: Mara and the car
     cs.shot(t4, d, { set: 'garage', ease: 'inOut', from: { pos: V(2.6, 1.5, 4.6), target: V(-1.0, 1.1, 1.2), fov: 40 }, to: { pos: V(2.1, 1.45, 4.0), target: V(-1.2, 1.15, 1.4), fov: 38 } });
     const t5 = t4 + d;
-    d = cutDialogue(t5, 'g5', 'point');
+    d = cutDialogue(t5, 'g5', 'talk');
     cs.shot(t5, d + 1.4, { set: 'garage', ease: 'inOut', from: { pos: cu(1.6, -0.45), target: cuT, fov: 34 }, to: { pos: cu(1.35, -0.35, 0), target: cuT, fov: 31 } });
     cs.sound(t5 + d - 0.2, 'starter', null);
     cs.sound(t5 + d + 0.6, 'burst', { freq: 150, type: 'lowpass', dur: 1.2, gain: 0.35 });
@@ -287,7 +287,7 @@ export const SCENE_BUILDERS = {
     // reveal the driver
     cs.shot(3.8, 2.4, { set: 'world', s: s0, ease: 'out', from: { pos: rp.clone().addScaledVector(fwdOf(riv), 4.5).add(V(0.6, 1.2, 0)), target: riv.headPos().add(V(0, -0.4, 0)), fov: 40 },
       to: { pos: rp.clone().addScaledVector(fwdOf(riv), 3.0).add(V(0.3, 1.45, 0)), target: riv.headPos().add(V(0, -0.2, 0)), fov: 38 } });
-    const end = dialogue(S, cs, W, 6.2, sceneId, keys, cast, { rest: { [rivalId]: 'armscross' }, gesture: { k3: 'point', v2: 'point', l2: 'armscross', e2: 'wave' } });
+    const end = dialogue(S, cs, W, 6.2, sceneId, keys, cast, { rest: { [rivalId]: 'armscross' }, gesture: { k3: 'talk', v2: 'talk', l2: 'armscross', e2: 'wave' } });
     cs.fade(end + 0.2, true);
     cs.extend(end + 0.8);
   },

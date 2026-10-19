@@ -720,6 +720,7 @@ class Furia(MidEngine):
 
 
 class RearEngine(Tabled):
+    hood_t = 9
     """Rear-engined coupe (the classic rear-engined sports car): fender humps carrying round
     lamps, low frunk lid between them, fastback roof running into the engine lid."""
     crease_H, crease_D, crease_nose, crease_tail = 0.4, 0.15, 0.15, 0.55
@@ -777,7 +778,7 @@ class RearEngine(Tabled):
                 return 'door' + side
             return 'quarter' + side
         if s >= S('cowl'):
-            return 'hood' if t >= 9 else 'fenderF' + side
+            return 'hood' if t >= self.hood_t else 'fenderF' + side
         if t >= 10:
             if s >= S('header'):
                 return 'glass'
@@ -1294,7 +1295,350 @@ class Zenith(Toro):
         return self.splitter(surf)
 
 
-DESIGNS = {'toro': Toro, 'furia': Furia, 'bauhaus': Bauhaus, 'elfer': Elfer, 'rivale': Rivale, 'vanta': Vanta, 'halo': Halo, 'zenith': Zenith}
+class FrontEngine(RearEngine):
+    """Front-engined coupe / saloon from a handful of profile numbers (PR):
+      zc cowl, zh header, zr roof rear, zw rear-window base (deck start), y* heights (game y),
+      wB belt / wP roof-rail half-width fractions, hood bulge, notch (saloon) or fastback."""
+    hood_t = 8
+    crease_H, crease_D, crease_nose, crease_tail = 0.75, 0.3, 0.35, 0.6
+    cap_front, cap_rear = 0.05, 0.02
+
+    def __init__(self, c, K):
+        Design.__init__(self, c, K)
+        d, h = self.d, self.h
+        R = self.PR
+        zF, zR, fa, ra = self.zF, self.zR, self.fa, self.ra
+        self.zf0, self.zr0 = zF - R.get('nose_len', 0.5), zR + R.get('tail_len', 0.5)
+        zc, zh, zr, zw = R['zc'], R['zh'], R['zr'], R['zw']
+        self.z_cowl, self.z_header, self.z_roofR, self.z_rw0 = zc, zh, zr, zw
+        self.z_ws, self.z_bulk = zc, zr - 0.15
+        bot, roof, wc = d['bottom'], d['roof'], d['wcY']
+        yh0, yh1, yb, yd, yt = R['yh0'], R['yh1'], R['yb'], R['yd'], R['yt']
+        hood = P([(self.zf0, yh0), (fa, lerp(yh0, yh1, 0.45) + R.get('hood_bow', 0.01)), (zc, yh1)])
+        roofc = P([(zh, roof - 0.012), ((zh + zr) / 2, roof), (zr, roof - 0.02)])
+        deck = P([(self.zr0, yt), (zw, yd)])
+        wsf = lambda z: sstep(zc, zh, z)                       # 0 at cowl -> 1 at header
+        rwf = lambda z: sstep(zw, zr, z)                       # 0 at deck -> 1 at roof rear
+        def top(z, drop, fall):
+            if z >= zc:
+                return hood(z) - drop
+            if z >= zh:
+                return lerp(hood(zc) - drop, roofc(zh) - fall, wsf(z) ** R.get('ws_pow', 1.0))
+            if z >= zr:
+                return roofc(z) - fall
+            if z >= zw:
+                return lerp(deck(zw) - drop, roofc(zr) - fall, rwf(z) ** R.get('rw_pow', 1.0))
+            return deck(z) - drop
+        def fx(fh, fg, fd):
+            return lambda z: (fh if z >= zc else fd if z < zw else lerp(fd, fg, rwf(z)) if z < zr else fg if z < zh else lerp(fh, fg, wsf(z))) * h
+        wB, wP = R['wB'], R['wP']
+        ZS = sorted(set([self.zr0, ra, zw, zr, (zr + zh) / 2, zh, (zh + zc) / 2, zc, fa, self.zf0] + list(np.linspace(self.zr0, self.zf0, 24))))
+        bulge = lambda z, axz, amt: amt * math.exp(-((z - axz) / 0.55) ** 2)
+        X = {'F': lambda z: .72 * h, 'R': lambda z: .91 * h, 'S': lambda z: (.93 + bulge(z, fa, .03) + bulge(z, ra, .04)) * h,
+             'M': lambda z: (.955 + bulge(z, fa, .03) + bulge(z, ra, .04)) * h,
+             'X': lambda z: (.965 + bulge(z, fa, .035) + bulge(z, ra, .035) * R.get('haunch', 1.0)) * h,
+             'H': lambda z: (.955 + bulge(z, fa, .03) + bulge(z, ra, .03) * R.get('haunch', 1.0)) * h,
+             'D': lambda z: (.88 + bulge(z, fa, .02) + bulge(z, ra, .03)) * h,
+             'B': fx(.78, wB, .76), 'P1': fx(.66, wP, .64), 'P2': fx(.56, wP - .07, .54), 'Q': fx(.3, .3, .3)}
+        belt = P([(zw, yb + R.get('belt_rise', 0.03)), (zc, yb)])
+        Y = {'K': lambda z: bot, 'F': lambda z: bot, 'R': lambda z: bot + 0.02, 'S': lambda z: bot + 0.10,
+             'M': lambda z: wc - 0.02, 'X': lambda z: wc + 0.12,
+             'H': lambda z: (hood(z) - 0.10 if z > zc else belt(z) - 0.12 if z > zw else deck(z) - 0.12) + R.get('h_off', 0.0),
+             'D': lambda z: hood(z) - 0.035 if z > zc else (belt(z) - 0.035 if z > zw else deck(z) - 0.035),
+             'B': lambda z: hood(z) - 0.02 if z > zc else (belt(z) if z > zw else deck(z) - 0.012),
+             'P1': lambda z: top(z, 0.012, 0.055) if zw < z < zc else top(z, 0.012, 0.055),
+             'P2': lambda z: top(z, 0.006, 0.025), 'Q': lambda z: top(z, 0.002, 0.006), 'C': lambda z: top(z, 0.0, 0.0)}
+        # belt is below the window: in the greenhouse B follows the belt, P1 the window top
+        def p1y(z):
+            if zw < z < zc:
+                return max(top(z, 0.012, 0.055), belt(z) + 0.012)
+            return top(z, 0.012, 0.055)
+        Y['P1'] = p1y
+        self.KEYS = {n: [(z, X.get(n, lambda z: 0.0)(z) / h, Y[n](z)) for z in ZS] for n in ('K', 'F', 'R', 'S', 'M', 'X', 'H', 'D', 'B', 'P1', 'P2', 'Q', 'C')}
+        nh, th = yh0 - 0.02, yt - 0.02
+        cwf, cwr = R.get('capw_f', .55), R.get('capw_r', .7)
+        self.NOSE = {'K': (.30, bot + .02, 2.3, cwf), 'F': (.18, bot + .03, 2.3, cwf), 'R': (.08, bot + .06, 2.3, cwf), 'S': (.04, bot + .13, 2.3, cwf),
+                     'M': (.03, lerp(bot, nh, .45), 2.3, cwf), 'X': (.04, lerp(bot, nh, .65), 2.3, cwf), 'H': (.07, lerp(bot, nh, .82), 2.3, cwf),
+                     'D': (.10, nh - .02, 2.3, cwf), 'B': (.12, nh, 2.3, cwf), 'P1': (.13, nh + .003, 2.3, cwf), 'P2': (.14, nh + .005, 2.3, cwf),
+                     'Q': (.15, nh + .006, 2.3, cwf), 'C': (.16, nh + .007, 2.3, 0)}
+        self.TAIL = {'K': (.32, bot + .08, 2.5, cwr), 'F': (.2, bot + .09, 2.5, cwr), 'R': (.09, bot + .12, 2.5, cwr), 'S': (.04, bot + .2, 2.5, cwr),
+                     'M': (.02, lerp(bot, th, .45), 2.5, cwr), 'X': (.02, lerp(bot, th, .62), 2.5, cwr), 'H': (.03, lerp(bot, th, .8), 2.5, cwr),
+                     'D': (.05, th - .015, 2.5, cwr), 'B': (.07, th, 2.5, cwr), 'P1': (.08, th + .003, 2.5, cwr), 'P2': (.085, th + .004, 2.5, cwr),
+                     'Q': (.09, th + .005, 2.5, cwr), 'C': (.095, th + .005, 2.5, 0)}
+        winR = R.get('winR', zr - 0.15)
+        self.WINR_DZ = R.get('winr_dz', {'B': -0.06, 'P1': 0.06})
+        mids = [(self.zr0, None), (ra, 'ra'), (zw, 'rw0'), (winR, 'winR'), (R.get('doorR', zr + 0.05), 'doorR'), (zr + 0.12, 'roofR'), (zh, 'header'),
+                (zc, 'cowl'), (zc + 0.12, 'doorF'), (fa, 'fa'), (self.zf0, 'nose0')]
+        tagged = {z for z, _ in mids}
+        for z in np.linspace(self.zr0, self.zf0, 22):
+            if min(abs(z - t) for t in tagged) > 0.08:
+                mids.append((z, None))
+        self.MID = sorted(mids)
+        self.z_roofR = zr + 0.12
+        self.y_dash = yh1 - 0.06
+        self.y_roof_in = roof - 0.05
+        self.tum_in = 0.8
+        fB = P([(z, X['B'](z)) for z in ZS])
+        self.cab_half = lambda z: fB(z) - 0.06
+        self.deck_y = lambda z: Y['C'](z)
+
+    def tracks(self):
+        out = {}
+        for n, keys in self.KEYS.items():
+            fx = P([(z, x * self.h) for z, x, y in keys])
+            fy = P([(z, y) for z, x, y in keys])
+            nf, nr = self.NOSE[n], self.TAIL[n]
+            tr = FTrack(fx, fy, (self.zF - nf[0],) + tuple(nf[1:]), (self.zR + nr[0],) + tuple(nr[1:]), self.zf0, self.zr0)
+            out[n] = ArchGuard(tr, self) if n in ('H', 'D', 'B', 'P1', 'P2', 'Q') else tr
+        return out
+
+    def wing(self, surf):
+        Wg = self.WING
+        A = Acc()
+        zR = self.zR
+        zc = self.zR + Wg.get('z', 0.22)
+        span, chord, hgt = Wg.get('span', self.h * 0.82), Wg.get('chord', 0.24), Wg.get('h', 0.16)
+        p, n = surf.top(0.0, zc)
+        y0 = p[1] if p is not None else 0.5
+        yw = y0 + hgt
+        if Wg['kind'] == 'lip':
+            rings = []
+            for x in np.linspace(-span, span, 13):
+                q, _ = surf.top(x, zR + 0.12)
+                y = q[1] if q is not None else y0
+                rings.append([(x, y - 0.012, zR + 0.2), (x, y + 0.035, zR + 0.10), (x, y + 0.03, zR + 0.06), (x, y - 0.02, zR + 0.10)])
+            loft_acc(A, rings, True, True, True)
+            return [self.obj('wing', A, 'paint', 40, uv=True)]
+        prof = [(0.0, 0.0), (0.05, 0.016), (0.14, 0.02), (chord, 0.006), (chord, 0.0), (0.14, 0.004), (0.05, -0.004)]
+        rings = [[(x, yw + py, zc + chord / 2 - pz) for (pz, py) in prof] for x in np.linspace(-span, span, 13)]
+        loft_acc(A, rings, True, True, True)
+        if Wg['kind'] == 'hoop':
+            # the wing's ends sweep down into the deck (one-piece hoop)
+            for sgn in (1, -1):
+                q, _ = surf.top(sgn * span * 0.97, zc)
+                yb = q[1] if q is not None else y0
+                tube(A, [(sgn * span * 0.97, yw, zc), (sgn * span * 0.985, (yw + yb) / 2, zc + 0.02), (sgn * span * 0.99, yb - 0.01, zc + 0.05)],
+                     [(-0.012, -chord * 0.4), (0.012, -chord * 0.4), (0.012, chord * 0.4), (-0.012, chord * 0.4)], True, True, up=(1, 0, 0))
+        else:
+            for sgn in (1, -1):
+                xs = sgn * span * Wg.get('post', 0.6)
+                q, _ = surf.top(xs, zc)
+                yb = q[1] if q is not None else y0
+                tube(A, [(xs, yb - 0.01, zc), (xs, yw, zc - 0.02)], [(-0.01, -0.04), (0.01, -0.04), (0.01, 0.04), (-0.01, 0.04)], True, True, up=(1, 0, 0))
+                A.add([(sgn * span, yw - 0.04, zc + 0.13), (sgn * span, yw - 0.04, zc - 0.13), (sgn * span, yw + 0.05, zc - 0.13), (sgn * span, yw + 0.04, zc + 0.13)],
+                      [(0, 1, 2, 3), (3, 2, 1, 0)])
+        return [self.uv_const(self.obj('wing', A, Wg.get('mat', 'paint'), 40), (0, 0))]
+
+    def extra_details(self, surf):
+        return self.splitter(surf)
+
+    def cockpit(self, xD=0.36):
+        R, d = self.PR, self.d
+        zc, zh = self.z_cowl, self.z_header
+        fl = d['bottom'] + 0.12
+        zS = zc - 1.25
+        return dict(xD=xD, floor=fl, seatZ=zS, seatY=fl + 0.09, wheelZ=zc - 0.72, wheelY=R['yb'] - 0.17, tilt=0.4,
+                    dashFront=zc - 0.05, dashRear=zc - 0.5, dashTop=R['yh1'] - 0.04, pedalZ=zc - 0.3, bulkZ=min(zS - 0.55, self.z_rw0 + 0.1),
+                    beltY=R['yb'], roofY=d['roof'], headerZ=zh, mirrorY=d['roof'] - 0.1, mirrorZ=zh - 0.08,
+                    eye=(xD, R['yb'] + 0.1, zS - 0.08), hoodEye=(0.0, R['yh1'] + 0.28, lerp(zc, self.zF, 0.35)), hoodHinge=(0.0, R['yh1'], zc))
+
+
+class Kaiju(FrontEngine):
+    """AWD super GT (GT-R R35-like): angular boomerang lamps, big trapezoid grille, fender vents,
+    quad round tail lamps, trunk wing, quad pipes."""
+    PR = dict(zc=0.33, zh=-0.40, zr=-1.0, zw=-1.62, yh0=0.21, yh1=0.45, yb=0.47, yd=0.60, yt=0.575, wB=0.80, wP=0.62,
+              belt_rise=0.04, rw_pow=0.85, haunch=1.3, doorR=-1.0, winR=-1.18, winr_dz={'B': -0.08, 'P1': 0.1})
+    front_bumper_y, rear_bumper_y, splitter_y, diffuser_y = 0.05, 0.12, -0.33, -0.25
+
+    def specs(self):
+        zF, zR, fa = self.zF, self.zR, self.fa
+        lamp = rounded([(-0.20, -0.02), (0.12, -0.04), (0.24, 0.0), (0.25, 0.06), (0.10, 0.03), (-0.19, 0.03)], 0.012)
+        self.LAMPS = [dict(target=(0.58, 0.14, zF - 0.20), dv=(-0.4, -0.45, -1), depth=0.035, poly=lamp)]
+        self.LAMP_UNIT = dict(lenses=[(-0.10, 0.004, 0.022), (-0.03, 0.0, 0.022), (0.04, -0.005, 0.02)],
+                              drl=[([(-0.18, -0.008), (0.12, -0.028), (0.23, 0.005), (0.235, 0.045)], 0.008)], ind=[([(0.13, 0.03), (0.21, 0.04)], 0.008)])
+        fil = lambda q: q[2] > zF - 0.4 and q[1] < 0.18
+        self.INTAKES = [dict(poly=[(-0.36, -0.24), (0.36, -0.24), (0.43, 0.08), (-0.43, 0.08)], axis='F', depth=0.08, filt=fil, mirror=False, wall='grilleFrame'),
+                        dict(poly=rounded([(0.52, -0.26), (0.80, -0.24), (0.80, -0.10), (0.56, -0.12)], 0.02), axis='F', depth=0.06, filt=fil),
+                        dict(poly=[(fa - 0.42, 0.02), (fa - 0.48, 0.20), (fa - 0.52, 0.20), (fa - 0.47, 0.02)], axis='L', depth=0.04,
+                             filt=lambda q: q[0] > 0.5 and fa - 0.65 < q[2] < fa - 0.3),
+                        dict(poly=rounded([(-0.80, -0.30), (0.80, -0.30), (0.82, -0.15), (-0.82, -0.15)], 0.02), axis='B', depth=0.05,
+                             filt=lambda q: q[2] < zR + 0.3 and q[1] < 0.0, mirror=False)]
+        ring = lambda cx: circle(cx, 0.43, 0.058, n=22)
+        inner = lambda cx: circle(cx, 0.43, 0.04, n=22)
+        self.TAILS = [dict(poly=ring(0.50), depth=0.014, filt=lambda q: q[2] < zR + 0.35 and q[1] > 0.3, strips=[(inner(0.50) + [inner(0.50)[0]], 0.016)]),
+                      dict(poly=ring(0.71), depth=0.014, filt=lambda q: q[2] < zR + 0.35 and q[1] > 0.3, strips=[(inner(0.71) + [inner(0.71)[0]], 0.016)])]
+        zc = self.z_cowl
+        self.GROOVES = [dict(path=[(zc + 0.08, 0.46), (zc + 0.13, 0.15), (zc + 0.10, -0.24), (-0.95, -0.24), (-1.0, 0.1), (-1.08, 0.47)],
+                             axis='L', filt=lambda q: q[0] > 0.5 and q[1] < 0.5),
+                        dict(path=[(-0.70, zc + 0.03), (-0.74, 1.4), (-0.60, zF - 0.17), (0.60, zF - 0.17), (0.74, 1.4), (0.70, zc + 0.03)],
+                             axis='T', filt=lambda q: q[1] > 0.15 and q[2] > zc - 0.05, mirror=False),
+                        dict(path=[(-0.66, self.z_rw0 - 0.02), (-0.70, zR + 0.12), (0.70, zR + 0.12), (0.66, self.z_rw0 - 0.02)],
+                             axis='T', filt=lambda q: q[1] > 0.3 and q[2] < self.z_rw0 + 0.02, mirror=False)]
+        self.VENTS = []
+        self.EXHAUSTS = [dict(x=0.40, y=-0.27, rx=0.05, ry=0.05, shape='round'), dict(x=0.54, y=-0.27, rx=0.05, ry=0.05, shape='round')]
+        self.FINS = dict(xs=(-0.25, 0.0, 0.25), z1=zR + 0.45, y_top=-0.25)
+        self.MIRROR = dict(z=zc - 0.12, y=0.50, out=0.1, kind='paint')
+        self.SPLITTER = dict(y=-0.33, out=0.03, x=0.80)
+        self.WING = dict(kind='trunk', z=0.14, h=0.12, span=0.72, chord=0.2, post=0.75)
+        self.COCKPIT = self.cockpit(0.37)
+
+    def kind(self, p):
+        if p == 'grilleFrame':
+            return 'chrome'
+        return super().kind(p)
+
+
+class Ronin(FrontEngine):
+    """JDM turbo coupe (Supra A80-like): smooth rounded body, triple-lens lamps, wide mouth,
+    tall hoop wing, round twin tail lamps, big single pipe."""
+    crease_H, crease_D = 0.35, 0.15
+    PR = dict(zc=0.30, zh=-0.38, zr=-0.95, zw=-1.42, yh0=0.18, yh1=0.42, yb=0.43, yd=0.52, yt=0.49, wB=0.80, wP=0.60,
+              belt_rise=0.03, rw_pow=0.7, haunch=1.5, doorR=-0.95, winR=-1.1, winr_dz={'B': -0.1, 'P1': 0.12}, capw_f=0.5, capw_r=0.62)
+    front_bumper_y, rear_bumper_y, splitter_y, diffuser_y = 0.04, 0.14, -0.30, -0.24
+    cap_front, cap_rear = 0.10, 0.04
+
+    def specs(self):
+        zF, zR, fa = self.zF, self.zR, self.fa
+        lamp = rounded([(-0.21, -0.035), (0.15, -0.045), (0.24, 0.0), (0.20, 0.045), (-0.19, 0.03)], 0.03)
+        self.LAMPS = [dict(target=(0.55, 0.12, zF - 0.24), dv=(-0.3, -0.6, -1), depth=0.035, poly=lamp)]
+        self.LAMP_UNIT = dict(lenses=[(-0.12, 0.0, 0.03), (-0.03, -0.002, 0.03), (0.06, -0.004, 0.03)], drl=[([(-0.18, -0.025), (0.14, -0.035)], 0.007)],
+                              ind=[([(0.14, 0.01), (0.21, 0.015)], 0.012)])
+        fil = lambda q: q[2] > zF - 0.4 and q[1] < 0.15
+        self.INTAKES = [dict(poly=rounded([(-0.55, -0.24), (0.55, -0.24), (0.60, -0.06), (0.30, -0.02), (-0.30, -0.02), (-0.60, -0.06)], 0.06), axis='F', depth=0.08, filt=fil, mirror=False),
+                        dict(poly=rounded([(-0.60, -0.30), (0.60, -0.30), (0.62, -0.20), (-0.62, -0.20)], 0.02), axis='B', depth=0.04,
+                             filt=lambda q: q[2] < zR + 0.3 and q[1] < 0.0, mirror=False)]
+        r1, r2 = circle(0.47, 0.34, 0.065, n=22), circle(0.68, 0.34, 0.065, n=22)
+        self.TAILS = [dict(poly=r1, depth=0.014, fill=True, filt=lambda q: q[2] < zR + 0.35 and q[1] > 0.2, strips=[]),
+                      dict(poly=r2, depth=0.014, fill=True, filt=lambda q: q[2] < zR + 0.35 and q[1] > 0.2, strips=[])]
+        zc = self.z_cowl
+        self.GROOVES = [dict(path=[(zc + 0.08, 0.42), (zc + 0.13, 0.15), (zc + 0.10, -0.22), (-0.9, -0.22), (-0.95, 0.1), (-1.02, 0.44)],
+                             axis='L', filt=lambda q: q[0] > 0.5 and q[1] < 0.46),
+                        dict(path=[(-0.66, zc + 0.03), (-0.72, 1.3), (-0.55, zF - 0.2), (0.55, zF - 0.2), (0.72, 1.3), (0.66, zc + 0.03)],
+                             axis='T', filt=lambda q: q[1] > 0.12 and q[2] > zc - 0.05, mirror=False),
+                        dict(path=[(-0.62, self.z_rw0 - 0.02), (-0.66, zR + 0.12), (0.66, zR + 0.12), (0.62, self.z_rw0 - 0.02)],
+                             axis='T', filt=lambda q: q[1] > 0.25 and q[2] < self.z_rw0 + 0.02, mirror=False)]
+        self.VENTS = [dict(poly=rounded([(-0.22, 0.95), (0.22, 0.95), (0.18, 1.25), (-0.18, 1.25)], 0.04), depth=0.015,
+                           filt=lambda q: q[1] > 0.15 and 0.8 < q[2] < 1.4, slats=[([(-0.17, z), (0.17, z)], 0.02) for z in np.linspace(1.0, 1.2, 4)])]
+        self.EXHAUSTS = [dict(x=0.50, y=-0.25, rx=0.06, ry=0.06, shape='round')]
+        self.FINS = None
+        self.MIRROR = dict(z=zc - 0.12, y=0.46, out=0.1, kind='paint')
+        self.SPLITTER = None
+        self.WING = dict(kind='hoop', z=0.16, h=0.17, span=0.70, chord=0.17)
+        self.COCKPIT = self.cockpit(0.36)
+
+
+class Stallion(FrontEngine):
+    """Modern muscle (Mustang-like): long hood with power bulge, forward-leaning shark nose with a
+    trapezoid grille, fastback roof, tri-bar vertical tail lamps, quad pipes."""
+    PR = dict(zc=0.18, zh=-0.52, zr=-1.08, zw=-1.62, yh0=0.24, yh1=0.45, yb=0.48, yd=0.58, yt=0.56, wB=0.80, wP=0.62,
+              belt_rise=0.05, rw_pow=0.8, haunch=1.4, doorR=-1.05, winR=-1.25, winr_dz={'B': -0.1, 'P1': 0.1}, capw_f=0.62, capw_r=0.74, hood_bow=0.0)
+    front_bumper_y, rear_bumper_y, splitter_y, diffuser_y = 0.02, 0.15, -0.34, -0.28
+    crease_nose = 0.7
+
+    def specs(self):
+        zF, zR, fa = self.zF, self.zR, self.fa
+        lamp = rounded([(-0.17, -0.04), (0.17, -0.05), (0.22, 0.0), (0.20, 0.04), (-0.14, 0.035)], 0.01)
+        self.LAMPS = [dict(target=(0.62, 0.15, zF - 0.14), dv=(-0.35, -0.3, -1), depth=0.035, poly=lamp)]
+        self.LAMP_UNIT = dict(lenses=[(-0.06, 0.0, 0.028), (0.04, -0.004, 0.025)],
+                              drl=[([(-0.14, 0.025), (-0.12, -0.03)], 0.01), ([(-0.09, 0.028), (-0.075, -0.032)], 0.01), ([(-0.035, 0.03), (-0.03, -0.034)], 0.01)])
+        fil = lambda q: q[2] > zF - 0.4 and q[1] < 0.2
+        self.INTAKES = [dict(poly=[(-0.38, -0.12), (0.38, -0.12), (0.46, 0.13), (-0.46, 0.13)], axis='F', depth=0.08, filt=fil, mirror=False),
+                        dict(poly=rounded([(-0.48, -0.30), (0.48, -0.30), (0.45, -0.18), (-0.45, -0.18)], 0.02), axis='F', depth=0.06, filt=fil, mirror=False),
+                        dict(poly=rounded([(-0.75, -0.33), (0.75, -0.33), (0.77, -0.2), (-0.77, -0.2)], 0.02), axis='B', depth=0.04,
+                             filt=lambda q: q[2] < zR + 0.3 and q[1] < 0.0, mirror=False)]
+        bars = [(0.53 + k * 0.075, 0.30, 0.055) for k in range(3)]
+        self.TAILS = [dict(poly=rounded([(0.49, 0.25), (0.75, 0.25), (0.76, 0.45), (0.50, 0.45)], 0.02), depth=0.014,
+                           filt=lambda q: q[2] < zR + 0.35 and q[1] > 0.18,
+                           strips=[([(x, 0.27), (x + 0.01, 0.43)], w) for (x, _, w) in bars])]
+        zc = self.z_cowl
+        self.GROOVES = [dict(path=[(zc + 0.08, 0.47), (zc + 0.13, 0.15), (zc + 0.10, -0.25), (-1.0, -0.25), (-1.05, 0.1), (-1.15, 0.48)],
+                             axis='L', filt=lambda q: q[0] > 0.5 and q[1] < 0.52),
+                        dict(path=[(-0.70, zc + 0.03), (-0.76, 1.4), (-0.62, zF - 0.16), (0.62, zF - 0.16), (0.76, 1.4), (0.70, zc + 0.03)],
+                             axis='T', filt=lambda q: q[1] > 0.15 and q[2] > zc - 0.05, mirror=False),
+                        dict(path=[(-0.66, self.z_rw0 - 0.02), (-0.70, zR + 0.12), (0.70, zR + 0.12), (0.66, self.z_rw0 - 0.02)],
+                             axis='T', filt=lambda q: q[1] > 0.3 and q[2] < self.z_rw0 + 0.02, mirror=False)]
+        self.VENTS = [dict(poly=rounded([(0.30, 1.05), (0.46, 1.05), (0.46, 1.35), (0.30, 1.35)], 0.02), depth=0.015, filt=lambda q: q[1] > 0.2 and 0.9 < q[2] < 1.5,
+                           slats=[([(0.32, z), (0.44, z)], 0.02) for z in np.linspace(1.09, 1.31, 5)]),
+                      dict(poly=rounded([(-0.46, 1.05), (-0.30, 1.05), (-0.30, 1.35), (-0.46, 1.35)], 0.02), depth=0.015, filt=lambda q: q[1] > 0.2 and 0.9 < q[2] < 1.5,
+                           slats=[([(-0.44, z), (-0.32, z)], 0.02) for z in np.linspace(1.09, 1.31, 5)])]
+        self.EXHAUSTS = [dict(x=0.45, y=-0.28, rx=0.045, ry=0.045, shape='round'), dict(x=0.57, y=-0.28, rx=0.045, ry=0.045, shape='round')]
+        self.FINS = None
+        self.MIRROR = dict(z=zc - 0.12, y=0.51, out=0.1, kind='paint')
+        self.SPLITTER = dict(y=-0.36, out=0.02, x=0.75)
+        self.WING = dict(kind='lip', span=0.72)
+        self.COCKPIT = self.cockpit(0.37)
+
+    def tracks(self):
+        # power bulge on the hood centre
+        out = super().tracks()
+        for n, amt in (('C', 0.035), ('Q', 0.03)):
+            tr = out[n]
+            out[n] = _Bulge(tr, self.z_cowl, self.zF - 0.25, amt)
+        return out
+
+
+class _Bulge:
+    def __init__(self, tr, z0, z1, amt):
+        self.tr, self.z0b, self.z1b, self.amt = tr, z0, z1, amt
+        self.z0, self.z1 = tr.z0, tr.z1
+
+    def at(self, z):
+        x, y, z = self.tr.at(z)
+        if self.z0b < z < self.z1b:
+            y += self.amt * math.sin(math.pi * (z - self.z0b) / (self.z1b - self.z0b)) ** 0.5
+        return (x, y, z)
+
+
+class Falke(FrontEngine):
+    """Sport saloon (M3-like, no badge, plain split grille): four doors, notchback trunk, power
+    domes on the hood, L-shaped tail lamps, quad pipes, lip spoiler."""
+    PR = dict(zc=0.40, zh=-0.30, zr=-1.08, zw=-1.62, yh0=0.24, yh1=0.47, yb=0.49, yd=0.60, yt=0.59, wB=0.80, wP=0.66,
+              belt_rise=0.03, rw_pow=1.1, haunch=1.2, doorR=-1.25, winR=-1.3, winr_dz={'B': 0.0, 'P1': 0.06}, capw_f=0.66, capw_r=0.76)
+    front_bumper_y, rear_bumper_y, splitter_y, diffuser_y = 0.04, 0.16, -0.35, -0.28
+
+    def specs(self):
+        zF, zR, fa = self.zF, self.zR, self.fa
+        lamp = rounded([(-0.19, -0.035), (0.16, -0.045), (0.22, 0.0), (0.20, 0.04), (-0.17, 0.035)], 0.012)
+        self.LAMPS = [dict(target=(0.58, 0.18, zF - 0.14), dv=(-0.35, -0.3, -1), depth=0.035, poly=lamp)]
+        self.LAMP_UNIT = dict(lenses=[(-0.09, 0.0, 0.026), (0.0, -0.002, 0.026)],
+                              drl=[([(-0.16, 0.022), (0.14, 0.02), (0.18, -0.02)], 0.009), ([(0.06, 0.02), (0.08, -0.035)], 0.009)])
+        fil = lambda q: q[2] > zF - 0.4 and q[1] < 0.2
+        kid = rounded([(0.03, -0.06), (0.25, -0.07), (0.27, 0.13), (0.05, 0.14)], 0.04)
+        self.INTAKES = [dict(poly=kid, axis='F', depth=0.06, filt=fil, wall='grilleFrame'),
+                        dict(poly=rounded([(-0.36, -0.30), (0.36, -0.30), (0.33, -0.18), (-0.33, -0.18)], 0.02), axis='F', depth=0.06, filt=fil, mirror=False),
+                        dict(poly=rounded([(0.48, -0.30), (0.74, -0.28), (0.74, -0.14), (0.52, -0.16)], 0.03), axis='F', depth=0.06, filt=fil),
+                        dict(poly=rounded([(-0.75, -0.34), (0.75, -0.34), (0.77, -0.2), (-0.77, -0.2)], 0.02), axis='B', depth=0.04,
+                             filt=lambda q: q[2] < zR + 0.3 and q[1] < 0.0, mirror=False)]
+        tl = [(0.48, 0.42), (0.86, 0.40), (0.86, 0.50), (0.74, 0.52), (0.72, 0.46), (0.50, 0.47)]
+        self.TAILS = [dict(poly=tl, depth=0.014, filt=lambda q: q[2] < zR + 0.4 and q[1] > 0.35,
+                           strips=[([(0.52, 0.445), (0.80, 0.43), (0.81, 0.49)], 0.014)])]
+        zc = self.z_cowl
+        self.GROOVES = [dict(path=[(zc + 0.08, 0.48), (zc + 0.13, 0.15), (zc + 0.10, -0.26), (-1.22, -0.26), (-1.27, 0.1), (-1.30, 0.50)],
+                             axis='L', filt=lambda q: q[0] > 0.5 and q[1] < 0.53),
+                        dict(path=[(-0.42, 0.48), (-0.40, 0.15), (-0.43, -0.26)], axis='L', filt=lambda q: q[0] > 0.5 and q[1] < 0.53),
+                        dict(path=[(-0.72, zc + 0.03), (-0.76, 1.4), (-0.62, zF - 0.16), (0.62, zF - 0.16), (0.76, 1.4), (0.72, zc + 0.03)],
+                             axis='T', filt=lambda q: q[1] > 0.15 and q[2] > zc - 0.05, mirror=False),
+                        dict(path=[(-0.68, self.z_rw0 - 0.02), (-0.72, zR + 0.12), (0.72, zR + 0.12), (0.68, self.z_rw0 - 0.02)],
+                             axis='T', filt=lambda q: q[1] > 0.3 and q[2] < self.z_rw0 + 0.02, mirror=False)]
+        self.VENTS = []
+        self.EXHAUSTS = [dict(x=0.42, y=-0.30, rx=0.045, ry=0.045, shape='round'), dict(x=0.54, y=-0.30, rx=0.045, ry=0.045, shape='round')]
+        self.FINS = dict(xs=(-0.2, 0.0, 0.2), z1=zR + 0.4, y_top=-0.28)
+        self.MIRROR = dict(z=zc - 0.10, y=0.52, out=0.1, kind='paint')
+        self.SPLITTER = dict(y=-0.36, out=0.02, x=0.76)
+        self.WING = dict(kind='lip', span=0.70)
+        self.COCKPIT = self.cockpit(0.38)
+
+    def kind(self, p):
+        if p == 'grilleFrame':
+            return 'trim'
+        return super().kind(p)
+
+    def tracks(self):
+        out = super().tracks()
+        out['Q'] = _Bulge(out['Q'], self.z_cowl + 0.1, self.zF - 0.35, 0.02)
+        return out
+
+DESIGNS = {'toro': Toro, 'furia': Furia, 'bauhaus': Bauhaus, 'elfer': Elfer, 'rivale': Rivale, 'vanta': Vanta, 'halo': Halo, 'zenith': Zenith, 'kaiju': Kaiju, 'ronin': Ronin, 'stallion': Stallion, 'falke': Falke}
 
 
 # ---------------------------------------------------------------------------------- cut helpers
