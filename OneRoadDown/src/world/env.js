@@ -173,8 +173,8 @@ export class Environment {
     this.look = null;
     this.tunnel = 0;
     // reflection probe (medium/high): the real surroundings instead of a sky gradient
-    // medium: 128 px, 300 m, one step every 2nd frame (full refresh ≈ 4×/s); high: 256 px, 600 m, every frame
-    this.probe = quality === 'low' ? null : quality === 'high' ? this.makeProbe(256, 600, 1) : this.makeProbe(128, 300, 2);
+    // medium: 128 px, 150 m, one step every 2nd frame (full refresh ≈ 4×/s); high: 256 px, 300 m, every frame
+    this.probe = quality === 'low' ? null : quality === 'high' ? this.makeProbe(256, 300, 1) : this.makeProbe(128, 150, 2);
     this.probeHide = []; // set by the game: player car, particles…
     this.probeStats = null;
   }
@@ -208,7 +208,7 @@ export class Environment {
       const g = o.geometry;
       if (!g.boundingSphere) g.computeBoundingSphere();
       const sc = o.scale, r = g.boundingSphere.radius * Math.max(sc.x, sc.y, sc.z);
-      if (r < 1.3) L.push(o);
+      if (r < 2) L.push(o);
     });
   }
 
