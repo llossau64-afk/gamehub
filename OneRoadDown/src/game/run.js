@@ -614,6 +614,7 @@ export class Run {
           }
         }
       }
+      if (!this.countdown) this.camClearBoxes(p);
       const cq = this.track.query(this.camPos.x, this.camPos.z, this.camQ || (this.camQ = newQuery()));
       if (this.track.tunnel[cq.idx] && Math.abs(cq.d) < cq.halfW + 1.5) this.camPos.y = Math.min(this.camPos.y, this.track.roadY(cq.s) + 4.2);
       // keep the camera at a sensible distance after crashes / flips
@@ -663,6 +664,36 @@ export class Run {
     cam.fov = damp(cam.fov, fov, v.nitroT > 0 ? 5 : 3, dt);
     cam.near = this.camMode === 'cockpit' || this.camMode === 'hood' ? 0.05 : 0.15;
     cam.updateProjectionMatrix();
+  }
+
+  // keep the chase camera out of buildings and walls: pull it in along the line to the
+  // car until it is clear of every big box collider nearby (it used to end up inside a
+  // house after a crash and the screen went black)
+  camClearBoxes(p) {
+    const t = this.track, c = this.camPos;
+    const s = this.vehicle.lastQuery.s;
+    const inside = (x, y, z) => {
+      for (let b = -1; b <= 1; b++) {
+        const list = t.collidersNear(s + b * 20);
+        for (let i = 0; i < list.length; i++) {
+          const o = list[i];
+          if (o.t !== 'b' || o.hy < 1) continue;
+          const rx = x - o.x, rz = z - o.z;
+          if (rx * rx + rz * rz > 900) continue;
+          const cy = Math.cos(o.yaw), sy = Math.sin(o.yaw);
+          const bx = rx * cy - rz * sy, bz = rx * sy + rz * cy;
+          if (Math.abs(bx) < o.hx + 0.35 && Math.abs(bz) < o.hz + 0.35 && Math.abs(y - o.y) < o.hy + 0.35) return true;
+        }
+      }
+      return false;
+    };
+    if (!inside(c.x, c.y, c.z)) return;
+    const hx = p.x, hy = p.y + 1.0, hz = p.z;
+    for (let k = 0.85; k >= 0.1; k -= 0.15) {
+      const x = lerp(hx, c.x, k), y = lerp(hy, c.y, k), z = lerp(hz, c.z, k);
+      if (!inside(x, y, z)) { c.set(x, y, z); return; }
+    }
+    c.set(hx, hy + 1.2, hz);
   }
 
   // ------------------------------------------------------------------ pickups
