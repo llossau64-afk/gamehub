@@ -159,15 +159,22 @@ function register(scene, anisotropy) {
   }
 }
 
-// Hosts that do not serve .glb get a base64 JSON copy ({ glb: "<base64>" }) next to it.
-async function loadGLB(loader, path) {
+// Hosts that do not serve .glb get a base64 JSON copy ({ glb: "<base64>" }) next to it;
+// big files are split into parts ({ parts: n } plus <name>.glb.p<i>.json each holding { glb }).
+export async function loadGLB(loader, path) {
   let r = await fetch(path + '.glb').catch(() => null);
   let buf;
   if (r && r.ok && !/text\/html/.test(r.headers.get('content-type') || '')) buf = await r.arrayBuffer();
   else {
     r = await fetch(path + '.glb.json');
     if (!r.ok) throw new Error('missing ' + path);
-    const bin = atob((await r.json()).glb);
+    const j = await r.json();
+    let b64 = j.glb;
+    if (j.parts) {
+      const parts = await Promise.all(Array.from({ length: j.parts }, (_, i) => fetch(path + '.glb.p' + i + '.json').then((x) => x.json())));
+      b64 = parts.map((x) => x.glb).join('');
+    }
+    const bin = atob(b64);
     const u8 = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
     buf = u8.buffer;

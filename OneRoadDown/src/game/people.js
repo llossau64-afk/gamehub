@@ -1,6 +1,7 @@
 // Story characters: loads assets/models/people.glb (tools/blender/people.py) once and
 // hands out animated clones. Every character shares one rig and one set of clips:
 // idle, wave, talk, armscross, cheer, walk, point.
+import { loadGLB } from '../world/assets.js';
 import * as THREE from 'three';
 import { GLTFLoader } from '../../vendor/GLTFLoader.js';
 import { clone as cloneSkinned } from '../../vendor/SkeletonUtils.js';
@@ -10,8 +11,8 @@ let gltf = null, loading = null;
 export function loadPeople() {
   if (gltf) return Promise.resolve(gltf);
   if (loading) return loading;
-  const base = new URL('../../assets/models/people.glb', import.meta.url).href;
-  loading = new GLTFLoader().loadAsync(base).then((g) => {
+  const base = new URL('../../assets/models/people', import.meta.url).href;
+  loading = loadGLB(new GLTFLoader(), base).then((g) => {
     gltf = g;
     g.scene.traverse((o) => {
       if (o.isSkinnedMesh) {

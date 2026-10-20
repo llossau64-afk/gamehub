@@ -16,8 +16,19 @@ const walk = (d) => { for (const f of fs.readdirSync(path.join(root, d))) { cons
 for (const k of Object.keys(files)) {
   if (!k.endsWith('.glb')) continue;
   const dst = path.join(path.dirname(out), path.basename(k) + '.json');
-  fs.writeFileSync(dst, JSON.stringify({ glb: fs.readFileSync(path.join(root, k)).toString('base64') }));
+  const b64 = fs.readFileSync(path.join(root, k)).toString('base64');
+  const PART = 12e6; // the host limits each text file to 16 MB
   delete files[k];
+  if (b64.length <= PART) fs.writeFileSync(dst, JSON.stringify({ glb: b64 }));
+  else {
+    const n = Math.ceil(b64.length / PART);
+    fs.writeFileSync(dst, JSON.stringify({ parts: n }));
+    for (let i = 0; i < n; i++) {
+      const pd = dst.replace(/\.json$/, '.p' + i + '.json');
+      fs.writeFileSync(pd, JSON.stringify({ glb: b64.slice(i * PART, (i + 1) * PART) }));
+      files[k + '.p' + i + '.json'] = pd;
+    }
+  }
   files[k + '.json'] = dst;
 }
 console.log(JSON.stringify(files));
