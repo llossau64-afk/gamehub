@@ -148,6 +148,12 @@ export class GarageUI {
     if (this._lamps !== G.lamps) { this._lamps = G.lamps; this.el.lamps.classList.toggle('on', G.lamps); }
     if (this._view !== G.view) { this._view = G.view; this.el.dock.querySelectorAll('.gx-view').forEach((b) => b.classList.toggle('on', b.dataset.v === G.view)); }
     if (this._mode !== G.modeId) { this._mode = G.modeId; this.syncMode(); }
+    const fe = !G.car || G.car.frontEngine !== false; // mid / rear / electric cars open a frunk
+    if (this._fe !== fe) {
+      this._fe = fe;
+      const b = this.el.dock.querySelector('.gx-view[data-v="engine"]');
+      if (b) { b.lastElementChild.textContent = fe ? 'ENGINE' : 'FRUNK'; b.title = fe ? 'ENGINE VIEW' : 'FRUNK VIEW'; }
+    }
     if (on) {
       const f = clamp(G.rpm / G.redline, 0, 1.05);
       this.el.tachBar.style.transform = `scaleX(${f.toFixed(3)})`;

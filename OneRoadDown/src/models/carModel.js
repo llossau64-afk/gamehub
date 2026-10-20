@@ -212,6 +212,32 @@ export function buildWheel(r, width, rimStyle, tireKind, sport) {
 // ---------------------------------------------------------------- the car
 // Merge all visible meshes under `root` (except the `stops` subtrees) into one mesh per
 // material, in root space. Hidden meshes are dropped.
+// Front-mounted combustion engine? (mid / rear-engined bodies and electric cars show a frunk)
+const NOT_FRONT = new Set(['rear', 'super', 'hyper', 'berlinetta', 'wedge', 'longtail']);
+export function hasFrontEngine(car) {
+  return !!car && !NOT_FRONT.has(car.model && car.model.type) && !/ELECTRIC/.test(car.cls || '');
+}
+
+// every material shared between car models (never disposed with one car)
+function sharedMats() {
+  const S = new Set(Object.values(mats));
+  for (const o of [AM, BAY]) if (o) for (const m of Object.values(o)) S.add(m);
+  if (CS) S.add(CS);
+  return S;
+}
+
+// shared engine-bay materials (made once)
+let BAY = null;
+function bayMats() {
+  return BAY || (BAY = {
+    camRed: new THREE.MeshStandardMaterial({ color: 0x7a1510, roughness: 0.78, metalness: 0.35 }),
+    camBlack: new THREE.MeshStandardMaterial({ color: 0x1b1c1e, roughness: 0.8, metalness: 0.3 }),
+    polished: new THREE.MeshStandardMaterial({ color: 0xc8cbce, roughness: 0.22, metalness: 1 }),
+    tank: new THREE.MeshStandardMaterial({ color: 0xd9d6cc, roughness: 0.45, metalness: 0, transparent: true, opacity: 0.88 }),
+    cap: new THREE.MeshStandardMaterial({ color: 0xd8a818, roughness: 0.5 }),
+  });
+}
+
 function bakeInto(root, stops) {
   root.updateMatrixWorld(true);
   const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
@@ -555,7 +581,7 @@ export class CarModel {
     this.tailMat = mats.taillight.clone();
     this.glassMat = mats.glass; mats.glass.side = THREE.DoubleSide;
     this.crackMat = mats.crack.clone();
-    const plateTex = TX.plateTexture(plateText(this.car.id)).clone();
+    const plateTex = (this.plateTex = TX.plateTexture(plateText(this.car.id)).clone());
     plateTex.flipY = false; plateTex.needsUpdate = true;
     const plateMat = new THREE.MeshStandardMaterial({ map: plateTex, roughness: 0.6 });
     const sportBody = md.sport || md.type === 'super' || md.type === 'hyper' || md.type === 'sports';
@@ -717,23 +743,81 @@ export class CarModel {
     G.tex.needsUpdate = true;
   }
 
+  // Engine bay seen with the hood open in the garage: a V engine with crinkle cam covers,
+  // an intake plenum with runners, coil packs, air box, strut towers with a brace bar,
+  // coolant tank, battery, radiator and a dark bay liner. Primitives merged per material
+  // (7 meshes) with shared materials; hidden (and dropped by bake()) outside the garage.
   buildEngineBay(z0, z1, yBelt, bottom, half, md) {
     const g = new THREE.Group();
-    const zc = (z0 + z1) / 2, len = (z1 - z0) * 0.62;
-    const eb = new THREE.Group();
-    const block = new THREE.Mesh(roundedBox(half * 0.9, (yBelt - bottom) * 0.55, len * 0.7, 0.04, 1), mats.engine);
-    block.position.set(0, bottom + (yBelt - bottom) * 0.5, zc - 0.02);
-    const cover = new THREE.Mesh(roundedBox(half * 0.7, 0.08, len * 0.6, 0.03, 1), new THREE.MeshStandardMaterial({ color: md.sport ? 0x8a1a14 : 0x2a2b2d, roughness: 0.4, metalness: 0.6 }));
-    cover.position.set(0, block.position.y + (yBelt - bottom) * 0.3, zc - 0.02);
-    const filter = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.08, 18), mats.engineDark);
-    filter.position.set(half * 0.45, yBelt - 0.12, zc + len * 0.2);
-    const battery = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.16), mats.plastic);
-    battery.position.set(-half * 0.6, yBelt - 0.2, zc + len * 0.25);
-    const radiator = new THREE.Mesh(new THREE.BoxGeometry(half * 1.4, (yBelt - bottom) * 0.5, 0.05), mats.engineDark);
-    radiator.position.set(0, bottom + (yBelt - bottom) * 0.5, z1 - 0.22);
-    eb.add(block, cover, filter, battery, radiator);
-    this.engineParts = { block, cover, filter, radiator };
-    g.add(eb);
+    const B = bayMats();
+    const zA = z0 + 0.06, zB = z1 - 0.2, L = Math.max(0.6, zB - zA), zc = (zA + zB) / 2;
+    const yTop = yBelt - 0.05, yFloor = bottom + 0.1, H = Math.max(0.25, yTop - yFloor);
+    const ew = half * 0.82, eh = H * 0.5, el = L * 0.6, ez = zc - L * 0.04;
+    const eTop = yFloor + 0.06 + eh;
+    const G = { alu: [], cam: [], black: [], steel: [], dark: [], tank: [], cap: [] };
+    const front = (this.frontEngine = hasFrontEngine(this.car));
+    const put = (k, geo, x, y, z, rx = 0, ry = 0, rz = 0) => { geo.rotateX(rx); geo.rotateY(ry); geo.rotateZ(rz); geo.translate(x, y, z); G[k].push(geo); return geo; };
+    const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+    const cyl = (r0, r1, h, s = 14) => new THREE.CylinderGeometry(r0, r1, h, s);
+    // bay liner: floor, firewall, inner fender aprons
+    // (kept inside the body: low wedge noses taper hard towards the front)
+    put('dark', box(half * 1.6, 0.02, L), 0, yFloor, zc);
+    put('dark', box(half * 1.6, H + 0.05, 0.03), 0, yFloor + H / 2, zA - 0.04);
+    for (const s of [-1, 1]) put('dark', box(0.03, H * 0.6, L * 0.9), s * half * 0.8, yFloor + H * 0.3, zc - L * 0.05);
+    const abx = half * 0.52, abz = zB - L * 0.18, aby = yFloor + H * 0.62;
+    if (front) {
+      // block + sump, two banks with cam covers (ribbed) at a V angle
+      put('alu', roundedBox(ew, eh, el, 0.035, 1), 0, yFloor + 0.06 + eh / 2, ez);
+      const camW = ew * 0.4, camL = el * 0.96;
+      for (const s of [-1, 1]) {
+        put('cam', roundedBox(camW, 0.075, camL, 0.03, 1), s * ew * 0.27, eTop + 0.03, ez, 0, 0, s * 0.32);
+        for (let k = 0; k < 5; k++) put('cam', box(camW * 0.7, 0.012, 0.018), s * ew * 0.27 - s * 0.012, eTop + 0.072, ez - camL * 0.4 + k * camL * 0.2, 0, 0, s * 0.32);
+        put('alu', box(0.05, 0.03, camL * 0.3), s * ew * 0.27, eTop + 0.07, ez + camL * 0.32, 0, 0, s * 0.32); // brand plate
+        for (let k = 0; k < 4; k++) put('black', cyl(0.022, 0.022, 0.06, 8), s * ew * 0.12, eTop + 0.06, ez - el * 0.33 + k * el * 0.22); // coil packs
+    }
+      put('cap', cyl(0.028, 0.028, 0.03, 12), ew * 0.33, eTop + 0.085, ez - el * 0.3, 0, 0, 0.32); // oil filler
+      // intake plenum on top, runners down into the heads, throttle body + intake tube to the air box
+      const plY = eTop + 0.1;
+      put('alu', roundedBox(ew * 0.3, 0.09, el * 0.78, 0.035, 1), 0, plY, ez);
+      for (const s of [-1, 1]) for (let k = 0; k < 4; k++) {
+        const z = ez - el * 0.3 + k * el * 0.2;
+        G.steel.push(beam([s * ew * 0.13, plY - 0.01, z], [s * ew * 0.2, eTop + 0.035, z], 0.018, 7));
+    }
+      put('steel', cyl(0.055, 0.055, 0.07, 16), 0, plY, ez + el * 0.43, Math.PI / 2);
+      put('black', roundedBox(0.3, 0.14, 0.26, 0.03, 1), abx, aby, abz);
+      G.black.push(beam([0, plY, ez + el * 0.47], [abx * 0.6, aby + 0.02, abz - 0.06], 0.045, 10));
+    } else {
+      // mid / rear / electric: a carpeted luggage tub (the 'frunk') between the service items
+      const fy = yFloor + H * 0.3;
+      put('black', roundedBox(half * 1.1, 0.03, L * 0.62, 0.012, 1), 0, fy, zc - L * 0.06);
+      for (const s of [-1, 1]) put('black', box(0.025, H * 0.42, L * 0.62), s * half * 0.56, fy + H * 0.2, zc - L * 0.06);
+      put('black', box(half * 1.1, H * 0.42, 0.025), 0, fy + H * 0.2, zc + L * 0.25);
+      put('tank', roundedBox(0.09, 0.08, 0.07, 0.02, 1), half * 0.62, yFloor + H * 0.7, zA + 0.08); // brake fluid
+      put('cap', cyl(0.022, 0.022, 0.02, 10), half * 0.62, yFloor + H * 0.7 + 0.05, zA + 0.08);
+    }
+    const filter = new THREE.Mesh(cyl(0.11, 0.11, 0.06, 18), mats.engineDark);
+    filter.position.set(abx, aby + 0.1, abz);
+    filter.visible = front;
+    // strut towers + brace bar (polished), tower caps
+    const tz = zc + L * 0.12, ty = yTop - 0.06;
+    for (const s of [-1, 1]) { put('dark', cyl(0.09, 0.11, H * 0.6, 16), s * half * 0.78, ty - H * 0.3, tz); put('steel', cyl(0.06, 0.06, 0.03, 12), s * half * 0.78, ty + 0.01, tz); }
+    G.steel.push(beam([-half * 0.78, ty + 0.03, tz], [-ew * 0.18, ty + 0.06, tz - 0.02], 0.018, 8), beam([-ew * 0.18, ty + 0.06, tz - 0.02], [ew * 0.18, ty + 0.06, tz - 0.02], 0.018, 8), beam([ew * 0.18, ty + 0.06, tz - 0.02], [half * 0.78, ty + 0.03, tz], 0.018, 8));
+    // coolant expansion tank (translucent white, yellow cap), battery, radiator
+    const ctx = -half * 0.55, ctz = zB - L * 0.2;
+    put('tank', roundedBox(0.16, 0.13, 0.2, 0.04, 1), ctx, yFloor + H * 0.66, ctz);
+    put('cap', cyl(0.03, 0.03, 0.025, 12), ctx + 0.03, yFloor + H * 0.66 + 0.075, ctz + 0.04);
+    put('black', roundedBox(0.22, 0.17, 0.16, 0.015, 1), -half * 0.55, yFloor + H * 0.45, zA + L * 0.16);
+    put('cap', box(0.04, 0.02, 0.03), -half * 0.55 + 0.07, yFloor + H * 0.45 + 0.09, zA + L * 0.16 - 0.05);
+    if (front) put('dark', box(half * 1.4, H * 0.6, 0.05), 0, yFloor + H * 0.35, zB);   // radiator
+    const matOf = { alu: mats.engine, cam: md.sport ? B.camRed : B.camBlack, black: mats.plastic, steel: B.polished, dark: mats.engineDark, tank: B.tank, cap: B.cap };
+    for (const [k, geos] of Object.entries(G)) {
+      if (!geos.length) continue;
+      g.add(new THREE.Mesh(mergeGeometries(geos.map((q) => (q.index ? q.toNonIndexed() : q))), matOf[k]));
+      for (const q of geos) q.dispose();
+    }
+    g.add(filter);
+    // the turbo add-on hangs off the block's z
+    this.engineParts = { block: { position: new THREE.Vector3(0, yFloor + eh / 2, ez) }, filter };
     g.visible = false;
     return g;
   }
@@ -905,16 +989,18 @@ export class CarModel {
       if (!this.rackY) { const p = new THREE.BoxGeometry(0.8, 0.02, 0.9); p.translate(0, d.roof + 0.03, this.ghZ(lerp(this.T.roofR, this.T.roofF, 0.3)) - 0.2); add(p, mats.darkSteel); }
     }
     // turbo + intercooler
-    this.engineParts.filter.visible = turbo === 0;
+    this.engineParts.filter.visible = this.frontEngine && turbo === 0;
     if (this.turboMesh) this.engineBay.remove(this.turboMesh);
     if (turbo >= 1 || this.car.sound.turbo) {
-      const tm = new THREE.Group();
-      const snail = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.04, 8, 14), mats.steel);
-      snail.position.set(d.half * 0.45, d.yBelt - 0.15, this.engineParts.block.position.z + 0.1);
-      const pipe = new THREE.Mesh(beam([d.half * 0.45, d.yBelt - 0.15, this.engineParts.block.position.z + 0.1], [0, d.yBelt - 0.1, d.zF - 0.3], 0.035), mats.steel);
-      tm.add(snail, pipe);
-      this.turboMesh = tm;
-      this.engineBay.add(tm);
+      if (this.frontEngine) {
+        const tm = new THREE.Group();
+        const snail = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.04, 8, 14), mats.steel);
+        snail.position.set(d.half * 0.45, d.yBelt - 0.15, this.engineParts.block.position.z + 0.1);
+        const pipe = new THREE.Mesh(beam([d.half * 0.45, d.yBelt - 0.15, this.engineParts.block.position.z + 0.1], [0, d.yBelt - 0.1, d.zF - 0.3], 0.035), mats.steel);
+        tm.add(snail, pipe);
+        this.turboMesh = tm;
+        this.engineBay.add(tm);
+      }
       if (turbo >= 3) {
         const ic = new THREE.Mesh(new THREE.BoxGeometry(d.W * 0.5, 0.14, 0.04), mats.steel);
         ic.position.set(0, d.bottom + 0.3, d.zF - 0.06);
@@ -1136,13 +1222,18 @@ export class CarModel {
     this.engineBay.visible = t > 0.01;
   }
 
+  // Frees geometry plus everything this car made for itself (cloned lamp / plate / wheel /
+  // livery materials, the plate and gauge textures); module-shared materials stay.
   dispose() {
+    const shared = sharedMats(), own = new Set([this.paintMat]);
     this.group.traverse((o) => {
-      if (o.isMesh) {
-        o.geometry.dispose();
-      }
+      if (!o.isMesh) return;
+      o.geometry.dispose();
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) if (m && !shared.has(m)) own.add(m);
     });
-    this.paintMat.dispose();
+    for (const m of own) m.dispose();
+    if (this.plateTex) this.plateTex.dispose();
+    if (this.gauge) this.gauge.tex.dispose();
   }
 }
 

@@ -450,7 +450,15 @@ export class Garage {
     if (this.quality === 'high') this.makeReflector(this.mFloor);
     // display platform (turns with the car) with an LED ring at its foot
     const plat = new THREE.Group();
-    const top = new THREE.Mesh(new THREE.CylinderGeometry(3.3, 3.38, 0.1, 72), new THREE.MeshStandardMaterial({ color: 0x0f1012, roughness: 0.34, metalness: 0.2 }));
+    // The rim spots graze this glossy disc from behind the car, so their GGX highlight
+    // stretched into a blown-out white streak under the nose in every mode. The disc keeps
+    // its studio (env) reflections but takes punctual-light specular at a quarter.
+    const topMat = new THREE.MeshStandardMaterial({ color: 0x0f1012, roughness: 0.4, metalness: 0.1 });
+    topMat.onBeforeCompile = (sh) => {
+      sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_begin>', '#include <lights_fragment_begin>\nreflectedLight.directSpecular *= 0.22;');
+    };
+    topMat.customProgramCacheKey = () => 'garagePlatformTop';
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(3.3, 3.38, 0.1, 72), topMat);
     top.position.y = 0.05; top.receiveShadow = true; plat.add(top);
     const lines = new THREE.Mesh(new THREE.RingGeometry(2.6, 2.63, 72), new THREE.MeshStandardMaterial({ color: 0x5a5d62, roughness: 0.3, metalness: 0.9 }));
     lines.rotation.x = -Math.PI / 2; lines.position.y = 0.101; plat.add(lines);
