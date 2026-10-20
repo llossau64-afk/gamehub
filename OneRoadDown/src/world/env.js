@@ -237,7 +237,7 @@ export class Environment {
     const face = (i) => { r.setRenderTarget(P.rt, i); r.render(this.scene, P.cam.children[i]); };
     if (far) { for (let i = 0; i < 6; i++) face(i); P.step = 6; }
     else if (P.step < 6) face(P.step);
-    if (P.step === 6) { P.pm.fromCubemap(P.rt.texture, P.out); P.ready = true; }
+    if (P.step === 6) { P.pm.fromCubemap(P.rt.texture, P.out); scrubNaN(r, P.out); P.ready = true; }
     P.step = (P.step + 1) % 7;
     this.scene.matrixWorldAutoUpdate = mAuto;
     r.shadowMap.autoUpdate = sAuto; r.shadowMap.needsUpdate = sNeed;
@@ -428,4 +428,33 @@ export class Environment {
     });
     B.mesh.instanceMatrix.needsUpdate = true;
   }
+}
+
+// The probe renders the scene lit by its own previous result, so a single NaN / Inf
+// (any shader, half-float overflow) fed back forever and blacked out every lit surface
+// in that direction (seen as a dark screen with blocky bloom edges). Scrub the
+// prefiltered map: NaN -> 0, clamp to a sane HDR range. Two tiny passes every 7th frame.
+let SCR = null;
+function scrubNaN(r, target) {
+  if (!SCR) {
+    const tri = new THREE.BufferGeometry();
+    tri.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3));
+    tri.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 2, 0, 0, 2], 2));
+    const mat = new THREE.ShaderMaterial({ uniforms: { t: { value: null } }, depthTest: false, depthWrite: false,
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader: 'uniform sampler2D t; varying vec2 vUv; void main() { vec4 c = texture2D(t, vUv); if (!(c.r == c.r && c.g == c.g && c.b == c.b && c.a == c.a)) c = vec4(0.0); gl_FragColor = clamp(c, vec4(0.0), vec4(256.0)); }' });
+    const q = new THREE.Mesh(tri, mat); q.frustumCulled = false;
+    const sc = new THREE.Scene(); sc.add(q);
+    SCR = { mat, sc, cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), tmp: null };
+  }
+  const img = target.texture.image;
+  if (!SCR.tmp || SCR.tmp.width !== img.width || SCR.tmp.height !== img.height) {
+    if (SCR.tmp) SCR.tmp.dispose();
+    SCR.tmp = new THREE.WebGLRenderTarget(img.width, img.height, { type: target.texture.type, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false, generateMipmaps: false });
+  }
+  const prev = r.getRenderTarget(), ac = r.autoClear;
+  r.autoClear = false;
+  SCR.mat.uniforms.t.value = target.texture; r.setRenderTarget(SCR.tmp); r.render(SCR.sc, SCR.cam);
+  SCR.mat.uniforms.t.value = SCR.tmp.texture; r.setRenderTarget(target); r.render(SCR.sc, SCR.cam);
+  r.autoClear = ac; r.setRenderTarget(prev);
 }

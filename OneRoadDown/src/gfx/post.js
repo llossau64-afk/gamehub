@@ -10,6 +10,9 @@ const VERT = `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(posit
 const BRIGHT = `uniform sampler2D tSrc; uniform float uThr; varying vec2 vUv;
 void main() {
   vec3 c = texture2D(tSrc, vUv).rgb;
+  // a single NaN / Inf pixel from any shader would bloom into a black blot over the screen
+  if (!(c.r == c.r && c.g == c.g && c.b == c.b) || max(c.r, max(c.g, c.b)) > 60000.0) c = vec3(0.0);
+  c = min(c, vec3(64.0));
   float l = max(c.r, max(c.g, c.b));
   float k = smoothstep(uThr, uThr * 2.2, l);
   gl_FragColor = vec4(c * k, 1.0);
@@ -38,6 +41,7 @@ vec3 aces(vec3 color) {
 vec3 srgb(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
 void main() {
   vec3 c = texture2D(tScene, vUv).rgb;
+  if (!(c.r == c.r && c.g == c.g && c.b == c.b)) c = vec3(0.0);
   // light luma sharpen (cross of 4 neighbours, clamped so HDR edges don't ring)
   const vec3 LW = vec3(0.2126, 0.7152, 0.0722);
   float la = 0.25 * (dot(texture2D(tScene, vUv + vec2(uTexel.x, 0.0)).rgb, LW) + dot(texture2D(tScene, vUv - vec2(uTexel.x, 0.0)).rgb, LW)

@@ -618,4 +618,5 @@ body.touch #hud canvas.speedo { width: 200px; height: 140px; }
 @media (max-height: 560px) {
   body.touch #hud .rboard { top: calc(var(--pad) + 52px + env(safe-area-inset-top)); width: 150px; }
   body.touch #hud .rboard div { font-size: 10.5px; padding: 0 6px; }
+  body.touch.race-mode .pausebtn { right: calc(var(--pad) + 158px); top: calc(var(--pad) + 52px + env(safe-area-inset-top)); }
 }

@@ -230,11 +230,15 @@ class Design:
         housing, glass, st = Acc(), Acc(), Acc()
         sx, sy, sz = size
         for sgn in (1, -1):
-            p, n = surf.side(z, y, sgn)
+            p = None
+            for dy in np.arange(0.0, 0.25, 0.01):
+                p, n = surf.side(z, y - dy, sgn)
+                if p is not None:
+                    break
             if p is None:
                 continue
             base = p - n * 0.01
-            c = np.array([sgn * (abs(p[0]) + out), y + 0.045, z - 0.08])
+            c = np.array([sgn * (abs(p[0]) + out), p[1] + 0.06, z - 0.08])
             # teardrop housing: lofted rings, pointed forward
             rings = []
             for k, (t, sc) in enumerate(((0.0, 0.25), (0.25, 0.85), (0.55, 1.0), (0.8, 0.93), (1.0, 0.8))):
@@ -450,7 +454,7 @@ class Toro(MidEngine):
 
     """V10 supercar (Huracan-like): one arc from nose to tail, slim angular lamps with a
     Y running light, a big triangular side intake, black tail with slim Y lamps."""
-    crease_H, crease_D, crease_nose, crease_tail = 0.95, 0.6, 0.8, 0.9
+    crease_H, crease_D, crease_nose, crease_tail = 1.0, 0.85, 0.9, 0.95
     cap_front, cap_rear = 0.07, 0.025
 
     def __init__(self, c, K):
@@ -548,6 +552,11 @@ class Toro(MidEngine):
 
     def interior(self, surf):
         return self.premium_interior(surf)
+
+    def extra_creases(self, cage):
+        ns = len(cage.st)
+        # crisp lower flank and fender-top lines (character lines catch the light)
+        return [('t', TI['M'], 0, ns - 1, 0.6), ('t', TI['P1'], self.S('cowl'), ns - 1, 0.5)]
 
     def extra_details(self, surf):
         objs = self.splitter(surf)

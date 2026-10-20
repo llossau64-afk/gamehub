@@ -6,8 +6,8 @@ seatbelts) and LOD copies.
 
 Node names this adds (all '<id>__<name>' children of the car root):
   lightL/lightR (headlight: projector lenses), drlL/drlR (headlight: LED strips),
-  lampCoverL/lampCoverR (glass), indicatorF (amber), headlamps (chrome housing floor),
-  tail (taillight), indicatorR (amber), reverse (reverse), tailCover (glass), splitter (trim),
+  lampCoverL/lampCoverR (lens: clear cover kind), indicatorF (amber), headlamps (chrome housing floor),
+  tail (taillight), indicatorR (amber), reverse (reverse), tailCover (lens), splitter (trim),
   steeringWheel (pivot = column axis, local +z = column), dashScreen (gauges, UV 0..1 quad),
   dash, console, seats, pedals, doorCards, seatbelts, cabin, eye/hoodEye/hoodHinge anchors.
 LODs: sibling roots '<id>_lod1' (~50 % tris) and '<id>_lod2' (~15 %, no cockpit), children
@@ -92,7 +92,7 @@ class Premium:
             proj_patch(cover, self.pre_surf, self.LAMPS[0]['poly'] if sgn > 0 else [(-u, v) for u, v in reversed(self.LAMPS[0]['poly'])], fr, 0.0015, n=0.02)
             objs.append(self.uv_const(self.obj('light' + side, lens, 'headlight', 50), (0.3, 0.5)))
             objs.append(self.uv_const(self.obj('drl' + side, drl, 'headlight', 60), (0.5, 0.09)))
-            objs.append(self.obj('lampCover' + side, cover, 'glass', 60))
+            objs.append(self.obj('lampCover' + side, cover, 'lens', 60))
             if not ind.empty():
                 objs.append(self.obj('indicatorF' + side, ind, 'amber', 60))
         return objs
@@ -119,7 +119,7 @@ class Premium:
             objs.append(self.obj('indicatorR', I, 'amber', 60))
         if not R.empty():
             objs.append(self.obj('reverse', R, 'reverse', 60))
-        objs.append(self.obj('tailCover', C, 'glass', 60))
+        objs.append(self.obj('tailCover', C, 'lens', 60))
         return objs
 
     # ---------------------------------------------------------------- splitter

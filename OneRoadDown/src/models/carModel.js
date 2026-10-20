@@ -571,6 +571,7 @@ export class CarModel {
         case 'taillight': return this.tailMat;
         case 'amber': return M.amber;
         case 'reverse': return this.reverseMat || (this.reverseMat = M.reverse.clone());
+        case 'lens': return M.lens;
         case 'grille': return M.grille;
         case 'plate': return plateMat;
         case 'under': case 'wells': return M.under;
@@ -588,7 +589,7 @@ export class CarModel {
     hoodPivot.position.copy(hinge);
     this.group.add(hoodPivot);
     this.hoodPivot = hoodPivot;
-    const noShadow = new Set(['glass', 'lightL', 'lightR', 'tail', 'amber', 'plateF', 'plateR', 'gauges', 'seals', 'mirrorGlass', 'grille', 'under', 'cabin']);
+    const noShadow = new Set(['glass', 'lampCoverL', 'lampCoverR', 'tailCover', 'drlL', 'drlR', 'reverse', 'lightL', 'lightR', 'tail', 'amber', 'plateF', 'plateR', 'gauges', 'seals', 'mirrorGlass', 'grille', 'under', 'cabin']);
     for (const [name, pt] of Object.entries(A.parts)) {
       const geo = pt.geometry.clone();
       if (name === 'hood') geo.translate(-hinge.x, -hinge.y, -hinge.z);
@@ -1170,6 +1171,8 @@ function assetMats() {
   AM = {
     trim: new THREE.MeshStandardMaterial({ color: 0x141415, roughness: 0.6, metalness: 0.1 }),
     amber: new THREE.MeshStandardMaterial({ color: 0xc8720e, emissive: 0x7a3a00, emissiveIntensity: 0.3, roughness: 0.2 }),
+    // clear polycarbonate lamp covers over the modelled lamp units (hi-fi bodies)
+    lens: new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, roughness: 0.02, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02, depthWrite: false }),
     // reversing lamp lens (hi-fi bodies): lit while in reverse gear
     reverse: new THREE.MeshStandardMaterial({ color: 0xd8dade, emissive: 0xffffff, emissiveIntensity: 0.04, roughness: 0.15, metalness: 0.2 }),
     grille: mats.grille.clone(),

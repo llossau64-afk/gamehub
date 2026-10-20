@@ -79,6 +79,19 @@ def init_mats():
     col_mat('lamp', (1, 1, 1), 0.3, 0.0, emit=(1.0, 0.97, 0.9))
     col_mat('gauge', (0.9, 0.9, 0.85), 0.3)
     col_mat('oilcan', (0.12, 0.25, 0.55), 0.4, 0.3)
+    # premium hall (garage level 4-5): graphite furniture, brushed metal, LED strips.
+    # 'led' meshes are re-skinned in the game with the light-mode LED material.
+    col_mat('graphite', (0.045, 0.048, 0.052), 0.38, 0.55)
+    col_mat('graphite2', (0.075, 0.078, 0.084), 0.3, 0.65)
+    col_mat('brushed', (0.62, 0.63, 0.65), 0.3, 1.0)
+    col_mat('pegdark', (0.035, 0.036, 0.04), 0.75, 0.2)
+    col_mat('led', (1, 1, 1), 0.3, 0.0, emit=(1.0, 1.0, 1.0))
+    col_mat('gold', (0.86, 0.62, 0.26), 0.22, 1.0)
+    col_mat('concrete', (0.42, 0.42, 0.41), 0.85)
+    col_mat('leaf', (0.09, 0.26, 0.11), 0.55)
+    col_mat('helmet', (0.88, 0.88, 0.86), 0.14, 0.1)
+    col_mat('visor', (0.02, 0.02, 0.025), 0.05, 0.6)
+    col_mat('redgloss', (0.55, 0.03, 0.02), 0.18, 0.2)
 
     def wood(S):
         n = value_noise(S, 6, rng, 4)
@@ -504,11 +517,172 @@ def stanchions():
     return p
 
 
+# ------------------------------------------------------------------ premium hall props
+def cabinets():
+    """Modular tool wall: graphite cabinets, steel worktop, wall units with an LED strip."""
+    p = Prop('cabinets')
+    L, n = 4.8, 6
+    w = L / n
+    p.box((0, 0.02, 0.03), (L, 0.56, 0.06), 'black', 0.002)
+    for k in range(n):
+        x = -L / 2 + w / 2 + k * w
+        p.box((x, 0, 0.48), (w - 0.012, 0.62, 0.84), 'graphite', 0.008)
+        rows = [(0.2, 0.2), (0.42, 0.2), (0.64, 0.2), (0.82, 0.12)] if k in (0, 2, 3, 5) else [(0.32, 0.44), (0.72, 0.32)]
+        for z, h in rows:
+            p.box((x, -0.315, z), (w - 0.03, 0.012, h - 0.02), 'graphite2', 0.003)
+            p.box((x, -0.332, z + h / 2 - 0.045), (w * 0.62, 0.018, 0.014), 'brushed', 0.003)
+        # wall unit with a lift-up door
+        p.box((x, 0.14, 2.06), (w - 0.012, 0.34, 0.6), 'graphite', 0.008)
+        p.box((x, -0.035, 2.06), (w - 0.03, 0.012, 0.57), 'graphite2', 0.003)
+        p.box((x, -0.05, 1.8), (w * 0.7, 0.018, 0.014), 'brushed', 0.003)
+    p.box((0, -0.01, 0.92), (L + 0.04, 0.66, 0.04), 'brushed', 0.004)       # stainless worktop
+    p.box((0, 0.3, 1.34), (L, 0.02, 0.78), 'pegdark', 0.0)                   # tool panel
+    p.box((0, 0.02, 1.745), (L - 0.12, 0.03, 0.012), 'led', 0.0)             # under-cabinet LED
+    p.box((0, 0.3, 2.37), (L - 0.1, 0.02, 0.012), 'led', 0.0)                # up-light on top
+    for k in range(12):   # spanners on the panel
+        x = -2.1 + k * 0.1
+        ln = 0.14 + k * 0.018
+        p.box((x, 0.28, 1.6 - ln / 2), (0.02, 0.008, ln), 'brushed', 0.003)
+        p.cyl((x, 0.275, 1.6 - ln), (x, 0.285, 1.6 - ln), 0.018, 'brushed', 10)
+    for k in range(8):    # screwdrivers
+        x = -0.6 + k * 0.08
+        p.cyl((x, 0.27, 1.5), (x, 0.27, 1.62), 0.013, ['redgloss', 'black'][k % 2], 8)
+        p.cyl((x, 0.27, 1.36), (x, 0.27, 1.5), 0.004, 'brushed', 6)
+    for k in range(3):    # pliers / torque wrenches
+        p.box((0.6 + k * 0.32, 0.28, 1.35), (0.04, 0.01, 0.5), 'redgloss' if k == 1 else 'brushed', 0.004, (0, 0.15 * (k - 1), 0))
+    p.box((1.75, 0.27, 1.32), (0.5, 0.03, 0.34), 'black', 0.01)            # wall tablet
+    p.box((1.75, 0.255, 1.32), (0.46, 0.005, 0.3), 'screen', 0.0)
+    p.box((-1.4, -0.05, 0.955), (0.36, 0.26, 0.012), 'black', 0.004)      # laptop
+    p.box((-1.4, 0.07, 1.08), (0.36, 0.012, 0.24), 'black', 0.004, (-0.25, 0, 0))
+    p.box((-1.4, 0.062, 1.08), (0.33, 0.004, 0.21), 'screen', 0.0, (-0.25, 0, 0))
+    p.box((0.2, -0.1, 0.99), (0.5, 0.12, 0.1), 'redgloss', 0.02)           # torque wrench case
+    return p
+
+
+def scissor():
+    """Low-profile scissor lift: two runways on scissor arms, control column."""
+    p = Prop('scissor')
+    h = 0.62
+    for sx in (-0.82, 0.82):
+        p.box((sx, 0, 0.03), (0.48, 4.0, 0.06), 'black', 0.004)
+        p.box((sx, 0, h), (0.6, 4.6, 0.1), 'graphite', 0.01)
+        p.box((sx, 0, h + 0.056), (0.54, 4.4, 0.012), 'pegdark', 0.0)
+        p.box((sx + math.copysign(0.305, sx), 0, h), (0.012, 4.5, 0.08), 'yellow', 0.0)
+        for ys, sg in ((-2.62, 1), (2.62, -1)):
+            ang = math.atan2(h, 0.7)
+            p.box((sx, ys, h * 0.5), (0.56, math.hypot(0.7, h), 0.04), 'graphite2', 0.005, (sg * ang, 0, 0))
+        for y0 in (-1.1, 1.1):
+            for s in (-1, 1):
+                a = Vector((sx + s * 0.05, y0 - 0.85 * s, 0.1))
+                b = Vector((sx + s * 0.05, y0 + 0.85 * s, h - 0.06))
+                d = b - a
+                p.box(((a + b) / 2).to_tuple(), (0.06, d.length, 0.07), 'graphite2', 0.006, (math.atan2(d.z, d.y), 0, 0))
+            p.cyl((sx - 0.1, y0, (h + 0.04) / 2), (sx + 0.1, y0, (h + 0.04) / 2), 0.03, 'brushed', 10)
+        p.cyl((sx, -0.25, 0.1), (sx, 0.45, h - 0.08), 0.045, 'brushed', 14)
+        p.cyl((sx, -0.25, 0.1), (sx, 0.0, 0.25), 0.06, 'black', 14)
+    p.box((1.55, 2.05, 0.62), (0.34, 0.3, 1.24), 'graphite', 0.02)          # control column
+    p.box((1.55, 1.895, 1.0), (0.26, 0.012, 0.16), 'screen', 0.0)
+    p.cyl((1.5, 1.88, 0.78), (1.5, 1.86, 0.78), 0.03, 'redgloss', 14)
+    p.cyl((1.6, 1.88, 0.78), (1.6, 1.86, 0.78), 0.025, 'green', 14)
+    p.cyl((1.55, 1.9, 1.24), (1.55, 1.9, 1.3), 0.05, 'yellow', 14)
+    return p
+
+
+def wheelwall():
+    """Backlit wall display of eight rims."""
+    p = Prop('wheelwall')
+    W, H = 3.8, 2.3
+    p.box((0, 0.06, 1.55), (W, 0.06, H), 'graphite', 0.01)
+    for z in (1.55 - H / 2 + 0.03, 1.55 + H / 2 - 0.03):
+        p.box((0, 0.02, z), (W - 0.12, 0.012, 0.016), 'led', 0.0)
+    rims = ['brushed', 'gold', 'graphite2', 'brushed', 'black', 'brushed', 'gold', 'graphite2']
+    for i in range(8):
+        x = -W / 2 + 0.48 + (i % 4) * 0.95
+        z = 1.0 + (i // 4) * 1.1
+        p.cyl((x, 0.03, z), (x, 0.0, z), 0.03, 'brushed', 8)
+        p.tire((x, -0.09, z), 0.36, 0.22, 'y', 'black')
+        m = rims[i]
+        n = 5 + (i % 3)
+        p.cyl((x, -0.15, z), (x, -0.21, z), 0.23, m, 28)              # barrel face
+        for k in range(n):
+            a = 2 * math.pi * k / n + i
+            p.box((x + math.sin(a) * 0.13, -0.215, z + math.cos(a) * 0.13), (0.045, 0.03, 0.2), m, 0.008, (0, a, 0))
+        p.cyl((x, -0.21, z), (x, -0.235, z), 0.045, m, 14)
+        p.torus((x, -0.205, z), 0.235, 0.012, 'brushed', 'y', 32, 6)
+    return p
+
+
+def trophycase():
+    """Glass display case with helmets and trophies."""
+    p = Prop('trophycase')
+    W, D, H = 2.2, 0.5, 2.3
+    p.box((0, 0, 0.16), (W, D, 0.32), 'graphite', 0.01)
+    p.box((0, 0, H - 0.05), (W, D, 0.1), 'graphite', 0.01)
+    for x in (-W / 2 + 0.02, W / 2 - 0.02):
+        p.box((x, 0, H / 2), (0.04, D, H), 'graphite', 0.004)
+    p.box((0, D / 2 - 0.01, H / 2), (W, 0.02, H), 'graphite2', 0.0)
+    p.box((0, -D / 2 + 0.005, 1.3), (W - 0.08, 0.008, 1.88), 'glass', 0.0)
+    p.box((0, -0.04, H - 0.11), (W - 0.12, 0.02, 0.012), 'led', 0.0)
+    shelves = (0.33, 0.95, 1.6)
+    for z in shelves[1:]:
+        p.box((0, 0, z), (W - 0.08, D - 0.06, 0.014), 'glass', 0.0)
+    for j, z in enumerate(shelves):
+        for i in range(3):
+            x = -0.68 + i * 0.68
+            if (i + j) % 2 == 0:   # helmet
+                c = 'helmet' if i != 1 else 'redgloss'
+                p.sphere((x, 0.02, z + 0.17), 0.15, c, (1, 1.12, 0.95))
+                p.sphere((x, -0.06, z + 0.18), 0.12, 'visor', (1.05, 0.9, 0.55))
+            else:                  # trophy
+                p.box((x, 0, z + 0.04), (0.14, 0.14, 0.08), 'black', 0.01)
+                p.cyl((x, 0, z + 0.08), (x, 0, z + 0.2), 0.014, 'gold', 8)
+                p.cyl((x, 0, z + 0.2), (x, 0, z + 0.36), 0.04, 'gold', 18, r2=0.085)
+                for sx in (-1, 1):
+                    p.torus((x + sx * 0.085, 0, z + 0.3), 0.035, 0.008, 'gold', 'y', 14, 5)
+    return p
+
+
+def planter():
+    """Tall concrete planter with a spiky plant."""
+    p = Prop('planter')
+    p.box((0, 0, 0.42), (0.56, 0.56, 0.84), 'concrete', 0.02)
+    p.box((0, 0, 0.83), (0.5, 0.5, 0.02), 'black', 0.0)
+    r = np.random.default_rng(11)
+    for k in range(22):
+        a = r.random() * 2 * math.pi
+        tilt = 0.15 + r.random() * 0.45
+        ln = 0.7 + r.random() * 0.8
+        base = Vector((math.cos(a) * 0.08, math.sin(a) * 0.08, 0.84))
+        tip = base + Vector((math.cos(a) * math.sin(tilt), math.sin(a) * math.sin(tilt), math.cos(tilt))) * ln
+        p.cyl(base.to_tuple(), tip.to_tuple(), 0.035, 'leaf', 5, r2=0.004)
+    return p
+
+
+def diag():
+    """Diagnostics cart with a tilted screen."""
+    p = Prop('diag')
+    p.box((0, 0, 0.47), (0.6, 0.45, 0.78), 'graphite', 0.02)
+    for z in (0.25, 0.47, 0.69):
+        p.box((0, -0.228, z), (0.5, 0.008, 0.18), 'graphite2', 0.003)
+        p.box((0, -0.238, z + 0.06), (0.3, 0.014, 0.012), 'brushed', 0.003)
+    p.box((0, 0, 0.875), (0.64, 0.5, 0.03), 'black', 0.005)
+    p.cyl((0, 0.16, 0.89), (0, 0.16, 1.32), 0.02, 'brushed', 10)
+    p.box((0, 0.12, 1.45), (0.56, 0.04, 0.37), 'black', 0.01, (-0.3, 0, 0))
+    p.box((0, 0.097, 1.453), (0.51, 0.006, 0.32), 'screen', 0.0, (-0.3, 0, 0))
+    for x in (-0.25, 0.25):
+        for y in (-0.18, 0.18):
+            p.cyl((x - 0.02, y, 0.05), (x + 0.02, y, 0.05), 0.045, 'rubber', 12)
+    for k in range(4):
+        p.torus((0.34, 0.0, 0.5 + k * 0.016), 0.12, 0.01, 'yellow', 'x', 22, 5)
+    return p
+
+
 def main():
     reset_scene()
     init_mats()
     objs = []
-    for fn in (lift, toolchest, bench, tirerack, shelf, compressor, hoist, engine, jack, drums, lounge, bar, lamp_fixture, podium, stanchions):
+    for fn in (lift, toolchest, bench, tirerack, shelf, compressor, hoist, engine, jack, drums, lounge, bar, lamp_fixture, podium, stanchions,
+               cabinets, scissor, wheelwall, trophycase, planter, diag):
         p = fn()
         o = p.build()
         tris = 0
