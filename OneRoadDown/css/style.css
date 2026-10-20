@@ -317,7 +317,7 @@ body.touch #touch.show { display: block; }
 body.touch #hud .bottom { bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%) scale(.82); transform-origin: bottom center; }
 
 @media (max-width: 760px) {
-  #menu .col { top: auto; bottom: 120px; transform: none; }
+  #menu .col { top: auto; bottom: 134px; transform: none; }
   .gtabs { top: auto; bottom: 0; left: 0; right: 0; transform: none; flex-direction: row; justify-content: space-around; background: var(--bg); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
   .gtab { padding: 14px 4px; font-size: 13px; letter-spacing: 0.038em; } .gtab::before { display: none; } .gtab.drive { position: static; transform: none; padding: 14px 10px; font-size: 13px; }
   .gpanel { top: auto; height: 46vh; bottom: calc(52px + env(safe-area-inset-bottom)); right: 0; left: 0; width: auto; }
@@ -345,7 +345,8 @@ body.touch #hud .bottom { bottom: calc(14px + env(safe-area-inset-bottom)); tran
   .carcard .desc, .traits { display: none; }
   .nav-arrows { left: 28%; bottom: calc(var(--pad) + 56px); }
   .bottombar { justify-content: flex-start; left: calc(var(--pad) + 6%); }
-  #menu .col { top: 50%; bottom: auto; transform: translateY(-55%); }
+  /* sits on the info bar (nine entries since story mode: centred, it ran under the bar) */
+  #menu .col { top: auto; bottom: calc(var(--pad) + 60px + env(safe-area-inset-bottom)); transform: none; }
   #menu .sub { margin: 4px 0 12px; }
   .mitem { padding: 6px 0 6px 22px; font-size: 16px; }
   .infobar .kv b { font-size: 15px; }
@@ -620,3 +621,9 @@ body.touch #hud canvas.speedo { width: 200px; height: 140px; }
   body.touch #hud .rboard div { font-size: 10.5px; padding: 0 6px; }
   body.touch.race-mode .pausebtn { right: calc(var(--pad) + 158px); top: calc(var(--pad) + 52px + env(safe-area-inset-top)); }
 }
+
+/* main menu on short screens: nine entries since story mode. These come last so they win over
+   the #menu .logotype / .sub restyle above (its 40px .sub margin pushed the list under the info bar). */
+@media (max-height: 800px) { #menu .col { top: auto; bottom: calc(var(--pad) + 64px + env(safe-area-inset-bottom)); transform: none; } #menu .sub { margin-bottom: 18px; } .mitem { padding-top: 9px; padding-bottom: 9px; } }
+@media (max-height: 560px) { #menu .logotype { font-size: clamp(36px, 6vw, 60px); } #menu .sub { margin: 4px 0 10px; padding-top: 6px; } .mitem { padding: 5px 0 5px 22px; font-size: 16px; } }
+@media (max-height: 420px) { #menu .logotype { font-size: 32px; } #menu .sub { display: none; } .mitem { padding: 3px 0 3px 22px; font-size: 15px; } }

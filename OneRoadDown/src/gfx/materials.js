@@ -173,7 +173,7 @@ function glassMaterial() {
   m.onBeforeCompile = (sh) => {
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <opaque_fragment>', `
-  float gNV = saturate(dot(normal, normalize(vViewPosition) * -1.0));
+  float gNV = saturate(dot(normal, normalize(vViewPosition))); // vViewPosition points to the eye; (was negated: alpha 1 everywhere)
   float gF = 0.04 + 0.96 * pow(1.0 - gNV, 5.0);
   gl_FragColor = vec4(totalSpecular + totalDiffuse * opacity + totalEmissiveRadiance, mix(opacity, 1.0, gF));`)
       .replace('#include <premultiplied_alpha_fragment>', '');

@@ -114,7 +114,8 @@ export class Online {
     this.view = null; this.pub = true;
     await this.enter(code, false);
     // wait for the others to answer (direct connections can take several seconds to form)
-    const until = Date.now() + (this.via === 'p2p' ? 15000 : 1500);
+    // (following a rematch, the host opens the new room after us: allow it longer)
+    const until = Date.now() + (this.via === 'p2p' ? (this.following ? 30000 : 15000) : 1500);
     while (Date.now() < until && this.members.length <= 1) await new Promise((r) => setTimeout(r, 250));
     if (this.members.length > MAX_PLAYERS) { await this.leave(); throw new Error('LOBBY IS FULL'); }
     if (this.members.length <= 1) { await this.leave(); throw new Error('NO LOBBY WITH THAT CODE'); }
@@ -192,7 +193,8 @@ export class Online {
     const me = ms.find((m) => m.me);
     // the host left: this lobby and its code are finished
     if (host) this.hostPeer = host.peer;
-    else if (this.hostPeer && !this.wantHost && !this.closing && !this.following && this.state !== 'racing') { this.closing = true; this.closedMsg = 'THE HOST CLOSED THE LOBBY'; this.leave(); return; }
+    // (a finished race counts as over: the friend sits on the results screen until it leaves)
+    else if (this.hostPeer && !this.wantHost && !this.closing && !this.following && (this.state !== 'racing' || (this.race && (this.race.ended || (this.race.me && this.race.me.finished))))) { this.closing = true; this.closedMsg = 'THE HOST CLOSED THE LOBBY'; this.leave(); return; }
     // the host opened a rematch lobby with a new code: follow it
     if (host && !host.me && host.cfg && host.cfg.next && host.cfg.next !== this.code && !this.following) {
       const next = String(host.cfg.next);
@@ -266,7 +268,8 @@ export class Online {
     const next = this.newCode();
     this.cfg = { ...this.cfg, next, closed: 1 };
     await this.lobby.presence({ cfg: this.cfg }).catch(() => {});
-    await new Promise((r) => setTimeout(r, 900));
+    // stay a moment so everyone still on the results screen sees the new code (slow phones)
+    await new Promise((r) => setTimeout(r, 2500));
     const pub = this.pub;
     this.view = null;
     this.pub = pub;

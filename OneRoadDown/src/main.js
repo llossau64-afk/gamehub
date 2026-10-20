@@ -251,7 +251,11 @@ class Game {
     if (!sv.owned.length) return this.enterFirst();
     if (!this.online) {
       this.online = new Online(this);
-      this.online.on(() => { if (this.state === 'online') this.renderOnline(); });
+      this.online.on((o) => {
+        if (this.state === 'online') this.renderOnline();
+        // on the online results screen: the host left instead of starting a rematch
+        else if (!o.lobby && o.closedMsg) { const w = document.querySelector('#raceres .rr-wait'); if (w) w.textContent = o.closedMsg; }
+      });
     }
     this.ui.fade(true).then(() => {
       this.stopRun();

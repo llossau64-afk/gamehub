@@ -89,7 +89,7 @@
 }
 
 /* ---- phones, portrait: tabs scroll under the title, controls between car and panel */
-@media (max-width: 760px) {
+@media (max-width: 760px) and (min-height: 561px) {
   #garage.gx .gtabs { position: absolute; top: calc(var(--pad) + 50px + env(safe-area-inset-top)); bottom: auto; left: 8px; right: 8px; max-width: none; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; scrollbar-width: none; padding: 3px; border: 1px solid var(--line); border-radius: 4px; }
   #garage.gx .gtabs::-webkit-scrollbar { display: none; }
   #garage.gx .gtab { flex: none; padding: 9px 11px; font-size: 13px; }
@@ -110,7 +110,13 @@
 }
 
 /* ---- phones, landscape (and short windows): two compact columns */
-@media (max-height: 560px) and (min-width: 761px) {
+/* (small landscape phones such as 640x360 / 667x375 included: the portrait stack covered the car) */
+@media (max-height: 560px) {
+  /* undo the style.css portrait rules (max-width: 760px) that also match small landscape phones */
+  #garage.gx .gtabs { top: calc(var(--pad) + 44px); bottom: auto; left: var(--pad); right: auto; justify-content: flex-start; padding: 3px; border: 1px solid var(--line); }
+  #garage.gx .gpanel { top: calc(var(--pad) + 44px); height: auto; left: auto; right: var(--pad); }
+  #garage.gx .gtab.drive { position: fixed; transform: none; top: auto; }
+  #garage.gx .crcard { left: auto; right: var(--pad); width: min(320px, 40vw); top: calc(var(--pad) + 70px); max-height: calc(100vh - 250px); }
   #garage.gx .gtabs { max-width: calc(48vw - var(--pad)); }
   #garage.gx .gtab { padding: 5px 9px; font-size: 12px; }
   #garage.gx .gpanel { width: min(380px, 48vw); bottom: calc(var(--pad) + 46px); }
