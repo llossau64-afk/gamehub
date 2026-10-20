@@ -1,0 +1,129 @@
+/* Premium garage controls (src/ui/garageUi.js): light modes, camera views, engine, rims,
+   performance. Loaded after style.css; everything is scoped to #garage.gx. */
+
+#garage.gx { --gxb: rgba(12, 13, 15, .74); --gxl: rgba(255, 255, 255, .12); }
+
+/* screen-wide fade in, panels slide in */
+#garage.gx.show .gpanel, #garage.gx.show .gstats, #garage.gx.show .crcard { animation: gxIn .45s cubic-bezier(.2, .8, .2, 1) both; }
+#garage.gx.show .gx-dock, #garage.gx.show .gx-modes { animation: gxUp .5s .08s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes gxIn { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@keyframes gxUp { from { opacity: 0; translate: 0 14px; } to { opacity: 1; translate: 0 0; } }
+
+/* the primary action sits under the right panel */
+#garage.gx .gpanel { bottom: calc(var(--pad) + 62px + env(safe-area-inset-bottom)); }
+#garage.gx .gtab.drive { position: fixed; left: auto; transform: none; right: var(--pad); width: min(400px, 92vw); bottom: calc(var(--pad) + env(safe-area-inset-bottom)); top: auto; padding: 13px 0; text-align: center; border-radius: 3px; font-size: 18px; }
+#garage.gx.carmode .gtab.drive { width: auto; top: calc(var(--pad) + 82px + env(safe-area-inset-top)); bottom: auto; padding: 9px 30px; font-size: 16px; }
+#garage.gx .gtabs { max-width: calc(100vw - var(--pad) * 2 - 420px); }
+
+/* ---- light mode switcher (top centre) */
+.gx-modes { position: absolute; left: 50%; transform: translateX(-50%); top: calc(var(--pad) + env(safe-area-inset-top)); display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 14px; background: var(--gxb); border: 1px solid var(--gxl); border-radius: 30px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.gx-mlabel { display: flex; flex-direction: column; margin-right: 6px; min-width: 128px; }
+.gx-mlabel small { font: 600 9px 'Body', sans-serif; letter-spacing: .16em; color: var(--ink3); }
+.gx-mlabel b { font: 600 13px 'Cond', sans-serif; letter-spacing: .08em; color: var(--ink); white-space: nowrap; }
+.gx-mode { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; padding: 2px; background: none; cursor: pointer; transition: transform .15s, border-color .2s; }
+.gx-mode i { display: block; width: 100%; height: 100%; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); }
+.gx-mode:hover { transform: scale(1.12); }
+.gx-mode.on { border-color: var(--amber); }
+
+/* ---- camera views + car controls (bottom centre, between the panels) */
+.gx-dock { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--pad) + env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.gx-views, .gx-ctrl { display: flex; gap: 2px; padding: 3px; background: var(--gxb); border: 1px solid var(--gxl); border-radius: 6px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.gx-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 52px; height: 46px; padding: 0 7px; background: none; border: 0; border-radius: 4px; color: var(--ink2); cursor: pointer; font: 600 10px 'Cond', sans-serif; letter-spacing: .08em; transition: background .2s, color .2s; }
+.gx-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.gx-btn:hover { background: rgba(255,255,255,.07); color: var(--ink); }
+.gx-btn.on { background: var(--amber); color: #15120c; }
+.gx-btn:disabled { opacity: .35; cursor: default; }
+.gx-start.on { background: #c0392b; color: #fff; }
+.gx-rev { min-width: 64px; font-size: 14px; letter-spacing: .14em; border: 1px solid var(--gxl); touch-action: none; }
+.gx-rev.on { background: #e05a1e; color: #fff; }
+.gx-tach { position: relative; width: 112px; height: 46px; display: none; flex-direction: column; justify-content: center; padding: 0 8px; }
+.gx-tach i { position: absolute; left: 8px; right: 8px; bottom: 9px; height: 4px; background: linear-gradient(90deg, #8fb26a, #e2a33b 75%, #e0402a); transform-origin: left; transform: scaleX(0); border-radius: 2px; }
+.gx-tach::after { content: ''; position: absolute; left: 8px; right: 8px; bottom: 9px; height: 4px; background: rgba(255,255,255,.1); border-radius: 2px; z-index: -1; }
+.gx-tach b { font: 700 20px/1 'Cond', sans-serif; color: var(--ink); font-variant-numeric: tabular-nums; }
+.gx-tach small { position: absolute; right: 8px; top: 9px; font: 600 9px 'Body', sans-serif; letter-spacing: .14em; color: var(--ink3); }
+.gx-tach.red b { color: #ff6a4a; }
+#garage.gx-running .gx-tach { display: flex; }
+#garage:not(.gx-running) .gx-rev { display: none; }
+
+/* hide interface: only the car (and a way back) */
+.gx-unhide { display: none; position: absolute; right: var(--pad); bottom: calc(var(--pad) + env(safe-area-inset-bottom)); align-items: center; gap: 8px; padding: 10px 16px; background: var(--gxb); border: 1px solid var(--gxl); border-radius: 4px; color: var(--ink); font: 600 13px 'Cond', sans-serif; letter-spacing: .1em; cursor: pointer; }
+.gx-unhide svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+#garage.gx-hidden > *:not(.gx-dock):not(.gx-unhide) { opacity: 0; pointer-events: none !important; transition: opacity .35s; }
+#garage.gx-hidden .gx-unhide { display: flex; }
+#garage.gx > * { transition: opacity .35s; }
+
+/* the carousel owns the bottom in the car tabs: dock sits above it */
+#garage.gx.carmode .gx-dock { bottom: calc(var(--pad) + 140px + env(safe-area-inset-bottom)); }
+#garage.gx .keyhints { top: auto; bottom: 3px; font-size: 10px; opacity: .8; }
+#garage.gx.carmode .keyhints { display: none; }
+
+/* ---- rims tab */
+.gx-rims { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 10px 14px; }
+.gx-rim { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px 8px; background: rgba(255,255,255,.03); border: 1px solid var(--line); border-radius: 4px; color: var(--ink); cursor: pointer; transition: border-color .2s, background .2s; }
+.gx-rim:hover { background: rgba(255,255,255,.07); }
+.gx-rim.sel { border-color: var(--amber); background: rgba(226,163,59,.1); }
+.gx-rimimg { width: 64px; height: 64px; border-radius: 50%; background: #111 center/86% no-repeat; box-shadow: 0 0 0 6px #18191b, 0 0 0 7px #2a2b2e; margin: 6px 0 6px; }
+.gx-rim b { font: 600 13px 'Cond', sans-serif; letter-spacing: .06em; }
+.gx-rim small { font: 600 10px 'Body', sans-serif; letter-spacing: .08em; color: var(--amber); }
+.gx-rim.cur small { color: var(--green); }
+
+/* ---- performance tab */
+.gx-perf { padding: 12px 16px; }
+.gx-perf .crh { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+.gx-perf .crh h3 { margin: 0; font: 700 22px 'Cond', sans-serif; letter-spacing: .05em; }
+.gx-perf .crh .pn { font: 600 11px 'Body', sans-serif; letter-spacing: .1em; color: var(--ink3); }
+.gx-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 12px; }
+.gx-kpis div { padding: 8px 10px; background: rgba(255,255,255,.035); border: 1px solid var(--line); border-radius: 3px; display: flex; flex-direction: column; }
+.gx-kpis small { font: 600 9px 'Body', sans-serif; letter-spacing: .14em; color: var(--ink3); }
+.gx-kpis b { font: 700 22px/1.1 'Cond', sans-serif; color: var(--ink); }
+.gx-kpis span { font: 500 10px 'Body', sans-serif; color: var(--amber); letter-spacing: .06em; }
+.gx-note { font-size: 11px; color: var(--ink3); line-height: 1.4; margin: 10px 0 0; }
+
+/* ---- tablets / narrow desktop: labels go, icons stay */
+@media (max-width: 1100px) {
+  .gx-btn span { display: none; }
+  .gx-btn { min-width: 40px; height: 40px; }
+  .gx-rev span { display: inline; }
+  .gx-mlabel { min-width: 0; }
+  .gx-mlabel small { display: none; }
+}
+
+/* ---- phones, portrait: tabs scroll along the bottom, controls between car and panel */
+@media (max-width: 760px) {
+  #garage.gx .gtabs { max-width: none; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; scrollbar-width: none; }
+  #garage.gx .gtabs::-webkit-scrollbar { display: none; }
+  #garage.gx .gtab { flex: none; padding: 14px 10px; }
+  #garage.gx .gtab.drive { position: static; width: auto; padding: 14px 12px; font-size: 13px; }
+  #garage.gx .gpanel { bottom: calc(52px + env(safe-area-inset-bottom)); height: 40vh; }
+  .gx-modes { top: calc(var(--pad) + 52px + env(safe-area-inset-top)); padding: 4px; gap: 3px; }
+  .gx-mlabel { display: none; }
+  .gx-mode { width: 30px; height: 30px; }
+  .gx-dock { bottom: calc(40vh + 60px + env(safe-area-inset-bottom)); width: calc(100vw - 16px); }
+  .gx-views, .gx-ctrl { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .gx-btn { min-width: 38px; height: 38px; padding: 0 4px; }
+  .gx-tach { width: 84px; height: 38px; }
+  #garage.gx.carmode .gx-dock { bottom: auto; top: calc(var(--pad) + 96px); }
+  #garage.gx.carmode .crcard { top: calc(var(--pad) + 200px); }
+  .gx-unhide { bottom: calc(60px + env(safe-area-inset-bottom)); }
+}
+
+/* ---- phones, landscape (and short windows): two compact columns */
+@media (max-height: 560px) and (min-width: 761px) {
+  #garage.gx .gtabs { max-width: calc(48vw - var(--pad)); }
+  #garage.gx .gtab { padding: 5px 9px; font-size: 12px; }
+  #garage.gx .gpanel { width: min(380px, 48vw); bottom: calc(var(--pad) + 46px); }
+  #garage.gx .gtab.drive { width: min(380px, 48vw); padding: 9px 0; font-size: 15px; left: auto; right: var(--pad); bottom: var(--pad); }
+  #garage.gx.carmode .gtab.drive { width: auto; top: var(--pad); padding: 7px 18px; }
+  .gx-modes { left: var(--pad); transform: none; top: auto; bottom: calc(var(--pad) + 96px); padding: 3px; gap: 2px; }
+  .gx-mlabel { display: none; }
+  .gx-mode { width: 28px; height: 28px; }
+  .gx-dock { left: var(--pad); transform: none; align-items: flex-start; gap: 4px; bottom: var(--pad); }
+  .gx-btn { min-width: 36px; height: 36px; padding: 0 3px; }
+  .gx-tach { width: 80px; height: 36px; }
+  #garage.gx.carmode .gx-dock, #garage.gx.carmode .gx-modes { display: none; }
+  #garage.gx .keyhints { display: none; }
+  .gx-rims { grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 6px 8px; }
+  .gx-rimimg { width: 42px; height: 42px; box-shadow: 0 0 0 4px #18191b; margin: 3px 0; }
+  .gx-kpis { grid-template-columns: repeat(4, 1fr); }
+  .gx-kpis b { font-size: 17px; }
+}
