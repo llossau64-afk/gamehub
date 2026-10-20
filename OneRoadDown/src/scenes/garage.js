@@ -36,40 +36,40 @@ export const lightModeById = (id) => LIGHT_MODES.find((m) => m.id === id) || LIG
 // [colour, intensity]; env.* are the studio panels baked into the reflection texture.
 const MODE = {
   studio: {
-    hemi: [0xf2f4f8, 0x9a9da2, 1.25], key: [0xffffff, 420], rimA: [0xffffff, 150], rimB: [0xffffff, 150], fill: [0xffffff, 26], sun: [0xffffff, 0],
+    hemi: [0xf2f4f8, 0x9a9da2, 1.0], key: [0xffffff, 231], rimA: [0xffffff, 90], rimB: [0xffffff, 90], fill: [0xffffff, 26], sun: [0xffffff, 0],
     led: [0xffffff, 1.8], panel: [0xffffff, 2.4], sky: [0xe6ebf0, 1.0], wall: 0xd4d6d9, floor: 0x8e9196, rough: 0.2, bg: 0xc9ccd0,
     env: { wall: [0xc8cacd, 1.1], floor: [0x707276, 1], back: [0x9a9c9f, 1], panel: [0xffffff, 7], led: [0xffffff, 4], win: [0xeef2f6, 2.2] }, envI: 0.95,
-    look: { exposure: 0.9, bloom: 0.2, warm: 0.15, contrast: 1.02, sat: 1.0, vig: 0.1 },
+    look: { exposure: 0.9, bloom: 0.14, warm: 0.15, contrast: 1.02, sat: 1.0, vig: 0.1 },
   },
   warm: {
-    hemi: [0xffd9b0, 0x3a2618, 0.8], key: [0xffd9a8, 430], rimA: [0xffb060, 170], rimB: [0xffc890, 120], fill: [0xffb070, 30], sun: [0xffc080, 0],
+    hemi: [0xffd9b0, 0x3a2618, 0.64], key: [0xffd9a8, 237], rimA: [0xffb060, 102], rimB: [0xffc890, 72], fill: [0xffb070, 30], sun: [0xffc080, 0],
     led: [0xffa040, 2.4], panel: [0xffe0b8, 1.5], sky: [0xc08050, 0.55], wall: 0x6a5240, floor: 0x3a2e26, rough: 0.22, bg: 0x1c140e,
     env: { wall: [0x5a4030, 0.8], floor: [0x2a1e16, 1], back: [0x3a2618, 1], panel: [0xffd8a8, 5], led: [0xffa040, 5], win: [0xd08a50, 1.0] }, envI: 0.9,
-    look: { exposure: 1.0, bloom: 0.38, warm: 0.9, contrast: 1.03, sat: 1.06, vig: 0.22 },
+    look: { exposure: 1.0, bloom: 0.27, warm: 0.9, contrast: 1.03, sat: 1.06, vig: 0.22 },
   },
   neon: {
-    hemi: [0x5a78ff, 0x0a0c22, 0.55], key: [0xdde8ff, 400], rimA: [0x20d0ff, 280], rimB: [0xb040ff, 220], fill: [0x3a60ff, 22], sun: [0x4060ff, 0],
+    hemi: [0x5a78ff, 0x0a0c22, 0.44], key: [0xdde8ff, 220], rimA: [0x20d0ff, 168], rimB: [0xb040ff, 132], fill: [0x3a60ff, 22], sun: [0x4060ff, 0],
     led: [0x10b8ff, 4.5], panel: [0x9ac8ff, 0.9], sky: [0x1a2850, 0.4], wall: 0x14161c, floor: 0x14161c, rough: 0.16, bg: 0x04060c,
     env: { wall: [0x0c1020, 1], floor: [0x06080e, 1], back: [0x080a14, 1], panel: [0xa8d0ff, 3.5], led: [0x10b8ff, 7], win: [0x203868, 0.8] }, envI: 1.0,
-    look: { exposure: 1.05, bloom: 0.62, warm: 0.0, contrast: 1.05, sat: 1.12, vig: 0.28 },
+    look: { exposure: 1.05, bloom: 0.43, warm: 0.0, contrast: 1.05, sat: 1.12, vig: 0.28 },
   },
   red: {
-    hemi: [0xff7060, 0x1a0606, 0.45], key: [0xfff0ea, 420], rimA: [0xff2a18, 300], rimB: [0xff5030, 220], fill: [0xff3020, 20], sun: [0xff4020, 0],
+    hemi: [0xff7060, 0x1a0606, 0.36], key: [0xfff0ea, 231], rimA: [0xff2a18, 180], rimB: [0xff5030, 132], fill: [0xff3020, 20], sun: [0xff4020, 0],
     led: [0xff1808, 4.2], panel: [0xffd8d0, 0.9], sky: [0x401010, 0.35], wall: 0x18100f, floor: 0x161012, rough: 0.16, bg: 0x0a0303,
     env: { wall: [0x200a08, 1], floor: [0x0a0606, 1], back: [0x140606, 1], panel: [0xfff0e8, 3.5], led: [0xff1808, 7], win: [0x501810, 0.6] }, envI: 1.0,
-    look: { exposure: 1.05, bloom: 0.58, warm: 0.35, contrast: 1.06, sat: 1.1, vig: 0.3 },
+    look: { exposure: 1.05, bloom: 0.41, warm: 0.35, contrast: 1.06, sat: 1.1, vig: 0.3 },
   },
   cinema: {
-    hemi: [0x8a94a8, 0x050506, 0.25], key: [0xf4f6ff, 640], rimA: [0xc8d8ff, 260], rimB: [0xffffff, 220], fill: [0xb0c0e0, 4], sun: [0xffffff, 0],
+    hemi: [0x8a94a8, 0x050506, 0.2], key: [0xf4f6ff, 352], rimA: [0xc8d8ff, 156], rimB: [0xffffff, 132], fill: [0xb0c0e0, 4], sun: [0xffffff, 0],
     led: [0xe8eeff, 0.45], panel: [0xffffff, 0.35], sky: [0x0c1018, 0.25], wall: 0x0e0f12, floor: 0x0c0d10, rough: 0.14, bg: 0x020203,
     env: { wall: [0x0a0b0d, 1], floor: [0x050506, 1], back: [0x060607, 1], panel: [0xffffff, 6], led: [0xd8e4ff, 1.4], win: [0x101420, 0.3] }, envI: 0.95,
-    look: { exposure: 1.08, bloom: 0.4, warm: 0.1, contrast: 1.08, sat: 0.96, vig: 0.42 },
+    look: { exposure: 1.08, bloom: 0.28, warm: 0.1, contrast: 1.08, sat: 0.96, vig: 0.42 },
   },
   daylight: {
-    hemi: [0xd6e8ff, 0x7a7064, 1.45], key: [0xfff6ea, 260], rimA: [0xffffff, 90], rimB: [0xdfeaff, 90], fill: [0xfff4e6, 18], sun: [0xfff0dc, 2.6],
+    hemi: [0xd6e8ff, 0x7a7064, 1.16], key: [0xfff6ea, 143], rimA: [0xffffff, 54], rimB: [0xdfeaff, 54], fill: [0xfff4e6, 18], sun: [0xfff0dc, 2.6],
     led: [0xffffff, 0.8], panel: [0xffffff, 1.4], sky: [0xffffff, 1.6], wall: 0xe6e3dc, floor: 0x9a9894, rough: 0.24, bg: 0xdfe8ee,
     env: { wall: [0xd8d6d0, 1.2], floor: [0x7a7874, 1], back: [0xb0aea8, 1], panel: [0xffffff, 4], led: [0xffffff, 1.5], win: [0xf0f6ff, 4.5] }, envI: 1.0,
-    look: { exposure: 0.88, bloom: 0.25, warm: 0.3, contrast: 1.02, sat: 1.04, vig: 0.12 },
+    look: { exposure: 0.88, bloom: 0.17, warm: 0.3, contrast: 1.02, sat: 1.04, vig: 0.12 },
   },
 };
 // low quality keeps three reflection textures (memory on phones): modes share the closest
@@ -314,6 +314,7 @@ export class Garage {
     this.mPanel.emissive.copy(S.panel.c); this.mPanel.emissiveIntensity = S.panel.k;
     this.mSky.color.copy(S.sky.c).multiplyScalar(S.sky.k);
     this.mWall.color.copy(S.wall);
+    if (this.mShedFloor) this.mShedFloor.color.copy(S.floor).multiplyScalar(1.45);
     if (this.mFloor) { this.mFloor.color.copy(S.floor); this.mFloor.roughness = S.rough + (this.reflect ? 0.08 : 0); }
     if (!dealer) { this.scene.background.copy(S.bg); this.scene.fog.color.copy(S.bg); }
     this.scene.environmentIntensity = S.envI * (f.env ?? 1);
@@ -337,7 +338,7 @@ export class Garage {
     if (level === this.level && this.room) return;
     this.level = level;
     if (this.room) { this.scene.remove(this.room); this.room.traverse((o) => { if (o.isMesh && !o.userData.keep) o.geometry.dispose(); }); }
-    this.mFloor = null; this.reflect = null; this.floorMesh = null; this.turntable = null; this.motes = false; this.hallDoor = null; this.doorMesh = null;
+    this.mFloor = null; this.mShedFloor = null; this.reflect = null; this.floorMesh = null; this.turntable = null; this.motes = false; this.hallDoor = null; this.doorMesh = null;
     if (level >= 4) this.buildHall(level);
     else this.buildShed(level);
     if (this.mode !== 'dealer') this.setRig(this.roomRig);
@@ -356,6 +357,7 @@ export class Garage {
       map: TX.concreteTexture(20 + L, L >= 3 ? 1.05 : 0.85), roughness: 0.85, metalness: 0, color: 0xffffff,
     });
     floorMat.map = floorMat.map.clone(); floorMat.map.repeat.set(4, 4); floorMat.map.needsUpdate = true;
+    this.mShedFloor = floorMat; // the light mode sets its tone (the studio reflections would wash it out)
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(w, d), floorMat);
     floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; g.add(floor);
     const stains = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.8, d * 0.8), new THREE.MeshStandardMaterial({ map: TX.oilStains(), transparent: true, roughness: 0.4, depthWrite: false, opacity: L === 1 ? 1 : 0.5 }));
@@ -414,13 +416,13 @@ export class Garage {
         tube.position.set(x, h - 0.4, z); g.add(tube);
       }
     }
-    const fillK = L === 1 ? [1.1, 0, 0, 0] : L === 2 ? [0.7, 0.7, 0, 0] : [0.45, 0.45, 0.45, 0.45];
+    const fillK = L === 1 ? [0.9, 0, 0, 0] : L === 2 ? [0.6, 0.6, 0, 0] : [0.4, 0.4, 0.4, 0.4];
     const fp = [...lampPos, [0, 0], [0, 0], [0, 0]].slice(0, 4);
     this.roomRig = {
       key: [0.5, h - 0.3, 0.8], rimA: [-5.5, 4.2, -6], rimB: [5.5, 4.2, 5], sun: [-6, 9, -20], door: [0, 3, d / 2 + 2],
       fill: fp.map(([x, z], i) => [x, h - 1.4, z, fillK[i]]),
-      k: { hemi: L === 1 ? 0.5 : 0.65 + L * 0.05, key: L === 1 ? 0.22 : 0.3, rim: L === 1 ? 0.2 : 0.3, sun: 0.15, env: L === 1 ? 0.55 : 0.75 },
-      keyAngle: 0.85,
+      k: { hemi: L === 1 ? 0.45 : 0.55 + L * 0.05, key: L === 1 ? 0.13 : 0.16, rim: L === 1 ? 0.18 : 0.25, sun: 0.15, env: L === 1 ? 0.55 : 0.75 },
+      keyAngle: 0.62,
     };
     this.doorZ = d / 2;
     this.buildProps(g, L, R);
@@ -448,7 +450,7 @@ export class Garage {
     if (this.quality === 'high') this.makeReflector(this.mFloor);
     // display platform (turns with the car) with an LED ring at its foot
     const plat = new THREE.Group();
-    const top = new THREE.Mesh(new THREE.CylinderGeometry(3.3, 3.38, 0.1, 72), new THREE.MeshStandardMaterial({ color: 0x0d0e10, roughness: 0.16, metalness: 0.35 }));
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(3.3, 3.38, 0.1, 72), new THREE.MeshStandardMaterial({ color: 0x0f1012, roughness: 0.34, metalness: 0.2 }));
     top.position.y = 0.05; top.receiveShadow = true; plat.add(top);
     const lines = new THREE.Mesh(new THREE.RingGeometry(2.6, 2.63, 72), new THREE.MeshStandardMaterial({ color: 0x5a5d62, roughness: 0.3, metalness: 0.9 }));
     lines.rotation.x = -Math.PI / 2; lines.position.y = 0.101; plat.add(lines);
@@ -573,7 +575,7 @@ export class Garage {
     const rt = new THREE.WebGLRenderTarget(2, 2, { type: THREE.HalfFloatType });
     const R = (this.reflect = {
       rt, cam: new THREE.PerspectiveCamera(), texMat: new THREE.Matrix4(), size: new THREE.Vector2(),
-      u: { tRefl: { value: rt.texture }, uTexMat: { value: new THREE.Matrix4() }, uReflK: { value: 0.55 }, uTexel: { value: new THREE.Vector2(1 / 512, 1 / 512) } },
+      u: { tRefl: { value: rt.texture }, uTexMat: { value: new THREE.Matrix4() }, uReflK: { value: 0.32 }, uTexel: { value: new THREE.Vector2(1 / 512, 1 / 512) } },
     });
     mat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, R.u);

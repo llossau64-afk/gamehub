@@ -48,7 +48,7 @@
 /* hide interface: only the car (and a way back) */
 .gx-unhide { display: none; position: absolute; right: var(--pad); bottom: calc(var(--pad) + env(safe-area-inset-bottom)); align-items: center; gap: 8px; padding: 10px 16px; background: var(--gxb); border: 1px solid var(--gxl); border-radius: 4px; color: var(--ink); font: 600 13px 'Cond', sans-serif; letter-spacing: .1em; cursor: pointer; }
 .gx-unhide svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; }
-#garage.gx-hidden > *:not(.gx-dock):not(.gx-unhide) { opacity: 0; pointer-events: none !important; transition: opacity .35s; }
+#garage.gx-hidden > *:not(.gx-dock):not(.gx-unhide) { visibility: hidden; pointer-events: none !important; }
 #garage.gx-hidden .gx-unhide { display: flex; }
 #garage.gx > * { transition: opacity .35s; }
 
@@ -88,23 +88,25 @@
   .gx-mlabel small { display: none; }
 }
 
-/* ---- phones, portrait: tabs scroll along the bottom, controls between car and panel */
+/* ---- phones, portrait: tabs scroll under the title, controls between car and panel */
 @media (max-width: 760px) {
-  #garage.gx .gtabs { max-width: none; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; scrollbar-width: none; }
+  #garage.gx .gtabs { position: absolute; top: calc(var(--pad) + 50px + env(safe-area-inset-top)); bottom: auto; left: 8px; right: 8px; max-width: none; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; scrollbar-width: none; padding: 3px; border: 1px solid var(--line); border-radius: 4px; }
   #garage.gx .gtabs::-webkit-scrollbar { display: none; }
-  #garage.gx .gtab { flex: none; padding: 14px 10px; }
-  #garage.gx .gtab.drive { position: static; width: auto; padding: 14px 12px; font-size: 13px; }
-  #garage.gx .gpanel { bottom: calc(52px + env(safe-area-inset-bottom)); height: 40vh; }
-  .gx-modes { top: calc(var(--pad) + 52px + env(safe-area-inset-top)); padding: 4px; gap: 3px; }
+  #garage.gx .gtab { flex: none; padding: 9px 11px; font-size: 13px; }
+  #garage.gx .gtab.drive, #garage.gx.carmode .gtab.drive { position: fixed; left: 8px; right: 8px; width: auto; top: auto; bottom: calc(8px + env(safe-area-inset-bottom)); padding: 12px 0; font-size: 16px; }
+  #garage.gx .gpanel { top: auto; left: 8px; right: 8px; width: auto; bottom: calc(60px + env(safe-area-inset-bottom)); height: 38vh; }
+  .gx-modes { top: calc(var(--pad) + 100px + env(safe-area-inset-top)); padding: 4px; gap: 3px; }
   .gx-mlabel { display: none; }
   .gx-mode { width: 30px; height: 30px; }
-  .gx-dock { bottom: calc(40vh + 60px + env(safe-area-inset-bottom)); width: calc(100vw - 16px); }
+  .gx-dock { bottom: calc(38vh + 68px + env(safe-area-inset-bottom)); width: calc(100vw - 16px); }
   .gx-views, .gx-ctrl { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
   .gx-btn { min-width: 38px; height: 38px; padding: 0 4px; }
   .gx-tach { width: 84px; height: 38px; }
-  #garage.gx.carmode .gx-dock { bottom: auto; top: calc(var(--pad) + 96px); }
-  #garage.gx.carmode .crcard { top: calc(var(--pad) + 200px); }
-  .gx-unhide { bottom: calc(60px + env(safe-area-inset-bottom)); }
+  #garage.gx.carmode .gx-dock { display: none; }
+  #garage.gx.carmode .gx-modes { top: calc(var(--pad) + 100px); }
+  #garage.gx.carmode .crcard { top: calc(var(--pad) + 146px); }
+  #garage.gx.carmode .carousel { bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .gx-unhide { bottom: calc(64px + env(safe-area-inset-bottom)); }
 }
 
 /* ---- phones, landscape (and short windows): two compact columns */
@@ -113,7 +115,7 @@
   #garage.gx .gtab { padding: 5px 9px; font-size: 12px; }
   #garage.gx .gpanel { width: min(380px, 48vw); bottom: calc(var(--pad) + 46px); }
   #garage.gx .gtab.drive { width: min(380px, 48vw); padding: 9px 0; font-size: 15px; left: auto; right: var(--pad); bottom: var(--pad); }
-  #garage.gx.carmode .gtab.drive { width: auto; top: var(--pad); padding: 7px 18px; }
+  #garage.gx.carmode .gtab.drive { width: auto; top: calc(var(--pad) + 38px); padding: 6px 18px; font-size: 14px; }
   .gx-modes { left: var(--pad); transform: none; top: auto; bottom: calc(var(--pad) + 96px); padding: 3px; gap: 2px; }
   .gx-mlabel { display: none; }
   .gx-mode { width: 28px; height: 28px; }
