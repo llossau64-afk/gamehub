@@ -38,7 +38,7 @@ const MODE = {
   studio: {
     hemi: [0xf2f4f8, 0x9a9da2, 1.0], key: [0xffffff, 231], rimA: [0xffffff, 90], rimB: [0xffffff, 90], fill: [0xffffff, 26], sun: [0xffffff, 0],
     led: [0xffffff, 1.8], panel: [0xffffff, 2.4], sky: [0xe6ebf0, 1.0], wall: 0xd4d6d9, floor: 0x8e9196, rough: 0.2, bg: 0xc9ccd0,
-    env: { wall: [0xc8cacd, 1.1], floor: [0x707276, 1], back: [0x9a9c9f, 1], panel: [0xffffff, 7], led: [0xffffff, 4], win: [0xeef2f6, 2.2] }, envI: 0.95,
+    env: { wall: [0xc8cacd, 1.1], floor: [0x707276, 1], back: [0x9a9c9f, 1], panel: [0xffffff, 5], led: [0xffffff, 4], win: [0xeef2f6, 2.2] }, envI: 0.95,
     look: { exposure: 0.9, bloom: 0.14, warm: 0.15, contrast: 1.02, sat: 1.0, vig: 0.1 },
   },
   warm: {
