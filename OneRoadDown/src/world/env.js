@@ -174,7 +174,7 @@ export class Environment {
     this.tunnel = 0;
     // reflection probe (medium/high): the real surroundings instead of a sky gradient
     // medium: 128 px, 150 m, one step every 2nd frame (full refresh ≈ 4×/s); high: 256 px, 300 m, every frame
-    this.probe = quality === 'low' ? null : quality === 'high' ? this.makeProbe(256, 300, 1) : this.makeProbe(128, 150, 2);
+    this.probe = quality === 'low' ? null : quality === 'high' ? this.makeProbe(256, 300, 1) : this.makeProbe(128, 150, 3);
     this.probeHide = []; // set by the game: player car, particles…
     this.probeStats = null;
   }

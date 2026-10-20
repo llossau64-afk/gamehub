@@ -113,7 +113,10 @@ class Premium:
                 strip(I, surf, m(path), fr, w, 0.004)
             for path, w in U.get('rev', ()):
                 strip(R, surf, m(path), fr, w, 0.004)
-            proj_patch(C, self.pre_surf, poly, fr, 0.0015, n=0.02)
+            from car_hifi import offset_poly
+            for shrink in (-0.006, -0.015, -0.03):
+                if proj_patch(C, self.pre_surf, offset_poly(poly, shrink), fr, 0.0015, n=0.02):
+                    break
         objs = [self.uv_const(self.obj('tail', T, 'taillight', 60), (0.5, 0.19))]
         if not I.empty():
             objs.append(self.obj('indicatorR', I, 'amber', 60))
