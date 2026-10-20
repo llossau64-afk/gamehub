@@ -9,7 +9,8 @@ import { Post } from './gfx/post.js';
 import { Track } from './world/track.js';
 import { World } from './world/world.js';
 import { Environment } from './world/env.js';
-import { Garage } from './scenes/garage.js';
+import { Garage, applyRim } from './scenes/garage.js';
+import { GarageUI } from './ui/garageUi.js'; // garage2
 import { CarModel } from './models/carModel.js';
 import { TYPE, carDims } from './models/carDims.js';
 import { Run } from './game/run.js';
@@ -118,6 +119,8 @@ class Game {
     this.garage = new Garage(renderer, this.quality);
     this.garage.setLevel(sv.garageLevel);
     this.garage.bindPointer(renderer.domElement);
+    this.garage.setLightMode(sv.garageLight || 'studio', true); // garage2: saved light mode
+    this.gx = new GarageUI(this); // garage2: light modes, camera views, engine, rims, performance
     ui.setLoad(0.9, 'STARTING ENGINE…');
     this.setupMenuScene();
     this.env.probeHide[0] = this.menuCar.group;
@@ -315,6 +318,7 @@ class Game {
     if (!(this.run instanceof Race)) this.run = new Race(this);
     this.run.camMode = sv.settings.camera;
     this.run.startRace(this.selectedCar().id, { map, opponents: opts.opponents ?? this.raceOpp ?? 5, net: opts.net || null });
+    if (this.run.model) applyRim(this.run.model, carState(this.save.data, this.selectedCar().id).rim); // garage2: saved rims
     audio()?.ambience && audio().ambience.update(0, { room: 0 });
     await new Promise((r) => setTimeout(r, 120));
     this.ui.fade(false);
@@ -461,12 +465,12 @@ class Game {
     const sv = this.save.data, car = carById(id);
     const cs = carState(sv, id);
     const paint = this.paintFor(car, cs);
-    this.garage.showCar(car, { levels: cs.levels, tire: cs.tire, paint: paint.color, finish: paint.finish });
+    this.garage.showCar(car, { levels: cs.levels, tire: cs.tire, paint: paint.color, finish: paint.finish, rim: cs.rim }); // garage2: rim
   }
   gtab(t) {
     const ui = this.ui;
     if (t === 'drive') { this.driveFromGarage(); return; }
-    if (t === 'menu') { this.ui.fade(true).then(() => { this.enterMenu(); this.ui.fade(false); }); return; }
+    if (t === 'menu') { this.garage.leave(); this.ui.fade(true).then(() => { this.enterMenu(); this.ui.fade(false); }); return; }
     const wasDealer = this.tab === 'dealer';
     this.tab = t;
     ui.setGarageTab(t);
@@ -479,6 +483,7 @@ class Game {
       this.showGarageCar(this.browse);
       this.garage.setSideCars(ex.filter((c) => c.id !== this.browse));
     } else if ((t !== 'vehicles' || wasDealer) && this.browse !== this.selectedCar().id) { this.browse = this.selectedCar().id; this.showGarageCar(this.browse); }
+    if (this.gx && this.gx.onTab(t)) return; // garage2: rims / performance tabs
     if (t === 'upgrades') this.renderUpgrades();
     else if (t === 'vehicles' || t === 'dealer') this.renderVehicles();
     else if (t === 'paint') this.renderPaint();
@@ -754,9 +759,10 @@ class Game {
       this.browse = this.selectedCar().id; this.showGarageCar(this.browse);
     }
     this.garage.openDoor();
-    audio()?.starter(this.selectedCar());
+    if (!this.garage.engineOn) audio()?.starter(this.selectedCar()); // garage2: engine may already run
     await wait(1400);
     await this.ui.fade(true);
+    this.garage.leave(); // garage2
     this.garage.clearCars();
     this.startRun();
     await wait(150);
@@ -773,6 +779,7 @@ class Game {
     if (!this.run || this.run instanceof Race) this.run = new Run(this);
     this.run.camMode = sv.settings.camera;
     this.run.start(this.selectedCar().id);
+    if (this.run.model) applyRim(this.run.model, carState(sv, this.selectedCar().id).rim); // garage2: saved rims
     audio()?.ambience && audio().ambience.update(0, { room: 0 });
   }
   stopRun() {
@@ -927,7 +934,7 @@ class Game {
     return true;
   }
   cycleTab(d) {
-    const tabs = ['upgrades', 'vehicles', 'dealer', 'paint', 'garage'];
+    const tabs = ['upgrades', 'vehicles', 'dealer', 'paint', 'rims', 'perf', 'garage']; // garage2: + rims, perf
     const i = Math.max(0, tabs.indexOf(this.tab));
     audio()?.ui('click');
     this.gtab(tabs[(i + d + tabs.length) % tabs.length]);
@@ -968,7 +975,11 @@ class Game {
       audio()?.ambience?.update(dt, { room: 1, wind: 0.05 });
       audio()?.setReverb(0.25);
       this.post.enabled = this.quality !== 'low';
-      this.post.render(this.garage.scene, this.camera, { bloom: 0.3, warm: 0.35, vig: 0.18, contrast: 1.0, sat: 1.05 });
+      // garage2: light-mode grading + exposure, floor mirror on 'high'
+      const gl = this.state === 'garage' ? this.garage.look : null, ex0 = r.toneMappingExposure;
+      if (gl) { r.toneMappingExposure = gl.exposure; this.garage.prepareRender(this.camera); }
+      this.post.render(this.garage.scene, this.camera, gl || { bloom: 0.3, warm: 0.35, vig: 0.18, contrast: 1.0, sat: 1.05 });
+      r.toneMappingExposure = ex0;
       return;
     }
     if (this.state === 'run' && this.run) {
