@@ -1,0 +1,19 @@
+# Minimal Supabase CLI config for ASCEND. `supabase init` generates a full file;
+# these are the settings ASCEND relies on.
+project_id = "ascend"
+
+[auth]
+enabled = true
+# Guests get an anonymous session so the AI coach and cloud backup work securely.
+enable_anonymous_sign_ins = true
+minimum_password_length = 8
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+
+[functions.coach]
+verify_jwt = true
+
+[functions.delete-account]
+verify_jwt = true

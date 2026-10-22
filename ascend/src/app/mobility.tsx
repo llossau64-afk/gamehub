@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { AText } from '../components/AText';
 import { Button } from '../components/Button';
@@ -16,38 +16,50 @@ import { formatDuration } from '../utils';
 /** Guided 5-minute mobility flow used for the rest-day quest. */
 export default function Mobility() {
   const completeMobility = useAppStore((s) => s.completeMobility);
-  const [i, setI] = useState(0);
-  const [left, setLeft] = useState(MOBILITY_ROUTINE[0].seconds);
+  const [pos, setPos] = useState({ i: 0, left: MOBILITY_ROUTINE[0].seconds, finished: false });
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState<number | null>(null);
+  const { i, left } = pos;
   const step = MOBILITY_ROUTINE[i];
   const ex = EXERCISE_BY_ID[step.exerciseId];
   const total = MOBILITY_ROUTINE.reduce((a, s) => a + s.seconds, 0);
 
+  const finish = () => {
+    setRunning(false);
+    const ev = completeMobility();
+    setDone(ev?.amount ?? 0);
+    playSound('complete');
+  };
+
+  const posRef = useRef(pos);
+  const finishRef = useRef(finish);
+  useEffect(() => {
+    finishRef.current = finish;
+  });
+
   useEffect(() => {
     if (!running) return;
-    const t = setInterval(() => setLeft((l) => Math.max(0, l - 1)), 1000);
+    const t = setInterval(() => {
+      const p = posRef.current;
+      if (p.finished) return;
+      let next: typeof p;
+      if (p.left > 1) next = { ...p, left: p.left - 1 };
+      else {
+        playSound('restEnd');
+        haptic('medium');
+        next = p.i < MOBILITY_ROUTINE.length - 1 ? { i: p.i + 1, left: MOBILITY_ROUTINE[p.i + 1].seconds, finished: false } : { ...p, left: 0, finished: true };
+      }
+      posRef.current = next;
+      setPos(next);
+      if (next.finished) finishRef.current();
+    }, 1000);
     return () => clearInterval(t);
   }, [running]);
 
-  useEffect(() => {
-    if (!running || left > 0) return;
-    playSound('restEnd');
-    haptic('medium');
-    if (i < MOBILITY_ROUTINE.length - 1) {
-      setI(i + 1);
-      setLeft(MOBILITY_ROUTINE[i + 1].seconds);
-    } else {
-      setRunning(false);
-      const ev = completeMobility();
-      setDone(ev?.amount ?? 0);
-      playSound('complete');
-    }
-  }, [left, running, i, completeMobility]);
-
   const go = (n: number) => {
-    setI(n);
-    setLeft(MOBILITY_ROUTINE[n].seconds);
+    const next = { i: n, left: MOBILITY_ROUTINE[n].seconds, finished: false };
+    posRef.current = next;
+    setPos(next);
   };
 
   if (done !== null)
@@ -74,7 +86,7 @@ export default function Mobility() {
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           <Button label="Back" variant="secondary" icon="play-back" disabled={i === 0} onPress={() => go(i - 1)} style={{ flex: 1 }} />
           <Button label={running ? 'Pause' : elapsed > 0 ? 'Resume' : 'Start'} icon={running ? 'pause' : 'play'} onPress={() => setRunning(!running)} style={{ flex: 1.4 }} />
-          <Button label="Next" variant="secondary" iconRight="play-forward" onPress={() => (i < MOBILITY_ROUTINE.length - 1 ? go(i + 1) : setLeft(0))} style={{ flex: 1 }} />
+          <Button label="Next" variant="secondary" iconRight="play-forward" onPress={() => (i < MOBILITY_ROUTINE.length - 1 ? go(i + 1) : finish())} style={{ flex: 1 }} />
         </View>
       }
     >

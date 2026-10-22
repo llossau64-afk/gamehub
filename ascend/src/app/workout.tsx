@@ -39,7 +39,7 @@ function ask(title: string, body: string, actions: { text: string; style?: 'dest
 }
 
 function useNow(interval = 500) {
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), interval);
     return () => clearInterval(t);
@@ -73,10 +73,6 @@ export default function Workout() {
   const w = s.w;
   const units = s.profile?.units ?? 'kg';
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [weight, setWeight] = useState(0);
-  const [reps, setReps] = useState(8);
-  const [rpe, setRpe] = useState<number | null>(8);
-  const [holdStart, setHoldStart] = useState<number | null>(null);
   const restDoneRef = useRef<string | null>(null);
 
   const idx = w?.currentIndex ?? 0;
@@ -89,18 +85,7 @@ export default function Workout() {
   const suggestion = useMemo(() => (planned ? suggestNext(planned, s.sessions) : null), [planned, s.sessions]);
   const last = useMemo(() => (log ? lastPerformance(log.exerciseId, s.sessions) : null), [log, s.sessions]);
 
-  // Prefill inputs when the exercise changes or a set is logged.
   const setsDone = log?.sets.length ?? 0;
-  useEffect(() => {
-    if (!log) return;
-    const prev = log.sets[log.sets.length - 1];
-    const baseW = prev?.weight ?? suggestion?.weight ?? last?.sets[0]?.weight ?? 0;
-    setWeight(toDisplayWeight(baseW ?? 0, units));
-    setReps(prev?.reps ?? suggestion?.reps ?? planned?.repsMin ?? 8);
-    setRpe(timed ? null : 8);
-    setHoldStart(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [log?.exerciseId, setsDone]);
 
   const restLeft = w?.restEndsAt ? Math.max(0, Math.ceil((new Date(w.restEndsAt).getTime() - now) / 1000)) : 0;
   useEffect(() => {
@@ -120,16 +105,12 @@ export default function Workout() {
   const targetSets = planned?.sets ?? 3;
   const exerciseDone = setsDone >= targetSets;
   const nextLog = w.exercises[idx + 1];
-  const holdElapsed = holdStart ? Math.floor((now - holdStart) / 1000) : 0;
 
-  const doLog = () => {
-    if (!log) return;
-    const r = timed && holdStart ? holdElapsed : reps;
-    if (r <= 0) return;
-    s.logSet(idx, { weight: weighted ? fromDisplayWeight(weight, units) : null, reps: r, rpe });
+  const doLog = (weight: number, reps: number, rpe: number | null) => {
+    if (!log || reps <= 0) return;
+    s.logSet(idx, { weight: weighted ? fromDisplayWeight(weight, units) : null, reps, rpe });
     playSound('xp');
     haptic('medium');
-    setHoldStart(null);
     const doneNow = setsDone + 1 >= targetSets;
     if (s.autoRest && planned && !(doneNow && idx === w.exercises.length - 1)) s.startRest(planned.restSec);
     if (doneNow && idx < w.exercises.length - 1) setTimeout(() => s.goTo(idx + 1), 400);
@@ -331,46 +312,21 @@ export default function Workout() {
               })}
             </View>
 
-            {/* Logging */}
-            <Panel framed title={exerciseDone ? 'Extra set (optional)' : `Log set ${setsDone + 1}`}>
-              <View style={{ gap: spacing.lg }}>
-                  <View style={{ flexDirection: 'row', gap: spacing.md }}>
-                    {weighted && <Stepper label={`Weight (${units})`} value={weight} onChange={setWeight} step={units === 'kg' ? 2.5 : 5} max={1000} decimals={1} large />}
-                    {timed ? (
-                      <View style={{ flex: 1, gap: spacing.sm }}>
-                        <Stepper label="Seconds" value={holdStart ? holdElapsed : reps} onChange={setReps} step={5} max={3600} large />
-                        <Button
-                          size="sm"
-                          variant={holdStart ? 'danger' : 'secondary'}
-                          icon={holdStart ? 'stop' : 'timer-outline'}
-                          label={holdStart ? 'Stop timer' : 'Start timer'}
-                          onPress={() => {
-                            if (holdStart) {
-                              setReps(holdElapsed);
-                              setHoldStart(null);
-                            } else setHoldStart(Date.now());
-                          }}
-                        />
-                      </View>
-                    ) : (
-                      <Stepper label="Reps" value={reps} onChange={setReps} step={1} max={100} large />
-                    )}
-                  </View>
-                  {!timed && (
-                    <View style={{ gap: 6 }}>
-                      <AText variant="label" muted>
-                        How hard was it?
-                      </AText>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                        {RPE_OPTIONS.map((o) => (
-                          <Chip key={o.value} label={o.label} selected={rpe === o.value} onPress={() => setRpe(o.value)} />
-                        ))}
-                      </View>
-                    </View>
-                  )}
-                  <Button label={exerciseDone ? 'Log extra set' : `Log set ${setsDone + 1} of ${targetSets}`} icon="checkmark" size="lg" full onPress={doLog} disabled={paused} variant={exerciseDone ? 'secondary' : 'primary'} />
-                </View>
-              </Panel>
+            {/* Logging — keyed so inputs re-initialise per exercise and per set */}
+            <SetLogger
+              key={`${idx}-${log.exerciseId}-${setsDone}`}
+              title={exerciseDone ? 'Extra set (optional)' : `Log set ${setsDone + 1}`}
+              buttonLabel={exerciseDone ? 'Log extra set' : `Log set ${setsDone + 1} of ${targetSets}`}
+              secondary={exerciseDone}
+              weighted={weighted}
+              timed={timed}
+              units={units}
+              disabled={paused}
+              now={now}
+              initialWeight={toDisplayWeight(log.sets[setsDone - 1]?.weight ?? suggestion?.weight ?? last?.sets[0]?.weight ?? 0, units)}
+              initialReps={log.sets[setsDone - 1]?.reps ?? suggestion?.reps ?? planned?.repsMin ?? 8}
+              onLog={doLog}
+            />
 
             {/* Exercise actions */}
             <View style={styles.actions}>
@@ -434,6 +390,77 @@ export default function Workout() {
         }}
       />
     </View>
+  );
+}
+
+function SetLogger(props: {
+  title: string;
+  buttonLabel: string;
+  secondary: boolean;
+  weighted: boolean;
+  timed: boolean;
+  units: 'kg' | 'lb';
+  disabled: boolean;
+  now: number;
+  initialWeight: number;
+  initialReps: number;
+  onLog: (weight: number, reps: number, rpe: number | null) => void;
+}) {
+  const { weighted, timed, units, now } = props;
+  const [weight, setWeight] = useState(props.initialWeight);
+  const [reps, setReps] = useState(props.initialReps);
+  const [rpe, setRpe] = useState<number | null>(timed ? null : 8);
+  const [holdStart, setHoldStart] = useState<number | null>(null);
+  const holdElapsed = holdStart ? Math.max(0, Math.floor((now - holdStart) / 1000)) : 0;
+
+  return (
+    <Panel framed title={props.title}>
+      <View style={{ gap: spacing.lg }}>
+        <View style={{ flexDirection: 'row', gap: spacing.md }}>
+          {weighted && <Stepper label={`Weight (${units})`} value={weight} onChange={setWeight} step={units === 'kg' ? 2.5 : 5} max={1000} decimals={1} large />}
+          {timed ? (
+            <View style={{ flex: 1, gap: spacing.sm }}>
+              <Stepper label="Seconds" value={holdStart ? holdElapsed : reps} onChange={setReps} step={5} max={3600} large />
+              <Button
+                size="sm"
+                variant={holdStart ? 'danger' : 'secondary'}
+                icon={holdStart ? 'stop' : 'timer-outline'}
+                label={holdStart ? 'Stop timer' : 'Start timer'}
+                onPress={() => {
+                  if (holdStart) {
+                    setReps(holdElapsed);
+                    setHoldStart(null);
+                  } else setHoldStart(Date.now());
+                }}
+              />
+            </View>
+          ) : (
+            <Stepper label="Reps" value={reps} onChange={setReps} step={1} max={100} large />
+          )}
+        </View>
+        {!timed && (
+          <View style={{ gap: 6 }}>
+            <AText variant="label" muted>
+              How hard was it?
+            </AText>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {RPE_OPTIONS.map((o) => (
+                <Chip key={o.value} label={o.label} selected={rpe === o.value} onPress={() => setRpe(o.value)} />
+              ))}
+            </View>
+          </View>
+        )}
+        <Button
+          label={props.buttonLabel}
+          icon="checkmark"
+          size="lg"
+          full
+          onPress={() => props.onLog(weight, timed && holdStart ? holdElapsed : reps, rpe)}
+          disabled={props.disabled}
+          variant={props.secondary ? 'secondary' : 'primary'}
+        />
+      </View>
+    </Panel>
   );
 }
 

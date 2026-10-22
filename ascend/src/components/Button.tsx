@@ -53,8 +53,8 @@ export function Button({
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: !!inactive, busy: !!loading }}
       disabled={inactive}
-      onPressIn={() => (scale.value = withSpring(0.97, { damping: 20, stiffness: 400 }))}
-      onPressOut={() => (scale.value = withSpring(1, { damping: 15, stiffness: 300 }))}
+      onPressIn={() => scale.set(withSpring(0.97, { damping: 20, stiffness: 400 }))}
+      onPressOut={() => scale.set(withSpring(1, { damping: 15, stiffness: 300 }))}
       onPress={() => {
         if (sound) playSound('tap');
         haptic(variant === 'primary' ? 'medium' : 'light');

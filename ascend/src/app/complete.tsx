@@ -23,9 +23,9 @@ import { formatDuration, toDisplayWeight } from '../utils';
 
 function CountUp({ to }: { to: number }) {
   const reduce = useReduceMotion();
-  const [v, setV] = useState(reduce ? to : 0);
+  const [v, setV] = useState(0);
   useEffect(() => {
-    if (reduce || to <= 0) return setV(to);
+    if (reduce || to <= 0) return;
     const start = Date.now();
     const dur = 1100;
     const t = setInterval(() => {
@@ -39,7 +39,7 @@ function CountUp({ to }: { to: number }) {
       clearTimeout(tick);
     };
   }, [to, reduce]);
-  return <AText style={styles.xp}>+{v} XP</AText>;
+  return <AText style={styles.xp}>+{reduce || to <= 0 ? to : v} XP</AText>;
 }
 
 export default function Complete() {

@@ -33,16 +33,20 @@ function Particle({ x, size, delay, duration, height, color, drift }: { x: numbe
   );
 }
 
+function seededRandom(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 16807) % 2147483647;
+    return s / 2147483647;
+  };
+}
+
 /** Slow rising motes of light. Static (no animation) when reduced motion is on. */
 export const ParticleField = memo(function ParticleField({ count = 18, color = colors.violetBright, intensity = 1 }: Props) {
   const { width, height } = useWindowDimensions();
   const reduce = useReduceMotion();
   const particles = useMemo(() => {
-    let seed = 11;
-    const r = () => {
-      seed = (seed * 16807) % 2147483647;
-      return seed / 2147483647;
-    };
+    const r = seededRandom(11);
     return Array.from({ length: count }, () => ({
       x: r() * width,
       y: r() * height,
