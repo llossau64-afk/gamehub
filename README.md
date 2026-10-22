@@ -1,5 +1,7 @@
 # Barbershop Simulator
 
+> This repository also contains **ASCEND**, a separate React Native fitness RPG app, in [`ascend/`](ascend/README.md).
+
 First-person barbershop simulator for Unity WebGL (CrazyGames, GamePix, Playgama), playable on desktop and mobile browsers.
 
 **Current state: Phase 3: workday loop, shop computer with upgrades and shop levels, on top of the Phase 2 customer loop and haircut gameplay.**

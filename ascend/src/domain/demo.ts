@@ -38,7 +38,12 @@ export function buildDemoData(plan: TrainingPlan, now: Date = new Date(), weeks 
     const exercises = day.exercises.map((pe) => {
       const ex = EXERCISE_BY_ID[pe.exerciseId];
       const weighted = ex?.loadType === 'weighted';
-      const base = (baseLoad[pe.exerciseId] ??= ex?.compound ? 40 : 10);
+      const dumbbell = !!ex?.equipment.includes('dumbbells') || !!ex?.equipment.includes('kettlebell');
+      const base = (baseLoad[pe.exerciseId] ??= dumbbell
+        ? (ex?.compound ? 14 : 6) + Math.round(rand() * 10)
+        : ex?.compound
+          ? (['squat', 'hinge'].includes(ex.pattern) ? 50 : 30) + Math.round(rand() * 30)
+          : 10 + Math.round(rand() * 15));
       const w = weighted ? Math.round((base * (1 + progress * 0.25)) / 2.5) * 2.5 : null;
       return {
         exerciseId: pe.exerciseId,
